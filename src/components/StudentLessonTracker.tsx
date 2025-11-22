@@ -35,7 +35,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
         (payload) => {
           if (payload.new && typeof payload.new === "object") {
             const data = payload.new as any;
-            setLessonsPerWeek(data.lessons_per_week);
+            setLessonsPerWeek(data.lessons_per_week || 1);
             setCompletedLessons(data.completed_lessons || []);
           }
         },
@@ -68,13 +68,13 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
         .eq("student_id", studentId)
         .eq("teacher_id", studentData.teacher_id)
         .eq("month_start_date", monthStart.toISOString().split("T")[0])
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
-        setLessonsPerWeek(data.lessons_per_week);
-        setCompletedLessons(data.completed_lessons || []);
+        setLessonsPerWeek((data as any).lessons_per_week);
+        setCompletedLessons((data as any).completed_lessons || []);
       }
     } catch (error: any) {
       console.error("Failed to fetch lesson tracking:", error);

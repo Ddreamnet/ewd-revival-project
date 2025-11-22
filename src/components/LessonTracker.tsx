@@ -47,13 +47,13 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
         .eq("student_id", studentId)
         .eq("teacher_id", teacherId)
         .eq("month_start_date", monthStart.toISOString().split("T")[0])
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
-        setLessonsPerWeek(data.lessons_per_week);
-        setCompletedLessons(data.completed_lessons || []);
+        setLessonsPerWeek((data as any).lessons_per_week);
+        setCompletedLessons((data as any).completed_lessons || []);
       } else {
         // Create initial tracking record
         const { data: newData, error: insertError } = await supabase
@@ -70,8 +70,8 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
         if (insertError) throw insertError;
         if (newData) {
-          setLessonsPerWeek(newData.lessons_per_week);
-          setCompletedLessons(newData.completed_lessons || []);
+          setLessonsPerWeek((newData as any).lessons_per_week);
+          setCompletedLessons((newData as any).completed_lessons || []);
         }
       }
     } catch (error: any) {
