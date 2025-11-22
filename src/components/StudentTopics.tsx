@@ -142,42 +142,15 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
 
       if (globalTopicsError) throw globalTopicsError;
 
-      // 3) Tamamlanma verilerini getir - AYRI SORGULAR
+      // 3) Tüm tamamlanma verilerini tek sorguda getir (URL limiti için)
       const studentTopics = studentTopicsResponse.data || [];
 
-      const studentResourceIds = studentTopics.flatMap((topic) => topic.resources.map((resource: any) => resource.id));
-      const globalResourceIds = (globalTopics || []).flatMap((topic) =>
-        topic.global_topic_resources.map((resource: any) => resource.id),
-      );
+      const { data: completionData, error: completionError } = await supabase
+        .from("student_resource_completion")
+        .select("*")
+        .eq("student_id", student.student_id);
 
-      // Student-specific resources completion
-      let studentCompletionData: any[] = [];
-      if (studentResourceIds.length > 0) {
-        const { data, error } = await supabase
-          .from("student_resource_completion")
-          .select("*")
-          .eq("student_id", student.student_id)
-          .in("resource_id", studentResourceIds);
-
-        if (error) throw error;
-        studentCompletionData = data || [];
-      }
-
-      // Global resources completion
-      let globalCompletionData: any[] = [];
-      if (globalResourceIds.length > 0) {
-        const { data, error } = await supabase
-          .from("student_resource_completion")
-          .select("*")
-          .eq("student_id", student.student_id)
-          .in("resource_id", globalResourceIds);
-
-        if (error) throw error;
-        globalCompletionData = data || [];
-      }
-
-      // Birleştir
-      const completionData = [...studentCompletionData, ...globalCompletionData];
+      if (completionError) throw completionError;
 
       // Tamamlanma durumunu map olarak hazırla
       const completionMap = new Map();
