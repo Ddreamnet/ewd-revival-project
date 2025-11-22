@@ -1,1 +1,183 @@
-// EditStudentScheduleDialog component
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
+
+interface StudentSchedule {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+}
+
+interface StudentData {
+  name: string;
+  email: string;
+  schedule: StudentSchedule | null;
+}
+
+interface EditStudentScheduleDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  studentId: string;
+  currentData: StudentData | null;
+  onSaveChanges: (studentId: string, name: string, schedule: StudentSchedule) => Promise<void>;
+  onRemoveStudent: (studentId: string) => Promise<void>;
+}
+
+const daysOfWeek = [
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+  { value: 0, label: "Sunday" },
+];
+
+export function EditStudentScheduleDialog({
+  open,
+  onOpenChange,
+  studentId,
+  currentData,
+  onSaveChanges,
+  onRemoveStudent,
+}: EditStudentScheduleDialogProps) {
+  const [name, setName] = useState("");
+  const [dayOfWeek, setDayOfWeek] = useState<number | undefined>();
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  useEffect(() => {
+    if (currentData) {
+      setName(currentData.name);
+      if (currentData.schedule) {
+        setDayOfWeek(currentData.schedule.dayOfWeek);
+        setStartTime(currentData.schedule.startTime);
+        setEndTime(currentData.schedule.endTime);
+      } else {
+        setDayOfWeek(undefined);
+        setStartTime("");
+        setEndTime("");
+      }
+    } else {
+      setName("");
+      setDayOfWeek(undefined);
+      setStartTime("");
+      setEndTime("");
+    }
+  }, [currentData]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || dayOfWeek === undefined || !startTime || !endTime) return;
+
+    setIsLoading(true);
+    try {
+      await onSaveChanges(studentId, name.trim(), {
+        dayOfWeek,
+        startTime,
+        endTime,
+      });
+      onOpenChange(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    setIsRemoving(true);
+    try {
+      await onRemoveStudent(studentId);
+      onOpenChange(false);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Student Settings</DialogTitle>
+          <DialogDescription>Update the student's name and lesson schedule.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="student-name">Student Name</Label>
+            <Input
+              id="student-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter student name"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Day of Week</Label>
+              <Select value={dayOfWeek?.toString()} onValueChange={(value) => setDayOfWeek(Number(value))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select day" />
+                </SelectTrigger>
+                <SelectContent>
+                  {daysOfWeek.map((day) => (
+                    <SelectItem key={day.value} value={day.value.toString()}>
+                      {day.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="start-time">Start Time</Label>
+              <Input
+                id="start-time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="end-time">End Time</Label>
+              <Input id="end-time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <Button type="button" variant="destructive" onClick={handleRemove} disabled={isLoading || isRemoving}>
+              {isRemoving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Remove Student
+            </Button>
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isLoading || isRemoving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading || isRemoving || !name.trim() || dayOfWeek === undefined || !startTime || !endTime}
+              >
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -1,1 +1,520 @@
-// TeacherDashboard component
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Users, BookOpen, LogOut, Plus, Settings, Clock, FolderOpen } from "lucide-react";
+import { StudentTopics } from "./StudentTopics";
+import { AddStudentDialog } from "./AddStudentDialog";
+import { EditStudentLessonsDialog } from "./EditStudentLessonsDialog";
+import { CreateStudentDialog } from "./CreateStudentDialog";
+import { Header } from "./Header";
+import { GlobalTopicsManager } from "./GlobalTopicsManager";
+
+interface StudentLesson {
+  id?: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  isCompleted?: boolean;
+}
+
+interface Student {
+  id: string;
+  student_id: string;
+  lessons: StudentLesson[];
+  profiles: {
+    full_name: string;
+    email: string;
+  };
+}
+
+export function TeacherDashboard() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showAddStudent, setShowAddStudent] = useState(false);
+  const [showCreateStudent, setShowCreateStudent] = useState(false);
+  const [showEditSchedule, setShowEditSchedule] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [showGlobalTopics, setShowGlobalTopics] = useState(false);
+  const { profile, signOut } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (profile?.user_id) {
+      fetchStudents();
+    }
+  }, [profile]);
+
+  const fetchStudents = async () => {
+    try {
+      // Fetch students with their lessons
+      const { data: studentsData, error: studentsError } = await supabase
+        .from("students")
+        .select(
+          `
+          id,
+          student_id,
+          profiles!students_student_id_fkey (
+            full_name,
+            email
+          )
+        `,
+        )
+        .eq("teacher_id", profile?.user_id);
+
+      if (studentsError) throw studentsError;
+
+      // Fetch lessons for all students
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from("student_lessons")
+        .select("*")
+        .eq("teacher_id", profile?.user_id);
+
+      if (lessonsError) throw lessonsError;
+
+      // Combine students with their lessons
+      const studentsWithLessons = (studentsData || []).map((student) => ({
+        ...student,
+        lessons: (lessonsData || [])
+          .filter((lesson) => lesson.student_id === student.student_id)
+          .map((lesson) => ({
+            id: lesson.id,
+            dayOfWeek: lesson.day_of_week,
+            startTime: lesson.start_time,
+            endTime: lesson.end_time,
+            isCompleted: lesson.is_completed,
+          })),
+      }));
+
+      // Sort students by closest upcoming lesson time
+      const sortedStudents = studentsWithLessons.sort((a, b) => {
+        const getNextLessonTime = (lessons: StudentLesson[]) => {
+          if (lessons.length === 0) return Number.MAX_SAFE_INTEGER;
+
+          const now = new Date();
+          const currentDay = now.getDay();
+          const currentTime = now.getHours() * 60 + now.getMinutes();
+
+          let earliestLesson = Number.MAX_SAFE_INTEGER;
+
+          for (const lesson of lessons) {
+            const [hours, minutes] = lesson.startTime.split(":").map(Number);
+            const lessonTime = hours * 60 + minutes;
+
+            let daysUntilLesson = (lesson.dayOfWeek - currentDay + 7) % 7;
+            if (daysUntilLesson === 0 && lessonTime < currentTime) {
+              daysUntilLesson = 7; // Next week
+            }
+
+            const timeUntilLesson = daysUntilLesson * 24 * 60 + lessonTime;
+            if (timeUntilLesson < earliestLesson) {
+              earliestLesson = timeUntilLesson;
+            }
+          }
+
+          return earliestLesson;
+        };
+
+        const aNextLesson = getNextLessonTime(a.lessons);
+        const bNextLesson = getNextLessonTime(b.lessons);
+
+        return aNextLesson - bNextLesson;
+      });
+
+      setStudents(sortedStudents);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: "Öğrenciler yüklenemedi",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddStudent = async (studentEmail: string, lessons: StudentLesson[]) => {
+    try {
+      // First, find the student profile by email
+      const { data: studentProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email, role")
+        .eq("email", studentEmail)
+        .eq("role", "student")
+        .single();
+
+      if (profileError || !studentProfile) {
+        toast({
+          title: "Hata",
+          description: "Öğrenci bulunamadı veya öğrenci hesabı değil",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if student is already assigned
+      const { data: existing } = await supabase
+        .from("students")
+        .select("id")
+        .eq("teacher_id", profile?.user_id)
+        .eq("student_id", studentProfile.user_id)
+        .single();
+
+      if (existing) {
+        toast({
+          title: "Hata",
+          description: "Öğrenci zaten size atanmış",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Add student relationship
+      const { error: studentError } = await supabase.from("students").insert({
+        teacher_id: profile?.user_id,
+        student_id: studentProfile.user_id,
+      });
+
+      if (studentError) throw studentError;
+
+      // Add lessons
+      const lessonsToInsert = lessons.map((lesson) => ({
+        student_id: studentProfile.user_id,
+        teacher_id: profile?.user_id,
+        day_of_week: lesson.dayOfWeek,
+        start_time: lesson.startTime,
+        end_time: lesson.endTime,
+      }));
+
+      const { error } = await supabase.from("student_lessons").insert(lessonsToInsert);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Öğrenci başarıyla eklendi",
+      });
+
+      fetchStudents();
+      setShowAddStudent(false);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveChanges = async (studentId: string, name: string, lessons: StudentLesson[]) => {
+    try {
+      const student = students.find((s) => s.id === studentId);
+      if (!student) throw new Error("Student not found");
+
+      // Delete existing lessons
+      const { error: deleteError } = await supabase
+        .from("student_lessons")
+        .delete()
+        .eq("student_id", student.student_id)
+        .eq("teacher_id", profile?.user_id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new lessons
+      const lessonsToInsert = lessons.map((lesson) => ({
+        student_id: student.student_id,
+        teacher_id: profile?.user_id,
+        day_of_week: lesson.dayOfWeek,
+        start_time: lesson.startTime,
+        end_time: lesson.endTime,
+      }));
+
+      const { error: insertError } = await supabase.from("student_lessons").insert(lessonsToInsert);
+
+      if (insertError) throw insertError;
+
+      // Update student name in profiles table
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: name })
+        .eq("user_id", student.student_id);
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: "Başarılı",
+        description: "Öğrenci ayarları başarıyla güncellendi",
+      });
+
+      fetchStudents();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveStudent = async (studentId: string) => {
+    try {
+      const { error } = await supabase.from("students").delete().eq("id", studentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Öğrenci başarıyla kaldırıldı",
+      });
+
+      // If the removed student was selected, clear selection
+      if (selectedStudent?.id === studentId) {
+        setSelectedStudent(null);
+      }
+
+      fetchStudents();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getDayName = (dayOfWeek?: number) => {
+    const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+    return dayOfWeek !== undefined ? days[dayOfWeek] : "";
+  };
+
+  const formatTime = (time?: string) => {
+    if (!time) return "";
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  };
+
+  const getLessonStatus = (dayOfWeek: number, startTime: string) => {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    // Convert to Monday = 0, Sunday = 6 format
+    const mondayBasedCurrentDay = currentDay === 0 ? 6 : currentDay - 1;
+    const mondayBasedLessonDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+    // Get start of current week (Monday)
+    const startOfWeek = new Date(now);
+    const daysToMonday = mondayBasedCurrentDay;
+    startOfWeek.setDate(now.getDate() - daysToMonday);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Get end of current week (Sunday)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    // Check if lesson is in current week
+    const lessonDate = new Date(startOfWeek);
+    lessonDate.setDate(startOfWeek.getDate() + mondayBasedLessonDay);
+
+    if (lessonDate < startOfWeek || lessonDate > endOfWeek) {
+      return "not-this-week";
+    }
+
+    // Parse lesson time
+    const [hours, minutes] = startTime.split(":").map(Number);
+    const lessonTime = hours * 60 + minutes;
+
+    // Check if lesson is past
+    if (
+      mondayBasedLessonDay < mondayBasedCurrentDay ||
+      (mondayBasedLessonDay === mondayBasedCurrentDay && lessonTime < currentTime)
+    ) {
+      return "past";
+    } else if (mondayBasedLessonDay >= mondayBasedCurrentDay) {
+      return "upcoming";
+    }
+
+    return "not-this-week";
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
+      <Header
+        rightActions={
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setShowGlobalTopics(true)} variant="outline" size="sm">
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Konular
+            </Button>
+            <Button onClick={signOut} variant="outline" size="sm">
+              <LogOut className="h-4 w-4 mr-2" />
+              Çıkış Yap
+            </Button>
+          </div>
+        }
+      >
+        <div>
+          <h1 className="text-2xl font-bold">Öğretmen Paneli</h1>
+          <p className="text-lg text-muted-foreground">Hoş geldin, {profile?.full_name}</p>
+        </div>
+      </Header>
+
+      <div className="container mx-auto p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Students List */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Öğrencilerim
+                    </CardTitle>
+                    <CardDescription>{students.length} öğrenci kayıtlı</CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => setShowAddStudent(true)} variant="outline" className="shrink-0">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Ekle
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowCreateStudent(true)}
+                      className="shrink-0 transition-all duration-150 hover:scale-105 active:scale-95"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Oluştur
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {students.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Henüz öğrenci yok. Başlamak için ilk öğrencinizi ekleyin!
+                  </p>
+                ) : (
+                  students.map((student) => (
+                    <Card
+                      key={student.id}
+                      className={`cursor-pointer transition-colors hover:bg-accent ${
+                        selectedStudent?.id === student.id ? "ring-2 ring-primary" : ""
+                      }`}
+                      onClick={() => setSelectedStudent(student)}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-medium">{student.profiles.full_name}</h4>
+                            <p className="text-sm text-muted-foreground">{student.profiles.email}</p>
+
+                            {student.lessons.length > 0 && (
+                              <div className="mt-1 space-y-1">
+                                {student.lessons.map((lesson, index) => {
+                                  const status = getLessonStatus(lesson.dayOfWeek, lesson.startTime);
+                                  return (
+                                    <div key={index} className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3 text-muted-foreground" />
+                                      <span
+                                        className={`
+                    ${
+                      status === "past"
+                        ? "text-[10px] text-green-600 line-through"
+                        : status === "upcoming"
+                          ? "text-sm text-red-600 font-medium"
+                          : "text-xs text-muted-foreground"
+                    }
+                  `}
+                                      >
+                                        {getDayName(lesson.dayOfWeek)} {formatTime(lesson.startTime)}-
+                                        {formatTime(lesson.endTime)}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingStudent(student);
+                              setShowEditSchedule(true);
+                            }}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Student Topics */}
+          <div className="lg:col-span-2">
+            {selectedStudent ? (
+              <StudentTopics student={selectedStudent} teacherId={profile?.user_id || ""} />
+            ) : (
+              <Card className="h-96 flex items-center justify-center">
+                <div className="text-center">
+                  <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Bir Öğrenci Seç</h3>
+                  <p className="text-muted-foreground">
+                    Konuları görüntülemek ve yönetmek için listeden bir öğrenci seçin
+                  </p>
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} />
+
+      <AddStudentDialog open={showAddStudent} onOpenChange={setShowAddStudent} onAddStudent={handleAddStudent} />
+
+      <CreateStudentDialog
+        open={showCreateStudent}
+        onOpenChange={setShowCreateStudent}
+        onStudentCreated={fetchStudents}
+        teacherId={profile?.user_id || ""}
+      />
+
+      <EditStudentLessonsDialog
+        open={showEditSchedule}
+        onOpenChange={setShowEditSchedule}
+        studentId={editingStudent?.id || ""}
+        currentData={
+          editingStudent
+            ? {
+                name: editingStudent.profiles.full_name,
+                email: editingStudent.profiles.email,
+                lessons: editingStudent.lessons,
+              }
+            : null
+        }
+        onSaveChanges={handleSaveChanges}
+        onRemoveStudent={handleRemoveStudent}
+      />
+    </div>
+  );
+}
