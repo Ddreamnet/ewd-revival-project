@@ -8,7 +8,8 @@ export interface Profile {
   user_id: string;
   email: string;
   full_name: string;
-  role: "teacher" | "student";
+  role: "teacher" | "student" | "admin";
+  roles: ("teacher" | "student" | "admin")[];
   created_at: string;
   updated_at: string;
 }
@@ -36,20 +37,42 @@ export function useAuth() {
         setTimeout(async () => {
           try {
             console.log("Fetching profile for user:", session.user.id);
-            const { data, error } = await supabase.from("profiles").select("*").eq("user_id", session.user.id).single();
+            const { data: profileData, error: profileError } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("user_id", session.user.id)
+              .single();
 
-            if (error) {
-              console.log("Profile fetch error:", error);
-              // If no profile exists, that's okay for new users
-              if (error.code === "PGRST116") {
+            if (profileError) {
+              console.log("Profile fetch error:", profileError);
+              if (profileError.code === "PGRST116") {
                 console.log("No profile found - user may need to complete signup");
                 setProfile(null);
               } else {
-                throw error;
+                throw profileError;
               }
             } else {
-              console.log("Profile loaded successfully:", data);
-              setProfile(data);
+              // Fetch user roles
+              const { data: rolesData } = await supabase
+                .from("user_roles")
+                .select("role")
+                .eq("user_id", session.user.id);
+
+              const roles = rolesData?.map((r) => r.role as "teacher" | "student" | "admin") || [];
+              
+              // Determine primary role (admin > teacher > student)
+              const primaryRole = roles.includes("admin")
+                ? "admin"
+                : roles.includes("teacher")
+                ? "teacher"
+                : "student";
+
+              console.log("Profile loaded successfully:", profileData, "Roles:", roles);
+              setProfile({
+                ...profileData,
+                roles,
+                role: primaryRole,
+              });
             }
           } catch (error) {
             console.error("Error fetching profile:", error);
@@ -58,7 +81,7 @@ export function useAuth() {
             console.log("Setting loading to false after profile fetch");
             setLoading(false);
           }
-        }, 100); // Increased timeout to ensure proper sequencing
+        }, 100);
       } else {
         console.log("No user session, setting loading to false");
         setProfile(null);
