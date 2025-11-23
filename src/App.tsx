@@ -31,6 +31,10 @@ function AppRoutes() {
         element={
           !user ? (
             <AuthForm />
+          ) : profile?.roles?.includes('admin') ? (
+            <div className="min-h-screen flex items-center justify-center">
+              <p>Admin Dashboard (Coming Soon)</p>
+            </div>
           ) : profile?.role === 'teacher' ? (
             <TeacherDashboard />
           ) : profile?.role === 'student' ? (
