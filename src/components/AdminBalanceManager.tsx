@@ -14,8 +14,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Clock, CheckCircle2, Calendar, Plus, Minus, RotateCcw } from "lucide-react";
+import { Clock, CheckCircle2, Calendar, Plus, Minus, RotateCcw, Receipt } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 
 interface AdminBalanceManagerProps {
   teacherId: string;
@@ -27,15 +29,26 @@ interface BalanceData {
   completed_trial_lessons: number;
 }
 
+interface PaymentHistory {
+  id: string;
+  amount_minutes: number;
+  completed_regular_lessons: number;
+  completed_trial_lessons: number;
+  payment_date: string;
+  notes: string | null;
+}
+
 export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [minutesToAdd, setMinutesToAdd] = useState("");
   const [minutesToSubtract, setMinutesToSubtract] = useState("");
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
 
   useEffect(() => {
     fetchBalance();
+    fetchPaymentHistory();
   }, [teacherId]);
 
   const fetchBalance = async () => {
@@ -63,6 +76,22 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
       toast.error("Bakiye bilgisi yüklenirken hata oluştu");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("payment_history")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .order("payment_date", { ascending: false });
+
+      if (error) throw error;
+
+      setPaymentHistory(data || []);
+    } catch (error) {
+      console.error("Error fetching payment history:", error);
     }
   };
 
@@ -148,6 +177,19 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
         .eq("teacher_id", teacherId)
         .maybeSingle();
 
+      // Create payment history record before resetting
+      if (existingBalance && existingBalance.total_minutes > 0) {
+        const { error: historyError } = await supabase.from("payment_history").insert({
+          teacher_id: teacherId,
+          amount_minutes: existingBalance.total_minutes,
+          completed_regular_lessons: existingBalance.completed_regular_lessons,
+          completed_trial_lessons: existingBalance.completed_trial_lessons,
+        });
+
+        if (historyError) throw historyError;
+      }
+
+      // Reset balance
       if (existingBalance) {
         const { error } = await supabase
           .from("teacher_balance")
@@ -170,9 +212,10 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
         if (error) throw error;
       }
 
-      toast.success("Bakiye sıfırlandı");
+      toast.success("Bakiye sıfırlandı ve ödeme kaydedildi");
       setShowResetDialog(false);
       fetchBalance();
+      fetchPaymentHistory();
     } catch (error) {
       console.error("Error resetting balance:", error);
       toast.error("Bakiye sıfırlanırken hata oluştu");
@@ -295,20 +338,71 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
         </CardContent>
       </Card>
 
+      {/* Payment History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            Ödeme Geçmişi
+          </CardTitle>
+          <CardDescription>Geçmiş ödeme kayıtları</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {paymentHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Henüz ödeme kaydı yok</p>
+          ) : (
+            <div className="space-y-3">
+              {paymentHistory.map((payment) => (
+                <Card key={payment.id} className="border-l-4 border-l-primary">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-primary" />
+                          <p className="font-semibold text-lg">{formatMinutes(payment.amount_minutes)}</p>
+                        </div>
+                        <div className="flex gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-blue-500" />
+                            {payment.completed_regular_lessons} normal ders
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-purple-500" />
+                            {payment.completed_trial_lessons} deneme dersi
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">
+                          {format(new Date(payment.payment_date), "dd MMMM yyyy", { locale: tr })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(payment.payment_date), "HH:mm", { locale: tr })}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Reset Confirmation Dialog */}
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Bakiyeyi Sıfırla</AlertDialogTitle>
             <AlertDialogDescription>
-              Bu işlem öğretmenin tüm bakiyesini (toplam dakika, normal ders sayısı, deneme dersi sayısı) sıfırlayacak.
-              Bu işlem geri alınamaz. Devam etmek istediğinize emin misiniz?
+              Bu işlem öğretmenin tüm bakiyesini (toplam dakika, normal ders sayısı, deneme dersi sayısı) sıfırlayacak
+              ve mevcut bakiye ödeme geçmişine kaydedilecek. Devam etmek istediğinize emin misiniz?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
             <AlertDialogAction onClick={handleResetBalance} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Sıfırla
+              Sıfırla ve Kaydet
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
