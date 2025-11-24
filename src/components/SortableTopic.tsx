@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ExternalLink, Pencil, GripVertical } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Plus, Trash2, ExternalLink, Pencil, GripVertical, ChevronDown } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -39,6 +41,7 @@ interface GlobalTopicResource {
 interface SortableTopicProps {
   topic: GlobalTopic;
   isAdmin: boolean;
+  expandAll: boolean;
   onAddResource: (topicId: string) => void;
   onEditTopic: (topic: GlobalTopic) => void;
   onDeleteTopic: (topicId: string) => void;
@@ -51,6 +54,7 @@ interface SortableTopicProps {
 export function SortableTopic({
   topic,
   isAdmin,
+  expandAll,
   onAddResource,
   onEditTopic,
   onDeleteTopic,
@@ -59,6 +63,13 @@ export function SortableTopic({
   onResourceDragEnd,
   getResourceIcon,
 }: SortableTopicProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Sync with expandAll prop
+  useEffect(() => {
+    setIsOpen(expandAll);
+  }, [expandAll]);
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: topic.id,
     disabled: !isAdmin,
@@ -78,78 +89,92 @@ export function SortableTopic({
   );
 
   return (
-    <Card ref={setNodeRef} style={style}>
-      <CardHeader>
-        <div className="flex justify-between items-start gap-3">
-          {isAdmin && (
-            <button
-              className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground transition-colors"
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="h-5 w-5" />
-            </button>
-          )}
-          <div className="flex-1">
-            <CardTitle className="text-lg">{topic.title}</CardTitle>
-            {topic.description && <CardDescription className="mt-1">{topic.description}</CardDescription>}
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">{topic.resources.length} kaynak</Badge>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card ref={setNodeRef} style={style}>
+        <CardHeader>
+          <div className="flex justify-between items-start gap-3">
             {isAdmin && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onAddResource(topic.id)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEditTopic(topic)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button variant="destructive" size="sm" onClick={() => onDeleteTopic(topic.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-
-      {/* Resources List */}
-      {topic.resources.length > 0 && (
-        <CardContent>
-          <div className="space-y-2">
-            <h5 className="font-medium text-sm">Kaynaklar</h5>
-            <DndContext
-              sensors={resourceSensors}
-              collisionDetection={closestCenter}
-              onDragEnd={(event) => onResourceDragEnd(event, topic.id)}
-            >
-              <SortableContext
-                items={topic.resources.map((r) => r.id)}
-                strategy={verticalListSortingStrategy}
+              <button
+                className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground transition-colors"
+                {...attributes}
+                {...listeners}
               >
-                {topic.resources.map((resource) => (
-                  <SortableResource
-                    key={resource.id}
-                    resource={resource}
-                    isAdmin={isAdmin}
-                    onEditResource={onEditResource}
-                    onDeleteResource={onDeleteResource}
-                    getResourceIcon={getResourceIcon}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
+                <GripVertical className="h-5 w-5" />
+              </button>
+            )}
+            <div className="flex-1">
+              <CardTitle className="text-lg">{topic.title}</CardTitle>
+              {topic.description && <CardDescription className="mt-1">{topic.description}</CardDescription>}
+            </div>
+            <div className="flex items-center gap-2">
+              {topic.resources.length > 0 && (
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1">
+                    <Badge variant="outline">{topic.resources.length} kaynak</Badge>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+              )}
+              {topic.resources.length === 0 && (
+                <Badge variant="outline">{topic.resources.length} kaynak</Badge>
+              )}
+              {isAdmin && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onAddResource(topic.id)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEditTopic(topic)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => onDeleteTopic(topic.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-        </CardContent>
-      )}
-    </Card>
+        </CardHeader>
+
+        {/* Resources List */}
+        {topic.resources.length > 0 && (
+          <CollapsibleContent>
+            <CardContent>
+              <div className="space-y-2">
+                <h5 className="font-medium text-sm">Kaynaklar</h5>
+                <DndContext
+                  sensors={resourceSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => onResourceDragEnd(event, topic.id)}
+                >
+                  <SortableContext
+                    items={topic.resources.map((r) => r.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {topic.resources.map((resource) => (
+                      <SortableResource
+                        key={resource.id}
+                        resource={resource}
+                        isAdmin={isAdmin}
+                        onEditResource={onEditResource}
+                        onDeleteResource={onDeleteResource}
+                        getResourceIcon={getResourceIcon}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        )}
+      </Card>
+    </Collapsible>
   );
 }
