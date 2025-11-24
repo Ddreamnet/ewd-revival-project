@@ -89,7 +89,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       const formattedLessons =
         lessonsData?.map((lesson) => ({
           ...lesson,
-          student_name: nameMap.get(lesson.student_id) || "Unknown",
+          student_name: nameMap.get(lesson.student_id) || "Bilinmeyen",
         })) || [];
 
       setLessons(formattedLessons);
