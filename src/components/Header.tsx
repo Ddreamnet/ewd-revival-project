@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
 import { Logo } from "./Logo";
-import { ContactDialog } from "./ContactDialog";
 
 interface HeaderProps {
   children?: ReactNode;
@@ -22,7 +21,6 @@ export function Header({ children, rightActions }: HeaderProps) {
           <div className="flex-1 flex justify-center">{children}</div>
 
           <div className="flex items-center gap-3">
-            <ContactDialog />
             {rightActions}
           </div>
         </div>
