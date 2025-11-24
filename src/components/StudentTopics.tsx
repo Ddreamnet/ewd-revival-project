@@ -252,6 +252,58 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
     }
   };
 
+  /**
+   * Bir konunun tamamlanma durumunu değiştir
+   */
+  const toggleTopicCompletion = async (topicId: string, isCompleted: boolean, isGlobal: boolean) => {
+    try {
+      if (isGlobal) {
+        // Global konular için tüm kaynaklarını tamamlandı olarak işaretle
+        const topic = topics.find(t => t.id === topicId);
+        if (!topic) return;
+
+        for (const resource of topic.resources) {
+          await supabase.from("student_resource_completion").upsert(
+            {
+              student_id: student.student_id,
+              resource_id: resource.id,
+              is_completed: !isCompleted,
+              completed_at: !isCompleted ? new Date().toISOString() : null,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: "student_id,resource_id",
+            },
+          );
+        }
+      } else {
+        // Individual konular için topics tablosunu güncelle
+        const { error } = await supabase
+          .from("topics")
+          .update({
+            is_completed: !isCompleted,
+            completed_at: !isCompleted ? new Date().toISOString() : null,
+          })
+          .eq("id", topicId);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Başarılı",
+        description: `Konu ${!isCompleted ? "tamamlandı" : "tamamlanmadı olarak işaretlendi"}`,
+      });
+
+      fetchTopics();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   // ============================================================================
   // YARDIMCI FONKSİYONLAR
   // ============================================================================
@@ -313,8 +365,11 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
             {/* Konu Başlığı ve Kontroller */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-1">
-                {/* Tamamlanma Checkbox'ı - teacher read-only */}
-                <Checkbox checked={topic.is_completed} disabled />
+                {/* Tamamlanma Checkbox'ı */}
+                <Checkbox 
+                  checked={topic.is_completed} 
+                  onCheckedChange={() => toggleTopicCompletion(topic.id, topic.is_completed, topic.isGlobal || false)}
+                />
 
                 {/* Başlık ve Açıklama */}
                 <CollapsibleTrigger className="flex items-center gap-2 flex-1 text-left">
@@ -359,7 +414,10 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
                   <div className="space-y-2">
                     {visibleResources.map((resource) => (
                       <div key={resource.id} className="flex items-center gap-3 p-2 bg-accent/30 rounded-md">
-                        <Checkbox checked={resource.is_completed || false} disabled />
+                        <Checkbox 
+                          checked={resource.is_completed || false}
+                          onCheckedChange={() => toggleResourceCompletion(resource.id, resource.is_completed || false, topic.isGlobal || false)}
+                        />
                         {getResourceIcon(resource.resource_type)}
                         <div
                           className="flex-1 cursor-pointer"
