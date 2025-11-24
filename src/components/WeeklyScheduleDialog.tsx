@@ -120,21 +120,21 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     }
   };
 
-  const getLessonsForDay = (dayIndex: number) => {
-    // dayIndex: 0=Pazartesi, 6=Pazar
-    // day_of_week in DB: 1=Pazartesi, 0=Pazar
-    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
-    return lessons
-      .filter(l => l.day_of_week === dbDayOfWeek)
-      .sort((a, b) => a.start_time.localeCompare(b.start_time));
-  };
-
   const getAllTimeSlots = () => {
     const times = new Set<string>();
     lessons.forEach(lesson => {
       times.add(lesson.start_time);
     });
     return Array.from(times).sort();
+  };
+
+  const getLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
+    // dayIndex: 0=Pazartesi, 6=Pazar
+    // day_of_week in DB: 1=Pazartesi, 0=Pazar
+    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+    return lessons.find(
+      l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot
+    );
   };
 
   const timeSlots = getAllTimeSlots();
@@ -156,41 +156,48 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <div className="grid grid-cols-7 gap-2 min-w-[800px]">
-              {DAYS.map((day, dayIndex) => {
-                const dayLessons = getLessonsForDay(dayIndex);
-                return (
-                  <div key={day} className="border rounded-lg overflow-hidden">
-                    <div className="bg-primary/10 p-2 text-center font-semibold text-sm border-b">
+            <table className="w-full border-collapse min-w-[900px]">
+              <thead>
+                <tr>
+                  <th className="border bg-primary/10 p-2 text-sm font-semibold w-24">Saat</th>
+                  {DAYS.map((day) => (
+                    <th key={day} className="border bg-primary/10 p-2 text-sm font-semibold">
                       {day}
-                    </div>
-                    <div className="p-2 space-y-2 min-h-[200px]">
-                      {dayLessons.length === 0 ? (
-                        <div className="text-xs text-muted-foreground text-center py-4">
-                          Ders yok
-                        </div>
-                      ) : (
-                        dayLessons.map((lesson) => (
-                          <div
-                            key={lesson.id}
-                            className={`p-2 rounded border-2 transition-opacity ${
-                              lesson.is_completed ? "opacity-40" : "opacity-100"
-                            } ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}
-                          >
-                            <div className="font-medium text-xs mb-1">
-                              {lesson.student_name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {timeSlots.map((timeSlot) => (
+                  <tr key={timeSlot}>
+                    <td className="border bg-muted/50 p-2 text-center text-sm font-mono">
+                      {formatTime(timeSlot)}
+                    </td>
+                    {DAYS.map((day, dayIndex) => {
+                      const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
+                      return (
+                        <td key={day} className="border p-2">
+                          {lesson ? (
+                            <div
+                              className={`p-2 rounded border-2 transition-opacity ${
+                                lesson.is_completed ? "opacity-40" : "opacity-100"
+                              } ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}
+                            >
+                              <div className="font-medium text-xs mb-1">
+                                {lesson.student_name}
+                              </div>
+                              <div className="text-[10px] font-mono">
+                                {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
+                              </div>
                             </div>
-                            <div className="text-[10px] font-mono">
-                              {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                          ) : null}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </DialogContent>
