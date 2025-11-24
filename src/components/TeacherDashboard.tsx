@@ -353,16 +353,10 @@ export function TeacherDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
       <Header
         rightActions={
-          <div className="flex items-center gap-2">
-            <Button onClick={() => setShowGlobalTopics(true)} variant="outline" size="sm">
-              <FolderOpen className="h-4 w-4 mr-2" />
-              Konular
-            </Button>
-            <Button onClick={signOut} variant="outline" size="sm">
-              <LogOut className="h-4 w-4 mr-2" />
-              Çıkış Yap
-            </Button>
-          </div>
+          <Button onClick={signOut} variant="outline" size="sm">
+            <LogOut className="h-4 w-4 mr-2" />
+            Çıkış Yap
+          </Button>
         }
       >
         <div>
