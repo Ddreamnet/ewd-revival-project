@@ -17,6 +17,7 @@ import { AddTopicDialog } from "./AddTopicDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { EditTopicDialog } from "./EditTopicDialog";
 import { EditResourceDialog } from "./EditResourceDialog";
+import { AdminWeeklySchedule } from "./AdminWeeklySchedule";
 
 interface Teacher {
   user_id: string;
@@ -80,6 +81,7 @@ export function AdminDashboard() {
   const [selectedTopicForResource, setSelectedTopicForResource] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [activeTab, setActiveTab] = useState<"students" | "schedule" | "payments">("students");
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -519,10 +521,18 @@ export function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-2 border-b mb-4">
-                    <Button variant="default" className="rounded-b-none">
+                    <Button
+                      variant={activeTab === "students" ? "default" : "ghost"}
+                      className="rounded-b-none"
+                      onClick={() => setActiveTab("students")}
+                    >
                       Öğrenciler
                     </Button>
-                    <Button variant="ghost" className="rounded-b-none" disabled>
+                    <Button
+                      variant={activeTab === "schedule" ? "default" : "ghost"}
+                      className="rounded-b-none"
+                      onClick={() => setActiveTab("schedule")}
+                    >
                       Ders programı
                     </Button>
                     <Button variant="ghost" className="rounded-b-none" disabled>
@@ -530,7 +540,8 @@ export function AdminDashboard() {
                     </Button>
                   </div>
 
-                  <div className="space-y-3">
+                  {activeTab === "students" && (
+                    <div className="space-y-3">
                       <div className="flex justify-end mb-3">
                         <Button onClick={() => setShowCreateStudent(true)} size="sm">
                           <UserPlus className="h-4 w-4 mr-2" />
@@ -709,7 +720,10 @@ export function AdminDashboard() {
                           </Card>
                         ))
                       )}
-                  </div>
+                    </div>
+                  )}
+
+                  {activeTab === "schedule" && <AdminWeeklySchedule teacherId={selectedTeacher.user_id} />}
                 </CardContent>
               </Card>
             ) : (
