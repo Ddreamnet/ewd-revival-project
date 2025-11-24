@@ -282,10 +282,6 @@ export function TeacherDashboard() {
         rightActions={
           <div className="flex items-center gap-2">
             <NotificationBell teacherId={profile?.user_id || ""} />
-            <Button onClick={() => setShowWeeklySchedule(true)} variant="outline" size="sm">
-              <Clock className="h-4 w-4 mr-2" />
-              Ders Programı
-            </Button>
             <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="h-4 w-4 mr-2" />
@@ -314,6 +310,10 @@ export function TeacherDashboard() {
                     </CardTitle>
                     <CardDescription>{students.length} öğrenci kayıtlı</CardDescription>
                   </div>
+                  <Button onClick={() => setShowWeeklySchedule(true)} variant="outline" size="sm">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Ders Programı
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">

@@ -53,30 +53,37 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
   const fetchSchedule = async () => {
     setLoading(true);
     try {
+      // First, fetch the lessons
       const { data: lessonsData, error: lessonsError } = await supabase
         .from("student_lessons")
-        .select(`
-          id,
-          student_id,
-          day_of_week,
-          start_time,
-          end_time,
-          profiles!student_lessons_student_id_fkey (
-            full_name
-          )
-        `)
+        .select("id, student_id, day_of_week, start_time, end_time")
         .eq("teacher_id", teacherId)
         .order("start_time", { ascending: true });
 
       if (lessonsError) throw lessonsError;
 
-      const formattedLessons: StudentLesson[] = (lessonsData || []).map((lesson: any) => ({
+      // Then fetch student names separately
+      const studentIds = Array.from(new Set((lessonsData || []).map(l => l.student_id)));
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", studentIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of student_id to full_name
+      const studentNameMap: Record<string, string> = {};
+      (profilesData || []).forEach(profile => {
+        studentNameMap[profile.user_id] = profile.full_name;
+      });
+
+      const formattedLessons: StudentLesson[] = (lessonsData || []).map((lesson) => ({
         id: lesson.id,
         student_id: lesson.student_id,
         day_of_week: lesson.day_of_week,
         start_time: lesson.start_time,
         end_time: lesson.end_time,
-        student_name: lesson.profiles?.full_name || "Bilinmeyen",
+        student_name: studentNameMap[lesson.student_id] || "Bilinmeyen",
       }));
 
       setLessons(formattedLessons);
