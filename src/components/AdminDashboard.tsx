@@ -24,6 +24,7 @@ import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, 
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { CreateStudentDialog } from "./CreateStudentDialog";
+import { CreateTeacherDialog } from "./CreateTeacherDialog";
 
 interface Teacher {
   user_id: string;
@@ -56,6 +57,7 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
   const [showCreateStudent, setShowCreateStudent] = useState(false);
+  const [showCreateTeacher, setShowCreateTeacher] = useState(false);
   const [showStudentSettings, setShowStudentSettings] = useState(false);
   const [selectedStudentForSettings, setSelectedStudentForSettings] = useState<Student | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -231,6 +233,10 @@ export function AdminDashboard() {
                     </CardTitle>
                     <CardDescription>{teachers.length} öğretmen kayıtlı</CardDescription>
                   </div>
+                  <Button onClick={() => setShowCreateTeacher(true)} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Oluştur
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -272,14 +278,19 @@ export function AdminDashboard() {
                   <CardDescription>{selectedTeacher.email}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Tabs defaultValue="students" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="students">Öğrenciler</TabsTrigger>
-                      <TabsTrigger value="schedule">Ders Programı</TabsTrigger>
-                      <TabsTrigger value="payments">Ödemeler</TabsTrigger>
-                    </TabsList>
+                  <div className="flex gap-2 border-b mb-4">
+                    <Button variant="default" className="rounded-b-none">
+                      Öğrenciler
+                    </Button>
+                    <Button variant="ghost" className="rounded-b-none" disabled>
+                      Ders programı
+                    </Button>
+                    <Button variant="ghost" className="rounded-b-none" disabled>
+                      Ödemeler
+                    </Button>
+                  </div>
 
-                    <TabsContent value="students" className="space-y-3 mt-4">
+                  <div className="space-y-3">
                       <div className="flex justify-end mb-3">
                         <Button onClick={() => setShowCreateStudent(true)} size="sm">
                           <UserPlus className="h-4 w-4 mr-2" />
@@ -390,20 +401,7 @@ export function AdminDashboard() {
                           </Card>
                         ))
                       )}
-                    </TabsContent>
-
-                    <TabsContent value="schedule" className="mt-4">
-                      <div className="text-center py-8">
-                        <p className="text-muted-foreground">Ders programı görünümü yakında eklenecek.</p>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="payments" className="mt-4">
-                      <div className="text-center py-8">
-                        <p className="text-muted-foreground">Ödeme takibi yakında eklenecek.</p>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                  </div>
                 </CardContent>
               </Card>
             ) : (
@@ -423,6 +421,12 @@ export function AdminDashboard() {
 
       <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={true} />
       
+      <CreateTeacherDialog
+        open={showCreateTeacher}
+        onOpenChange={setShowCreateTeacher}
+        onSuccess={fetchTeachers}
+      />
+
       {selectedTeacher && (
         <CreateStudentDialog
           open={showCreateStudent}
