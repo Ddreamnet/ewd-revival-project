@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,6 +67,7 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
   const [editingTopic, setEditingTopic] = useState<GlobalTopic | null>(null);
   const [editingResource, setEditingResource] = useState<GlobalTopicResource | null>(null);
+  const [expandAll, setExpandAll] = useState(false);
   const { profile } = useAuth();
   const { toast } = useToast();
 
@@ -442,12 +445,26 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
                     ? "Herhangi bir öğrenciye atanabilecek global konuları yönetin" 
                     : "Global konular ve kaynaklar"}
                 </p>
-                {isAdmin && (
-                  <Button onClick={() => setShowAddTopic(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Konu Ekle
-                  </Button>
-                )}
+                <div className="flex items-center gap-4">
+                  {!loading && globalTopics.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="expand-all"
+                        checked={expandAll}
+                        onCheckedChange={setExpandAll}
+                      />
+                      <Label htmlFor="expand-all" className="cursor-pointer">
+                        Tümünü Aç
+                      </Label>
+                    </div>
+                  )}
+                  {isAdmin && (
+                    <Button onClick={() => setShowAddTopic(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Konu Ekle
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Loading State */}
@@ -495,6 +512,7 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
                           key={topic.id}
                           topic={topic}
                           isAdmin={isAdmin}
+                          expandAll={expandAll}
                           onAddResource={(topicId) => {
                             setSelectedTopicId(topicId);
                             setShowAddResource(true);
