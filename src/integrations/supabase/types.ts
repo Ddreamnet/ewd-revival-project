@@ -449,6 +449,42 @@ export type Database = {
           },
         ]
       }
+      trial_lessons: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_completed: boolean
+          lesson_date: string
+          start_time: string
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_completed?: boolean
+          lesson_date?: string
+          start_time: string
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_completed?: boolean
+          lesson_date?: string
+          start_time?: string
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
