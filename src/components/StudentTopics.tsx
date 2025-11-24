@@ -100,7 +100,6 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
       const studentTopicsResponse = await supabase
         .from("topics")
         .select("*, resources (*)")
-        .eq("teacher_id", teacherId)
         .eq("student_id", student.student_id)
         .order("order_index");
 
