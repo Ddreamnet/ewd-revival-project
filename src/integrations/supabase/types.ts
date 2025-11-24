@@ -171,6 +171,39 @@ export type Database = {
           },
         ]
       }
+      payment_history: {
+        Row: {
+          amount_minutes: number
+          completed_regular_lessons: number
+          completed_trial_lessons: number
+          created_at: string
+          id: string
+          notes: string | null
+          payment_date: string
+          teacher_id: string
+        }
+        Insert: {
+          amount_minutes: number
+          completed_regular_lessons?: number
+          completed_trial_lessons?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          teacher_id: string
+        }
+        Update: {
+          amount_minutes?: number
+          completed_regular_lessons?: number
+          completed_trial_lessons?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          teacher_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
