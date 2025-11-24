@@ -22,8 +22,8 @@ export function Header({ children, rightActions }: HeaderProps) {
           <div className="flex-1 flex justify-center">{children}</div>
 
           <div className="flex items-center gap-3">
-            {rightActions}
             <ContactDialog />
+            {rightActions}
           </div>
         </div>
       </div>
