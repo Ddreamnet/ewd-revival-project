@@ -5,9 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, BookOpen, LogOut, Plus, Settings, Clock, FolderOpen } from "lucide-react";
+import { Users, BookOpen, LogOut, Clock } from "lucide-react";
 import { StudentTopics } from "./StudentTopics";
-import { EditStudentLessonsDialog } from "./EditStudentLessonsDialog";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { NotificationBell } from "./NotificationBell";
@@ -36,8 +35,6 @@ export function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showEditSchedule, setShowEditSchedule] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
   const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
   const { profile, signOut } = useAuth();
@@ -137,81 +134,6 @@ export function TeacherDashboard() {
     }
   };
 
-  const handleSaveChanges = async (studentId: string, name: string, lessons: StudentLesson[]) => {
-    try {
-      const student = students.find((s) => s.id === studentId);
-      if (!student) throw new Error("Student not found");
-
-      // Delete existing lessons
-      const { error: deleteError } = await supabase
-        .from("student_lessons")
-        .delete()
-        .eq("student_id", student.student_id)
-        .eq("teacher_id", profile?.user_id);
-
-      if (deleteError) throw deleteError;
-
-      // Insert new lessons
-      const lessonsToInsert = lessons.map((lesson) => ({
-        student_id: student.student_id,
-        teacher_id: profile?.user_id,
-        day_of_week: lesson.dayOfWeek,
-        start_time: lesson.startTime,
-        end_time: lesson.endTime,
-      }));
-
-      const { error: insertError } = await supabase.from("student_lessons").insert(lessonsToInsert);
-
-      if (insertError) throw insertError;
-
-      // Update student name in profiles table
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ full_name: name })
-        .eq("user_id", student.student_id);
-
-      if (profileError) throw profileError;
-
-      toast({
-        title: "Başarılı",
-        description: "Öğrenci ayarları başarıyla güncellendi",
-      });
-
-      fetchStudents();
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRemoveStudent = async (studentId: string) => {
-    try {
-      const { error } = await supabase.from("students").delete().eq("id", studentId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Başarılı",
-        description: "Öğrenci başarıyla kaldırıldı",
-      });
-
-      // If the removed student was selected, clear selection
-      if (selectedStudent?.id === studentId) {
-        setSelectedStudent(null);
-      }
-
-      fetchStudents();
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
 
   const getDayName = (dayOfWeek?: number) => {
     const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
@@ -281,6 +203,10 @@ export function TeacherDashboard() {
       <Header
         rightActions={
           <div className="flex items-center gap-2">
+            <Button onClick={() => setShowGlobalTopics(true)} variant="outline" size="sm">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Konular
+            </Button>
             <NotificationBell teacherId={profile?.user_id || ""} />
             <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm">
@@ -363,18 +289,6 @@ export function TeacherDashboard() {
                               </div>
                             )}
                           </div>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingStudent(student);
-                              setShowEditSchedule(true);
-                            }}
-                          >
-                            <Settings className="h-4 w-4" />
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -405,23 +319,6 @@ export function TeacherDashboard() {
 
       {/* Global Topics Manager - Read-only for teachers */}
       <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={false} />
-
-      <EditStudentLessonsDialog
-        open={showEditSchedule}
-        onOpenChange={setShowEditSchedule}
-        studentId={editingStudent?.id || ""}
-        currentData={
-          editingStudent
-            ? {
-                name: editingStudent.profiles.full_name,
-                email: editingStudent.profiles.email,
-                lessons: editingStudent.lessons,
-              }
-            : null
-        }
-        onSaveChanges={handleSaveChanges}
-        onRemoveStudent={handleRemoveStudent}
-      />
 
       <WeeklyScheduleDialog
         open={showWeeklySchedule}
