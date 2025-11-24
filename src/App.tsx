@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AuthForm } from "@/components/AuthForm";
 import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { StudentDashboard } from "@/components/StudentDashboard";
+import { AdminDashboard } from "@/components/AdminDashboard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -32,9 +33,7 @@ function AppRoutes() {
           !user ? (
             <AuthForm />
           ) : profile?.roles?.includes('admin') ? (
-            <div className="min-h-screen flex items-center justify-center">
-              <p>Admin Dashboard (Coming Soon)</p>
-            </div>
+            <AdminDashboard />
           ) : profile?.role === 'teacher' ? (
             <TeacherDashboard />
           ) : profile?.role === 'student' ? (
