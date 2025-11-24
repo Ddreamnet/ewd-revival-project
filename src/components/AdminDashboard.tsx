@@ -13,6 +13,10 @@ import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { CreateStudentDialog } from "./CreateStudentDialog";
 import { CreateTeacherDialog } from "./CreateTeacherDialog";
 import { EditStudentDialog } from "./EditStudentDialog";
+import { AddTopicDialog } from "./AddTopicDialog";
+import { AddResourceDialog } from "./AddResourceDialog";
+import { EditTopicDialog } from "./EditTopicDialog";
+import { EditResourceDialog } from "./EditResourceDialog";
 
 interface Teacher {
   user_id: string;
@@ -38,16 +42,44 @@ interface StudentLesson {
   endTime: string;
 }
 
+interface Topic {
+  id: string;
+  title: string;
+  description: string | null;
+  is_completed: boolean;
+  order_index: number;
+  resources: Resource[];
+}
+
+interface Resource {
+  id: string;
+  title: string;
+  description: string | null;
+  resource_type: string;
+  resource_url: string;
+  order_index: number;
+  is_completed?: boolean;
+}
+
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+  const [studentTopics, setStudentTopics] = useState<Map<string, Topic[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
   const [showCreateStudent, setShowCreateStudent] = useState(false);
   const [showCreateTeacher, setShowCreateTeacher] = useState(false);
   const [showEditStudent, setShowEditStudent] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [showAddTopic, setShowAddTopic] = useState(false);
+  const [showAddResource, setShowAddResource] = useState(false);
+  const [showEditTopic, setShowEditTopic] = useState(false);
+  const [showEditResource, setShowEditResource] = useState(false);
+  const [selectedStudentForTopic, setSelectedStudentForTopic] = useState<string | null>(null);
+  const [selectedTopicForResource, setSelectedTopicForResource] = useState<string | null>(null);
+  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -125,14 +157,43 @@ export function AdminDashboard() {
     }
   };
 
-  const toggleStudent = (studentId: string) => {
+  const toggleStudent = async (studentId: string, student: Student) => {
     const newExpanded = new Set(expandedStudents);
     if (newExpanded.has(studentId)) {
       newExpanded.delete(studentId);
     } else {
       newExpanded.add(studentId);
+      // Fetch topics if not already loaded
+      if (!studentTopics.has(studentId)) {
+        await fetchStudentTopics(student.student_id, studentId);
+      }
     }
     setExpandedStudents(newExpanded);
+  };
+
+  const fetchStudentTopics = async (studentUserId: string, studentId: string) => {
+    try {
+      const { data: topicsData, error: topicsError } = await supabase
+        .from("topics")
+        .select("*, resources (*)")
+        .eq("student_id", studentUserId)
+        .order("order_index");
+
+      if (topicsError) throw topicsError;
+
+      const topics = (topicsData || []).map((topic) => ({
+        ...topic,
+        resources: (topic.resources || []).sort((a: any, b: any) => a.order_index - b.order_index),
+      }));
+
+      setStudentTopics((prev) => new Map(prev).set(studentId, topics));
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: "Konular yüklenemedi",
+        variant: "destructive",
+      });
+    }
   };
 
   const getDayName = (dayOfWeek?: number) => {
@@ -163,6 +224,208 @@ export function AdminDashboard() {
         return <Image className="h-4 w-4" />;
       default:
         return <ExternalLink className="h-4 w-4" />;
+    }
+  };
+
+  const handleAddTopic = async (title: string, description: string) => {
+    if (!selectedStudentForTopic) return;
+
+    try {
+      const student = selectedTeacher?.students.find((s) => s.id === selectedStudentForTopic);
+      if (!student) return;
+
+      const topics = studentTopics.get(selectedStudentForTopic) || [];
+      const nextOrderIndex = topics.length > 0 ? Math.max(...topics.map((t) => t.order_index)) + 1 : 0;
+
+      const { error } = await supabase.from("topics").insert({
+        teacher_id: profile?.user_id,
+        student_id: student.student_id,
+        title,
+        description: description || null,
+        order_index: nextOrderIndex,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Konu başarıyla oluşturuldu",
+      });
+
+      await fetchStudentTopics(student.student_id, selectedStudentForTopic);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddResource = async (title: string, description: string, resourceType: string, resourceUrl: string) => {
+    if (!selectedTopicForResource) return;
+
+    try {
+      const topics = Array.from(studentTopics.values()).flat();
+      const topic = topics.find((t) => t.id === selectedTopicForResource);
+      if (!topic) return;
+
+      const nextOrderIndex = topic.resources.length > 0 ? Math.max(...topic.resources.map((r) => r.order_index)) + 1 : 0;
+
+      const { error } = await supabase.from("resources").insert({
+        topic_id: selectedTopicForResource,
+        title,
+        description: description || null,
+        resource_type: resourceType,
+        resource_url: resourceUrl,
+        order_index: nextOrderIndex,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Kaynak başarıyla eklendi",
+      });
+
+      // Refresh topics for this student
+      const studentId = Array.from(studentTopics.entries()).find(([_, topics]) => 
+        topics.some((t) => t.id === selectedTopicForResource)
+      )?.[0];
+      
+      if (studentId) {
+        const student = selectedTeacher?.students.find((s) => s.id === studentId);
+        if (student) {
+          await fetchStudentTopics(student.student_id, studentId);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditTopic = async (id: string, title: string, description: string) => {
+    try {
+      const { error } = await supabase
+        .from("topics")
+        .update({ title, description: description || null })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Konu güncellendi",
+      });
+
+      // Refresh topics
+      const studentId = Array.from(studentTopics.entries()).find(([_, topics]) => 
+        topics.some((t) => t.id === id)
+      )?.[0];
+      
+      if (studentId) {
+        const student = selectedTeacher?.students.find((s) => s.id === studentId);
+        if (student) {
+          await fetchStudentTopics(student.student_id, studentId);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditResource = async (
+    id: string,
+    title: string,
+    description: string,
+    resourceType: string,
+    resourceUrl: string
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("resources")
+        .update({
+          title,
+          description: description || null,
+          resource_type: resourceType,
+          resource_url: resourceUrl,
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Kaynak güncellendi",
+      });
+
+      // Refresh topics
+      const studentId = Array.from(studentTopics.entries()).find(([_, topics]) =>
+        topics.some((t) => t.resources.some((r) => r.id === id))
+      )?.[0];
+
+      if (studentId) {
+        const student = selectedTeacher?.students.find((s) => s.id === studentId);
+        if (student) {
+          await fetchStudentTopics(student.student_id, studentId);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteTopic = async (topicId: string, studentId: string, studentUserId: string) => {
+    try {
+      const { error } = await supabase.from("topics").delete().eq("id", topicId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Konu silindi",
+      });
+
+      await fetchStudentTopics(studentUserId, studentId);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteResource = async (resourceId: string, studentId: string, studentUserId: string) => {
+    try {
+      const { error } = await supabase.from("resources").delete().eq("id", resourceId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Kaynak silindi",
+      });
+
+      await fetchStudentTopics(studentUserId, studentId);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -286,7 +549,7 @@ export function AdminDashboard() {
                                 <div className="flex justify-between items-start">
                                   <CollapsibleTrigger
                                     className="flex items-center gap-2 flex-1 text-left"
-                                    onClick={() => toggleStudent(student.id)}
+                                    onClick={() => toggleStudent(student.id, student)}
                                   >
                                     {expandedStudents.has(student.id) ? (
                                       <ChevronDown className="h-4 w-4" />
@@ -327,50 +590,118 @@ export function AdminDashboard() {
                                   <div className="pl-6 border-t pt-3 space-y-3">
                                     <div className="flex justify-between items-center">
                                       <h5 className="font-medium text-sm">Öğrenciye Özel Konular</h5>
-                                      <Button variant="outline" size="sm">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedStudentForTopic(student.id);
+                                          setShowAddTopic(true);
+                                        }}
+                                      >
                                         <Plus className="h-4 w-4 mr-1" />
                                         Konu Ekle
                                       </Button>
                                     </div>
-                                    
-                                    {/* Örnek konu kartları - teacher panelindeki StudentTopics'e benzer stil */}
-                                    <div className="space-y-2">
-                                      <Card className="border">
-                                        <CardContent className="p-3">
-                                          <div className="flex items-start justify-between">
-                                            <div className="flex items-start gap-2 flex-1">
-                                              <Checkbox className="mt-1" />
-                                              <div className="flex-1">
-                                                <h6 className="font-medium text-sm">Örnek Konu Başlığı</h6>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                  Bu öğrenciye özel oluşturulmuş konu açıklaması
-                                                </p>
-                                                <div className="mt-2 space-y-1">
-                                                  <div className="flex items-center gap-2 pl-4">
-                                                    <Checkbox className="h-3 w-3" />
-                                                    {getResourceIcon("video")}
-                                                    <span className="text-xs">Örnek Video Kaynağı</span>
+
+                                    {studentTopics.get(student.id)?.length === 0 ? (
+                                      <p className="text-sm text-muted-foreground py-4">
+                                        Bu öğrenciye henüz özel konu eklenmemiş.
+                                      </p>
+                                    ) : (
+                                      <div className="space-y-2">
+                                        {studentTopics.get(student.id)?.map((topic) => (
+                                          <Card key={topic.id} className="border">
+                                            <Collapsible>
+                                              <CardContent className="p-3">
+                                                <div className="flex items-start justify-between">
+                                                  <div className="flex items-start gap-2 flex-1">
+                                                    <Checkbox checked={topic.is_completed} className="mt-1" disabled />
+                                                    <CollapsibleTrigger className="flex-1 text-left">
+                                                      <div className="flex items-center gap-2">
+                                                        <ChevronRight className="h-3 w-3" />
+                                                        <div>
+                                                          <h6 className="font-medium text-sm">{topic.title}</h6>
+                                                          {topic.description && (
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                              {topic.description}
+                                                            </p>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    </CollapsibleTrigger>
                                                   </div>
-                                                  <div className="flex items-center gap-2 pl-4">
-                                                    <Checkbox className="h-3 w-3" />
-                                                    {getResourceIcon("pdf")}
-                                                    <span className="text-xs">Örnek PDF Kaynağı</span>
+                                                  <div className="flex gap-1">
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() => {
+                                                        setSelectedTopicForResource(topic.id);
+                                                        setShowAddResource(true);
+                                                      }}
+                                                    >
+                                                      <Plus className="h-3 w-3" />
+                                                    </Button>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() => {
+                                                        setEditingTopic(topic);
+                                                        setShowEditTopic(true);
+                                                      }}
+                                                    >
+                                                      <Settings className="h-3 w-3" />
+                                                    </Button>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() =>
+                                                        handleDeleteTopic(topic.id, student.id, student.student_id)
+                                                      }
+                                                    >
+                                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                                    </Button>
                                                   </div>
                                                 </div>
-                                              </div>
-                                            </div>
-                                            <div className="flex gap-1">
-                                              <Button variant="ghost" size="sm">
-                                                <Plus className="h-3 w-3" />
-                                              </Button>
-                                              <Button variant="ghost" size="sm">
-                                                <Trash2 className="h-3 w-3" />
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        </CardContent>
-                                      </Card>
-                                    </div>
+
+                                                <CollapsibleContent className="mt-2 space-y-1">
+                                                  {topic.resources.map((resource) => (
+                                                    <div key={resource.id} className="flex items-center gap-2 pl-8">
+                                                      <Checkbox checked={resource.is_completed} className="h-3 w-3" disabled />
+                                                      {getResourceIcon(resource.resource_type)}
+                                                      <span
+                                                        className="text-xs flex-1 cursor-pointer hover:text-primary"
+                                                        onClick={() => window.open(resource.resource_url, "_blank")}
+                                                      >
+                                                        {resource.title}
+                                                      </span>
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                          setEditingResource(resource);
+                                                          setShowEditResource(true);
+                                                        }}
+                                                      >
+                                                        <Settings className="h-3 w-3" />
+                                                      </Button>
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                          handleDeleteResource(resource.id, student.id, student.student_id)
+                                                        }
+                                                      >
+                                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                                      </Button>
+                                                    </div>
+                                                  ))}
+                                                </CollapsibleContent>
+                                              </CardContent>
+                                            </Collapsible>
+                                          </Card>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 </CollapsibleContent>
                               </CardContent>
@@ -425,6 +756,32 @@ export function AdminDashboard() {
           )}
         </>
       )}
+
+      <AddTopicDialog
+        open={showAddTopic}
+        onOpenChange={setShowAddTopic}
+        onAddTopic={handleAddTopic}
+      />
+
+      <AddResourceDialog
+        open={showAddResource}
+        onOpenChange={setShowAddResource}
+        onAddResource={handleAddResource}
+      />
+
+      <EditTopicDialog
+        open={showEditTopic}
+        onOpenChange={setShowEditTopic}
+        onEditTopic={handleEditTopic}
+        topic={editingTopic}
+      />
+
+      <EditResourceDialog
+        open={showEditResource}
+        onOpenChange={setShowEditResource}
+        onEditResource={handleEditResource}
+        resource={editingResource}
+      />
     </div>
   );
 }
