@@ -125,14 +125,23 @@ export function StudentDashboard() {
         .select("resource_id, is_completed, completed_at")
         .eq("student_id", profile?.user_id);
 
-      if (completionError) throw completionError;
+      if (completionError) {
+        console.error("Completion data error:", completionError);
+        throw completionError;
+      }
       completionData = completionResponse || [];
+      
+      console.log("Student ID:", profile?.user_id);
+      console.log("Completion data fetched:", completionData.length, "records");
+      console.log("Sample completion data:", completionData.slice(0, 3));
 
       // Tamamlanma map'ini oluştur
       const completionMap = new Map();
       completionData.forEach((completion) => {
         completionMap.set(completion.resource_id, completion);
       });
+      
+      console.log("Completion map size:", completionMap.size);
 
       // 6) Öğrenciye özel konuları işle
       const processedStudentTopics = studentTopics.map((topic) => ({
@@ -183,6 +192,10 @@ export function StudentDashboard() {
       });
 
       const allTopics = [...processedStudentTopics, ...processedGlobalTopics];
+      console.log("Total topics:", allTopics.length);
+      console.log("Student topics:", processedStudentTopics.length);
+      console.log("Global topics:", processedGlobalTopics.length);
+      console.log("Sample topic with resources:", allTopics[0]);
       setTopics(allTopics);
     } catch (error: any) {
       toast({
