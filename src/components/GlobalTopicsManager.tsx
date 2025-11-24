@@ -498,9 +498,9 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
               {/* Topics List */}
               {!loading && globalTopics.length > 0 && (
                 <DndContext
-                  sensors={sensors}
+                  sensors={isAdmin ? sensors : []}
                   collisionDetection={closestCenter}
-                  onDragEnd={handleTopicDragEnd}
+                  onDragEnd={isAdmin ? handleTopicDragEnd : undefined}
                 >
                   <SortableContext
                     items={globalTopics.map((t) => t.id)}
