@@ -478,6 +478,7 @@ export function StudentDashboard() {
           onOpenChange={setUploadDialogOpen}
           studentId={profile?.user_id || ""}
           teacherId={teacherId}
+          uploadedByUserId={profile?.user_id}
           onSuccess={() => {
             toast({
               title: "Başarılı",
@@ -490,6 +491,9 @@ export function StudentDashboard() {
           open={listDialogOpen}
           onOpenChange={setListDialogOpen}
           studentId={profile?.user_id || ""}
+          teacherId={teacherId}
+          currentUserId={profile?.user_id || ""}
+          isTeacher={false}
         />
       </div>
     </div>

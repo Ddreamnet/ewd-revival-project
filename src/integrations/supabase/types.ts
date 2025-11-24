@@ -106,6 +106,7 @@ export type Database = {
           teacher_id: string
           title: string
           updated_at: string
+          uploaded_by_user_id: string
         }
         Insert: {
           created_at?: string
@@ -118,6 +119,7 @@ export type Database = {
           teacher_id: string
           title: string
           updated_at?: string
+          uploaded_by_user_id?: string
         }
         Update: {
           created_at?: string
@@ -130,6 +132,7 @@ export type Database = {
           teacher_id?: string
           title?: string
           updated_at?: string
+          uploaded_by_user_id?: string
         }
         Relationships: []
       }

@@ -20,8 +20,12 @@ import {
   Video,
   Link as LinkIcon,
   Image,
+  Upload,
+  ClipboardList,
 } from "lucide-react";
 import { LessonTracker } from "./LessonTracker";
+import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
+import { HomeworkListDialog } from "./HomeworkListDialog";
 
 // ============================================================================
 // TİPLER
@@ -75,6 +79,8 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [listDialogOpen, setListDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // ============================================================================
@@ -459,6 +465,33 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
+              {/* Ödev Kartı */}
+              <Card className="min-w-[200px]">
+                <CardContent className="p-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex flex-col items-center justify-center gap-1 h-16"
+                      onClick={() => setUploadDialogOpen(true)}
+                    >
+                      <Upload className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-medium">Yükle</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex flex-col items-center justify-center gap-1 h-16"
+                      onClick={() => setListDialogOpen(true)}
+                    >
+                      <ClipboardList className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-medium">Ödevler</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* İşlenen Dersler */}
               <LessonTracker
                 studentId={student.student_id}
                 studentName={student.profiles.full_name}
@@ -478,6 +511,29 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
         </CardContent>
       </Card>
 
+      {/* Ödev Dialogs */}
+      <UploadHomeworkDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        studentId={student.student_id}
+        teacherId={teacherId}
+        uploadedByUserId={teacherId}
+        onSuccess={() => {
+          toast({
+            title: "Başarılı",
+            description: "Ödev başarıyla yüklendi",
+          });
+        }}
+      />
+
+      <HomeworkListDialog
+        open={listDialogOpen}
+        onOpenChange={setListDialogOpen}
+        studentId={student.student_id}
+        teacherId={teacherId}
+        currentUserId={teacherId}
+        isTeacher={true}
+      />
     </div>
   );
 }
