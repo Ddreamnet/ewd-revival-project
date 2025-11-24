@@ -4,12 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock } from "lucide-react";
+import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Image, UserPlus } from "lucide-react";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
+import { CreateStudentDialog } from "./CreateStudentDialog";
 
 interface Teacher {
   user_id: string;
@@ -41,6 +55,11 @@ export function AdminDashboard() {
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
+  const [showCreateStudent, setShowCreateStudent] = useState(false);
+  const [showStudentSettings, setShowStudentSettings] = useState(false);
+  const [selectedStudentForSettings, setSelectedStudentForSettings] = useState<Student | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -138,6 +157,36 @@ export function AdminDashboard() {
     return new Date(`2000-01-01T${time}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   };
 
+  const openStudentSettings = (student: Student) => {
+    setSelectedStudentForSettings(student);
+    setShowStudentSettings(true);
+  };
+
+  const handleConfirmLessonUpdate = () => {
+    setShowConfirmDialog(false);
+    toast({
+      title: "Başarılı",
+      description: updateRemainingDays ? "Tüm günler güncellendi" : "Sadece seçili ders güncellendi",
+    });
+    setShowStudentSettings(false);
+  };
+
+  const getResourceIcon = (type: string) => {
+    switch (type) {
+      case "video":
+        return <Video className="h-4 w-4" />;
+      case "pdf":
+      case "document":
+        return <FileText className="h-4 w-4" />;
+      case "link":
+        return <LinkIcon className="h-4 w-4" />;
+      case "image":
+        return <Image className="h-4 w-4" />;
+      default:
+        return <ExternalLink className="h-4 w-4" />;
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -231,6 +280,12 @@ export function AdminDashboard() {
                     </TabsList>
 
                     <TabsContent value="students" className="space-y-3 mt-4">
+                      <div className="flex justify-end mb-3">
+                        <Button onClick={() => setShowCreateStudent(true)} size="sm">
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Öğrenci Oluştur
+                        </Button>
+                      </div>
                       {selectedTeacher.students.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-8">
                           Bu öğretmenin henüz öğrencisi yok.
@@ -275,17 +330,59 @@ export function AdminDashboard() {
                                     </div>
                                   </CollapsibleTrigger>
 
-                                  <Button variant="ghost" size="sm">
+                                   <Button variant="ghost" size="sm" onClick={() => openStudentSettings(student)}>
                                     <Settings className="h-4 w-4" />
                                   </Button>
                                 </div>
 
                                 <CollapsibleContent className="mt-4">
-                                  <div className="pl-6 border-t pt-3 space-y-2">
-                                    <h5 className="font-medium text-sm">Öğrenciye Özel Konular</h5>
-                                    <p className="text-sm text-muted-foreground">
-                                      Bu öğrenciye özel konular ve kaynaklar burada görünecek.
-                                    </p>
+                                  <div className="pl-6 border-t pt-3 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                      <h5 className="font-medium text-sm">Öğrenciye Özel Konular</h5>
+                                      <Button variant="outline" size="sm">
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Konu Ekle
+                                      </Button>
+                                    </div>
+                                    
+                                    {/* Örnek konu kartları - teacher panelindeki StudentTopics'e benzer stil */}
+                                    <div className="space-y-2">
+                                      <Card className="border">
+                                        <CardContent className="p-3">
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex items-start gap-2 flex-1">
+                                              <Checkbox className="mt-1" />
+                                              <div className="flex-1">
+                                                <h6 className="font-medium text-sm">Örnek Konu Başlığı</h6>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                  Bu öğrenciye özel oluşturulmuş konu açıklaması
+                                                </p>
+                                                <div className="mt-2 space-y-1">
+                                                  <div className="flex items-center gap-2 pl-4">
+                                                    <Checkbox className="h-3 w-3" />
+                                                    {getResourceIcon("video")}
+                                                    <span className="text-xs">Örnek Video Kaynağı</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-2 pl-4">
+                                                    <Checkbox className="h-3 w-3" />
+                                                    {getResourceIcon("pdf")}
+                                                    <span className="text-xs">Örnek PDF Kaynağı</span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="flex gap-1">
+                                              <Button variant="ghost" size="sm">
+                                                <Plus className="h-3 w-3" />
+                                              </Button>
+                                              <Button variant="ghost" size="sm">
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    </div>
                                   </div>
                                 </CollapsibleContent>
                               </CardContent>
@@ -325,6 +422,108 @@ export function AdminDashboard() {
       </div>
 
       <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} />
+      
+      {selectedTeacher && (
+        <CreateStudentDialog
+          open={showCreateStudent}
+          onOpenChange={setShowCreateStudent}
+          onStudentCreated={fetchTeachers}
+          teacherId={selectedTeacher.user_id}
+        />
+      )}
+
+      {/* Öğrenci Ayarları Dialog - İşlenen Dersler Bölümü */}
+      {showStudentSettings && selectedStudentForSettings && (
+        <AlertDialog open={showStudentSettings} onOpenChange={setShowStudentSettings}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Öğrenci Ayarları</AlertDialogTitle>
+              <AlertDialogDescription>
+                {selectedStudentForSettings.profiles.full_name} için ders programı ve takip ayarları
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="space-y-6">
+              {/* İşlenen Dersler Bölümü */}
+              <div className="space-y-3">
+                <h4 className="font-medium">İşlenen Dersler (Bu Ay)</h4>
+                <RadioGroup defaultValue="lesson-1" className="space-y-3">
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <RadioGroupItem value="lesson-1" id="lesson-1" className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor="lesson-1" className="cursor-pointer font-normal">
+                        Ders 1 - Pazartesi 14:00-15:00
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Tamamlanma Tarihi: 15 Ocak 2025
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <RadioGroupItem value="lesson-2" id="lesson-2" className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor="lesson-2" className="cursor-pointer font-normal">
+                        Ders 2 - Çarşamba 16:00-17:00
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Tamamlanma Tarihi: 17 Ocak 2025
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <RadioGroupItem value="lesson-3" id="lesson-3" className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor="lesson-3" className="cursor-pointer font-normal">
+                        Ders 3 - Cuma 10:00-11:00
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Tamamlanma Tarihi: 19 Ocak 2025
+                      </p>
+                    </div>
+                  </div>
+                </RadioGroup>
+              </div>
+            </div>
+
+            <AlertDialogFooter>
+              <AlertDialogCancel>İptal</AlertDialogCancel>
+              <AlertDialogAction onClick={() => setShowConfirmDialog(true)}>
+                Onayla
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Onay Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dersleri Güncelle</AlertDialogTitle>
+            <AlertDialogDescription>
+              Seçili dersin durumunu güncellemek istediğinize emin misiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="flex items-center space-x-2 py-4">
+            <Checkbox
+              id="update-remaining"
+              checked={updateRemainingDays}
+              onCheckedChange={(checked) => setUpdateRemainingDays(checked as boolean)}
+            />
+            <Label htmlFor="update-remaining" className="cursor-pointer font-normal">
+              Kalan günleri de güncelle
+            </Label>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmLessonUpdate}>
+              Onayla
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
