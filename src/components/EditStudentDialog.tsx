@@ -410,40 +410,47 @@ export function EditStudentDialog({
           {/* İşlenen Dersler Bölümü */}
           <div className="space-y-3">
             <Label className="text-base font-medium">İşlenen Dersler</Label>
-            {completedLessons.length > 0 ? (
-              <div className="space-y-2">
-                {completedLessons.map((lessonNumber) => (
-                  <div key={lessonNumber} className="flex items-center gap-3 p-3 border rounded-lg">
-                    <div className="flex items-center gap-2 flex-1">
-                      <div className="h-4 w-4 rounded-full bg-primary" />
-                      <span className="font-medium">Ders {lessonNumber}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm text-muted-foreground">Tarih:</Label>
-                      <Input
-                        type="date"
-                        value={lessonDates[lessonNumber.toString()] || ""}
-                        onChange={(e) => updateLessonDate(lessonNumber, e.target.value)}
-                        className="w-40"
-                      />
-                    </div>
+            <p className="text-sm text-muted-foreground">
+              Ders tarihlerini düzenleyebilir ve güncelleyebilirsiniz.
+            </p>
+            <div className="space-y-2">
+              {Array.from({ length: lessonsPerWeek * 4 }, (_, i) => i + 1).map((lessonNumber) => (
+                <div key={lessonNumber} className="flex items-center gap-3 p-3 border rounded-lg">
+                  <div className="flex items-center gap-2 flex-1">
+                    <div 
+                      className={`h-4 w-4 rounded-full ${
+                        completedLessons.includes(lessonNumber) ? "bg-primary" : "bg-muted"
+                      }`} 
+                    />
+                    <span className={`font-medium ${
+                      completedLessons.includes(lessonNumber) ? "text-foreground" : "text-muted-foreground"
+                    }`}>
+                      Ders {lessonNumber}
+                    </span>
                   </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={handleDateSubmit}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  Tarihleri Onayla
-                </Button>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                Henüz işlenen ders yok.
-              </p>
-            )}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm text-muted-foreground">Tarih:</Label>
+                    <Input
+                      type="date"
+                      value={lessonDates[lessonNumber.toString()] || ""}
+                      onChange={(e) => updateLessonDate(lessonNumber, e.target.value)}
+                      className="w-40"
+                    />
+                  </div>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="default"
+                onClick={handleDateSubmit}
+                disabled={loading || Object.keys(lessonDates).every(
+                  (key) => lessonDates[key] === originalLessonDates[key]
+                )}
+                className="w-full"
+              >
+                Tarihleri Onayla
+              </Button>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
