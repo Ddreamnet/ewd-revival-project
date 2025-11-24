@@ -18,6 +18,14 @@ interface StudentLesson {
   is_completed: boolean;
 }
 
+interface TrialLesson {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_completed: boolean;
+}
+
 interface WeeklyScheduleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,6 +47,7 @@ const STUDENT_COLORS = [
 
 export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklyScheduleDialogProps) {
   const [lessons, setLessons] = useState<StudentLesson[]>([]);
+  const [trialLessons, setTrialLessons] = useState<TrialLesson[]>([]);
   const [loading, setLoading] = useState(false);
   const [studentColors, setStudentColors] = useState<Record<string, string>>({});
   const { toast } = useToast();
@@ -62,6 +71,17 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
         .order("start_time", { ascending: true });
 
       if (lessonsError) throw lessonsError;
+
+      // Fetch trial lessons
+      const { data: trialLessonsData, error: trialLessonsError } = await supabase
+        .from("trial_lessons")
+        .select("id, day_of_week, start_time, end_time, is_completed")
+        .eq("teacher_id", teacherId)
+        .order("start_time", { ascending: true });
+
+      if (trialLessonsError) throw trialLessonsError;
+
+      setTrialLessons(trialLessonsData || []);
 
       // Then fetch student names separately
       const studentIds = Array.from(new Set((lessonsData || []).map(l => l.student_id)));
@@ -125,6 +145,9 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     lessons.forEach(lesson => {
       times.add(lesson.start_time);
     });
+    trialLessons.forEach(lesson => {
+      times.add(lesson.start_time);
+    });
     return Array.from(times).sort();
   };
 
@@ -133,6 +156,13 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     // day_of_week in DB: 1=Pazartesi, 0=Pazar
     const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
     return lessons.find(
+      l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot
+    );
+  };
+
+  const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
+    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+    return trialLessons.find(
       l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot
     );
   };
@@ -175,6 +205,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
                     </td>
                     {DAYS.map((day, dayIndex) => {
                       const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
+                      const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
                       return (
                         <td key={day} className="border p-2">
                           {lesson ? (
@@ -188,6 +219,21 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
                               </div>
                               <div className="text-[10px] font-mono">
                                 {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
+                              </div>
+                            </div>
+                          ) : trialLesson ? (
+                            <div
+                              className={`p-2 rounded border-2 ${
+                                trialLesson.is_completed 
+                                  ? "bg-red-200/50 border-red-400/50" 
+                                  : "bg-red-200 border-red-400"
+                              }`}
+                            >
+                              <div className="font-medium text-xs mb-1 text-red-900">
+                                Deneme Dersi
+                              </div>
+                              <div className="text-[10px] font-mono text-red-900">
+                                {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
                               </div>
                             </div>
                           ) : null}
