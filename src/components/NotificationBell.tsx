@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell } from "lucide-react";
+import { Bell, FileText, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -160,39 +160,80 @@ export function NotificationBell({ teacherId }: NotificationBellProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
-        <Card className="border-0 shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Bildirimler</CardTitle>
-            <CardDescription>
-              {unreadCount > 0 
-                ? `${unreadCount} okunmamış bildirim` 
-                : "Yeni bildirim yok"}
-            </CardDescription>
+      <PopoverContent className="w-96 p-0" align="end">
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="border-b bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-semibold">Bildirimler</CardTitle>
+                <CardDescription className="mt-1">
+                  {unreadCount > 0 
+                    ? `${unreadCount} okunmamış bildirim` 
+                    : "Tüm bildirimler okundu"}
+                </CardDescription>
+              </div>
+              {unreadCount > 0 && (
+                <Badge className="bg-primary text-primary-foreground">
+                  {unreadCount}
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[300px] px-4">
+            <ScrollArea className="h-[400px]">
               {notifications.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">
-                  Henüz bildirim yok
+                <div className="flex flex-col items-center justify-center py-12 px-4">
+                  <div className="rounded-full bg-muted p-4 mb-4">
+                    <Bell className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium text-muted-foreground">Henüz bildirim yok</p>
+                  <p className="text-xs text-muted-foreground mt-1">Yeni ödev yüklendiğinde burada görünecek</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="divide-y">
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`p-3 rounded-lg border transition-colors ${
-                        notification.is_read 
-                          ? 'bg-background' 
-                          : 'bg-accent/50 border-primary/20'
+                      className={`p-4 transition-colors hover:bg-accent/50 ${
+                        !notification.is_read 
+                          ? 'bg-primary/5 border-l-4 border-l-primary' 
+                          : ''
                       }`}
                     >
-                      <p className="text-sm font-medium">
-                        {notification.profiles?.full_name || 'Öğrenci'} yeni bir dosya yükledi
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(notification.created_at), "dd MMM yyyy, HH:mm", { locale: tr })}
-                      </p>
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 rounded-full p-2 ${
+                          !notification.is_read 
+                            ? 'bg-primary/10' 
+                            : 'bg-muted'
+                        }`}>
+                          <FileText className={`h-4 w-4 ${
+                            !notification.is_read 
+                              ? 'text-primary' 
+                              : 'text-muted-foreground'
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${
+                            !notification.is_read 
+                              ? 'font-semibold text-foreground' 
+                              : 'font-medium text-muted-foreground'
+                          }`}>
+                            {notification.profiles?.full_name || 'Öğrenci'}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            Yeni bir ödev yükledi
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(notification.created_at), "dd MMM yyyy, HH:mm", { locale: tr })}
+                            </p>
+                          </div>
+                        </div>
+                        {!notification.is_read && (
+                          <div className="h-2 w-2 rounded-full bg-primary mt-2" />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
