@@ -2,21 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +12,7 @@ import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { CreateStudentDialog } from "./CreateStudentDialog";
 import { CreateTeacherDialog } from "./CreateTeacherDialog";
+import { EditStudentDialog } from "./EditStudentDialog";
 
 interface Teacher {
   user_id: string;
@@ -58,10 +46,8 @@ export function AdminDashboard() {
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
   const [showCreateStudent, setShowCreateStudent] = useState(false);
   const [showCreateTeacher, setShowCreateTeacher] = useState(false);
-  const [showStudentSettings, setShowStudentSettings] = useState(false);
-  const [selectedStudentForSettings, setSelectedStudentForSettings] = useState<Student | null>(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
+  const [showEditStudent, setShowEditStudent] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -160,17 +146,8 @@ export function AdminDashboard() {
   };
 
   const openStudentSettings = (student: Student) => {
-    setSelectedStudentForSettings(student);
-    setShowStudentSettings(true);
-  };
-
-  const handleConfirmLessonUpdate = () => {
-    setShowConfirmDialog(false);
-    toast({
-      title: "Başarılı",
-      description: updateRemainingDays ? "Tüm günler güncellendi" : "Sadece seçili ders güncellendi",
-    });
-    setShowStudentSettings(false);
+    setEditingStudent(student);
+    setShowEditStudent(true);
   };
 
   const getResourceIcon = (type: string) => {
@@ -428,106 +405,26 @@ export function AdminDashboard() {
       />
 
       {selectedTeacher && (
-        <CreateStudentDialog
-          open={showCreateStudent}
-          onOpenChange={setShowCreateStudent}
-          onStudentCreated={fetchTeachers}
-          teacherId={selectedTeacher.user_id}
-        />
-      )}
+        <>
+          <CreateStudentDialog
+            open={showCreateStudent}
+            onOpenChange={setShowCreateStudent}
+            onStudentCreated={fetchTeachers}
+            teacherId={selectedTeacher.user_id}
+          />
 
-      {/* Öğrenci Ayarları Dialog - İşlenen Dersler Bölümü */}
-      {showStudentSettings && selectedStudentForSettings && (
-        <AlertDialog open={showStudentSettings} onOpenChange={setShowStudentSettings}>
-          <AlertDialogContent className="max-w-2xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Öğrenci Ayarları</AlertDialogTitle>
-              <AlertDialogDescription>
-                {selectedStudentForSettings.profiles.full_name} için ders programı ve takip ayarları
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-
-            <div className="space-y-6">
-              {/* İşlenen Dersler Bölümü */}
-              <div className="space-y-3">
-                <h4 className="font-medium">İşlenen Dersler (Bu Ay)</h4>
-                <RadioGroup defaultValue="lesson-1" className="space-y-3">
-                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                    <RadioGroupItem value="lesson-1" id="lesson-1" className="mt-0.5" />
-                    <div className="flex-1">
-                      <Label htmlFor="lesson-1" className="cursor-pointer font-normal">
-                        Ders 1 - Pazartesi 14:00-15:00
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Tamamlanma Tarihi: 15 Ocak 2025
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                    <RadioGroupItem value="lesson-2" id="lesson-2" className="mt-0.5" />
-                    <div className="flex-1">
-                      <Label htmlFor="lesson-2" className="cursor-pointer font-normal">
-                        Ders 2 - Çarşamba 16:00-17:00
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Tamamlanma Tarihi: 17 Ocak 2025
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                    <RadioGroupItem value="lesson-3" id="lesson-3" className="mt-0.5" />
-                    <div className="flex-1">
-                      <Label htmlFor="lesson-3" className="cursor-pointer font-normal">
-                        Ders 3 - Cuma 10:00-11:00
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Tamamlanma Tarihi: 19 Ocak 2025
-                      </p>
-                    </div>
-                  </div>
-                </RadioGroup>
-              </div>
-            </div>
-
-            <AlertDialogFooter>
-              <AlertDialogCancel>İptal</AlertDialogCancel>
-              <AlertDialogAction onClick={() => setShowConfirmDialog(true)}>
-                Onayla
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-
-      {/* Onay Dialog */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Dersleri Güncelle</AlertDialogTitle>
-            <AlertDialogDescription>
-              Seçili dersin durumunu güncellemek istediğinize emin misiniz?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          <div className="flex items-center space-x-2 py-4">
-            <Checkbox
-              id="update-remaining"
-              checked={updateRemainingDays}
-              onCheckedChange={(checked) => setUpdateRemainingDays(checked as boolean)}
+          {editingStudent && (
+            <EditStudentDialog
+              open={showEditStudent}
+              onOpenChange={setShowEditStudent}
+              onStudentUpdated={fetchTeachers}
+              studentId={editingStudent.id}
+              currentName={editingStudent.profiles.full_name}
+              currentLessons={editingStudent.lessons}
             />
-            <Label htmlFor="update-remaining" className="cursor-pointer font-normal">
-              Kalan günleri de güncelle
-            </Label>
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmLessonUpdate}>
-              Onayla
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          )}
+        </>
+      )}
     </div>
   );
 }
