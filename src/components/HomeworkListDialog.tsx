@@ -196,22 +196,14 @@ export function HomeworkListDialog({
                 
                 return (
                   <Card key={homework.id} className={cardColorClass}>
-                    <CardContent className="p-4">
+                    <CardContent className="p-4 relative pb-8">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 flex-1 min-w-0">
                           <div className="mt-1">
                             {getFileIcon(homework.file_type)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <h4 className="font-medium text-sm">{homework.title}</h4>
-                              <Badge 
-                                variant="outline" 
-                                className={uploadedByStudent ? "text-red-700 border-red-300 text-xs shrink-0" : "text-blue-700 border-blue-300 text-xs shrink-0"}
-                              >
-                                {uploadedByStudent ? "Öğrenci" : "Öğretmen"}
-                              </Badge>
-                            </div>
+                            <h4 className="font-medium text-sm mb-1">{homework.title}</h4>
                             {homework.description && (
                               <p className="text-sm text-muted-foreground mb-2">
                                 {homework.description}
@@ -259,6 +251,12 @@ export function HomeworkListDialog({
                           )}
                         </div>
                       </div>
+                      <Badge 
+                        variant="outline" 
+                        className={`absolute bottom-2 right-2 text-xs ${uploadedByStudent ? "text-red-700 border-red-300" : "text-blue-700 border-blue-300"}`}
+                      >
+                        {uploadedByStudent ? "Öğrenci" : "Öğretmen"}
+                      </Badge>
                     </CardContent>
                   </Card>
                 );
