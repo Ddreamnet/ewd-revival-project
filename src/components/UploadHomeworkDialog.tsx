@@ -14,6 +14,7 @@ interface UploadHomeworkDialogProps {
   studentId: string;
   teacherId: string;
   onSuccess?: () => void;
+  uploadedByUserId?: string; // Kim yüklüyor (öğrenci veya öğretmen)
 }
 
 export function UploadHomeworkDialog({ 
@@ -21,6 +22,7 @@ export function UploadHomeworkDialog({
   onOpenChange, 
   studentId, 
   teacherId,
+  uploadedByUserId,
   onSuccess 
 }: UploadHomeworkDialogProps) {
   const [title, setTitle] = useState("");
@@ -96,6 +98,7 @@ export function UploadHomeworkDialog({
           file_url: publicUrl,
           file_type: file.type,
           file_name: file.name,
+          uploaded_by_user_id: uploadedByUserId || studentId, // Kim yüklüyorsa o
         });
 
       if (insertError) throw insertError;
