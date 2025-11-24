@@ -482,7 +482,8 @@ export function TeacherDashboard() {
         </div>
       </div>
 
-      <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} />
+      {/* Global Topics Manager - Read-only for teachers */}
+      <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={false} />
 
       <AddStudentDialog open={showAddStudent} onOpenChange={setShowAddStudent} onAddStudent={handleAddStudent} />
 

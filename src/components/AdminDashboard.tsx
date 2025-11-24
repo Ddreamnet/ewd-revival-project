@@ -421,7 +421,7 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} />
+      <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={true} />
       
       {selectedTeacher && (
         <CreateStudentDialog

@@ -33,10 +33,11 @@ interface GlobalTopicResource {
 interface GlobalTopicsManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isAdmin?: boolean;
 }
 
 // ============= COMPONENT =============
-export function GlobalTopicsManager({ open, onOpenChange }: GlobalTopicsManagerProps) {
+export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: GlobalTopicsManagerProps) {
   // State
   const [globalTopics, setGlobalTopics] = useState<GlobalTopic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -317,12 +318,16 @@ export function GlobalTopicsManager({ open, onOpenChange }: GlobalTopicsManagerP
               {/* Header Actions */}
               <div className="flex justify-between items-center">
                 <p className="text-sm text-muted-foreground">
-                  Herhangi bir öğrenciye atanabilecek global konuları yönetin
+                  {isAdmin 
+                    ? "Herhangi bir öğrenciye atanabilecek global konuları yönetin" 
+                    : "Global konular ve kaynaklar"}
                 </p>
-                <Button onClick={() => setShowAddTopic(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Konu Ekle
-                </Button>
+                {isAdmin && (
+                  <Button onClick={() => setShowAddTopic(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Konu Ekle
+                  </Button>
+                )}
               </div>
 
               {/* Loading State */}
@@ -339,12 +344,16 @@ export function GlobalTopicsManager({ open, onOpenChange }: GlobalTopicsManagerP
                     <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium mb-2">Henüz Global Konu Yok</h3>
                     <p className="text-muted-foreground mb-4">
-                      Herhangi bir öğrenciye atanabilecek yeniden kullanılabilir konular oluşturun.
+                      {isAdmin 
+                        ? "Herhangi bir öğrenciye atanabilecek yeniden kullanılabilir konular oluşturun." 
+                        : "Henüz hiç global konu eklenmemiş."}
                     </p>
-                    <Button onClick={() => setShowAddTopic(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      İlk Konunuzu Ekleyin
-                    </Button>
+                    {isAdmin && (
+                      <Button onClick={() => setShowAddTopic(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        İlk Konunuzu Ekleyin
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -364,29 +373,33 @@ export function GlobalTopicsManager({ open, onOpenChange }: GlobalTopicsManagerP
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">{topic.resources.length} kaynak</Badge>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedTopicId(topic.id);
-                                setShowAddResource(true);
-                              }}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingTopic(topic);
-                                setShowEditTopic(true);
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteTopic(topic.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {isAdmin && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedTopicId(topic.id);
+                                    setShowAddResource(true);
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingTopic(topic);
+                                    setShowEditTopic(true);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="destructive" size="sm" onClick={() => handleDeleteTopic(topic.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </CardHeader>
@@ -411,19 +424,23 @@ export function GlobalTopicsManager({ open, onOpenChange }: GlobalTopicsManagerP
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      setEditingResource(resource);
-                                      setShowEditResource(true);
-                                    }}
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                  <Button size="sm" variant="ghost" onClick={() => handleDeleteResource(resource.id)}>
-                                    <Trash2 className="h-3 w-3 text-destructive" />
-                                  </Button>
+                                  {isAdmin && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingResource(resource);
+                                          setShowEditResource(true);
+                                        }}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                      <Button size="sm" variant="ghost" onClick={() => handleDeleteResource(resource.id)}>
+                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                      </Button>
+                                    </>
+                                  )}
                                   <Button
                                     size="sm"
                                     variant="ghost"
