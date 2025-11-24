@@ -415,6 +415,14 @@ export type Database = {
         Args: { _student_id: string; _teacher_id: string }
         Returns: boolean
       }
+      update_global_resources_order: {
+        Args: { resource_orders: Json }
+        Returns: undefined
+      }
+      update_global_topics_order: {
+        Args: { topic_orders: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "teacher" | "student"

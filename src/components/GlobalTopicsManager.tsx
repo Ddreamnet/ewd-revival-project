@@ -109,7 +109,11 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
 
   // ============= DRAG AND DROP HANDLERS =============
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before drag starts
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -123,30 +127,30 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
     const newIndex = globalTopics.findIndex((t) => t.id === over.id);
 
     const newTopics = arrayMove(globalTopics, oldIndex, newIndex);
+    
+    // Optimistic update - update UI immediately
     setGlobalTopics(newTopics);
 
-    // Update order_index in database
+    // Batch update in background
     try {
-      for (let i = 0; i < newTopics.length; i++) {
-        const { error } = await supabase
-          .from("global_topics")
-          .update({ order_index: i })
-          .eq("id", newTopics[i].id);
+      const topicOrders = newTopics.map((topic, index) => ({
+        id: topic.id,
+        order_index: index,
+      }));
 
-        if (error) throw error;
-      }
-
-      toast({
-        title: "Başarılı",
-        description: "Konu sırası güncellendi",
+      const { error } = await supabase.rpc("update_global_topics_order", {
+        topic_orders: topicOrders,
       });
+
+      if (error) throw error;
     } catch (error: any) {
+      // Revert on error
       toast({
         title: "Hata",
-        description: error.message,
+        description: "Sıra güncellenemedi",
         variant: "destructive",
       });
-      fetchGlobalTopics(); // Revert on error
+      fetchGlobalTopics();
     }
   };
 
@@ -162,35 +166,33 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
 
     const newResources = arrayMove(topic.resources, oldIndex, newIndex);
     
-    // Update local state
+    // Optimistic update - update UI immediately
     setGlobalTopics(
       globalTopics.map((t) =>
         t.id === topicId ? { ...t, resources: newResources } : t
       )
     );
 
-    // Update order_index in database
+    // Batch update in background
     try {
-      for (let i = 0; i < newResources.length; i++) {
-        const { error } = await supabase
-          .from("global_topic_resources")
-          .update({ order_index: i })
-          .eq("id", newResources[i].id);
+      const resourceOrders = newResources.map((resource, index) => ({
+        id: resource.id,
+        order_index: index,
+      }));
 
-        if (error) throw error;
-      }
-
-      toast({
-        title: "Başarılı",
-        description: "Kaynak sırası güncellendi",
+      const { error } = await supabase.rpc("update_global_resources_order", {
+        resource_orders: resourceOrders,
       });
+
+      if (error) throw error;
     } catch (error: any) {
+      // Revert on error
       toast({
         title: "Hata",
-        description: error.message,
+        description: "Kaynak sırası güncellenemedi",
         variant: "destructive",
       });
-      fetchGlobalTopics(); // Revert on error
+      fetchGlobalTopics();
     }
   };
 
