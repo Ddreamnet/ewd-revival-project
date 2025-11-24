@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
@@ -15,7 +16,7 @@ interface AddTopicDialogProps {
   studentId?: string;
   teacherId?: string;
   onTopicAdded?: () => void;
-  onAddTopic?: (title: string, description: string) => Promise<void>;
+  onAddTopic?: (title: string, description: string, addToEnd?: boolean) => Promise<void>;
 }
 
 export function AddTopicDialog({
@@ -28,6 +29,7 @@ export function AddTopicDialog({
 }: AddTopicDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [addToEnd, setAddToEnd] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -39,7 +41,7 @@ export function AddTopicDialog({
     try {
       if (onAddTopic) {
         // Global topics mode
-        await onAddTopic(title.trim(), description.trim());
+        await onAddTopic(title.trim(), description.trim(), addToEnd);
       } else {
         // Student-specific topics mode
         if (!studentId || !teacherId) return;
@@ -75,6 +77,7 @@ export function AddTopicDialog({
 
       setTitle("");
       setDescription("");
+      setAddToEnd(false);
       onOpenChange(false);
     } catch (error: any) {
       toast({
@@ -117,6 +120,21 @@ export function AddTopicDialog({
               rows={3}
             />
           </div>
+          {onAddTopic && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="add-to-end"
+                checked={addToEnd}
+                onCheckedChange={(checked) => setAddToEnd(checked as boolean)}
+              />
+              <Label
+                htmlFor="add-to-end"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Sona ekle
+              </Label>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               İptal

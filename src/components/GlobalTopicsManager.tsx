@@ -6,11 +6,28 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { BookOpen, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Pencil } from "lucide-react";
+import { BookOpen, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Pencil, GripVertical } from "lucide-react";
 import { AddTopicDialog } from "./AddTopicDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { EditTopicDialog } from "./EditTopicDialog";
 import { EditResourceDialog } from "./EditResourceDialog";
+import { SortableTopic } from "./SortableTopic";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 // ============= TYPES =============
 interface GlobalTopic {
@@ -90,34 +107,135 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
     }
   };
 
-  // ============= TOPIC HANDLERS =============
-  const handleAddTopic = async (title: string, description: string) => {
+  // ============= DRAG AND DROP HANDLERS =============
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleTopicDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = globalTopics.findIndex((t) => t.id === active.id);
+    const newIndex = globalTopics.findIndex((t) => t.id === over.id);
+
+    const newTopics = arrayMove(globalTopics, oldIndex, newIndex);
+    setGlobalTopics(newTopics);
+
+    // Update order_index in database
     try {
-      // Get existing topics to update their order
-      const { data: existingTopics, error: fetchError } = await supabase
-        .from("global_topics")
-        .select("id, order_index");
+      for (let i = 0; i < newTopics.length; i++) {
+        const { error } = await supabase
+          .from("global_topics")
+          .update({ order_index: i })
+          .eq("id", newTopics[i].id);
 
-      if (fetchError) throw fetchError;
+        if (error) throw error;
+      }
 
-      // Increment order_index for all existing topics
-      if (existingTopics && existingTopics.length > 0) {
-        for (const topic of existingTopics) {
-          const { error: updateError } = await supabase
-            .from("global_topics")
-            .update({ order_index: topic.order_index + 1 })
-            .eq("id", topic.id);
+      toast({
+        title: "Başarılı",
+        description: "Konu sırası güncellendi",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+      fetchGlobalTopics(); // Revert on error
+    }
+  };
 
-          if (updateError) throw updateError;
+  const handleResourceDragEnd = async (event: DragEndEvent, topicId: string) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const topic = globalTopics.find((t) => t.id === topicId);
+    if (!topic) return;
+
+    const oldIndex = topic.resources.findIndex((r) => r.id === active.id);
+    const newIndex = topic.resources.findIndex((r) => r.id === over.id);
+
+    const newResources = arrayMove(topic.resources, oldIndex, newIndex);
+    
+    // Update local state
+    setGlobalTopics(
+      globalTopics.map((t) =>
+        t.id === topicId ? { ...t, resources: newResources } : t
+      )
+    );
+
+    // Update order_index in database
+    try {
+      for (let i = 0; i < newResources.length; i++) {
+        const { error } = await supabase
+          .from("global_topic_resources")
+          .update({ order_index: i })
+          .eq("id", newResources[i].id);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Başarılı",
+        description: "Kaynak sırası güncellendi",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+      fetchGlobalTopics(); // Revert on error
+    }
+  };
+
+  // ============= TOPIC HANDLERS =============
+  const handleAddTopic = async (title: string, description: string, addToEnd: boolean = false) => {
+    try {
+      let orderIndex = 0;
+
+      if (addToEnd) {
+        // Get max order_index to add to end
+        const { data: existingTopics, error: fetchError } = await supabase
+          .from("global_topics")
+          .select("order_index")
+          .order("order_index", { ascending: false })
+          .limit(1);
+
+        if (fetchError) throw fetchError;
+        orderIndex = existingTopics && existingTopics.length > 0 ? existingTopics[0].order_index + 1 : 0;
+      } else {
+        // Add to beginning - get existing topics to update their order
+        const { data: existingTopics, error: fetchError } = await supabase
+          .from("global_topics")
+          .select("id, order_index");
+
+        if (fetchError) throw fetchError;
+
+        // Increment order_index for all existing topics
+        if (existingTopics && existingTopics.length > 0) {
+          for (const topic of existingTopics) {
+            const { error: updateError } = await supabase
+              .from("global_topics")
+              .update({ order_index: topic.order_index + 1 })
+              .eq("id", topic.id);
+
+            if (updateError) throw updateError;
+          }
         }
       }
 
-      // Insert new topic at the top
+      // Insert new topic
       const { error } = await supabase.from("global_topics").insert({
         teacher_id: profile?.user_id,
         title,
         description,
-        order_index: 0,
+        order_index: orderIndex,
       });
 
       if (error) throw error;
@@ -360,103 +478,42 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
 
               {/* Topics List */}
               {!loading && globalTopics.length > 0 && (
-                <div className="space-y-4">
-                  {globalTopics.map((topic) => (
-                    <Card key={topic.id}>
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">{topic.title}</CardTitle>
-                            {topic.description && (
-                              <CardDescription className="mt-1">{topic.description}</CardDescription>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">{topic.resources.length} kaynak</Badge>
-                            {isAdmin && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedTopicId(topic.id);
-                                    setShowAddResource(true);
-                                  }}
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingTopic(topic);
-                                    setShowEditTopic(true);
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="destructive" size="sm" onClick={() => handleDeleteTopic(topic.id)}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-
-                      {/* Resources List */}
-                      {topic.resources.length > 0 && (
-                        <CardContent>
-                          <div className="space-y-2">
-                            <h5 className="font-medium text-sm">Kaynaklar</h5>
-                            {topic.resources.map((resource) => (
-                              <div key={resource.id} className="flex items-center gap-3 p-2 bg-accent/30 rounded-md">
-                                {getResourceIcon(resource.resource_type)}
-                                <div
-                                  className="flex-1 cursor-pointer"
-                                  onClick={() => window.open(resource.resource_url, "_blank")}
-                                >
-                                  <p className="font-medium text-sm hover:text-primary transition-colors">
-                                    {resource.title}
-                                  </p>
-                                  {resource.description && (
-                                    <p className="text-xs text-muted-foreground">{resource.description}</p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  {isAdmin && (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          setEditingResource(resource);
-                                          setShowEditResource(true);
-                                        }}
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                      </Button>
-                                      <Button size="sm" variant="ghost" onClick={() => handleDeleteResource(resource.id)}>
-                                        <Trash2 className="h-3 w-3 text-destructive" />
-                                      </Button>
-                                    </>
-                                  )}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => window.open(resource.resource_url, "_blank")}
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      )}
-                    </Card>
-                  ))}
-                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleTopicDragEnd}
+                >
+                  <SortableContext
+                    items={globalTopics.map((t) => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-4">
+                      {globalTopics.map((topic) => (
+                        <SortableTopic
+                          key={topic.id}
+                          topic={topic}
+                          isAdmin={isAdmin}
+                          onAddResource={(topicId) => {
+                            setSelectedTopicId(topicId);
+                            setShowAddResource(true);
+                          }}
+                          onEditTopic={(topic) => {
+                            setEditingTopic(topic);
+                            setShowEditTopic(true);
+                          }}
+                          onDeleteTopic={handleDeleteTopic}
+                          onEditResource={(resource) => {
+                            setEditingResource(resource);
+                            setShowEditResource(true);
+                          }}
+                          onDeleteResource={handleDeleteResource}
+                          onResourceDragEnd={handleResourceDragEnd}
+                          getResourceIcon={getResourceIcon}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
           </div>
