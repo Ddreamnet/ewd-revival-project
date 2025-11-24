@@ -195,6 +195,9 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
 
       if (error) throw error;
 
+      // Update teacher balance
+      await updateTeacherBalance(selectedTrialLesson);
+
       toast({
         title: "Başarılı",
         description: "Deneme dersi işlendi olarak işaretlendi",
@@ -239,6 +242,42 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     } finally {
       setSelectedTrialLesson(null);
       setConfirmAction(null);
+    }
+  };
+
+  const updateTeacherBalance = async (lesson: TrialLesson) => {
+    try {
+      const startTime = new Date(`2000-01-01T${lesson.start_time}`);
+      const endTime = new Date(`2000-01-01T${lesson.end_time}`);
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+
+      // Check if teacher balance exists
+      const { data: existingBalance } = await supabase
+        .from("teacher_balance")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .maybeSingle();
+
+      if (existingBalance) {
+        // Update existing balance
+        await supabase
+          .from("teacher_balance")
+          .update({
+            total_minutes: existingBalance.total_minutes + durationMinutes,
+            completed_trial_lessons: existingBalance.completed_trial_lessons + 1,
+          })
+          .eq("teacher_id", teacherId);
+      } else {
+        // Create new balance
+        await supabase.from("teacher_balance").insert({
+          teacher_id: teacherId,
+          total_minutes: durationMinutes,
+          completed_regular_lessons: 0,
+          completed_trial_lessons: 1,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating teacher balance:", error);
     }
   };
 

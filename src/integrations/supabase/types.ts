@@ -395,6 +395,36 @@ export type Database = {
           },
         ]
       }
+      teacher_balance: {
+        Row: {
+          completed_regular_lessons: number
+          completed_trial_lessons: number
+          created_at: string
+          id: string
+          teacher_id: string
+          total_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          completed_regular_lessons?: number
+          completed_trial_lessons?: number
+          created_at?: string
+          id?: string
+          teacher_id: string
+          total_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_regular_lessons?: number
+          completed_trial_lessons?: number
+          created_at?: string
+          id?: string
+          teacher_id?: string
+          total_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       topics: {
         Row: {
           completed_at: string | null

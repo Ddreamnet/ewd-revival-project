@@ -18,6 +18,7 @@ import { AddResourceDialog } from "./AddResourceDialog";
 import { EditTopicDialog } from "./EditTopicDialog";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AdminWeeklySchedule } from "./AdminWeeklySchedule";
+import { AdminBalanceManager } from "./AdminBalanceManager";
 
 interface Teacher {
   user_id: string;
@@ -535,7 +536,11 @@ export function AdminDashboard() {
                     >
                       Ders programı
                     </Button>
-                    <Button variant="ghost" className="rounded-b-none" disabled>
+                    <Button
+                      variant={activeTab === "payments" ? "default" : "ghost"}
+                      className="rounded-b-none"
+                      onClick={() => setActiveTab("payments")}
+                    >
                       Ödemeler
                     </Button>
                   </div>
@@ -724,6 +729,8 @@ export function AdminDashboard() {
                   )}
 
                   {activeTab === "schedule" && <AdminWeeklySchedule teacherId={selectedTeacher.user_id} />}
+
+                  {activeTab === "payments" && <AdminBalanceManager teacherId={selectedTeacher.user_id} />}
                 </CardContent>
               </Card>
             ) : (
