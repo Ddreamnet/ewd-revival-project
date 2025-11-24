@@ -184,6 +184,49 @@ export function EditStudentDialog({
     }
   };
 
+  const handleUndoLastLesson = async () => {
+    try {
+      if (completedLessons.length === 0) return;
+
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("student_id, teacher_id")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError) throw studentError;
+
+      // Get the last completed lesson
+      const lastLesson = Math.max(...completedLessons);
+      const newCompletedLessons = completedLessons.filter(l => l !== lastLesson);
+
+      const { error } = await supabase
+        .from("student_lesson_tracking")
+        .update({ completed_lessons: newCompletedLessons })
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .eq("month_start_date", monthStart.toISOString().split("T")[0]);
+
+      if (error) throw error;
+
+      setCompletedLessons(newCompletedLessons);
+      toast({
+        title: "Başarılı",
+        description: `${lastLesson}. ders geri alındı`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Ders geri alınamadı",
+        variant: "destructive",
+      });
+    }
+  };
+
   const confirmDateUpdate = async () => {
     try {
       const monthStart = new Date();
@@ -409,10 +452,25 @@ export function EditStudentDialog({
 
           {/* İşlenen Dersler Bölümü */}
           <div className="space-y-3">
-            <Label className="text-base font-medium">İşlenen Dersler</Label>
-            <p className="text-sm text-muted-foreground">
-              Ders tarihlerini düzenleyebilir ve güncelleyebilirsiniz.
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base font-medium">İşlenen Dersler</Label>
+                <p className="text-sm text-muted-foreground">
+                  Ders tarihlerini düzenleyebilir ve güncelleyebilirsiniz.
+                </p>
+              </div>
+              {completedLessons.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUndoLastLesson}
+                  disabled={loading}
+                >
+                  Son Dersi Geri Al
+                </Button>
+              )}
+            </div>
             <div className="space-y-2">
               {Array.from({ length: lessonsPerWeek * 4 }, (_, i) => i + 1).map((lessonNumber) => (
                 <div key={lessonNumber} className="flex items-center gap-3 p-3 border rounded-lg">
