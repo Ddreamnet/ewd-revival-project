@@ -23,9 +23,13 @@ import {
   FileText,
   Video,
   Link as LinkIcon,
+  Upload,
+  ClipboardList,
 } from "lucide-react";
 import { Header } from "./Header";
 import { StudentLessonTracker } from "./StudentLessonTracker";
+import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
+import { HomeworkListDialog } from "./HomeworkListDialog";
 
 // ============================================================================
 // TİPLER
@@ -62,6 +66,9 @@ export function StudentDashboard() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [listDialogOpen, setListDialogOpen] = useState(false);
+  const [teacherId, setTeacherId] = useState<string>("");
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -94,6 +101,9 @@ export function StudentDashboard() {
         .single();
 
       if (relationError) throw relationError;
+      
+      // Store teacher_id for homework submissions
+      setTeacherId(studentRelation.teacher_id);
 
       // 2) Öğrenciye özel konuları getir
       const studentTopicsResponse = await supabase
@@ -296,8 +306,9 @@ export function StudentDashboard() {
       </Header>
 
       <div className="container mx-auto p-4">
-        {/* İlerleme Özeti */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* İlerleme Özeti - 2x2 Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* Row 1 - Col 1: İşlenen Konular */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -310,6 +321,7 @@ export function StudentDashboard() {
             </CardContent>
           </Card>
 
+          {/* Row 1 - Col 2: Toplam Kaynak */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -324,7 +336,32 @@ export function StudentDashboard() {
             </CardContent>
           </Card>
 
+          {/* Row 2 - Col 1: İşlenen Dersler */}
           <StudentLessonTracker studentId={profile?.user_id || ""} />
+
+          {/* Row 2 - Col 2: Ödev Kartı */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant="outline"
+                  className="h-full flex flex-col items-center justify-center gap-2 min-h-[80px]"
+                  onClick={() => setUploadDialogOpen(true)}
+                >
+                  <Upload className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium">Yükle</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-full flex flex-col items-center justify-center gap-2 min-h-[80px]"
+                  onClick={() => setListDialogOpen(true)}
+                >
+                  <ClipboardList className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium">Ödevler</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Öğrenme Konuları */}
@@ -434,6 +471,26 @@ export function StudentDashboard() {
             </Card>
           )}
         </div>
+
+        {/* Ödev Dialogs */}
+        <UploadHomeworkDialog
+          open={uploadDialogOpen}
+          onOpenChange={setUploadDialogOpen}
+          studentId={profile?.user_id || ""}
+          teacherId={teacherId}
+          onSuccess={() => {
+            toast({
+              title: "Başarılı",
+              description: "Ödev başarıyla yüklendi",
+            });
+          }}
+        />
+
+        <HomeworkListDialog
+          open={listDialogOpen}
+          onOpenChange={setListDialogOpen}
+          studentId={profile?.user_id || ""}
+        />
       </div>
     </div>
   );
