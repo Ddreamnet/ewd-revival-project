@@ -15,27 +15,13 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   ChevronDown,
   ChevronRight,
-  Plus,
   ExternalLink,
   FileText,
   Video,
   Link as LinkIcon,
-  Trash2,
-  GripVertical,
   Image,
 } from "lucide-react";
-import { AddTopicDialog } from "./AddTopicDialog";
-import { AddResourceDialog } from "./AddResourceDialog";
 import { LessonTracker } from "./LessonTracker";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 // ============================================================================
 // TİPLER
@@ -89,21 +75,7 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [showAddTopic, setShowAddTopic] = useState(false);
-  const [showAddResource, setShowAddResource] = useState(false);
-  const [selectedTopicId, setSelectedTopicId] = useState<string>("");
   const { toast } = useToast();
-
-  // ============================================================================
-  // DRAG AND DROP SENSÖRLERİ
-  // ============================================================================
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
 
   // ============================================================================
   // EFFECTS
@@ -241,167 +213,6 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
     setExpandedTopics(newExpanded);
   };
 
-  /**
-   * Bir konunun tamamlanma durumunu değiştir
-   * - Global konular için: Tüm kaynakların completion durumunu güncelle
-   * - Öğrenciye özel konular için: Konunun kendi completion alanını güncelle
-   */
-  const toggleTopicCompletion = async (topicId: string, isCompleted: boolean, isGlobal?: boolean) => {
-    try {
-      if (isGlobal) {
-        const globalTopic = topics.find((t) => t.id === topicId && t.isGlobal);
-        if (!globalTopic) return;
-
-        const targetCompleted = !isCompleted;
-
-        // Tüm kaynakları güncelle
-        const updatePromises = globalTopic.resources.map((resource) =>
-          supabase.from("student_resource_completion").upsert(
-            {
-              student_id: student.student_id,
-              resource_id: resource.id,
-              is_completed: targetCompleted,
-              completed_at: targetCompleted ? new Date().toISOString() : null,
-              updated_at: new Date().toISOString(),
-            },
-            {
-              onConflict: "student_id,resource_id",
-            },
-          ),
-        );
-
-        await Promise.all(updatePromises);
-      } else {
-        // Öğrenciye özel konu için
-        const { error } = await supabase
-          .from("topics")
-          .update({
-            is_completed: !isCompleted,
-            completed_at: !isCompleted ? new Date().toISOString() : null,
-          })
-          .eq("id", topicId);
-
-        if (error) throw error;
-      }
-
-      toast({
-        title: "Başarılı",
-        description: `Konu ${!isCompleted ? "tamamlandı" : "tamamlanmadı olarak işaretlendi"}`,
-      });
-
-      fetchTopics();
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  /**
-   * Bir konuyu sil
-   * - Global konular için: Sadece öğrencinin görünümünden kaldır
-   * - Öğrenciye özel konular için: Veritabanından sil
-   */
-  const handleDeleteTopic = async (topicId: string, isGlobal?: boolean) => {
-    try {
-      if (isGlobal) {
-        toast({
-          title: "Başarılı",
-          description: "Global konu öğrenci görünümünden kaldırıldı",
-        });
-
-        fetchTopics();
-      } else {
-        const { error } = await supabase.from("topics").delete().eq("id", topicId);
-
-        if (error) throw error;
-
-        toast({
-          title: "Başarılı",
-          description: "Konu silindi",
-        });
-
-        fetchTopics();
-      }
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  /**
-   * Drag & drop bittiğinde konuların sırasını güncelle
-   */
-  const handleDragEnd = async (event: any) => {
-    const { active, over } = event;
-
-    if (active.id !== over.id) {
-      const oldIndex = topics.findIndex((topic) => topic.id === active.id);
-      const newIndex = topics.findIndex((topic) => topic.id === over.id);
-
-      const newTopics = arrayMove(topics, oldIndex, newIndex);
-      setTopics(newTopics);
-
-      // Veritabanında sıralamayı güncelle
-      try {
-        const studentTopicUpdates = newTopics
-          .filter((topic) => !topic.isGlobal)
-          .map((topic, index) => supabase.from("topics").update({ order_index: index }).eq("id", topic.id));
-
-        const globalTopicUpdates = newTopics
-          .filter((topic) => topic.isGlobal)
-          .map((topic, index) => supabase.from("global_topics").update({ order_index: index }).eq("id", topic.id));
-
-        await Promise.all([...studentTopicUpdates, ...globalTopicUpdates]);
-      } catch (error: any) {
-        toast({
-          title: "Hata",
-          description: "Sıralama güncellenemedi",
-          variant: "destructive",
-        });
-        fetchTopics(); // Eski sıraya dön
-      }
-    }
-  };
-  const handleResourceDragEnd = async (event: any, topicId: string, isGlobal: boolean) => {
-    const { active, over } = event;
-
-    if (active.id !== over.id) {
-      const topic = topics.find((t) => t.id === topicId);
-      if (!topic) return;
-
-      const oldIndex = topic.resources.findIndex((resource) => resource.id === active.id);
-      const newIndex = topic.resources.findIndex((resource) => resource.id === over.id);
-
-      const newResources = arrayMove(topic.resources, oldIndex, newIndex);
-
-      // Update local state
-      setTopics(topics.map((t) => (t.id === topicId ? { ...t, resources: newResources } : t)));
-
-      // Update order in database
-      try {
-        const table = isGlobal ? "global_topic_resources" : "resources";
-        const updates = newResources.map((resource, index) =>
-          supabase.from(table).update({ order_index: index }).eq("id", resource.id),
-        );
-
-        await Promise.all(updates);
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: "Failed to update resource order",
-          variant: "destructive",
-        });
-        fetchTopics(); // Revert to original order
-      }
-    }
-  };
-
   // ============================================================================
   // KAYNAK YÖNETİMİ FONKSİYONLARI
   // ============================================================================
@@ -429,31 +240,6 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
       toast({
         title: "Başarılı",
         description: `Kaynak ${!isCompleted ? "tamamlandı" : "tamamlanmadı olarak işaretlendi"}`,
-      });
-
-      fetchTopics();
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  /**
-   * Bir kaynağı sil
-   */
-  const handleDeleteResource = async (resourceId: string, isGlobalResource: boolean) => {
-    try {
-      const table = isGlobalResource ? "global_topic_resources" : "resources";
-      const { error } = await supabase.from(table).delete().eq("id", resourceId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Başarılı",
-        description: "Kaynak silindi",
       });
 
       fetchTopics();
@@ -511,68 +297,24 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
   }
 
   // ============================================================================
-  // SUB-COMPONENT - SORTABLE TOPIC CARD
+  // SUB-COMPONENT - TOPIC CARD
   // ============================================================================
 
-  // Sortable Resource Component
-  const SortableResource = ({
-    resource,
-    topicId,
-    isGlobal,
-    children,
-  }: {
-    resource: Resource;
-    topicId: string;
-    isGlobal: boolean;
-    children: React.ReactNode;
-  }) => {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: resource.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-    };
-
-    return (
-      <div ref={setNodeRef} style={style} className="flex items-center gap-3 p-2 bg-accent/30 rounded-md">
-        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
-          <GripVertical className="h-3 w-3 text-muted-foreground" />
-        </div>
-        {children}
-      </div>
-    );
-  };
-
   /**
-   * Sürüklenebilir konu kartı bileşeni
+   * Konu kartı bileşeni
    */
-  const SortableTopicCard = ({ topic }: { topic: Topic }) => {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: topic.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-    };
-
+  const TopicCard = ({ topic }: { topic: Topic }) => {
     const visibleResources = getVisibleResources(topic);
 
     return (
-      <Card ref={setNodeRef} style={style} className="border-l-4 border-l-primary/30">
+      <Card className="border-l-4 border-l-primary/30">
         <CardContent className="p-4">
           <Collapsible open={expandedTopics.has(topic.id)} onOpenChange={() => toggleTopic(topic.id)}>
             {/* Konu Başlığı ve Kontroller */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-1">
-                {/* Sürükleme Handle */}
-                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                </div>
-
-                {/* Tamamlanma Checkbox'ı */}
-                <Checkbox
-                  checked={topic.is_completed}
-                  onCheckedChange={() => toggleTopicCompletion(topic.id, topic.is_completed, topic.isGlobal)}
-                />
+                {/* Tamamlanma Checkbox'ı - teacher read-only */}
+                <Checkbox checked={topic.is_completed} disabled />
 
                 {/* Başlık ve Açıklama */}
                 <CollapsibleTrigger className="flex items-center gap-2 flex-1 text-left">
@@ -594,20 +336,10 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
                   </div>
                 </CollapsibleTrigger>
 
-                {/* Badge ve Sil Butonu */}
+                {/* Badge - removed delete button for teachers */}
                 <div className="flex items-center gap-2">
                   {topic.is_completed && <Badge variant="secondary">Tamamlandı</Badge>}
                   <Badge variant="outline">{topic.resources.length} kaynak</Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTopic(topic.id, topic.isGlobal);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
                 </div>
               </div>
             </div>
@@ -617,85 +349,33 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
               <div className="pl-8 space-y-3">
                 <div className="flex justify-between items-center">
                   <h5 className="font-medium text-sm">Kaynaklar</h5>
-                  {!topic.isGlobal && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedTopicId(topic.id);
-                        setShowAddResource(true);
-                      }}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Kaynak Ekle
-                    </Button>
-                  )}
                 </div>
 
                 {visibleResources.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    {topic.resources.length === 0
-                      ? "Henüz kaynak yok. Öğrenciye yardımcı olmak için öğrenme materyalleri ekleyin."
-                      : "Görünür kaynak yok."}
+                    {topic.resources.length === 0 ? "Henüz kaynak yok." : "Görünür kaynak yok."}
                   </p>
                 ) : (
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={(event) => handleResourceDragEnd(event, topic.id, topic.isGlobal || false)}
-                  >
-                    <SortableContext items={visibleResources.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-2">
-                        {visibleResources.map((resource) => (
-                          <SortableResource
-                            key={resource.id}
-                            resource={resource}
-                            topicId={topic.id}
-                            isGlobal={topic.isGlobal || false}
-                          >
-                            <Checkbox
-                              checked={resource.is_completed || false}
-                              onCheckedChange={() =>
-                                toggleResourceCompletion(
-                                  resource.id,
-                                  resource.is_completed || false,
-                                  topic.isGlobal || false,
-                                )
-                              }
-                            />
-                            {getResourceIcon(resource.resource_type)}
-                            <div
-                              className="flex-1 cursor-pointer"
-                              onClick={() => window.open(resource.resource_url, "_blank")}
-                            >
-                              <p className="font-medium text-sm hover:text-primary transition-colors">
-                                {resource.title}
-                              </p>
-                              {resource.description && (
-                                <p className="text-xs text-muted-foreground">{resource.description}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDeleteResource(resource.id, topic.isGlobal || false)}
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => window.open(resource.resource_url, "_blank")}
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </SortableResource>
-                        ))}
+                  <div className="space-y-2">
+                    {visibleResources.map((resource) => (
+                      <div key={resource.id} className="flex items-center gap-3 p-2 bg-accent/30 rounded-md">
+                        <Checkbox checked={resource.is_completed || false} disabled />
+                        {getResourceIcon(resource.resource_type)}
+                        <div
+                          className="flex-1 cursor-pointer"
+                          onClick={() => window.open(resource.resource_url, "_blank")}
+                        >
+                          <p className="font-medium text-sm hover:text-primary transition-colors">{resource.title}</p>
+                          {resource.description && (
+                            <p className="text-xs text-muted-foreground">{resource.description}</p>
+                          )}
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => window.open(resource.resource_url, "_blank")}>
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
                       </div>
-                    </SortableContext>
-                  </DndContext>
+                    ))}
+                  </div>
                 )}
               </div>
             </CollapsibleContent>
@@ -727,46 +407,20 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
                 studentName={student.profiles.full_name}
                 teacherId={teacherId}
               />
-
-              <Button onClick={() => setShowAddTopic(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Konu Ekle
-              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {topics.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">Henüz konu yok. Başlamak için ilk konuyu oluşturun!</p>
+              <p className="text-muted-foreground">Henüz konu yok.</p>
             </div>
           ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={topics.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                {topics.map((topic) => (
-                  <SortableTopicCard key={topic.id} topic={topic} />
-                ))}
-              </SortableContext>
-            </DndContext>
+            topics.map((topic) => <TopicCard key={topic.id} topic={topic} />)
           )}
         </CardContent>
       </Card>
 
-      {/* Diyaloglar */}
-      <AddTopicDialog
-        open={showAddTopic}
-        onOpenChange={setShowAddTopic}
-        studentId={student.student_id}
-        teacherId={teacherId}
-        onTopicAdded={fetchTopics}
-      />
-
-      <AddResourceDialog
-        open={showAddResource}
-        onOpenChange={setShowAddResource}
-        topicId={selectedTopicId}
-        onResourceAdded={fetchTopics}
-      />
     </div>
   );
 }
