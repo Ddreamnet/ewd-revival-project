@@ -5,6 +5,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -50,6 +60,8 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
   const [trialLessons, setTrialLessons] = useState<TrialLesson[]>([]);
   const [loading, setLoading] = useState(false);
   const [studentColors, setStudentColors] = useState<Record<string, string>>({});
+  const [selectedTrialLesson, setSelectedTrialLesson] = useState<TrialLesson | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"complete" | "incomplete" | null>(null);
   const { toast } = useToast();
 
   const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
@@ -167,6 +179,69 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     );
   };
 
+  const handleTrialLessonClick = (lesson: TrialLesson) => {
+    setSelectedTrialLesson(lesson);
+    setConfirmAction(lesson.is_completed ? "incomplete" : "complete");
+  };
+
+  const handleMarkComplete = async () => {
+    if (!selectedTrialLesson) return;
+
+    try {
+      const { error } = await supabase
+        .from("trial_lessons")
+        .update({ is_completed: true })
+        .eq("id", selectedTrialLesson.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Deneme dersi işlendi olarak işaretlendi",
+      });
+
+      fetchSchedule();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: "İşlem başarısız oldu",
+        variant: "destructive",
+      });
+    } finally {
+      setSelectedTrialLesson(null);
+      setConfirmAction(null);
+    }
+  };
+
+  const handleMarkIncomplete = async () => {
+    if (!selectedTrialLesson) return;
+
+    try {
+      const { error } = await supabase
+        .from("trial_lessons")
+        .update({ is_completed: false })
+        .eq("id", selectedTrialLesson.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Deneme dersi işlenmedi olarak işaretlendi",
+      });
+
+      fetchSchedule();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: "İşlem başarısız oldu",
+        variant: "destructive",
+      });
+    } finally {
+      setSelectedTrialLesson(null);
+      setConfirmAction(null);
+    }
+  };
+
   const timeSlots = getAllTimeSlots();
 
   return (
@@ -223,7 +298,8 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
                             </div>
                           ) : trialLesson ? (
                             <div
-                              className={`p-2 rounded border-2 ${
+                              onClick={() => handleTrialLessonClick(trialLesson)}
+                              className={`p-2 rounded border-2 cursor-pointer hover:opacity-80 transition-opacity ${
                                 trialLesson.is_completed 
                                   ? "bg-red-200/50 border-red-400/50" 
                                   : "bg-red-200 border-red-400"
@@ -247,6 +323,36 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
           </div>
         )}
       </DialogContent>
+
+      <AlertDialog open={confirmAction === "complete"} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deneme Dersini İşle</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu deneme dersini işlendi olarak işaretlemek istediğinize emin misiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMarkComplete}>İşlendi Olarak İşaretle</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmAction === "incomplete"} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>İşlediyi Geri Al</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu deneme dersinin işlendiğini geri almak istediğinize emin misiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMarkIncomplete}>İşlendiyi Geri Al</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
