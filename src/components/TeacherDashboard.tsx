@@ -11,6 +11,7 @@ import { EditStudentLessonsDialog } from "./EditStudentLessonsDialog";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { NotificationBell } from "./NotificationBell";
+import { ContactDialog } from "./ContactDialog";
 
 interface StudentLesson {
   id?: string;
@@ -279,6 +280,7 @@ export function TeacherDashboard() {
         rightActions={
           <div className="flex items-center gap-2">
             <NotificationBell teacherId={profile?.user_id || ""} />
+            <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="h-4 w-4 mr-2" />
               Çıkış Yap
