@@ -134,7 +134,6 @@ export function TeacherDashboard() {
     }
   };
 
-
   const getDayName = (dayOfWeek?: number) => {
     const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
     return dayOfWeek !== undefined ? days[dayOfWeek] : "";
@@ -203,11 +202,11 @@ export function TeacherDashboard() {
       <Header
         rightActions={
           <div className="flex items-center gap-2">
+            <NotificationBell teacherId={profile?.user_id || ""} />
             <Button onClick={() => setShowGlobalTopics(true)} variant="outline" size="sm">
               <BookOpen className="h-4 w-4 mr-2" />
               Konular
             </Button>
-            <NotificationBell teacherId={profile?.user_id || ""} />
             <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="h-4 w-4 mr-2" />
