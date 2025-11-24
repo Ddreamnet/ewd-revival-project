@@ -116,22 +116,38 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     }
   };
 
-  const calculateLessonDates = (firstLessonDate: Date): LessonDates => {
+  const calculateLessonDates = (markedLessonNumber: number, markedDate: Date): LessonDates => {
     if (studentLessonDays.length === 0) return {};
 
     const dates: LessonDates = {};
-    let currentDate = new Date(firstLessonDate);
+    const totalLessons = studentLessonDays.length * 4; // 4 weeks
+    
+    // Set the marked lesson's date
+    dates[markedLessonNumber.toString()] = format(markedDate, "yyyy-MM-dd");
+    
+    // Calculate dates for lessons BEFORE the marked lesson (going backwards)
+    let currentDate = new Date(markedDate);
     currentDate.setHours(0, 0, 0, 0);
     
-    const totalLessons = studentLessonDays.length * 4; // 4 weeks
-
-    for (let lessonCount = 1; lessonCount <= totalLessons; lessonCount++) {
-      // For the first lesson, use the provided date
-      if (lessonCount === 1) {
-        dates[lessonCount.toString()] = format(currentDate, "yyyy-MM-dd");
-        continue;
+    for (let lessonCount = markedLessonNumber - 1; lessonCount >= 1; lessonCount--) {
+      // Find the previous lesson day (going backwards)
+      let daysToSubtract = 1;
+      let prevDate = addDays(currentDate, -daysToSubtract);
+      
+      while (!studentLessonDays.includes(prevDate.getDay())) {
+        daysToSubtract++;
+        prevDate = addDays(currentDate, -daysToSubtract);
       }
-
+      
+      currentDate = prevDate;
+      dates[lessonCount.toString()] = format(currentDate, "yyyy-MM-dd");
+    }
+    
+    // Calculate dates for lessons AFTER the marked lesson (going forwards)
+    currentDate = new Date(markedDate);
+    currentDate.setHours(0, 0, 0, 0);
+    
+    for (let lessonCount = markedLessonNumber + 1; lessonCount <= totalLessons; lessonCount++) {
       // Find the next lesson day
       let daysToAdd = 1;
       let nextDate = addDays(currentDate, daysToAdd);
@@ -169,10 +185,10 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
       const newCompletedLessons = [...completedLessons, pendingLesson].sort((a, b) => a - b);
       let newLessonDates = { ...lessonDates };
 
-      // If this is the first lesson marked, calculate all dates
+      // If this is the first time marking a lesson, calculate all dates based on the marked lesson
       if (Object.keys(lessonDates).length === 0) {
         const today = new Date();
-        newLessonDates = calculateLessonDates(today);
+        newLessonDates = calculateLessonDates(pendingLesson, today);
       }
 
       const { error } = await supabase
