@@ -7,9 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, BookOpen, LogOut, Plus, Settings, Clock, FolderOpen } from "lucide-react";
 import { StudentTopics } from "./StudentTopics";
-import { AddStudentDialog } from "./AddStudentDialog";
 import { EditStudentLessonsDialog } from "./EditStudentLessonsDialog";
-import { CreateStudentDialog } from "./CreateStudentDialog";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 
@@ -35,8 +33,6 @@ export function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAddStudent, setShowAddStudent] = useState(false);
-  const [showCreateStudent, setShowCreateStudent] = useState(false);
   const [showEditSchedule, setShowEditSchedule] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
@@ -134,79 +130,6 @@ export function TeacherDashboard() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAddStudent = async (studentEmail: string, lessons: StudentLesson[]) => {
-    try {
-      // First, find the student profile by email
-      const { data: studentProfile, error: profileError } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, email, role")
-        .eq("email", studentEmail)
-        .eq("role", "student")
-        .single();
-
-      if (profileError || !studentProfile) {
-        toast({
-          title: "Hata",
-          description: "Öğrenci bulunamadı veya öğrenci hesabı değil",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Check if student is already assigned
-      const { data: existing } = await supabase
-        .from("students")
-        .select("id")
-        .eq("teacher_id", profile?.user_id)
-        .eq("student_id", studentProfile.user_id)
-        .single();
-
-      if (existing) {
-        toast({
-          title: "Hata",
-          description: "Öğrenci zaten size atanmış",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Add student relationship
-      const { error: studentError } = await supabase.from("students").insert({
-        teacher_id: profile?.user_id,
-        student_id: studentProfile.user_id,
-      });
-
-      if (studentError) throw studentError;
-
-      // Add lessons
-      const lessonsToInsert = lessons.map((lesson) => ({
-        student_id: studentProfile.user_id,
-        teacher_id: profile?.user_id,
-        day_of_week: lesson.dayOfWeek,
-        start_time: lesson.startTime,
-        end_time: lesson.endTime,
-      }));
-
-      const { error } = await supabase.from("student_lessons").insert(lessonsToInsert);
-
-      if (error) throw error;
-
-      toast({
-        title: "Başarılı",
-        description: "Öğrenci başarıyla eklendi",
-      });
-
-      fetchStudents();
-      setShowAddStudent(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
     }
   };
 
@@ -379,20 +302,6 @@ export function TeacherDashboard() {
                     </CardTitle>
                     <CardDescription>{students.length} öğrenci kayıtlı</CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => setShowAddStudent(true)} variant="outline" className="shrink-0">
-                      <Plus className="h-4 w-4 mr-1" />
-                      Ekle
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => setShowCreateStudent(true)}
-                      className="shrink-0 transition-all duration-150 hover:scale-105 active:scale-95"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Oluştur
-                    </Button>
-                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -484,15 +393,6 @@ export function TeacherDashboard() {
 
       {/* Global Topics Manager - Read-only for teachers */}
       <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={false} />
-
-      <AddStudentDialog open={showAddStudent} onOpenChange={setShowAddStudent} onAddStudent={handleAddStudent} />
-
-      <CreateStudentDialog
-        open={showCreateStudent}
-        onOpenChange={setShowCreateStudent}
-        onStudentCreated={fetchStudents}
-        teacherId={profile?.user_id || ""}
-      />
 
       <EditStudentLessonsDialog
         open={showEditSchedule}

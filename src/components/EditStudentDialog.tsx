@@ -5,13 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface StudentLesson {
+  id?: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+}
+
+interface EditStudentDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onStudentUpdated: () => void;
+  studentId: string;
+  currentName: string;
+  currentLessons: StudentLesson[];
 }
 
 const daysOfWeek = [
@@ -24,21 +34,31 @@ const daysOfWeek = [
   { value: 0, label: "Pazar" },
 ];
 
-interface CreateStudentDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onStudentCreated: () => void;
-  teacherId: string;
-}
-
-export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teacherId }: CreateStudentDialogProps) {
-  const [email, setEmail] = useState("");
+export function EditStudentDialog({
+  open,
+  onOpenChange,
+  onStudentUpdated,
+  studentId,
+  currentName,
+  currentLessons,
+}: EditStudentDialogProps) {
   const [name, setName] = useState("");
-  const [tempPassword, setTempPassword] = useState("");
   const [lessonsPerWeek, setLessonsPerWeek] = useState(1);
   const [lessons, setLessons] = useState<StudentLesson[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      setName(currentName);
+      setLessonsPerWeek(currentLessons.length || 1);
+      setLessons(
+        currentLessons.length > 0
+          ? currentLessons
+          : [{ dayOfWeek: 1, startTime: "", endTime: "" }]
+      );
+    }
+  }, [open, currentName, currentLessons]);
 
   useEffect(() => {
     if (lessonsPerWeek > lessons.length) {
@@ -61,10 +81,10 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !name || !tempPassword) {
+    if (!name.trim()) {
       toast({
         title: "Hata",
-        description: "Lütfen tüm alanları doldurun",
+        description: "Öğrenci adı gereklidir",
         variant: "destructive",
       });
       return;
@@ -82,48 +102,56 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("create-student", {
-        body: {
-          email,
-          name,
-          password: tempPassword,
-          teacherId,
-          lessons: lessons.map((lesson) => ({
-            day_of_week: lesson.dayOfWeek,
-            start_time: lesson.startTime,
-            end_time: lesson.endTime,
-          })),
-        },
-      });
+      // Get student's user_id and teacher_id from the students table
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("student_id, teacher_id")
+        .eq("id", studentId)
+        .single();
 
-      if (error) throw error;
+      if (studentError) throw studentError;
 
-      const result = data as any;
-      if (result?.error) {
-        toast({
-          title: "Hata",
-          description: result.error,
-          variant: "destructive",
-        });
-        return;
-      }
+      // Update student name in profiles
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: name.trim() })
+        .eq("user_id", studentData.student_id);
+
+      if (profileError) throw profileError;
+
+      // Delete existing lessons
+      const { error: deleteError } = await supabase
+        .from("student_lessons")
+        .delete()
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new lessons
+      const lessonsToInsert = lessons.map((lesson) => ({
+        student_id: studentData.student_id,
+        teacher_id: studentData.teacher_id,
+        day_of_week: lesson.dayOfWeek,
+        start_time: lesson.startTime,
+        end_time: lesson.endTime,
+      }));
+
+      const { error: insertError } = await supabase.from("student_lessons").insert(lessonsToInsert);
+
+      if (insertError) throw insertError;
 
       toast({
         title: "Başarılı",
-        description: `Öğrenci hesabı başarıyla oluşturuldu! Geçici şifre: ${tempPassword}`,
+        description: "Öğrenci ayarları güncellendi",
       });
 
-      setEmail("");
-      setName("");
-      setTempPassword("");
-      setLessonsPerWeek(1);
-      setLessons([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
-      onStudentCreated();
+      onStudentUpdated();
       onOpenChange(false);
     } catch (error: any) {
       toast({
         title: "Hata",
-        description: error.message || "Öğrenci hesabı oluşturulamadı",
+        description: error.message || "Öğrenci ayarları güncellenemedi",
         variant: "destructive",
       });
     } finally {
@@ -131,65 +159,24 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
     }
   };
 
-  const generatePassword = () => {
-    const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-    let result = "";
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setTempPassword(result);
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Öğrenci Hesabı Oluştur
-          </DialogTitle>
+          <DialogTitle>Öğrenci Ayarları</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Öğrenci E-postası</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ogrenci@example.com"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="name">Ad Soyad</Label>
+            <Label htmlFor="name">Öğrenci Adı</Label>
             <Input
               id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Öğrenci Adı"
+              placeholder="Ad Soyad"
               required
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Geçici Şifre</Label>
-            <div className="flex gap-2">
-              <Input
-                id="password"
-                type="text"
-                value={tempPassword}
-                onChange={(e) => setTempPassword(e.target.value)}
-                placeholder="Şifre oluştur veya gir"
-                required
-              />
-              <Button type="button" variant="outline" onClick={generatePassword} className="shrink-0">
-                Oluştur
-              </Button>
-            </div>
           </div>
 
           <div className="space-y-2">
@@ -257,24 +244,13 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
             ))}
           </div>
 
-          <div className="bg-muted/50 p-3 rounded-lg">
-            <p className="text-sm text-muted-foreground">
-              <strong>Not:</strong> Öğrenci bu geçici şifre ile oluşturulacak. Lütfen bu bilgileri öğrenci ile güvenli
-              şekilde paylaşın.
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               İptal
             </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="transition-all duration-150 hover:scale-105 active:scale-95"
-            >
+            <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Hesap Oluştur
+              Kaydet
             </Button>
           </div>
         </form>
