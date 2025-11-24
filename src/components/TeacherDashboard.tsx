@@ -12,6 +12,7 @@ import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { NotificationBell } from "./NotificationBell";
 import { ContactDialog } from "./ContactDialog";
+import { WeeklyScheduleDialog } from "./WeeklyScheduleDialog";
 
 interface StudentLesson {
   id?: string;
@@ -38,6 +39,7 @@ export function TeacherDashboard() {
   const [showEditSchedule, setShowEditSchedule] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
+  const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -280,6 +282,10 @@ export function TeacherDashboard() {
         rightActions={
           <div className="flex items-center gap-2">
             <NotificationBell teacherId={profile?.user_id || ""} />
+            <Button onClick={() => setShowWeeklySchedule(true)} variant="outline" size="sm">
+              <Clock className="h-4 w-4 mr-2" />
+              Ders Programı
+            </Button>
             <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="h-4 w-4 mr-2" />
@@ -415,6 +421,12 @@ export function TeacherDashboard() {
         }
         onSaveChanges={handleSaveChanges}
         onRemoveStudent={handleRemoveStudent}
+      />
+
+      <WeeklyScheduleDialog
+        open={showWeeklySchedule}
+        onOpenChange={setShowWeeklySchedule}
+        teacherId={profile?.user_id || ""}
       />
     </div>
   );
