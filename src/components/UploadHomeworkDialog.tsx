@@ -72,9 +72,11 @@ export function UploadHomeworkDialog({
 
     try {
       // Upload file to storage
+      // Folder yapısı: studentId/uploadedById/filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${studentId}/${fileName}`;
+      const uploaderId = uploadedByUserId || studentId;
+      const filePath = `${studentId}/${uploaderId}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('homework-files')
