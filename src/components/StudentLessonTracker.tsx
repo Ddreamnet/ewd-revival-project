@@ -3,14 +3,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { BookCheck } from "lucide-react";
+import { format } from "date-fns";
 
 interface StudentLessonTrackerProps {
   studentId: string;
 }
 
+interface LessonDates {
+  [key: string]: string;
+}
+
 export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
   const [lessonsPerWeek, setLessonsPerWeek] = useState<number>(1);
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
+  const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -37,6 +43,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
             const data = payload.new as any;
             setLessonsPerWeek(data.lessons_per_week || 1);
             setCompletedLessons(data.completed_lessons || []);
+            setLessonDates(data.lesson_dates || {});
           }
         },
       )
@@ -75,6 +82,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
       if (data) {
         setLessonsPerWeek((data as any).lessons_per_week);
         setCompletedLessons((data as any).completed_lessons || []);
+        setLessonDates((data as any).lesson_dates || {});
       }
     } catch (error: any) {
       console.error("Failed to fetch lesson tracking:", error);
@@ -126,21 +134,28 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
                   if (lessonNumber > totalLessonsPerMonth) return null;
 
                   const isCompleted = completedLessons.includes(lessonNumber);
+                  const lessonDate = lessonDates[lessonNumber.toString()];
 
                   return (
-                    <div
-                      key={lessonNumber}
-                      className={`
-                      h-8 w-8 rounded-lg border-2 transition-all duration-200
-                      flex items-center justify-center text-xs font-semibold shadow-sm
-                      ${
-                        isCompleted
-                          ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md"
-                          : "bg-muted/50 border-muted-foreground/20"
-                      }
-                    `}
-                    >
-                      {lessonNumber}
+                    <div key={lessonNumber} className="flex flex-col items-center gap-0.5">
+                      <div
+                        className={`
+                        h-8 w-8 rounded-lg border-2 transition-all duration-200
+                        flex items-center justify-center text-xs font-semibold shadow-sm
+                        ${
+                          isCompleted
+                            ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md"
+                            : "bg-muted/50 border-muted-foreground/20"
+                        }
+                      `}
+                      >
+                        {lessonNumber}
+                      </div>
+                      {lessonDate && (
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          {format(new Date(lessonDate), "dd.MM")}
+                        </span>
+                      )}
                     </div>
                   );
                 })}

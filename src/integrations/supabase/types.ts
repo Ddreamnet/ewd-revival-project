@@ -179,6 +179,7 @@ export type Database = {
           completed_lessons: number[] | null
           created_at: string | null
           id: string
+          lesson_dates: Json | null
           lessons_per_week: number
           month_start_date: string
           student_id: string
@@ -189,6 +190,7 @@ export type Database = {
           completed_lessons?: number[] | null
           created_at?: string | null
           id?: string
+          lesson_dates?: Json | null
           lessons_per_week: number
           month_start_date?: string
           student_id: string
@@ -199,6 +201,7 @@ export type Database = {
           completed_lessons?: number[] | null
           created_at?: string | null
           id?: string
+          lesson_dates?: Json | null
           lessons_per_week?: number
           month_start_date?: string
           student_id?: string

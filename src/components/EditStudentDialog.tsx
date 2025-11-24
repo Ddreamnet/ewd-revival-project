@@ -4,15 +4,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { format, addDays, parse } from "date-fns";
 
 interface StudentLesson {
   id?: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+}
+
+interface LessonDates {
+  [key: string]: string;
 }
 
 interface EditStudentDialogProps {
@@ -45,7 +62,12 @@ export function EditStudentDialog({
   const [name, setName] = useState("");
   const [lessonsPerWeek, setLessonsPerWeek] = useState(1);
   const [lessons, setLessons] = useState<StudentLesson[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
+  const [completedLessons, setCompletedLessons] = useState<number[]>([]);
+  const [lessonDates, setLessonDates] = useState<LessonDates>({});
+  const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
   const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,8 +79,44 @@ export function EditStudentDialog({
           ? currentLessons
           : [{ dayOfWeek: 1, startTime: "", endTime: "" }]
       );
+      fetchLessonTracking();
     }
   }, [open, currentName, currentLessons]);
+
+  const fetchLessonTracking = async () => {
+    try {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("student_id, teacher_id")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError) throw studentError;
+
+      const { data, error } = await supabase
+        .from("student_lesson_tracking")
+        .select("*")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .eq("month_start_date", monthStart.toISOString().split("T")[0])
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") throw error;
+
+      if (data) {
+        setCompletedLessons((data as any).completed_lessons || []);
+        const dates = (data as any).lesson_dates || {};
+        setLessonDates(dates);
+        setOriginalLessonDates(dates);
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch lesson tracking:", error);
+    }
+  };
 
   useEffect(() => {
     if (lessonsPerWeek > lessons.length) {
@@ -76,6 +134,109 @@ export function EditStudentDialog({
     const updatedLessons = [...lessons];
     updatedLessons[index] = { ...updatedLessons[index], [field]: value };
     setLessons(updatedLessons);
+  };
+
+  const updateLessonDate = (lessonNumber: number, dateStr: string) => {
+    setLessonDates({
+      ...lessonDates,
+      [lessonNumber.toString()]: dateStr,
+    });
+  };
+
+  const recalculateRemainingDates = (fromLessonNumber: number, startDate: string): LessonDates => {
+    const newDates = { ...lessonDates };
+    const lessonDays = lessons.map((l) => l.dayOfWeek).sort((a, b) => a - b);
+    let currentDate = parse(startDate, "yyyy-MM-dd", new Date());
+    currentDate.setHours(0, 0, 0, 0);
+    
+    const totalLessons = lessonsPerWeek * 4;
+    
+    for (let i = fromLessonNumber + 1; i <= totalLessons; i++) {
+      // Find the next lesson day
+      let daysToAdd = 1;
+      let nextDate = addDays(currentDate, daysToAdd);
+      
+      while (!lessonDays.includes(nextDate.getDay())) {
+        daysToAdd++;
+        nextDate = addDays(currentDate, daysToAdd);
+      }
+      
+      currentDate = nextDate;
+      newDates[i.toString()] = format(currentDate, "yyyy-MM-dd");
+    }
+    
+    return newDates;
+  };
+
+  const handleDateSubmit = () => {
+    // Check if dates have changed
+    const hasChanges = Object.keys(lessonDates).some(
+      (key) => lessonDates[key] !== originalLessonDates[key]
+    );
+
+    if (hasChanges) {
+      setShowConfirm(true);
+    } else {
+      toast({
+        title: "Bilgi",
+        description: "Hiçbir değişiklik yapılmadı",
+      });
+    }
+  };
+
+  const confirmDateUpdate = async () => {
+    try {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("student_id, teacher_id")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError) throw studentError;
+
+      let finalDates = lessonDates;
+
+      if (updateRemainingDays) {
+        // Find the first changed date
+        const changedKeys = Object.keys(lessonDates).filter(
+          (key) => lessonDates[key] !== originalLessonDates[key]
+        );
+
+        if (changedKeys.length > 0) {
+          const firstChangedLesson = Math.min(...changedKeys.map(Number));
+          finalDates = recalculateRemainingDates(firstChangedLesson, lessonDates[firstChangedLesson.toString()]);
+        }
+      }
+
+      const { error } = await supabase
+        .from("student_lesson_tracking")
+        .update({ lesson_dates: finalDates })
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .eq("month_start_date", monthStart.toISOString().split("T")[0]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Ders tarihleri güncellendi",
+      });
+
+      setOriginalLessonDates(finalDates);
+      setLessonDates(finalDates);
+      setShowConfirm(false);
+      setUpdateRemainingDays(false);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Tarihler güncellenemedi",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -244,6 +405,47 @@ export function EditStudentDialog({
             ))}
           </div>
 
+          <Separator className="my-4" />
+
+          {/* İşlenen Dersler Bölümü */}
+          <div className="space-y-3">
+            <Label className="text-base font-medium">İşlenen Dersler</Label>
+            {completedLessons.length > 0 ? (
+              <div className="space-y-2">
+                {completedLessons.map((lessonNumber) => (
+                  <div key={lessonNumber} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="h-4 w-4 rounded-full bg-primary" />
+                      <span className="font-medium">Ders {lessonNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Tarih:</Label>
+                      <Input
+                        type="date"
+                        value={lessonDates[lessonNumber.toString()] || ""}
+                        onChange={(e) => updateLessonDate(lessonNumber, e.target.value)}
+                        className="w-40"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleDateSubmit}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  Tarihleri Onayla
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Henüz işlenen ders yok.
+              </p>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               İptal
@@ -255,6 +457,34 @@ export function EditStudentDialog({
           </div>
         </form>
       </DialogContent>
+
+      {/* Tarih Güncelleme Onay Dialog */}
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ders Tarihlerini Güncelle</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ders tarihlerini güncellemek istediğinize emin misiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="flex items-center space-x-2 py-4">
+            <Checkbox
+              id="update-remaining"
+              checked={updateRemainingDays}
+              onCheckedChange={(checked) => setUpdateRemainingDays(checked as boolean)}
+            />
+            <Label htmlFor="update-remaining" className="cursor-pointer font-normal">
+              Kalan günleri de güncelle
+            </Label>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUpdateRemainingDays(false)}>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDateUpdate}>Onayla</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
