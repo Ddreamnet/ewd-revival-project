@@ -89,11 +89,13 @@ export function HomeworkListDialog({
 
   const handleDownload = async (homework: Homework) => {
     try {
+      // Extract file path from public URL
       const urlParts = homework.file_url.split('/homework-files/');
       if (urlParts.length < 2) {
         throw new Error("Invalid file URL");
       }
-      const filePath = urlParts[1];
+      // Decode the path to handle special characters
+      const filePath = decodeURIComponent(urlParts[1]);
 
       const { data, error } = await supabase.storage
         .from('homework-files')
@@ -123,7 +125,8 @@ export function HomeworkListDialog({
       // Delete file from storage
       const urlParts = fileUrl.split('/homework-files/');
       if (urlParts.length >= 2) {
-        const filePath = urlParts[1];
+        // Decode the path to handle special characters
+        const filePath = decodeURIComponent(urlParts[1]);
         await supabase.storage
           .from('homework-files')
           .remove([filePath]);
