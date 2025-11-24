@@ -136,6 +136,41 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          homework_id: string
+          id: string
+          is_read: boolean
+          student_id: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          homework_id: string
+          id?: string
+          is_read?: boolean
+          student_id: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          homework_id?: string
+          id?: string
+          is_read?: boolean
+          student_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homework_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

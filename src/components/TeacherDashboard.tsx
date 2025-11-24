@@ -10,6 +10,7 @@ import { StudentTopics } from "./StudentTopics";
 import { EditStudentLessonsDialog } from "./EditStudentLessonsDialog";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
+import { NotificationBell } from "./NotificationBell";
 
 interface StudentLesson {
   id?: string;
@@ -276,10 +277,13 @@ export function TeacherDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
       <Header
         rightActions={
-          <Button onClick={signOut} variant="outline" size="sm">
-            <LogOut className="h-4 w-4 mr-2" />
-            Çıkış Yap
-          </Button>
+          <div className="flex items-center gap-2">
+            <NotificationBell teacherId={profile?.user_id || ""} />
+            <Button onClick={signOut} variant="outline" size="sm">
+              <LogOut className="h-4 w-4 mr-2" />
+              Çıkış Yap
+            </Button>
+          </div>
         }
       >
         <div>
