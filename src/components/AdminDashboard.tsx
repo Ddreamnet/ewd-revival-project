@@ -24,7 +24,6 @@ import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, 
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { CreateStudentDialog } from "./CreateStudentDialog";
-import { CreateTeacherDialog } from "./CreateTeacherDialog";
 
 interface Teacher {
   user_id: string;
@@ -57,7 +56,6 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
   const [showCreateStudent, setShowCreateStudent] = useState(false);
-  const [showCreateTeacher, setShowCreateTeacher] = useState(false);
   const [showStudentSettings, setShowStudentSettings] = useState(false);
   const [selectedStudentForSettings, setSelectedStudentForSettings] = useState<Student | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -233,10 +231,6 @@ export function AdminDashboard() {
                     </CardTitle>
                     <CardDescription>{teachers.length} öğretmen kayıtlı</CardDescription>
                   </div>
-                  <Button onClick={() => setShowCreateTeacher(true)} size="sm">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Öğretmen Oluştur
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -429,12 +423,6 @@ export function AdminDashboard() {
 
       <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} />
       
-      <CreateTeacherDialog
-        open={showCreateTeacher}
-        onOpenChange={setShowCreateTeacher}
-        onTeacherCreated={fetchTeachers}
-      />
-
       {selectedTeacher && (
         <CreateStudentDialog
           open={showCreateStudent}
