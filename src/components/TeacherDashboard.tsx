@@ -12,6 +12,7 @@ import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { NotificationBell } from "./NotificationBell";
 import { ContactDialog } from "./ContactDialog";
 import { WeeklyScheduleDialog } from "./WeeklyScheduleDialog";
+import { TeacherBalanceDialog } from "./TeacherBalanceDialog";
 
 interface StudentLesson {
   id?: string;
@@ -37,6 +38,7 @@ export function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
   const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
+  const [showBalance, setShowBalance] = useState(false);
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -235,10 +237,16 @@ export function TeacherDashboard() {
                     </CardTitle>
                     <CardDescription>{students.length} öğrenci kayıtlı</CardDescription>
                   </div>
-                  <Button onClick={() => setShowWeeklySchedule(true)} variant="outline" size="sm">
-                    <Clock className="h-4 w-4 mr-2" />
-                    Ders Programı
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => setShowBalance(true)} variant="outline" size="sm">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Bakiye
+                    </Button>
+                    <Button onClick={() => setShowWeeklySchedule(true)} variant="outline" size="sm">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Ders Programı
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -322,6 +330,12 @@ export function TeacherDashboard() {
       <WeeklyScheduleDialog
         open={showWeeklySchedule}
         onOpenChange={setShowWeeklySchedule}
+        teacherId={profile?.user_id || ""}
+      />
+
+      <TeacherBalanceDialog
+        open={showBalance}
+        onOpenChange={setShowBalance}
         teacherId={profile?.user_id || ""}
       />
     </div>

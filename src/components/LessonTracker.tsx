@@ -203,6 +203,9 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
       if (error) throw error;
 
+      // Update teacher balance
+      await updateTeacherBalance();
+
       setCompletedLessons(newCompletedLessons);
       setLessonDates(newLessonDates);
       toast({
@@ -218,6 +221,53 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     } finally {
       setShowConfirm(false);
       setPendingLesson(null);
+    }
+  };
+
+  const updateTeacherBalance = async () => {
+    try {
+      // Get lesson duration
+      const { data: lessonData } = await supabase
+        .from("student_lessons")
+        .select("start_time, end_time")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .limit(1)
+        .single();
+
+      if (!lessonData) return;
+
+      const startTime = new Date(`2000-01-01T${lessonData.start_time}`);
+      const endTime = new Date(`2000-01-01T${lessonData.end_time}`);
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+
+      // Check if teacher balance exists
+      const { data: existingBalance } = await supabase
+        .from("teacher_balance")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .maybeSingle();
+
+      if (existingBalance) {
+        // Update existing balance
+        await supabase
+          .from("teacher_balance")
+          .update({
+            total_minutes: existingBalance.total_minutes + durationMinutes,
+            completed_regular_lessons: existingBalance.completed_regular_lessons + 1,
+          })
+          .eq("teacher_id", teacherId);
+      } else {
+        // Create new balance
+        await supabase.from("teacher_balance").insert({
+          teacher_id: teacherId,
+          total_minutes: durationMinutes,
+          completed_regular_lessons: 1,
+          completed_trial_lessons: 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating teacher balance:", error);
     }
   };
 
