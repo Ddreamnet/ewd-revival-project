@@ -86,7 +86,18 @@ export function StudentDashboard() {
    */
   const fetchTopics = async () => {
     try {
-      // 1) Öğrenciye özel konuları getir
+      // 1) Önce öğrencinin öğretmenini bul
+      const { data: studentRelation, error: relationError } = await supabase
+        .from("students")
+        .select("teacher_id")
+        .eq("student_id", profile?.user_id)
+        .single();
+
+      if (relationError) throw relationError;
+
+      console.log("Student's teacher ID:", studentRelation.teacher_id);
+
+      // 2) Öğrenciye özel konuları getir
       const studentTopicsResponse = await supabase
         .from("topics")
         .select("*, resources (*)")
@@ -95,7 +106,7 @@ export function StudentDashboard() {
 
       if (studentTopicsResponse.error) throw studentTopicsResponse.error;
 
-      // 2) Tüm global konuları getir (öğretmen filtresi yok)
+      // 3) Sadece öğrencinin öğretmenine ait global konuları getir
       const globalTopicsResponse = await supabase
         .from("global_topics")
         .select(
@@ -104,6 +115,7 @@ export function StudentDashboard() {
     global_topic_resources (*)
   `,
         )
+        .eq("teacher_id", studentRelation.teacher_id)
         .order("order_index");
 
       if (globalTopicsResponse.error) throw globalTopicsResponse.error;
@@ -160,9 +172,16 @@ export function StudentDashboard() {
 
       // 7) Global konuları işle - tüm konuları göster, tamamlanma durumunu işaretle
       const processedGlobalTopics = globalTopics.map((topic) => {
+        console.log(`Processing global topic: ${topic.title}`, topic.id);
+        console.log(`Topic has ${topic.global_topic_resources?.length || 0} resources`);
+        
         const globalResources = (topic.global_topic_resources || [])
           .map((res: any) => {
             const completion = completionMap.get(res.id);
+            console.log(`Resource ${res.title} (${res.id}):`, {
+              hasCompletion: !!completion,
+              isCompleted: completion?.is_completed || false
+            });
             return {
               id: res.id,
               title: res.title,
@@ -176,9 +195,16 @@ export function StudentDashboard() {
           })
           .sort((a: Resource, b: Resource) => a.order_index - b.order_index);
 
+        console.log(`Global resources after processing:`, globalResources.map(r => ({
+          title: r.title,
+          is_completed: r.is_completed
+        })));
+
         // Tüm kaynaklar tamamlanmışsa konu da tamamlanmış sayılır
         const allResourcesCompleted =
           globalResources.length > 0 && globalResources.every((resource) => resource.is_completed);
+
+        console.log(`Topic ${topic.title} - all resources completed:`, allResourcesCompleted);
 
         return {
           id: `global-${topic.id}`,
