@@ -157,11 +157,8 @@ export function HomeworkListDialog({
   };
 
   const canEdit = (homework: Homework) => {
-    if (isTeacher) {
-      return homework.teacher_id === currentUserId;
-    } else {
-      return homework.student_id === currentUserId;
-    }
+    // Sadece yükleyen kişi düzenleyebilir/silebilir
+    return homework.uploaded_by_user_id === currentUserId;
   };
 
   const isUploadedByStudent = (homework: Homework) => {
