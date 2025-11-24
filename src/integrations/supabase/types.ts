@@ -486,7 +486,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_teacher: { Args: { user_id: string }; Returns: boolean }
+      is_teacher: { Args: { _user_id: string }; Returns: boolean }
       sync_missing_profiles: { Args: never; Returns: Json }
       teacher_owns_student: {
         Args: { _student_id: string; _teacher_id: string }
