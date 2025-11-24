@@ -106,7 +106,7 @@ export function StudentDashboard() {
 
       if (studentTopicsResponse.error) throw studentTopicsResponse.error;
 
-      // 3) Sadece öğrencinin öğretmenine ait global konuları getir
+      // 3) Tüm global konuları getir (admin sahipliğinde, tüm öğretmenler kullanabilir)
       const globalTopicsResponse = await supabase
         .from("global_topics")
         .select(
@@ -115,7 +115,6 @@ export function StudentDashboard() {
     global_topic_resources (*)
   `,
         )
-        .eq("teacher_id", studentRelation.teacher_id)
         .order("order_index");
 
       if (globalTopicsResponse.error) throw globalTopicsResponse.error;

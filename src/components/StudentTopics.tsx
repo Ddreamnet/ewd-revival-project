@@ -106,7 +106,7 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
 
       if (studentTopicsResponse.error) throw studentTopicsResponse.error;
 
-      // 2) Bu öğretmene ait global konuları getir
+      // 2) Tüm global konuları getir (admin sahipliğinde, tüm öğretmenler kullanabilir)
       const { data: globalTopics, error: globalTopicsError } = await supabase
         .from("global_topics")
         .select("*, global_topic_resources(*)")
