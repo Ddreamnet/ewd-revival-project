@@ -15,6 +15,7 @@ interface StudentLesson {
   start_time: string;
   end_time: string;
   student_name: string;
+  is_completed: boolean;
 }
 
 interface WeeklyScheduleDialogProps {
@@ -56,7 +57,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
       // First, fetch the lessons
       const { data: lessonsData, error: lessonsError } = await supabase
         .from("student_lessons")
-        .select("id, student_id, day_of_week, start_time, end_time")
+        .select("id, student_id, day_of_week, start_time, end_time, is_completed")
         .eq("teacher_id", teacherId)
         .order("start_time", { ascending: true });
 
@@ -84,6 +85,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
         start_time: lesson.start_time,
         end_time: lesson.end_time,
         student_name: studentNameMap[lesson.student_id] || "Bilinmeyen",
+        is_completed: lesson.is_completed,
       }));
 
       setLessons(formattedLessons);
@@ -171,7 +173,9 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
                         dayLessons.map((lesson) => (
                           <div
                             key={lesson.id}
-                            className={`p-2 rounded border-2 ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}
+                            className={`p-2 rounded border-2 transition-opacity ${
+                              lesson.is_completed ? "opacity-40" : "opacity-100"
+                            } ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}
                           >
                             <div className="font-medium text-xs mb-1">
                               {lesson.student_name}
