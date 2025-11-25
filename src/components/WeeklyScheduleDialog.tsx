@@ -62,6 +62,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
   const [studentColors, setStudentColors] = useState<Record<string, string>>({});
   const [selectedTrialLesson, setSelectedTrialLesson] = useState<TrialLesson | null>(null);
   const [confirmAction, setConfirmAction] = useState<"complete" | "incomplete" | null>(null);
+  const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
 
   const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
@@ -185,8 +186,9 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
   };
 
   const handleMarkComplete = async () => {
-    if (!selectedTrialLesson) return;
+    if (!selectedTrialLesson || processing) return;
 
+    setProcessing(true);
     try {
       const { error } = await supabase
         .from("trial_lessons")
@@ -203,7 +205,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
         description: "Deneme dersi işlendi olarak işaretlendi",
       });
 
-      fetchSchedule();
+      await fetchSchedule();
     } catch (error: any) {
       toast({
         title: "Hata",
@@ -213,12 +215,14 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     } finally {
       setSelectedTrialLesson(null);
       setConfirmAction(null);
+      setProcessing(false);
     }
   };
 
   const handleMarkIncomplete = async () => {
-    if (!selectedTrialLesson) return;
+    if (!selectedTrialLesson || processing) return;
 
+    setProcessing(true);
     try {
       const { error } = await supabase
         .from("trial_lessons")
@@ -235,7 +239,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
         description: "Deneme dersi işlenmedi olarak işaretlendi",
       });
 
-      fetchSchedule();
+      await fetchSchedule();
     } catch (error: any) {
       toast({
         title: "Hata",
@@ -245,6 +249,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     } finally {
       setSelectedTrialLesson(null);
       setConfirmAction(null);
+      setProcessing(false);
     }
   };
 
@@ -268,6 +273,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
           .update({
             total_minutes: Math.max(0, existingBalance.total_minutes - durationMinutes),
             completed_trial_lessons: Math.max(0, existingBalance.completed_trial_lessons - 1),
+            trial_lessons_minutes: Math.max(0, existingBalance.trial_lessons_minutes - durationMinutes),
           })
           .eq("teacher_id", teacherId);
       }
@@ -296,6 +302,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
           .update({
             total_minutes: existingBalance.total_minutes + durationMinutes,
             completed_trial_lessons: existingBalance.completed_trial_lessons + 1,
+            trial_lessons_minutes: existingBalance.trial_lessons_minutes + durationMinutes,
           })
           .eq("teacher_id", teacherId);
       } else {
@@ -305,6 +312,8 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
           total_minutes: durationMinutes,
           completed_regular_lessons: 0,
           completed_trial_lessons: 1,
+          regular_lessons_minutes: 0,
+          trial_lessons_minutes: durationMinutes,
         });
       }
     } catch (error) {
@@ -368,8 +377,12 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
                             </div>
                           ) : trialLesson ? (
                             <div
-                              onClick={() => handleTrialLessonClick(trialLesson)}
-                              className={`p-2 rounded border-2 cursor-pointer hover:opacity-80 transition-opacity ${
+                              onClick={() => !processing && handleTrialLessonClick(trialLesson)}
+                              className={`p-2 rounded border-2 transition-opacity ${
+                                processing 
+                                  ? "cursor-not-allowed opacity-50" 
+                                  : "cursor-pointer hover:opacity-80"
+                              } ${
                                 trialLesson.is_completed 
                                   ? "bg-red-200/50 border-red-400/50" 
                                   : "bg-red-200 border-red-400"

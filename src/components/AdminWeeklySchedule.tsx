@@ -237,6 +237,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           .update({
             total_minutes: existingBalance.total_minutes + durationMinutes,
             completed_trial_lessons: existingBalance.completed_trial_lessons + 1,
+            trial_lessons_minutes: existingBalance.trial_lessons_minutes + durationMinutes,
           })
           .eq("teacher_id", teacherId);
       } else {
@@ -246,6 +247,8 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           total_minutes: durationMinutes,
           completed_regular_lessons: 0,
           completed_trial_lessons: 1,
+          regular_lessons_minutes: 0,
+          trial_lessons_minutes: durationMinutes,
         });
       }
     } catch (error) {
@@ -273,6 +276,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           .update({
             total_minutes: Math.max(0, existingBalance.total_minutes - durationMinutes),
             completed_trial_lessons: Math.max(0, existingBalance.completed_trial_lessons - 1),
+            trial_lessons_minutes: Math.max(0, existingBalance.trial_lessons_minutes - durationMinutes),
           })
           .eq("teacher_id", teacherId);
       }

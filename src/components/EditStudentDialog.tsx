@@ -309,6 +309,7 @@ export function EditStudentDialog({
           .update({
             total_minutes: existingBalance.total_minutes + durationMinutes,
             completed_regular_lessons: existingBalance.completed_regular_lessons + 1,
+            regular_lessons_minutes: existingBalance.regular_lessons_minutes + durationMinutes,
           })
           .eq("teacher_id", teacherId);
       } else {
@@ -318,6 +319,8 @@ export function EditStudentDialog({
           total_minutes: durationMinutes,
           completed_regular_lessons: 1,
           completed_trial_lessons: 0,
+          regular_lessons_minutes: durationMinutes,
+          trial_lessons_minutes: 0,
         });
       }
     } catch (error) {
@@ -356,6 +359,7 @@ export function EditStudentDialog({
           .update({
             total_minutes: Math.max(0, existingBalance.total_minutes - durationMinutes),
             completed_regular_lessons: Math.max(0, existingBalance.completed_regular_lessons - 1),
+            regular_lessons_minutes: Math.max(0, existingBalance.regular_lessons_minutes - durationMinutes),
           })
           .eq("teacher_id", teacherId);
       }
