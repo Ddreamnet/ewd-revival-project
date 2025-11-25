@@ -15,11 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import html2canvas from "html2canvas";
 
 interface StudentLesson {
   id: string;
@@ -66,7 +63,6 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
   const [selectedTrialLesson, setSelectedTrialLesson] = useState<TrialLesson | null>(null);
   const [confirmAction, setConfirmAction] = useState<"complete" | "incomplete" | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
   const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
@@ -351,58 +347,13 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     }
   };
 
-  const handleDownloadSchedule = async () => {
-    setDownloading(true);
-    try {
-      const scheduleElement = document.getElementById("schedule-table");
-      if (!scheduleElement) {
-        throw new Error("Schedule element not found");
-      }
-
-      const canvas = await html2canvas(scheduleElement, {
-        backgroundColor: "#ffffff",
-        scale: 2,
-      });
-
-      const link = document.createElement("a");
-      const today = new Date().toISOString().split("T")[0];
-      link.download = `ders-programi-${today}.png`;
-      link.href = canvas.toDataURL();
-      link.click();
-
-      toast({
-        title: "Başarılı",
-        description: "Ders programı indirildi",
-      });
-    } catch (error) {
-      toast({
-        title: "Hata",
-        description: "Ders programı indirilemedi",
-        variant: "destructive",
-      });
-    } finally {
-      setDownloading(false);
-    }
-  };
-
   const timeSlots = getAllTimeSlots();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>Haftalık Ders Programı</DialogTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadSchedule}
-              disabled={downloading || loading || lessons.length === 0}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              İndir
-            </Button>
-          </div>
+          <DialogTitle>Haftalık Ders Programı</DialogTitle>
         </DialogHeader>
 
         {loading ? (
@@ -414,7 +365,7 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
             Henüz planlanmış ders yok
           </div>
         ) : (
-          <div className="overflow-x-auto" id="schedule-table">
+          <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
                 <tr>
