@@ -175,6 +175,13 @@ export function EditTeacherDialog({
         .eq("student_id", studentUserId)
         .eq("teacher_id", teacherId);
 
+      // Update notifications table
+      await supabase
+        .from("notifications")
+        .update({ teacher_id: selectedTeacher })
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherId);
+
       toast({
         title: "Başarılı",
         description: `${student.profiles.full_name} adlı öğrenci yeni öğretmene atandı`,
