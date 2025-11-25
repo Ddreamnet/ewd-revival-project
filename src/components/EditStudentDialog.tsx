@@ -185,6 +185,50 @@ export function EditStudentDialog({
     }
   };
 
+  const handleMarkLastLesson = async () => {
+    try {
+      const totalLessons = lessonsPerWeek * 4;
+      if (completedLessons.length >= totalLessons) return;
+
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("student_id, teacher_id")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError) throw studentError;
+
+      // Get the next lesson to mark (last completed + 1, or 1 if none completed)
+      const nextLesson = completedLessons.length === 0 ? 1 : Math.max(...completedLessons) + 1;
+      const newCompletedLessons = [...completedLessons, nextLesson].sort((a, b) => a - b);
+
+      const { error } = await supabase
+        .from("student_lesson_tracking")
+        .update({ completed_lessons: newCompletedLessons })
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .eq("month_start_date", monthStart.toISOString().split("T")[0]);
+
+      if (error) throw error;
+
+      setCompletedLessons(newCompletedLessons);
+      toast({
+        title: "Başarılı",
+        description: `${nextLesson}. ders işaretlendi`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Ders işaretlenemedi",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleUndoLastLesson = async () => {
     try {
       if (completedLessons.length === 0) return;
@@ -504,28 +548,41 @@ export function EditStudentDialog({
                   Ders tarihlerini düzenleyebilir ve güncelleyebilirsiniz.
                 </p>
               </div>
-              {completedLessons.length > 0 && (
-                <div className="flex gap-2">
+              <div className="flex gap-2">
+                {completedLessons.length < lessonsPerWeek * 4 && (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="default"
                     size="sm"
-                    onClick={handleUndoLastLesson}
+                    onClick={handleMarkLastLesson}
                     disabled={loading}
                   >
-                    Son Dersi Geri Al
+                    Son Dersi İşaretle
                   </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setShowResetConfirm(true)}
-                    disabled={loading}
-                  >
-                    Sıfırla
-                  </Button>
-                </div>
-              )}
+                )}
+                {completedLessons.length > 0 && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleUndoLastLesson}
+                      disabled={loading}
+                    >
+                      Son Dersi Geri Al
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowResetConfirm(true)}
+                      disabled={loading}
+                    >
+                      Sıfırla
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               {Array.from({ length: lessonsPerWeek * 4 }, (_, i) => i + 1).map((lessonNumber) => (
