@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
+import html2canvas from "html2canvas";
 
 interface StudentLesson {
   id: string;
@@ -48,6 +49,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [selectedTrialLesson, setSelectedTrialLesson] = useState<TrialLesson | null>(null);
   const [showMarkAlert, setShowMarkAlert] = useState(false);
   const [showUnmarkAlert, setShowUnmarkAlert] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -311,6 +313,40 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     }
   };
 
+  const handleDownloadSchedule = async () => {
+    setDownloading(true);
+    try {
+      const scheduleElement = document.getElementById("admin-schedule-table");
+      if (!scheduleElement) {
+        throw new Error("Schedule element not found");
+      }
+
+      const canvas = await html2canvas(scheduleElement, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+      });
+
+      const link = document.createElement("a");
+      const today = new Date().toISOString().split("T")[0];
+      link.download = `ders-programi-${today}.png`;
+      link.href = canvas.toDataURL();
+      link.click();
+
+      toast({
+        title: "Başarılı",
+        description: "Ders programı indirildi",
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Ders programı indirilemedi",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const timeSlots = getAllTimeSlots();
 
   if (loading) {
@@ -329,10 +365,21 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Haftalık Ders Programı</CardTitle>
-            <Button onClick={() => setShowAddTrial(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Deneme Ekle
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleDownloadSchedule}
+                disabled={downloading || loading}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                İndir
+              </Button>
+              <Button onClick={() => setShowAddTrial(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Deneme Ekle
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="text-center py-8 text-muted-foreground">
@@ -361,7 +408,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" id="admin-schedule-table">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
