@@ -297,15 +297,15 @@ export function StudentDashboard() {
           <>
             <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm">
-              <LogOut className="h-4 w-4 mr-2" />
-              Çıkış Yap
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline ml-2">Çıkış</span>
             </Button>
           </>
         }
       >
-        <div>
-          <h1 className="text-2xl font-bold">Öğrenme Panelim</h1>
-          <p className="text-lg text-muted-foreground">Hoş geldin, {profile?.full_name}</p>
+        <div className="text-center">
+          <h1 className="text-xl sm:text-2xl font-bold">Öğrenme Panelim</h1>
+          <p className="text-sm sm:text-lg text-muted-foreground hidden sm:block">Hoş geldin, {profile?.full_name}</p>
         </div>
       </Header>
 

@@ -203,23 +203,23 @@ export function TeacherDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
       <Header
         rightActions={
-          <div className="flex items-center gap-2">
+          <>
             <NotificationBell teacherId={profile?.user_id || ""} />
             <Button onClick={() => setShowGlobalTopics(true)} variant="outline" size="sm">
-              <BookOpen className="h-4 w-4 mr-2" />
-              Konular
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline ml-2">Konular</span>
             </Button>
             <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm">
-              <LogOut className="h-4 w-4 mr-2" />
-              Çıkış Yap
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline ml-2">Çıkış</span>
             </Button>
-          </div>
+          </>
         }
       >
-        <div>
-          <h1 className="text-2xl font-bold">Öğretmen Paneli</h1>
-          <p className="text-lg text-muted-foreground">Hoş geldin, {profile?.full_name}</p>
+        <div className="text-center">
+          <h1 className="text-xl sm:text-2xl font-bold">Öğretmen Paneli</h1>
+          <p className="text-sm sm:text-lg text-muted-foreground hidden sm:block">Hoş geldin, {profile?.full_name}</p>
         </div>
       </Header>
 
