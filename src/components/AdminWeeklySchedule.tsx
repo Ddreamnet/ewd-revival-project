@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Download, FileText, FileSpreadsheet, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import html2canvas from "html2canvas";
 
 interface StudentLesson {
   id: string;
@@ -48,6 +59,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [selectedTrialLesson, setSelectedTrialLesson] = useState<TrialLesson | null>(null);
   const [showMarkAlert, setShowMarkAlert] = useState(false);
   const [showUnmarkAlert, setShowUnmarkAlert] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -311,6 +323,133 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    setDownloading(true);
+    try {
+      const doc = new jsPDF({ orientation: "landscape" });
+      
+      doc.setFontSize(16);
+      doc.text("Haftalık Ders Programı", 14, 15);
+      
+      const tableData = timeSlots.map((timeSlot) => {
+        const row = [formatTime(timeSlot)];
+        DAYS.forEach((_, dayIndex) => {
+          const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
+          const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
+          if (lesson) {
+            row.push(`${lesson.student_name}\n${formatTime(lesson.start_time)} - ${formatTime(lesson.end_time)}`);
+          } else if (trialLesson) {
+            row.push(`Deneme Dersi\n${formatTime(trialLesson.start_time)} - ${formatTime(trialLesson.end_time)}`);
+          } else {
+            row.push("-");
+          }
+        });
+        return row;
+      });
+
+      autoTable(doc, {
+        head: [["Saat", ...DAYS]],
+        body: tableData,
+        startY: 25,
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      const today = new Date().toISOString().split("T")[0];
+      doc.save(`ders-programi-${today}.pdf`);
+
+      toast({
+        title: "Başarılı",
+        description: "Ders programı PDF olarak indirildi",
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "PDF indirilemedi",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadPNG = async () => {
+    setDownloading(true);
+    try {
+      const scheduleElement = document.getElementById("admin-schedule-table-content");
+      if (!scheduleElement) {
+        throw new Error("Schedule element not found");
+      }
+
+      const canvas = await html2canvas(scheduleElement, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+      });
+
+      const link = document.createElement("a");
+      const today = new Date().toISOString().split("T")[0];
+      link.download = `ders-programi-${today}.png`;
+      link.href = canvas.toDataURL();
+      link.click();
+
+      toast({
+        title: "Başarılı",
+        description: "Ders programı PNG olarak indirildi",
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "PNG indirilemedi",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    setDownloading(true);
+    try {
+      const data = [["Saat", ...DAYS]];
+      
+      timeSlots.forEach((timeSlot) => {
+        const row = [formatTime(timeSlot)];
+        DAYS.forEach((_, dayIndex) => {
+          const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
+          const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
+          if (lesson) {
+            row.push(`${lesson.student_name} (${formatTime(lesson.start_time)} - ${formatTime(lesson.end_time)})`);
+          } else if (trialLesson) {
+            row.push(`Deneme Dersi (${formatTime(trialLesson.start_time)} - ${formatTime(trialLesson.end_time)})`);
+          } else {
+            row.push("-");
+          }
+        });
+        data.push(row);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Ders Programı");
+
+      const today = new Date().toISOString().split("T")[0];
+      XLSX.writeFile(wb, `ders-programi-${today}.xlsx`);
+
+      toast({
+        title: "Başarılı",
+        description: "Ders programı Excel olarak indirildi",
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Excel indirilemedi",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const timeSlots = getAllTimeSlots();
 
   if (loading) {
@@ -329,10 +468,38 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Haftalık Ders Programı</CardTitle>
-            <Button onClick={() => setShowAddTrial(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Deneme Ekle
-            </Button>
+            <div className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={downloading || loading}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    İndir
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleDownloadPDF}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    PDF olarak indir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadPNG}>
+                    <Image className="h-4 w-4 mr-2" />
+                    PNG olarak indir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadExcel}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel olarak indir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={() => setShowAddTrial(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Deneme Ekle
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="text-center py-8 text-muted-foreground">
@@ -354,14 +521,42 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Haftalık Ders Programı</CardTitle>
-            <Button onClick={() => setShowAddTrial(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Deneme Ekle
-            </Button>
+            <div className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={downloading || loading}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    İndir
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleDownloadPDF}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    PDF olarak indir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadPNG}>
+                    <Image className="h-4 w-4 mr-2" />
+                    PNG olarak indir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadExcel}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel olarak indir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={() => setShowAddTrial(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Deneme Ekle
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" id="admin-schedule-table-content">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
