@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, parse } from "date-fns";
 
@@ -548,6 +548,82 @@ export function EditStudentDialog({
     }
   };
 
+  const handleDeleteStudent = async () => {
+    setLoading(true);
+    try {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("student_id, teacher_id")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError) throw studentError;
+
+      // Delete all related data
+      // 1. Delete student topics and resources
+      const { data: topics } = await supabase
+        .from("topics")
+        .select("id")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id);
+
+      if (topics && topics.length > 0) {
+        const topicIds = topics.map((t) => t.id);
+        await supabase.from("resources").delete().in("topic_id", topicIds);
+        await supabase.from("topics").delete().in("id", topicIds);
+      }
+
+      // 2. Delete student resource completion
+      await supabase
+        .from("student_resource_completion")
+        .delete()
+        .eq("student_id", studentData.student_id);
+
+      // 3. Delete student lesson tracking
+      await supabase
+        .from("student_lesson_tracking")
+        .delete()
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id);
+
+      // 4. Delete student lessons
+      await supabase
+        .from("student_lessons")
+        .delete()
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id);
+
+      // 5. Delete homework submissions (both from and to student)
+      await supabase
+        .from("homework_submissions")
+        .delete()
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id);
+
+      // 6. Delete student-teacher relationship
+      await supabase.from("students").delete().eq("id", studentId);
+
+      // 7. Delete profile (user account)
+      await supabase.from("profiles").delete().eq("user_id", studentData.student_id);
+
+      toast({
+        title: "Başarılı",
+        description: "Öğrenci ve tüm verileri silindi",
+      });
+
+      onStudentUpdated();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Öğrenci silinemedi",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -718,6 +794,37 @@ export function EditStudentDialog({
                 Tarihleri Onayla
               </Button>
             </div>
+          </div>
+
+          <Separator className="my-4" />
+
+          {/* Öğrenci Silme Bölümü */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base font-medium text-destructive">Tehlikeli Alan</Label>
+                <p className="text-sm text-muted-foreground">
+                  Öğrenciyi kalıcı olarak silmek için aşağıdaki butona tıklayın.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                const confirmed = window.confirm(
+                  `${currentName} adlı öğrenciyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve öğrencinin tüm verileri (dersler, ödevler, konular, kaynaklar) silinecektir.`
+                );
+                if (confirmed) {
+                  handleDeleteStudent();
+                }
+              }}
+              disabled={loading}
+              className="w-full"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Öğrenciyi Sil
+            </Button>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
