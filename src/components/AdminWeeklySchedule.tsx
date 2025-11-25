@@ -29,7 +29,7 @@ interface AdminWeeklyScheduleProps {
   teacherId: string;
 }
 
-const DAYS = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 const STUDENT_COLORS = [
   "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300",
   "bg-green-100 text-green-800 hover:bg-green-200 border-green-300",
@@ -131,11 +131,17 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const getLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    return lessons.find((l) => l.day_of_week === dayIndex && l.start_time === timeSlot);
+    // dayIndex: 0=Pazartesi, 6=Pazar
+    // day_of_week in DB: 1=Pazartesi, 0=Pazar
+    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+    return lessons.find((l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
   };
 
   const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    return trialLessons.find((l) => l.day_of_week === dayIndex && l.start_time === timeSlot);
+    // dayIndex: 0=Pazartesi, 6=Pazar
+    // day_of_week in DB: 1=Pazartesi, 0=Pazar
+    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+    return trialLessons.find((l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
   };
 
   const handleTrialLessonClick = (trial: TrialLesson) => {

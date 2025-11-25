@@ -108,13 +108,13 @@ export function SortableTopic({
                 <CardTitle className="text-lg">{topic.title}</CardTitle>
                 {topic.description && <CardDescription className="mt-1">{topic.description}</CardDescription>}
               </div>
-              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                <Badge variant="outline" className="pointer-events-none">{topic.resources.length} kaynak</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{topic.resources.length} kaynak</Badge>
                 {topic.resources.length > 0 && (
-                  <ChevronDown className={`h-4 w-4 transition-transform pointer-events-none ${isOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 )}
                 {isAdmin && (
-                  <>
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="outline"
                       size="sm"
@@ -132,7 +132,7 @@ export function SortableTopic({
                     <Button variant="destructive" size="sm" onClick={() => onDeleteTopic(topic.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
