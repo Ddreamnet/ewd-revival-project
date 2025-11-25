@@ -73,6 +73,32 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     }
   }, [open, teacherId]);
 
+  // Real-time listener for trial lesson updates
+  useEffect(() => {
+    if (!open || !teacherId) return;
+
+    const channel = supabase
+      .channel('trial-lessons-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'trial_lessons',
+          filter: `teacher_id=eq.${teacherId}`,
+        },
+        () => {
+          // Refetch schedule when trial lesson is updated
+          fetchSchedule();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [open, teacherId]);
+
   const fetchSchedule = async () => {
     setLoading(true);
     try {

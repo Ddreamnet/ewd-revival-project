@@ -54,6 +54,32 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     fetchSchedule();
   }, [teacherId]);
 
+  // Real-time listener for trial lesson updates
+  useEffect(() => {
+    if (!teacherId) return;
+
+    const channel = supabase
+      .channel('admin-trial-lessons-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'trial_lessons',
+          filter: `teacher_id=eq.${teacherId}`,
+        },
+        () => {
+          // Refetch schedule when trial lesson is updated
+          fetchSchedule();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [teacherId]);
+
   const fetchSchedule = async () => {
     try {
       setLoading(true);
