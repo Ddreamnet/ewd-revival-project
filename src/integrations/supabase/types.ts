@@ -96,6 +96,7 @@ export type Database = {
       }
       homework_submissions: {
         Row: {
+          batch_id: string
           created_at: string
           description: string | null
           file_name: string
@@ -109,6 +110,7 @@ export type Database = {
           uploaded_by_user_id: string
         }
         Insert: {
+          batch_id: string
           created_at?: string
           description?: string | null
           file_name: string
@@ -122,6 +124,7 @@ export type Database = {
           uploaded_by_user_id?: string
         }
         Update: {
+          batch_id?: string
           created_at?: string
           description?: string | null
           file_name?: string

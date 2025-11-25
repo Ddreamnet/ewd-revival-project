@@ -12,6 +12,7 @@ interface EditHomeworkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   homeworkId: string;
+  batchId: string;
   currentTitle: string;
   currentDescription: string | null;
   onSuccess?: () => void;
@@ -21,6 +22,7 @@ export function EditHomeworkDialog({
   open, 
   onOpenChange, 
   homeworkId,
+  batchId,
   currentTitle,
   currentDescription,
   onSuccess 
@@ -48,13 +50,14 @@ export function EditHomeworkDialog({
     setUpdating(true);
 
     try {
+      // Update all homework submissions with the same batch_id
       const { error } = await supabase
         .from('homework_submissions')
         .update({
           title: title.trim(),
           description: description.trim() || null,
         })
-        .eq('id', homeworkId);
+        .eq('batch_id', batchId);
 
       if (error) throw error;
 
