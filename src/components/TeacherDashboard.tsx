@@ -237,14 +237,14 @@ export function TeacherDashboard() {
                     </CardTitle>
                     <CardDescription>{students.length} öğrenci kayıtlı</CardDescription>
                   </div>
-                  <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-2">
-                    <Button onClick={() => setShowBalance(true)} variant="outline" size="sm" className="w-full sm:w-auto">
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => setShowBalance(true)} variant="outline" size="sm">
                       <Wallet className="h-4 w-4" />
-                      <span className="ml-2">Bakiye</span>
+                      <span className="ml-2 hidden lg:inline">Bakiye</span>
                     </Button>
-                    <Button onClick={() => setShowWeeklySchedule(true)} variant="outline" size="sm" className="w-full sm:w-auto">
+                    <Button onClick={() => setShowWeeklySchedule(true)} variant="outline" size="sm">
                       <Calendar className="h-4 w-4" />
-                      <span className="ml-2">Ders Programı</span>
+                      <span className="ml-2 hidden lg:inline">Ders Programı</span>
                     </Button>
                   </div>
                 </div>
