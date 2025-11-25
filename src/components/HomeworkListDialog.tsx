@@ -11,7 +11,6 @@ import { FileText, Calendar, Download, FileImage, File, Edit2, Trash2 } from "lu
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { EditHomeworkDialog } from "./EditHomeworkDialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface HomeworkListDialogProps {
   open: boolean;
@@ -228,7 +227,7 @@ export function HomeworkListDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="h-[500px] pr-4">
+          <div className="h-[500px]">
             {loading ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -239,7 +238,7 @@ export function HomeworkListDialog({
                 <p className="text-muted-foreground">Henüz ödev yok</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-x-visible pb-4 md:pb-0 snap-x snap-mandatory md:snap-none">
                 {groupedHomeworks.map((group) => {
                   const uploadedByStudent = isUploadedByStudent(group);
                   const cardColorClass = uploadedByStudent 
@@ -247,7 +246,7 @@ export function HomeworkListDialog({
                     : "border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950/20";
                   
                   return (
-                    <Card key={group.batch_id} className={cardColorClass}>
+                    <Card key={group.batch_id} className={`${cardColorClass} min-w-[85vw] md:min-w-0 flex-shrink-0 snap-center`}>
                       <CardContent className="p-4 relative pb-8">
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex-1 min-w-0">
@@ -345,7 +344,7 @@ export function HomeworkListDialog({
                 })}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
