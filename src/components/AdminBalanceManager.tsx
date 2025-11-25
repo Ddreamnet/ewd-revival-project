@@ -222,6 +222,23 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
     }
   };
 
+  const handleDeletePayment = async (paymentId: string) => {
+    try {
+      const { error } = await supabase
+        .from("payment_history")
+        .delete()
+        .eq("id", paymentId);
+
+      if (error) throw error;
+
+      toast.success("Ödeme kaydı silindi");
+      fetchPaymentHistory();
+    } catch (error) {
+      console.error("Error deleting payment:", error);
+      toast.error("Ödeme kaydı silinirken hata oluştu");
+    }
+  };
+
   const formatMinutes = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -262,7 +279,7 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <CheckCircle2 className="h-5 w-5 text-blue-500" />
                 <p className="text-sm font-medium text-muted-foreground">Normal Dersler</p>
               </div>
-              <p className="text-3xl font-bold">{balance?.completed_regular_lessons || 0}</p>
+              <p className="text-3xl font-bold">{balance?.completed_regular_lessons || 0} ders</p>
             </div>
           </CardContent>
         </Card>
@@ -274,7 +291,7 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <Calendar className="h-5 w-5 text-purple-500" />
                 <p className="text-sm font-medium text-muted-foreground">Deneme Dersleri</p>
               </div>
-              <p className="text-3xl font-bold">{balance?.completed_trial_lessons || 0}</p>
+              <p className="text-3xl font-bold">{balance?.completed_trial_lessons || 0} ders</p>
             </div>
           </CardContent>
         </Card>
@@ -355,8 +372,8 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
               {paymentHistory.map((payment) => (
                 <Card key={payment.id} className="border-l-4 border-l-primary">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-primary" />
                           <p className="font-semibold text-lg">{formatMinutes(payment.amount_minutes)}</p>
@@ -364,21 +381,31 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                         <div className="flex gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3 text-blue-500" />
-                            {payment.completed_regular_lessons} normal ders
+                            {payment.completed_regular_lessons} ders
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3 text-purple-500" />
-                            {payment.completed_trial_lessons} deneme dersi
+                            {payment.completed_trial_lessons} ders
                           </span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">
-                          {format(new Date(payment.payment_date), "dd MMMM yyyy", { locale: tr })}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(payment.payment_date), "HH:mm", { locale: tr })}
-                        </p>
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-right">
+                          <p className="text-sm font-medium">
+                            {format(new Date(payment.payment_date), "dd MMMM yyyy", { locale: tr })}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(payment.payment_date), "HH:mm", { locale: tr })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeletePayment(payment.id)}
+                          className="text-destructive hover:text-destructive h-8"
+                        >
+                          Sil
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
