@@ -8,8 +8,8 @@ export function ContactDialog() {
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <Contact className="h-4 w-4 mr-2" />
-          İletişim
+          <Contact className="h-4 w-4" />
+          <span className="hidden sm:inline ml-2">İletişim</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
