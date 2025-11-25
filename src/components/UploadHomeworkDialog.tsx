@@ -27,26 +27,40 @@ export function UploadHomeworkDialog({
 }: UploadHomeworkDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   const acceptedFileTypes = "image/jpeg,image/jpg,image/png,image/webp,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      // Check file size (max 10MB)
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        toast({
-          title: "Hata",
-          description: "Dosya boyutu en fazla 10MB olabilir",
-          variant: "destructive",
-        });
-        return;
+    const selectedFiles = e.target.files;
+    if (selectedFiles) {
+      const validFiles: File[] = [];
+      
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "Hata",
+            description: `${file.name} boyutu en fazla 10MB olabilir`,
+            variant: "destructive",
+          });
+          continue;
+        }
+        validFiles.push(file);
       }
-      setFile(selectedFile);
+      
+      setFiles(prev => [...prev, ...validFiles]);
     }
+    
+    // Reset input to allow selecting same file again
+    e.target.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
@@ -59,10 +73,10 @@ export function UploadHomeworkDialog({
       return;
     }
 
-    if (!file) {
+    if (files.length === 0) {
       toast({
         title: "Hata",
-        description: "Lütfen bir dosya seçin",
+        description: "Lütfen en az bir dosya seçin",
         variant: "destructive",
       });
       return;
@@ -71,28 +85,30 @@ export function UploadHomeworkDialog({
     setUploading(true);
 
     try {
-      // Upload file to storage
-      // Folder yapısı: studentId/uploadedById/filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
+      const batchId = crypto.randomUUID();
       const uploaderId = uploadedByUserId || studentId;
-      const filePath = `${studentId}/${uploaderId}/${fileName}`;
+      const submissions = [];
 
-      const { error: uploadError } = await supabase.storage
-        .from('homework-files')
-        .upload(filePath, file);
+      // Upload all files
+      for (const file of files) {
+        // Upload file to storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${studentId}/${uploaderId}/${fileName}`;
 
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('homework-files')
+          .upload(filePath, file);
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('homework-files')
-        .getPublicUrl(filePath);
+        if (uploadError) throw uploadError;
 
-      // Create homework submission record
-      const { error: insertError } = await supabase
-        .from('homework_submissions')
-        .insert({
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('homework-files')
+          .getPublicUrl(filePath);
+
+        submissions.push({
+          batch_id: batchId,
           student_id: studentId,
           teacher_id: teacherId,
           title: title.trim(),
@@ -100,20 +116,26 @@ export function UploadHomeworkDialog({
           file_url: publicUrl,
           file_type: file.type,
           file_name: file.name,
-          uploaded_by_user_id: uploadedByUserId || studentId, // Kim yüklüyorsa o
+          uploaded_by_user_id: uploaderId,
         });
+      }
+
+      // Create homework submission records
+      const { error: insertError } = await supabase
+        .from('homework_submissions')
+        .insert(submissions);
 
       if (insertError) throw insertError;
 
       toast({
         title: "Başarılı",
-        description: "Ödev başarıyla yüklendi",
+        description: `${files.length} dosya başarıyla yüklendi`,
       });
 
       // Reset form
       setTitle("");
       setDescription("");
-      setFile(null);
+      setFiles([]);
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
@@ -163,31 +185,33 @@ export function UploadHomeworkDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Dosya *</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="file"
-                accept={acceptedFileTypes}
-                onChange={handleFileChange}
-                disabled={uploading}
-                className="cursor-pointer"
-              />
-              {file && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setFile(null)}
-                  disabled={uploading}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            {file && (
-              <p className="text-sm text-muted-foreground">
-                Seçili dosya: {file.name}
-              </p>
+            <Label>Dosyalar *</Label>
+            <Input
+              type="file"
+              accept={acceptedFileTypes}
+              onChange={handleFileChange}
+              disabled={uploading}
+              className="cursor-pointer"
+              multiple
+            />
+            {files.length > 0 && (
+              <div className="space-y-2">
+                {files.map((file, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                    <span className="flex-1 truncate">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => removeFile(index)}
+                      disabled={uploading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             )}
             <p className="text-xs text-muted-foreground">
               Desteklenen formatlar: JPG, PNG, WEBP, PDF, DOCX (Maks. 10MB)
