@@ -13,6 +13,7 @@ import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { CreateStudentDialog } from "./CreateStudentDialog";
 import { CreateTeacherDialog } from "./CreateTeacherDialog";
 import { EditStudentDialog } from "./EditStudentDialog";
+import { EditTeacherDialog } from "./EditTeacherDialog";
 import { AddTopicDialog } from "./AddTopicDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { EditTopicDialog } from "./EditTopicDialog";
@@ -73,7 +74,9 @@ export function AdminDashboard() {
   const [showCreateStudent, setShowCreateStudent] = useState(false);
   const [showCreateTeacher, setShowCreateTeacher] = useState(false);
   const [showEditStudent, setShowEditStudent] = useState(false);
+  const [showEditTeacher, setShowEditTeacher] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [showAddTopic, setShowAddTopic] = useState(false);
   const [showAddResource, setShowAddResource] = useState(false);
   const [showEditTopic, setShowEditTopic] = useState(false);
@@ -212,6 +215,11 @@ export function AdminDashboard() {
   const openStudentSettings = (student: Student) => {
     setEditingStudent(student);
     setShowEditStudent(true);
+  };
+
+  const openTeacherSettings = (teacher: Teacher) => {
+    setEditingTeacher(teacher);
+    setShowEditTeacher(true);
   };
 
   const getResourceIcon = (type: string) => {
@@ -503,6 +511,16 @@ export function AdminDashboard() {
                               {teacher.students.length} öğrenci
                             </Badge>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openTeacherSettings(teacher);
+                            }}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -755,6 +773,16 @@ export function AdminDashboard() {
         onOpenChange={setShowCreateTeacher}
         onSuccess={fetchTeachers}
       />
+
+      {editingTeacher && (
+        <EditTeacherDialog
+          open={showEditTeacher}
+          onOpenChange={setShowEditTeacher}
+          onTeacherUpdated={fetchTeachers}
+          teacherId={editingTeacher.user_id}
+          currentName={editingTeacher.full_name}
+        />
+      )}
 
       {selectedTeacher && (
         <>
