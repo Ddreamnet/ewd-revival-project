@@ -125,7 +125,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         .from("trial_lessons")
         .select("*")
         .eq("teacher_id", teacherId)
-        .eq("lesson_date", new Date().toISOString().split("T")[0]);
+        .order("start_time", { ascending: true });
 
       if (trialError) throw trialError;
 
