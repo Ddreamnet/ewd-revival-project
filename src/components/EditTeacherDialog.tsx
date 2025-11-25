@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface EditTeacherDialogProps {
   open: boolean;
@@ -25,13 +27,59 @@ export function EditTeacherDialog({
 }: EditTeacherDialogProps) {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [students, setStudents] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<string>("");
+  const [selectedTeacher, setSelectedTeacher] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
       setName(currentName);
+      fetchStudents();
+      fetchTeachers();
+      setSelectedStudent("");
+      setSelectedTeacher("");
     }
-  }, [open, currentName]);
+  }, [open, currentName, teacherId]);
+
+  const fetchStudents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("students")
+        .select(`
+          id,
+          student_id,
+          profiles!students_student_id_fkey (
+            user_id,
+            full_name,
+            email
+          )
+        `)
+        .eq("teacher_id", teacherId);
+
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (error: any) {
+      console.error("Error fetching students:", error);
+    }
+  };
+
+  const fetchTeachers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .eq("role", "teacher")
+        .neq("user_id", teacherId);
+
+      if (error) throw error;
+      setTeachers(data || []);
+    } catch (error: any) {
+      console.error("Error fetching teachers:", error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +118,80 @@ export function EditTeacherDialog({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTransferStudent = async () => {
+    if (!selectedStudent || !selectedTeacher) {
+      toast({
+        title: "Uyarı",
+        description: "Lütfen bir öğrenci ve hedef öğretmen seçin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTransferLoading(true);
+    try {
+      // Get student info
+      const student = students.find((s) => s.id === selectedStudent);
+      if (!student) throw new Error("Öğrenci bulunamadı");
+
+      const studentUserId = student.profiles.user_id;
+
+      // Update students table
+      const { error: studentsError } = await supabase
+        .from("students")
+        .update({ teacher_id: selectedTeacher })
+        .eq("id", selectedStudent);
+
+      if (studentsError) throw studentsError;
+
+      // Update topics table
+      await supabase
+        .from("topics")
+        .update({ teacher_id: selectedTeacher })
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherId);
+
+      // Update student_lessons table
+      await supabase
+        .from("student_lessons")
+        .update({ teacher_id: selectedTeacher })
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherId);
+
+      // Update student_lesson_tracking table
+      await supabase
+        .from("student_lesson_tracking")
+        .update({ teacher_id: selectedTeacher })
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherId);
+
+      // Update homework_submissions table
+      await supabase
+        .from("homework_submissions")
+        .update({ teacher_id: selectedTeacher })
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherId);
+
+      toast({
+        title: "Başarılı",
+        description: `${student.profiles.full_name} adlı öğrenci yeni öğretmene atandı`,
+      });
+
+      fetchStudents();
+      setSelectedStudent("");
+      setSelectedTeacher("");
+      onTeacherUpdated();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Öğrenci atanamadı",
+        variant: "destructive",
+      });
+    } finally {
+      setTransferLoading(false);
     }
   };
 
@@ -155,6 +277,87 @@ export function EditTeacherDialog({
               placeholder="Ad Soyad"
               required
             />
+          </div>
+
+          <Separator className="my-4" />
+
+          {/* Öğrenci Atama Bölümü */}
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="text-base font-medium">Öğrenci Ataması</Label>
+              <p className="text-sm text-muted-foreground">
+                Bu öğretmene ait bir öğrenciyi başka bir öğretmene atayın
+              </p>
+            </div>
+
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  Öğrenciler ({students.length})
+                  <span className="text-xs text-muted-foreground">Tıklayın</span>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <RadioGroup value={selectedStudent} onValueChange={setSelectedStudent}>
+                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                    {students.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Bu öğretmene ait öğrenci yok
+                      </p>
+                    ) : (
+                      students.map((student) => (
+                        <div key={student.id} className="flex items-center space-x-2">
+                          <RadioGroupItem value={student.id} id={student.id} />
+                          <Label htmlFor={student.id} className="cursor-pointer flex-1">
+                            {student.profiles.full_name}
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </RadioGroup>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  Hedef Öğretmen ({teachers.length})
+                  <span className="text-xs text-muted-foreground">Tıklayın</span>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <RadioGroup value={selectedTeacher} onValueChange={setSelectedTeacher}>
+                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                    {teachers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Başka öğretmen yok
+                      </p>
+                    ) : (
+                      teachers.map((teacher) => (
+                        <div key={teacher.user_id} className="flex items-center space-x-2">
+                          <RadioGroupItem value={teacher.user_id} id={teacher.user_id} />
+                          <Label htmlFor={teacher.user_id} className="cursor-pointer flex-1">
+                            {teacher.full_name}
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </RadioGroup>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Button
+              type="button"
+              onClick={handleTransferStudent}
+              disabled={!selectedStudent || !selectedTeacher || transferLoading}
+              className="w-full"
+            >
+              {transferLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <UserCheck className="h-4 w-4 mr-2" />
+              Öğrenciyi Ata
+            </Button>
           </div>
 
           <Separator className="my-4" />
