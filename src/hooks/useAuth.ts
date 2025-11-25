@@ -19,6 +19,7 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -148,11 +149,26 @@ export function useAuth() {
   };
 
   const signOut = async () => {
+    if (signingOut) return; // Prevent multiple clicks
+    
+    setSigningOut(true);
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-    } catch (error) {
+      
+      toast({
+        title: "Başarılı",
+        description: "Çıkış yapıldı",
+      });
+    } catch (error: any) {
       console.error("Error signing out:", error);
+      toast({
+        title: "Hata",
+        description: error.message || "Çıkış yapılırken hata oluştu",
+        variant: "destructive",
+      });
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -161,6 +177,7 @@ export function useAuth() {
     session,
     profile,
     loading,
+    signingOut,
     signIn,
     signUp,
     signOut,

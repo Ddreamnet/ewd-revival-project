@@ -99,35 +99,39 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
   /**
    * Öğrenciye özel konuları ve global konuları getirir
    * Ayrıca tamamlanma durumlarını da işler
+   * Optimize edilmiş: Paralel veri çekme için Promise.all kullanır
    */
   const fetchTopics = async () => {
     try {
-      // 1) Öğrenciye özel konuları getir
-      const studentTopicsResponse = await supabase
-        .from("topics")
-        .select("*, resources (*)")
-        .eq("student_id", student.student_id)
-        .order("order_index");
+      // Tüm veri çekme işlemlerini paralel olarak yap (Safari için optimize edilmiş)
+      const [studentTopicsResponse, globalTopicsResponse, completionResponse] = await Promise.all([
+        // 1) Öğrenciye özel konuları getir
+        supabase
+          .from("topics")
+          .select("*, resources (*)")
+          .eq("student_id", student.student_id)
+          .order("order_index"),
+        
+        // 2) Tüm global konuları getir
+        supabase
+          .from("global_topics")
+          .select("*, global_topic_resources(*)")
+          .order("order_index"),
+        
+        // 3) Tüm tamamlanma verilerini getir
+        supabase
+          .from("student_resource_completion")
+          .select("*")
+          .eq("student_id", student.student_id)
+      ]);
 
       if (studentTopicsResponse.error) throw studentTopicsResponse.error;
+      if (globalTopicsResponse.error) throw globalTopicsResponse.error;
+      if (completionResponse.error) throw completionResponse.error;
 
-      // 2) Tüm global konuları getir (admin sahipliğinde, tüm öğretmenler kullanabilir)
-      const { data: globalTopics, error: globalTopicsError } = await supabase
-        .from("global_topics")
-        .select("*, global_topic_resources(*)")
-        .order("order_index");
-
-      if (globalTopicsError) throw globalTopicsError;
-
-      // 3) Tüm tamamlanma verilerini tek sorguda getir (URL limiti için)
       const studentTopics = studentTopicsResponse.data || [];
-
-      const { data: completionData, error: completionError } = await supabase
-        .from("student_resource_completion")
-        .select("*")
-        .eq("student_id", student.student_id);
-
-      if (completionError) throw completionError;
+      const globalTopics = globalTopicsResponse.data || [];
+      const completionData = completionResponse.data || [];
 
       // Tamamlanma durumunu map olarak hazırla
       const completionMap = new Map();
