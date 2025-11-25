@@ -89,12 +89,7 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
   };
 
   const formatMinutes = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours > 0) {
-      return `${hours} saat ${mins} dakika`;
-    }
-    return `${mins} dakika`;
+    return `${minutes} dakika`;
   };
 
   return (
