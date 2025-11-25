@@ -227,6 +227,9 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
 
       if (error) throw error;
 
+      // Subtract from teacher balance
+      await subtractFromTeacherBalance(selectedTrialLesson);
+
       toast({
         title: "Başarılı",
         description: "Deneme dersi işlenmedi olarak işaretlendi",
@@ -242,6 +245,34 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
     } finally {
       setSelectedTrialLesson(null);
       setConfirmAction(null);
+    }
+  };
+
+  const subtractFromTeacherBalance = async (lesson: TrialLesson) => {
+    try {
+      const startTime = new Date(`2000-01-01T${lesson.start_time}`);
+      const endTime = new Date(`2000-01-01T${lesson.end_time}`);
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+
+      // Get current balance
+      const { data: existingBalance } = await supabase
+        .from("teacher_balance")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .maybeSingle();
+
+      if (existingBalance) {
+        // Subtract from existing balance
+        await supabase
+          .from("teacher_balance")
+          .update({
+            total_minutes: Math.max(0, existingBalance.total_minutes - durationMinutes),
+            completed_trial_lessons: Math.max(0, existingBalance.completed_trial_lessons - 1),
+          })
+          .eq("teacher_id", teacherId);
+      }
+    } catch (error) {
+      console.error("Error subtracting from teacher balance:", error);
     }
   };
 
