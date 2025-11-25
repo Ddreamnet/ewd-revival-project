@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, BookOpen, LogOut, Clock } from "lucide-react";
+import { Users, BookOpen, LogOut, Clock, Wallet, Calendar } from "lucide-react";
 import { StudentTopics } from "./StudentTopics";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
@@ -237,14 +237,14 @@ export function TeacherDashboard() {
                     </CardTitle>
                     <CardDescription>{students.length} öğrenci kayıtlı</CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button onClick={() => setShowBalance(true)} variant="outline" size="sm">
-                      <Clock className="h-4 w-4 mr-2" />
-                      Bakiye
+                      <Wallet className="h-4 w-4" />
+                      <span className="ml-2 hidden sm:inline">Bakiye</span>
                     </Button>
                     <Button onClick={() => setShowWeeklySchedule(true)} variant="outline" size="sm">
-                      <Clock className="h-4 w-4 mr-2" />
-                      Ders Programı
+                      <Calendar className="h-4 w-4" />
+                      <span className="ml-2 hidden sm:inline">Ders Programı</span>
                     </Button>
                   </div>
                 </div>
