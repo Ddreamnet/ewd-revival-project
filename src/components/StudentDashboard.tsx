@@ -30,6 +30,7 @@ import { Header } from "./Header";
 import { StudentLessonTracker } from "./StudentLessonTracker";
 import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
 import { HomeworkListDialog } from "./HomeworkListDialog";
+import { ContactDialog } from "./ContactDialog";
 
 // ============================================================================
 // TİPLER
@@ -293,10 +294,13 @@ export function StudentDashboard() {
       {/* Header */}
       <Header
         rightActions={
-          <Button onClick={signOut} variant="outline" size="sm">
-            <LogOut className="h-4 w-4 mr-2" />
-            Çıkış Yap
-          </Button>
+          <>
+            <ContactDialog />
+            <Button onClick={signOut} variant="outline" size="sm">
+              <LogOut className="h-4 w-4 mr-2" />
+              Çıkış Yap
+            </Button>
+          </>
         }
       >
         <div>
