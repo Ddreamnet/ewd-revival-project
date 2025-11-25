@@ -208,7 +208,7 @@ export function TeacherDashboard() {
                     </CardTitle>
                     <CardDescription>{students.length} öğrenci kayıtlı</CardDescription>
                   </div>
-                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <div className="flex flex-wrap gap-2 lg:flex-col lg:items-end">
                     <Button onClick={() => setShowBalance(true)} variant="outline" size="sm">
                       <Wallet className="h-4 w-4" />
                       <span className="ml-2 hidden sm:inline">Bakiye</span>
