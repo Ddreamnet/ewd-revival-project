@@ -215,6 +215,9 @@ export function EditStudentDialog({
 
       if (error) throw error;
 
+      // Update teacher balance
+      await updateTeacherBalance(studentData.teacher_id, studentData.student_id);
+
       setCompletedLessons(newCompletedLessons);
       toast({
         title: "Başarılı",
@@ -258,6 +261,9 @@ export function EditStudentDialog({
 
       if (error) throw error;
 
+      // Subtract from teacher balance
+      await subtractFromTeacherBalance(studentData.teacher_id, studentData.student_id);
+
       setCompletedLessons(newCompletedLessons);
       toast({
         title: "Başarılı",
@@ -269,6 +275,92 @@ export function EditStudentDialog({
         description: error.message || "Ders geri alınamadı",
         variant: "destructive",
       });
+    }
+  };
+
+  const updateTeacherBalance = async (teacherId: string, studentId: string) => {
+    try {
+      // Get lesson duration
+      const { data: lessonData } = await supabase
+        .from("student_lessons")
+        .select("start_time, end_time")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .limit(1)
+        .single();
+
+      if (!lessonData) return;
+
+      const startTime = new Date(`2000-01-01T${lessonData.start_time}`);
+      const endTime = new Date(`2000-01-01T${lessonData.end_time}`);
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+
+      // Check if teacher balance exists
+      const { data: existingBalance } = await supabase
+        .from("teacher_balance")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .maybeSingle();
+
+      if (existingBalance) {
+        // Update existing balance
+        await supabase
+          .from("teacher_balance")
+          .update({
+            total_minutes: existingBalance.total_minutes + durationMinutes,
+            completed_regular_lessons: existingBalance.completed_regular_lessons + 1,
+          })
+          .eq("teacher_id", teacherId);
+      } else {
+        // Create new balance
+        await supabase.from("teacher_balance").insert({
+          teacher_id: teacherId,
+          total_minutes: durationMinutes,
+          completed_regular_lessons: 1,
+          completed_trial_lessons: 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating teacher balance:", error);
+    }
+  };
+
+  const subtractFromTeacherBalance = async (teacherId: string, studentId: string) => {
+    try {
+      // Get lesson duration
+      const { data: lessonData } = await supabase
+        .from("student_lessons")
+        .select("start_time, end_time")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .limit(1)
+        .single();
+
+      if (!lessonData) return;
+
+      const startTime = new Date(`2000-01-01T${lessonData.start_time}`);
+      const endTime = new Date(`2000-01-01T${lessonData.end_time}`);
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+
+      // Get current balance
+      const { data: existingBalance } = await supabase
+        .from("teacher_balance")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .maybeSingle();
+
+      if (existingBalance) {
+        // Subtract from existing balance
+        await supabase
+          .from("teacher_balance")
+          .update({
+            total_minutes: Math.max(0, existingBalance.total_minutes - durationMinutes),
+            completed_regular_lessons: Math.max(0, existingBalance.completed_regular_lessons - 1),
+          })
+          .eq("teacher_id", teacherId);
+      }
+    } catch (error) {
+      console.error("Error subtracting from teacher balance:", error);
     }
   };
 

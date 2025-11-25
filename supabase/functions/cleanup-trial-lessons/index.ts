@@ -7,16 +7,17 @@ Deno.serve(async () => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get yesterday's date
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayDate = yesterday.toISOString().split("T")[0];
+    // Get today's date at start (00:00:00)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayDate = today.toISOString().split("T")[0];
 
-    // Delete trial lessons from yesterday and before
+    // Delete only trial lessons that have lesson_date BEFORE today
+    // This way, today's lessons remain until end of day
     const { data, error } = await supabase
       .from("trial_lessons")
       .delete()
-      .lte("lesson_date", yesterdayDate);
+      .lt("lesson_date", todayDate);
 
     if (error) {
       console.error("Error deleting trial lessons:", error);
@@ -26,12 +27,12 @@ Deno.serve(async () => {
       });
     }
 
-    console.log(`Successfully deleted trial lessons from ${yesterdayDate} and before`);
+    console.log(`Successfully deleted trial lessons before ${todayDate}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Deleted trial lessons from ${yesterdayDate} and before`,
+        message: `Deleted trial lessons before ${todayDate}`,
       }),
       {
         status: 200,
