@@ -6,16 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, X, Plus, Trash2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface HomeworkItem {
-  id: string;
-  title: string;
-  description: string;
-  file: File | null;
-}
+import { Upload, X } from "lucide-react";
 
 interface UploadHomeworkDialogProps {
   open: boolean;
@@ -34,37 +25,15 @@ export function UploadHomeworkDialog({
   uploadedByUserId,
   onSuccess 
 }: UploadHomeworkDialogProps) {
-  const [homeworks, setHomeworks] = useState<HomeworkItem[]>([
-    { id: crypto.randomUUID(), title: "", description: "", file: null }
-  ]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   const acceptedFileTypes = "image/jpeg,image/jpg,image/png,image/webp,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-  const addHomework = () => {
-    setHomeworks([...homeworks, { id: crypto.randomUUID(), title: "", description: "", file: null }]);
-  };
-
-  const removeHomework = (id: string) => {
-    if (homeworks.length === 1) {
-      toast({
-        title: "Uyarı",
-        description: "En az bir ödev olmalıdır",
-        variant: "destructive",
-      });
-      return;
-    }
-    setHomeworks(homeworks.filter(hw => hw.id !== id));
-  };
-
-  const updateHomework = (id: string, field: keyof HomeworkItem, value: string | File | null) => {
-    setHomeworks(homeworks.map(hw => 
-      hw.id === id ? { ...hw, [field]: value } : hw
-    ));
-  };
-
-  const handleFileChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       // Check file size (max 10MB)
@@ -76,86 +45,82 @@ export function UploadHomeworkDialog({
         });
         return;
       }
-      updateHomework(id, 'file', selectedFile);
+      setFile(selectedFile);
     }
   };
 
   const handleSubmit = async () => {
-    // Validate all homeworks
-    for (const hw of homeworks) {
-      if (!hw.title.trim()) {
-        toast({
-          title: "Hata",
-          description: "Tüm ödevlerin başlığı zorunludur",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!hw.file) {
-        toast({
-          title: "Hata",
-          description: "Tüm ödevler için dosya seçilmelidir",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!title.trim()) {
+      toast({
+        title: "Hata",
+        description: "Ödev başlığı zorunludur",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!file) {
+      toast({
+        title: "Hata",
+        description: "Lütfen bir dosya seçin",
+        variant: "destructive",
+      });
+      return;
     }
 
     setUploading(true);
 
     try {
-      // Upload all homeworks
-      for (const hw of homeworks) {
-        if (!hw.file) continue;
+      // Upload file to storage
+      // Folder yapısı: studentId/uploadedById/filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const uploaderId = uploadedByUserId || studentId;
+      const filePath = `${studentId}/${uploaderId}/${fileName}`;
 
-        // Upload file to storage
-        const fileExt = hw.file.name.split('.').pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const uploaderId = uploadedByUserId || studentId;
-        const filePath = `${studentId}/${uploaderId}/${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('homework-files')
+        .upload(filePath, file);
 
-        const { error: uploadError } = await supabase.storage
-          .from('homework-files')
-          .upload(filePath, hw.file);
+      if (uploadError) throw uploadError;
 
-        if (uploadError) throw uploadError;
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('homework-files')
+        .getPublicUrl(filePath);
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('homework-files')
-          .getPublicUrl(filePath);
+      // Create homework submission record
+      const { error: insertError } = await supabase
+        .from('homework_submissions')
+        .insert({
+          student_id: studentId,
+          teacher_id: teacherId,
+          title: title.trim(),
+          description: description.trim() || null,
+          file_url: publicUrl,
+          file_type: file.type,
+          file_name: file.name,
+          uploaded_by_user_id: uploadedByUserId || studentId, // Kim yüklüyorsa o
+        });
 
-        // Create homework submission record
-        const { error: insertError } = await supabase
-          .from('homework_submissions')
-          .insert({
-            student_id: studentId,
-            teacher_id: teacherId,
-            title: hw.title.trim(),
-            description: hw.description.trim() || null,
-            file_url: publicUrl,
-            file_type: hw.file.type,
-            file_name: hw.file.name,
-            uploaded_by_user_id: uploadedByUserId || studentId,
-          });
-
-        if (insertError) throw insertError;
-      }
+      if (insertError) throw insertError;
 
       toast({
         title: "Başarılı",
-        description: `${homeworks.length} ödev başarıyla yüklendi`,
+        description: "Ödev başarıyla yüklendi",
       });
 
       // Reset form
-      setHomeworks([{ id: crypto.randomUUID(), title: "", description: "", file: null }]);
+      setTitle("");
+      setDescription("");
+      setFile(null);
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
       console.error("Upload error:", error);
       toast({
         title: "Hata",
-        description: error.message || "Ödevler yüklenemedi",
+        description: error.message || "Ödev yüklenemedi",
         variant: "destructive",
       });
     } finally {
@@ -165,111 +130,75 @@ export function UploadHomeworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Ödev Yükle</DialogTitle>
           <DialogDescription>
-            Bir veya birden fazla ödev yükleyebilirsiniz
+            Ödevinizi başlık, açıklama ve dosya ile yükleyin
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh] pr-4">
-          <div className="space-y-4 py-4">
-            {homeworks.map((homework, index) => (
-              <Card key={homework.id}>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-sm">Ödev #{index + 1}</h4>
-                    {homeworks.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeHomework(homework.id)}
-                        disabled={uploading}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Ödev Başlığı *</Label>
-                    <Input
-                      value={homework.title}
-                      onChange={(e) => updateHomework(homework.id, 'title', e.target.value)}
-                      placeholder="Örn: İngilizce Kompozisyon"
-                      disabled={uploading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Açıklama</Label>
-                    <Textarea
-                      value={homework.description}
-                      onChange={(e) => updateHomework(homework.id, 'description', e.target.value)}
-                      placeholder="Ödev hakkında ek bilgiler..."
-                      rows={2}
-                      disabled={uploading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Dosya *</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="file"
-                        accept={acceptedFileTypes}
-                        onChange={(e) => handleFileChange(homework.id, e)}
-                        disabled={uploading}
-                        className="cursor-pointer"
-                      />
-                      {homework.file && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => updateHomework(homework.id, 'file', null)}
-                          disabled={uploading}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    {homework.file && (
-                      <p className="text-sm text-muted-foreground">
-                        Seçili: {homework.file.name}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addHomework}
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">Ödev Başlığı *</Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Örn: İngilizce Kompozisyon"
               disabled={uploading}
-              className="w-full"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Daha Fazla Ödev Ekle
-            </Button>
+            />
+          </div>
 
-            <p className="text-xs text-muted-foreground text-center">
+          <div className="space-y-2">
+            <Label htmlFor="description">Açıklama</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ödev hakkında ek bilgiler..."
+              rows={3}
+              disabled={uploading}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Dosya *</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="file"
+                accept={acceptedFileTypes}
+                onChange={handleFileChange}
+                disabled={uploading}
+                className="cursor-pointer"
+              />
+              {file && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setFile(null)}
+                  disabled={uploading}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            {file && (
+              <p className="text-sm text-muted-foreground">
+                Seçili dosya: {file.name}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
               Desteklenen formatlar: JPG, PNG, WEBP, PDF, DOCX (Maks. 10MB)
             </p>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => {
-              setHomeworks([{ id: crypto.randomUUID(), title: "", description: "", file: null }]);
-              onOpenChange(false);
-            }}
+            onClick={() => onOpenChange(false)}
             disabled={uploading}
           >
             İptal
@@ -283,7 +212,7 @@ export function UploadHomeworkDialog({
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                {homeworks.length > 1 ? `${homeworks.length} Ödevi Yükle` : 'Yükle'}
+                Yükle
               </>
             )}
           </Button>
