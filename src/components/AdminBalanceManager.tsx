@@ -27,6 +27,8 @@ interface BalanceData {
   total_minutes: number;
   completed_regular_lessons: number;
   completed_trial_lessons: number;
+  regular_lessons_minutes: number;
+  trial_lessons_minutes: number;
 }
 
 interface PaymentHistory {
@@ -69,6 +71,8 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
           total_minutes: 0,
           completed_regular_lessons: 0,
           completed_trial_lessons: 0,
+          regular_lessons_minutes: 0,
+          trial_lessons_minutes: 0,
         });
       }
     } catch (error) {
@@ -124,6 +128,8 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
           total_minutes: minutes,
           completed_regular_lessons: 0,
           completed_trial_lessons: 0,
+          regular_lessons_minutes: 0,
+          trial_lessons_minutes: 0,
         });
 
         if (error) throw error;
@@ -197,6 +203,8 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
             total_minutes: 0,
             completed_regular_lessons: 0,
             completed_trial_lessons: 0,
+            regular_lessons_minutes: 0,
+            trial_lessons_minutes: 0,
           })
           .eq("teacher_id", teacherId);
 
@@ -207,6 +215,8 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
           total_minutes: 0,
           completed_regular_lessons: 0,
           completed_trial_lessons: 0,
+          regular_lessons_minutes: 0,
+          trial_lessons_minutes: 0,
         });
 
         if (error) throw error;
@@ -279,7 +289,7 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <CheckCircle2 className="h-5 w-5 text-blue-500" />
                 <p className="text-sm font-medium text-muted-foreground">Normal Dersler</p>
               </div>
-              <p className="text-3xl font-bold">{balance?.completed_regular_lessons || 0} ders</p>
+              <p className="text-3xl font-bold">{balance?.completed_regular_lessons || 0} ders ({formatMinutes(balance?.regular_lessons_minutes || 0)})</p>
             </div>
           </CardContent>
         </Card>
@@ -291,7 +301,7 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <Calendar className="h-5 w-5 text-purple-500" />
                 <p className="text-sm font-medium text-muted-foreground">Deneme Dersleri</p>
               </div>
-              <p className="text-3xl font-bold">{balance?.completed_trial_lessons || 0} ders</p>
+              <p className="text-3xl font-bold">{balance?.completed_trial_lessons || 0} ders ({formatMinutes(balance?.trial_lessons_minutes || 0)})</p>
             </div>
           </CardContent>
         </Card>

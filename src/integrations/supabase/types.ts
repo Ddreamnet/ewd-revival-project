@@ -437,8 +437,10 @@ export type Database = {
           completed_trial_lessons: number
           created_at: string
           id: string
+          regular_lessons_minutes: number
           teacher_id: string
           total_minutes: number
+          trial_lessons_minutes: number
           updated_at: string
         }
         Insert: {
@@ -446,8 +448,10 @@ export type Database = {
           completed_trial_lessons?: number
           created_at?: string
           id?: string
+          regular_lessons_minutes?: number
           teacher_id: string
           total_minutes?: number
+          trial_lessons_minutes?: number
           updated_at?: string
         }
         Update: {
@@ -455,8 +459,10 @@ export type Database = {
           completed_trial_lessons?: number
           created_at?: string
           id?: string
+          regular_lessons_minutes?: number
           teacher_id?: string
           total_minutes?: number
+          trial_lessons_minutes?: number
           updated_at?: string
         }
         Relationships: []

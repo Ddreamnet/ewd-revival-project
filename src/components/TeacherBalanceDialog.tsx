@@ -17,6 +17,8 @@ interface BalanceData {
   total_minutes: number;
   completed_regular_lessons: number;
   completed_trial_lessons: number;
+  regular_lessons_minutes: number;
+  trial_lessons_minutes: number;
 }
 
 interface PaymentHistory {
@@ -58,6 +60,8 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
           total_minutes: 0,
           completed_regular_lessons: 0,
           completed_trial_lessons: 0,
+          regular_lessons_minutes: 0,
+          trial_lessons_minutes: 0,
         });
       }
     } catch (error) {
@@ -125,7 +129,7 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
                   <p className="text-xs text-muted-foreground">Normal Dersler</p>
                 </div>
                 <p className="text-2xl font-semibold">
-                  {balance?.completed_regular_lessons || 0} ders
+                  {balance?.completed_regular_lessons || 0} ders ({formatMinutes(balance?.regular_lessons_minutes || 0)})
                 </p>
               </div>
 
@@ -135,7 +139,7 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
                   <p className="text-xs text-muted-foreground">Deneme Dersleri</p>
                 </div>
                 <p className="text-2xl font-semibold">
-                  {balance?.completed_trial_lessons || 0} ders
+                  {balance?.completed_trial_lessons || 0} ders ({formatMinutes(balance?.trial_lessons_minutes || 0)})
                 </p>
               </div>
             </div>
