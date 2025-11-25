@@ -238,7 +238,7 @@ export function HomeworkListDialog({
                 <p className="text-muted-foreground">Henüz ödev yok</p>
               </div>
             ) : (
-              <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-x-visible pb-4 md:pb-0 snap-x snap-mandatory md:snap-none">
+              <div className="flex flex-col gap-3">
                 {groupedHomeworks.map((group) => {
                   const uploadedByStudent = isUploadedByStudent(group);
                   const cardColorClass = uploadedByStudent 
@@ -246,7 +246,7 @@ export function HomeworkListDialog({
                     : "border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950/20";
                   
                   return (
-                    <Card key={group.batch_id} className={`${cardColorClass} min-w-[85vw] md:min-w-0 flex-shrink-0 snap-center`}>
+                    <Card key={group.batch_id} className={cardColorClass}>
                       <CardContent className="p-4 relative pb-8">
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex-1 min-w-0">
