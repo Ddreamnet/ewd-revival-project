@@ -86,7 +86,7 @@ export function AdminDashboard() {
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [activeTab, setActiveTab] = useState<"students" | "schedule" | "payments">("students");
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, signingOut } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -457,9 +457,9 @@ export function AdminDashboard() {
               <FolderOpen className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Konular</span>
             </Button>
-            <Button onClick={signOut} variant="outline" size="sm">
+            <Button onClick={signOut} variant="outline" size="sm" disabled={signingOut}>
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline ml-2">Çıkış</span>
+              <span className="hidden sm:inline ml-2">{signingOut ? "Çıkış..." : "Çıkış"}</span>
             </Button>
           </>
         }

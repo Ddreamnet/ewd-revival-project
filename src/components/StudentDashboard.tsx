@@ -70,7 +70,7 @@ export function StudentDashboard() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [listDialogOpen, setListDialogOpen] = useState(false);
   const [teacherId, setTeacherId] = useState<string>("");
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, signingOut } = useAuth();
   const { toast } = useToast();
 
   // ============================================================================
@@ -296,9 +296,9 @@ export function StudentDashboard() {
         rightActions={
           <>
             <ContactDialog />
-            <Button onClick={signOut} variant="outline" size="sm">
+            <Button onClick={signOut} variant="outline" size="sm" disabled={signingOut}>
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline ml-2">Çıkış</span>
+              <span className="hidden sm:inline ml-2">{signingOut ? "Çıkış..." : "Çıkış"}</span>
             </Button>
           </>
         }

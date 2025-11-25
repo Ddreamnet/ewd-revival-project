@@ -38,7 +38,8 @@ export function TeacherDashboard() {
   const [showBalance, setShowBalance] = useState(false);
   const {
     profile,
-    signOut
+    signOut,
+    signingOut
   } = useAuth();
   const {
     toast
@@ -183,9 +184,9 @@ export function TeacherDashboard() {
               <span className="hidden sm:inline ml-2">Konular</span>
             </Button>
             <ContactDialog />
-            <Button onClick={signOut} variant="outline" size="sm">
+            <Button onClick={signOut} variant="outline" size="sm" disabled={signingOut}>
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline ml-2">Çıkış</span>
+              <span className="hidden sm:inline ml-2">{signingOut ? "Çıkış..." : "Çıkış"}</span>
             </Button>
           </>}>
         <div className="text-center">
