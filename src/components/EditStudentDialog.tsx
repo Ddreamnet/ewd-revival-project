@@ -383,6 +383,9 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
+      // IMPORTANT: Bu fonksiyon sadece öğrencinin ders takibini sıfırlar (yeni ay için).
+      // Öğretmen bu dersleri zaten işlemiş olduğundan, öğretmen bakiyesinden eksilme YAPILMAMALIDIR.
+      // Sadece student_lesson_tracking tablosundaki completed_lessons ve lesson_dates sıfırlanır.
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({ 
@@ -402,7 +405,7 @@ export function EditStudentDialog({
       
       toast({
         title: "Başarılı",
-        description: "Tüm dersler sıfırlandı",
+        description: "Tüm dersler sıfırlandı (Öğretmen bakiyesi korundu)",
       });
     } catch (error: any) {
       toast({
@@ -885,7 +888,9 @@ export function EditStudentDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Tüm Dersleri Sıfırla</AlertDialogTitle>
             <AlertDialogDescription>
-              Tüm işaretlenmiş dersler ve tarihleri silinecektir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?
+              Öğrencinin bu aydaki tüm ders kayıtları sıfırlanacaktır (yeni ay için). 
+              Öğretmen bu dersleri işlediği için öğretmen bakiyesi KORUNACAKTIR ve etkilenmeyecektir.
+              Bu işlem geri alınamaz. Devam etmek istiyor musunuz?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
