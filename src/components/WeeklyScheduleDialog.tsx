@@ -5,8 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -351,21 +349,11 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
 
   const timeSlots = getAllTimeSlots();
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" id="schedule-dialog">
-        <DialogHeader className="no-print">
-          <div className="flex items-center justify-between">
-            <DialogTitle>Haftalık Ders Programı</DialogTitle>
-            <Button onClick={handlePrint} variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              İndir
-            </Button>
-          </div>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Haftalık Ders Programı</DialogTitle>
         </DialogHeader>
 
         {loading ? (
@@ -377,8 +365,8 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
             Henüz planlanmış ders yok
           </div>
         ) : (
-          <div className="overflow-x-auto" id="schedule-table-container">
-            <table className="w-full border-collapse min-w-[900px]" id="schedule-table">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[900px]">
               <thead>
                 <tr>
                   <th className="border bg-primary/10 p-2 text-sm font-semibold w-24">Saat</th>
