@@ -178,7 +178,15 @@ export function TeacherDashboard() {
   }
   return <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
       <Header rightActions={<>
-            <NotificationBell teacherId={profile?.user_id || ""} />
+            <NotificationBell 
+              teacherId={profile?.user_id || ""} 
+              onNotificationClick={() => {
+                // Find the student that triggered the notification and open their homework dialog
+                if (selectedStudent) {
+                  // The StudentTopics component will handle opening homework dialog
+                }
+              }}
+            />
             <Button onClick={() => setShowGlobalTopics(true)} variant="outline" size="sm">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Konular</span>

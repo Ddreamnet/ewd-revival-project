@@ -24,9 +24,11 @@ interface Notification {
 
 interface NotificationBellProps {
   teacherId: string;
+  isStudent?: boolean;
+  onNotificationClick?: () => void;
 }
 
-export function NotificationBell({ teacherId }: NotificationBellProps) {
+export function NotificationBell({ teacherId, isStudent = false, onNotificationClick }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -49,27 +51,29 @@ export function NotificationBell({ teacherId }: NotificationBellProps) {
 
       if (notificationsError) throw notificationsError;
 
-      // Öğrenci ID'lerini topla
-      const studentIds = [...new Set(notificationsData?.map(n => n.student_id) || [])];
+      // Fetch names based on whether user is student or teacher
+      const userIds = isStudent 
+        ? [...new Set(notificationsData?.map(n => n.teacher_id) || [])]
+        : [...new Set(notificationsData?.map(n => n.student_id) || [])];
 
-      // Öğrenci isimlerini al
+      // Get user names
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('user_id, full_name')
-        .in('user_id', studentIds);
+        .in('user_id', userIds);
 
       if (profilesError) throw profilesError;
 
-      // Profilleri map'e dönüştür
+      // Convert profiles to map
       const profilesMap = new Map(
         profilesData?.map(p => [p.user_id, p.full_name]) || []
       );
 
-      // Bildirimleri profil isimleriyle birleştir
+      // Enrich notifications with names
       const enrichedNotifications = notificationsData?.map(n => ({
         ...n,
         profiles: {
-          full_name: profilesMap.get(n.student_id) || 'Öğrenci'
+          full_name: profilesMap.get(isStudent ? n.teacher_id : n.student_id) || (isStudent ? 'Öğretmen' : 'Öğrenci')
         }
       })) || [];
 
@@ -97,7 +101,7 @@ export function NotificationBell({ teacherId }: NotificationBellProps) {
           
           toast({
             title: "Yeni Ödev",
-            description: "Bir öğrenciniz yeni ödev yükledi",
+            description: isStudent ? "Öğretmeniniz yeni bir dosya yükledi" : "Bir öğrenciniz yeni ödev yükledi",
           });
         }
       )
@@ -144,6 +148,11 @@ export function NotificationBell({ teacherId }: NotificationBellProps) {
       // Popup açıldığında bildirimleri okundu olarak işaretle
       markAllAsRead();
     }
+  };
+
+  const handleNotificationClick = () => {
+    setOpen(false);
+    onNotificationClick?.();
   };
 
   return (
@@ -194,11 +203,12 @@ export function NotificationBell({ teacherId }: NotificationBellProps) {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`p-4 transition-colors hover:bg-accent/50 ${
+                      className={`p-4 transition-colors hover:bg-accent/50 cursor-pointer ${
                         !notification.is_read 
                           ? 'bg-primary/5 border-l-4 border-l-primary' 
                           : ''
                       }`}
+                      onClick={handleNotificationClick}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`mt-0.5 rounded-full p-2 ${
@@ -218,10 +228,10 @@ export function NotificationBell({ teacherId }: NotificationBellProps) {
                               ? 'font-semibold text-foreground' 
                               : 'font-medium text-muted-foreground'
                           }`}>
-                            {notification.profiles?.full_name || 'Öğrenci'}
+                            {notification.profiles?.full_name || (isStudent ? 'Öğretmen' : 'Öğrenci')}
                           </p>
                           <p className="text-sm text-muted-foreground mt-0.5">
-                            Yeni bir ödev yükledi
+                            {isStudent ? "Yeni bir dosya yükledi" : "Yeni bir ödev yükledi"}
                           </p>
                           <div className="flex items-center gap-1.5 mt-2">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
