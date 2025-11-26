@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 
 interface StudentLesson {
   id: string;
@@ -349,11 +352,42 @@ export function WeeklyScheduleDialog({ open, onOpenChange, teacherId }: WeeklySc
 
   const timeSlots = getAllTimeSlots();
 
+  const handleExportPNG = async () => {
+    try {
+      await exportScheduleAsPNG({
+        lessons: lessons.map(l => ({
+          ...l,
+          student_name: l.student_name,
+        })),
+        trialLessons,
+        studentColors,
+      });
+      toast({
+        title: "Başarılı",
+        description: "Ders programı PNG olarak indirildi",
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "PNG oluşturulamadı",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Haftalık Ders Programı</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Haftalık Ders Programı</DialogTitle>
+            {lessons.length > 0 && (
+              <Button onClick={handleExportPNG} size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                PNG İndir
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         {loading ? (

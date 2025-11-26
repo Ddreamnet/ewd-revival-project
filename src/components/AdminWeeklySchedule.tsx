@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
+import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 
 interface StudentLesson {
   id: string;
@@ -313,6 +314,35 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
 
   const timeSlots = getAllTimeSlots();
 
+  const handleExportPNG = async () => {
+    try {
+      // Map student colors from Map to Record
+      const colorRecord: Record<string, string> = {};
+      studentColors.forEach((color, studentId) => {
+        colorRecord[studentId] = color;
+      });
+
+      await exportScheduleAsPNG({
+        lessons: lessons.map(l => ({
+          ...l,
+          is_completed: false, // Admin panel doesn't track completion
+        })),
+        trialLessons,
+        studentColors: colorRecord,
+      });
+      toast({
+        title: "Başarılı",
+        description: "Ders programı PNG olarak indirildi",
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "PNG oluşturulamadı",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -329,10 +359,16 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Haftalık Ders Programı</CardTitle>
-            <Button onClick={() => setShowAddTrial(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Deneme Ekle
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleExportPNG} size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                PNG İndir
+              </Button>
+              <Button onClick={() => setShowAddTrial(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Deneme Ekle
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="text-center py-8 text-muted-foreground">
