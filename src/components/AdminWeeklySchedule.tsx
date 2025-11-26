@@ -16,6 +16,7 @@ interface StudentLesson {
   day_of_week: number;
   start_time: string;
   end_time: string;
+  note?: string;
 }
 
 interface TrialLesson {
@@ -88,7 +89,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       // Fetch regular lessons
       const { data: lessonsData, error: lessonsError } = await supabase
         .from("student_lessons")
-        .select("id, student_id, day_of_week, start_time, end_time")
+        .select("id, student_id, day_of_week, start_time, end_time, note")
         .eq("teacher_id", teacherId);
 
       if (lessonsError) throw lessonsError;
@@ -117,6 +118,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         lessonsData?.map((lesson) => ({
           ...lesson,
           student_name: nameMap.get(lesson.student_id) || "Bilinmeyen",
+          note: lesson.note,
         })) || [];
 
       setLessons(formattedLessons);
@@ -429,7 +431,9 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                               }`}
                             >
                               <div className="text-center">
-                                <div className="font-medium">{lesson.student_name}</div>
+                                <div className="font-medium">
+                                  {lesson.note ? `${lesson.student_name} - ${lesson.note}` : lesson.student_name}
+                                </div>
                                 <div className="text-xs mt-1">
                                   {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
                                 </div>

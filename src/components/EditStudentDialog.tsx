@@ -26,6 +26,7 @@ interface StudentLesson {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  note?: string;
 }
 
 interface LessonDates {
@@ -61,7 +62,7 @@ export function EditStudentDialog({
 }: EditStudentDialogProps) {
   const [name, setName] = useState("");
   const [lessonsPerWeek, setLessonsPerWeek] = useState(1);
-  const [lessons, setLessons] = useState<StudentLesson[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
+  const [lessons, setLessons] = useState<StudentLesson[]>([{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]);
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
@@ -78,7 +79,7 @@ export function EditStudentDialog({
       setLessons(
         currentLessons.length > 0
           ? currentLessons
-          : [{ dayOfWeek: 1, startTime: "", endTime: "" }]
+          : [{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]
       );
       fetchLessonTracking();
     }
@@ -123,7 +124,7 @@ export function EditStudentDialog({
     if (lessonsPerWeek > lessons.length) {
       const newLessons = [...lessons];
       for (let i = lessons.length; i < lessonsPerWeek; i++) {
-        newLessons.push({ dayOfWeek: 1, startTime: "", endTime: "" });
+        newLessons.push({ dayOfWeek: 1, startTime: "", endTime: "", note: "" });
       }
       setLessons(newLessons);
     } else if (lessonsPerWeek < lessons.length) {
@@ -524,6 +525,7 @@ export function EditStudentDialog({
         day_of_week: lesson.dayOfWeek,
         start_time: lesson.startTime,
         end_time: lesson.endTime,
+        note: lesson.note || null,
       }));
 
       const { error: insertError } = await supabase.from("student_lessons").insert(lessonsToInsert);
@@ -666,7 +668,7 @@ export function EditStudentDialog({
           <div className="space-y-3">
             <Label className="text-base font-medium">Ders Programı</Label>
             {lessons.map((lesson, index) => (
-              <div key={index} className="grid grid-cols-3 gap-3 p-3 border rounded-lg">
+              <div key={index} className="grid grid-cols-4 gap-3 p-3 border rounded-lg">
                 <div className="space-y-2">
                   <Label>Gün</Label>
                   <Select
@@ -703,6 +705,16 @@ export function EditStudentDialog({
                     value={lesson.endTime}
                     onChange={(e) => updateLesson(index, "endTime", e.target.value)}
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Not</Label>
+                  <Input
+                    type="text"
+                    value={lesson.note || ""}
+                    onChange={(e) => updateLesson(index, "note", e.target.value)}
+                    placeholder="Opsiyonel"
                   />
                 </div>
               </div>
