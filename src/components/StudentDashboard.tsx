@@ -31,6 +31,7 @@ import { StudentLessonTracker } from "./StudentLessonTracker";
 import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
 import { HomeworkListDialog } from "./HomeworkListDialog";
 import { ContactDialog } from "./ContactDialog";
+import { NotificationBell } from "./NotificationBell";
 
 // ============================================================================
 // TİPLER
@@ -295,6 +296,11 @@ export function StudentDashboard() {
       <Header
         rightActions={
           <>
+            <NotificationBell 
+              teacherId={teacherId} 
+              isStudent={true}
+              onNotificationClick={() => setListDialogOpen(true)}
+            />
             <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm" disabled={signingOut}>
               <LogOut className="h-4 w-4" />
