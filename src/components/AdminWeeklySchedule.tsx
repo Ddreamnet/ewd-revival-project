@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
@@ -313,6 +313,10 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
 
   const timeSlots = getAllTimeSlots();
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   if (loading) {
     return (
       <Card>
@@ -350,19 +354,25 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
 
   return (
     <>
-      <Card>
-        <CardHeader>
+      <Card id="admin-schedule-card">
+        <CardHeader className="no-print">
           <div className="flex justify-between items-center">
             <CardTitle>Haftalık Ders Programı</CardTitle>
-            <Button onClick={() => setShowAddTrial(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Deneme Ekle
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handlePrint} variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                İndir
+              </Button>
+              <Button onClick={() => setShowAddTrial(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Deneme Ekle
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="overflow-x-auto" id="admin-schedule-table-container">
+            <table className="w-full border-collapse" id="admin-schedule-table">
               <thead>
                 <tr>
                   <th className="border border-border p-2 bg-muted font-medium text-sm">Saat</th>
