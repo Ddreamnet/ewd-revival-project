@@ -35,8 +35,12 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchTracking();
-    fetchStudentSchedule();
+    // CRITICAL: Fetch schedule FIRST before tracking, to ensure studentLessonDays is populated
+    const loadData = async () => {
+      await fetchStudentSchedule();
+      await fetchTracking();
+    };
+    loadData();
   }, [studentId, teacherId]);
 
   const fetchStudentSchedule = async () => {
@@ -182,13 +186,38 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
       monthStart.setDate(1);
       monthStart.setHours(0, 0, 0, 0);
 
+      // CRITICAL: Ensure student lesson days are loaded before calculating dates
+      if (studentLessonDays.length === 0) {
+        toast({
+          title: "Hata",
+          description: "Öğrenci ders günleri yüklenemedi. Lütfen sayfayı yenileyin.",
+          variant: "destructive",
+        });
+        setShowConfirm(false);
+        setPendingLesson(null);
+        return;
+      }
+
       const newCompletedLessons = [...completedLessons, pendingLesson].sort((a, b) => a - b);
       let newLessonDates = { ...lessonDates };
 
       // If this is the first time marking a lesson, calculate all dates based on the marked lesson
       if (Object.keys(lessonDates).length === 0) {
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
         newLessonDates = calculateLessonDates(pendingLesson, today);
+        
+        // Double check that dates were calculated correctly
+        if (Object.keys(newLessonDates).length === 0) {
+          toast({
+            title: "Hata", 
+            description: "Ders tarihleri hesaplanamadı. Lütfen tekrar deneyin.",
+            variant: "destructive",
+          });
+          setShowConfirm(false);
+          setPendingLesson(null);
+          return;
+        }
       }
 
       const { error } = await supabase
