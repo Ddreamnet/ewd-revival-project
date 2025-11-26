@@ -43,6 +43,7 @@ interface StudentLesson {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  note?: string;
 }
 
 interface Topic {
@@ -141,6 +142,7 @@ export function AdminDashboard() {
                 dayOfWeek: lesson.day_of_week,
                 startTime: lesson.start_time,
                 endTime: lesson.end_time,
+                note: lesson.note,
               })),
           }));
 
