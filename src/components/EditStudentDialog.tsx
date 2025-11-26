@@ -148,10 +148,32 @@ export function EditStudentDialog({
   const recalculateRemainingDates = (fromLessonNumber: number, startDate: string): LessonDates => {
     const newDates = { ...lessonDates };
     const lessonDays = lessons.map((l) => l.dayOfWeek).sort((a, b) => a - b);
+    const totalLessons = lessonsPerWeek * 4;
+    
+    // Set the changed lesson's date
+    newDates[fromLessonNumber.toString()] = startDate;
+    
+    // Recalculate PREVIOUS lessons (going backwards)
     let currentDate = parse(startDate, "yyyy-MM-dd", new Date());
     currentDate.setHours(0, 0, 0, 0);
     
-    const totalLessons = lessonsPerWeek * 4;
+    for (let i = fromLessonNumber - 1; i >= 1; i--) {
+      // Find the previous lesson day (going backwards)
+      let daysToSubtract = 1;
+      let prevDate = addDays(currentDate, -daysToSubtract);
+      
+      while (!lessonDays.includes(prevDate.getDay())) {
+        daysToSubtract++;
+        prevDate = addDays(currentDate, -daysToSubtract);
+      }
+      
+      currentDate = prevDate;
+      newDates[i.toString()] = format(currentDate, "yyyy-MM-dd");
+    }
+    
+    // Recalculate FUTURE lessons (going forwards)
+    currentDate = parse(startDate, "yyyy-MM-dd", new Date());
+    currentDate.setHours(0, 0, 0, 0);
     
     for (let i = fromLessonNumber + 1; i <= totalLessons; i++) {
       // Find the next lesson day
