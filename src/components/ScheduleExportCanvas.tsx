@@ -5,6 +5,7 @@ interface StudentLesson {
   start_time: string;
   end_time: string;
   is_completed: boolean;
+  note?: string;
 }
 
 interface TrialLesson {
@@ -161,12 +162,13 @@ export const exportScheduleAsPNG = async (config: ExportScheduleConfig) => {
         ctx.lineWidth = 2;
         ctx.strokeRect(x + 4, y + 4, cellWidth - 8, cellHeight - 8);
         
-        // Student name
+        // Student name with note
+        const displayName = lesson.note ? `${lesson.student_name} - ${lesson.note}` : lesson.student_name;
         ctx.fillStyle = colors.text;
         ctx.font = "bold 13px Arial";
         ctx.textAlign = "center";
         ctx.fillText(
-          lesson.student_name.length > 15 ? lesson.student_name.substring(0, 13) + "..." : lesson.student_name,
+          displayName.length > 15 ? displayName.substring(0, 13) + "..." : displayName,
           x + cellWidth / 2,
           y + cellHeight / 2 - 10
         );

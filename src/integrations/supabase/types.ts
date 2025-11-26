@@ -331,6 +331,7 @@ export type Database = {
           end_time: string
           id: string
           is_completed: boolean
+          note: string | null
           start_time: string
           student_id: string
           teacher_id: string
@@ -344,6 +345,7 @@ export type Database = {
           end_time: string
           id?: string
           is_completed?: boolean
+          note?: string | null
           start_time: string
           student_id: string
           teacher_id: string
@@ -357,6 +359,7 @@ export type Database = {
           end_time?: string
           id?: string
           is_completed?: boolean
+          note?: string | null
           start_time?: string
           student_id?: string
           teacher_id?: string
