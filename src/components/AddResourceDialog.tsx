@@ -213,7 +213,7 @@ export function AddResourceDialog({
             Bu bir PDF, video, bağlantı veya diğer herhangi bir materyal olabilir.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-full overflow-hidden">
           <div className="space-y-2">
             <Label htmlFor="resource-title">Kaynak Başlığı</Label>
             <Input
@@ -259,7 +259,7 @@ export function AddResourceDialog({
             <div className="space-y-2">
               <Label>Dosya Yükle</Label>
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors w-full max-w-full box-border ${
                   isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25"
                 }`}
                 onDrop={handleDrop}
