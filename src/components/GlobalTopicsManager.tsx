@@ -237,7 +237,6 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
 
       // Insert new topic
       const { error } = await supabase.from("global_topics").insert({
-        teacher_id: profile?.user_id,
         title,
         description,
         order_index: orderIndex,
