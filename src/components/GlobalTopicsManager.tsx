@@ -236,13 +236,23 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
       }
 
       // Insert new topic
+      // Debug: Check auth status
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("Current user:", user?.id, "Has admin role:", await supabase.rpc("has_role", { 
+        _user_id: user?.id, 
+        _role: "admin" 
+      }));
+
       const { error } = await supabase.from("global_topics").insert({
         title,
         description,
         order_index: orderIndex,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("RLS Error details:", error);
+        throw error;
+      }
 
       toast({
         title: "Başarılı",
