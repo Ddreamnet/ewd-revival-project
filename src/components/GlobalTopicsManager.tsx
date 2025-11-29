@@ -235,24 +235,21 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
         }
       }
 
-      // Insert new topic
-      // Debug: Check auth status
+      // Insert new topic - explicitly set teacher_id for RLS policy
       const { data: { user } } = await supabase.auth.getUser();
-      console.log("Current user:", user?.id, "Has admin role:", await supabase.rpc("has_role", { 
-        _user_id: user?.id, 
-        _role: "admin" 
-      }));
+      
+      if (!user?.id) {
+        throw new Error("Authentication required");
+      }
 
       const { error } = await supabase.from("global_topics").insert({
+        teacher_id: user.id,
         title,
         description,
         order_index: orderIndex,
       });
 
-      if (error) {
-        console.error("RLS Error details:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Başarılı",
