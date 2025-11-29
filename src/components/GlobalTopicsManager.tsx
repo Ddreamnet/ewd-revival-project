@@ -235,7 +235,7 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
         }
       }
 
-      // Insert new topic - explicitly set teacher_id for RLS policy
+      // Insert new topic
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user?.id) {
@@ -247,39 +247,16 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
         return;
       }
 
-      console.log("🔍 Attempting to insert global topic...");
-      console.log("User ID:", user.id);
-      console.log("Insert data:", { teacher_id: user.id, title, description, order_index: orderIndex });
-
-      // Check admin role
-      const { data: roleCheck, error: roleError } = await supabase.rpc("has_role", {
-        _user_id: user.id,
-        _role: "admin",
-      });
-
-      console.log("Has admin role:", roleCheck, "Error:", roleError);
-
-      const { data: insertData, error } = await supabase
+      const { error } = await supabase
         .from("global_topics")
         .insert({
           teacher_id: user.id,
           title,
           description,
           order_index: orderIndex,
-        })
-        .select();
-
-      console.log("Insert result:", { data: insertData, error });
-
-      if (error) {
-        console.error("❌ RLS Error details:", error);
-        toast({
-          title: "RLS Hatası",
-          description: `${error.message} - Code: ${error.code}`,
-          variant: "destructive",
         });
-        throw error;
-      }
+
+      if (error) throw error;
 
       toast({
         title: "Başarılı",
