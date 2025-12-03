@@ -12,7 +12,20 @@ serve(async (req) => {
   }
 
   try {
+    // Check Authorization header first
+    const authHeader = req.headers.get('Authorization')
+    console.log('Auth header present:', !!authHeader)
+    
+    if (!authHeader) {
+      console.error('No Authorization header provided')
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
+
     const { email, name, password, teacherId, lessons } = await req.json()
+    console.log('Request data:', { email, name, teacherId, lessonsCount: lessons?.length })
 
     // Create a Supabase client with the Auth context of the logged in user
     const supabaseClient = createClient(
@@ -20,7 +33,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
+          headers: { Authorization: authHeader },
         },
       }
     )
@@ -28,11 +41,15 @@ serve(async (req) => {
     // Get the current user to verify they are admin
     const {
       data: { user },
+      error: userError,
     } = await supabaseClient.auth.getUser()
 
+    console.log('User check result:', { userId: user?.id, error: userError?.message })
+
     if (!user) {
+      console.error('User authentication failed:', userError)
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Unauthorized - Invalid token' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
