@@ -269,10 +269,10 @@ export function StudentDashboard() {
   // VERİ HAZIRLAMA
   // ============================================================================
 
-  // Tamamlanmış ve işlenmiş konuları filtrele
+  // Tamamlanmış ve işlenmiş konuları filtrele ve order_index'e göre sırala
   const completedTopics = topics.filter((t) => t.is_completed);
   const pendingTopics = topics.filter((t) => !t.is_completed && t.resources.some((r: any) => r.is_completed));
-  const allActiveTopics = [...completedTopics, ...pendingTopics];
+  const allActiveTopics = [...completedTopics, ...pendingTopics].sort((a, b) => a.order_index - b.order_index);
 
   // ============================================================================
   // RENDER - LOADING STATE
