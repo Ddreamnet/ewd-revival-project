@@ -24,25 +24,20 @@ serve(async (req) => {
       )
     }
 
+    // Extract JWT token from Bearer header
+    const token = authHeader.replace('Bearer ', '')
+
     const { email, name, password, teacherId, lessons } = await req.json()
     console.log('Request data:', { email, name, teacherId, lessonsCount: lessons?.length })
 
-    // Create a Supabase client with the Auth context of the logged in user
-    const supabaseClient = createClient(
+    // Use the service role to verify the user and check admin role
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the current user to verify they are admin
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser()
+    // Verify the JWT token and get user
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
 
     console.log('User check result:', { userId: user?.id, error: userError?.message })
 
@@ -55,7 +50,7 @@ serve(async (req) => {
     }
 
     // Verify user has admin role
-    const { data: userRoles, error: roleError } = await supabaseClient
+    const { data: userRoles, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
@@ -68,12 +63,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
       )
     }
-
-    // Use the service role to create the user
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
 
     // Create the student user account
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
