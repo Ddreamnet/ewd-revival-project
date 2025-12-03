@@ -90,25 +90,9 @@ serve(async (req) => {
       )
     }
 
-    // Create profile entry
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        user_id: authData.user.id,
-        email,
-        full_name: name,
-        role: 'student'
-      })
-
-    if (profileError) {
-      console.error('Profile error:', profileError)
-      // If profile creation fails, delete the user
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      return new Response(
-        JSON.stringify({ error: 'Failed to create profile' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
-    }
+    // Note: Profile is automatically created by the handle_new_user trigger
+    // Wait a moment for the trigger to complete
+    await new Promise(resolve => setTimeout(resolve, 500))
 
     // Assign student role
     const { error: roleInsertError } = await supabaseAdmin
