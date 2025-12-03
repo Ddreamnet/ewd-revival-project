@@ -87,10 +87,6 @@ export function EditStudentDialog({
 
   const fetchLessonTracking = async () => {
     try {
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("student_id, teacher_id")
@@ -99,12 +95,12 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
+      // Ay filtresi olmadan mevcut kaydı getir
       const { data, error } = await supabase
         .from("student_lesson_tracking")
         .select("*")
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id)
-        .eq("month_start_date", monthStart.toISOString().split("T")[0])
         .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
@@ -213,10 +209,6 @@ export function EditStudentDialog({
       const totalLessons = lessonsPerWeek * 4;
       if (completedLessons.length >= totalLessons) return;
 
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("student_id, teacher_id")
@@ -233,8 +225,7 @@ export function EditStudentDialog({
         .from("student_lesson_tracking")
         .update({ completed_lessons: newCompletedLessons })
         .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
-        .eq("month_start_date", monthStart.toISOString().split("T")[0]);
+        .eq("teacher_id", studentData.teacher_id);
 
       if (error) throw error;
 
@@ -259,10 +250,6 @@ export function EditStudentDialog({
     try {
       if (completedLessons.length === 0) return;
 
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("student_id, teacher_id")
@@ -279,8 +266,7 @@ export function EditStudentDialog({
         .from("student_lesson_tracking")
         .update({ completed_lessons: newCompletedLessons })
         .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
-        .eq("month_start_date", monthStart.toISOString().split("T")[0]);
+        .eq("teacher_id", studentData.teacher_id);
 
       if (error) throw error;
 
@@ -393,10 +379,6 @@ export function EditStudentDialog({
 
   const handleResetAllLessons = async () => {
     try {
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("student_id, teacher_id")
@@ -415,8 +397,7 @@ export function EditStudentDialog({
           lesson_dates: {}
         })
         .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
-        .eq("month_start_date", monthStart.toISOString().split("T")[0]);
+        .eq("teacher_id", studentData.teacher_id);
 
       if (error) throw error;
 
@@ -440,10 +421,6 @@ export function EditStudentDialog({
 
   const confirmDateUpdate = async () => {
     try {
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("student_id, teacher_id")
@@ -470,8 +447,7 @@ export function EditStudentDialog({
         .from("student_lesson_tracking")
         .update({ lesson_dates: finalDates })
         .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
-        .eq("month_start_date", monthStart.toISOString().split("T")[0]);
+        .eq("teacher_id", studentData.teacher_id);
 
       if (error) throw error;
 

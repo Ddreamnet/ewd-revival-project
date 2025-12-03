@@ -56,10 +56,6 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
   const fetchTracking = async () => {
     try {
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
       // Get student's teacher first
       const { data: studentData, error: studentError } = await supabase
         .from("students")
@@ -69,12 +65,12 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
       if (studentError) throw studentError;
 
+      // Ay filtresi olmadan mevcut kaydı getir
       const { data, error } = await supabase
         .from("student_lesson_tracking")
         .select("*")
         .eq("student_id", studentId)
         .eq("teacher_id", studentData.teacher_id)
-        .eq("month_start_date", monthStart.toISOString().split("T")[0])
         .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;

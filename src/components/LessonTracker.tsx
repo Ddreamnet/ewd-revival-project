@@ -63,16 +63,12 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   const fetchTracking = async () => {
     try {
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
+      // Ay filtresi olmadan mevcut kaydı getir
       const { data, error } = await supabase
         .from("student_lesson_tracking")
         .select("*")
         .eq("student_id", studentId)
         .eq("teacher_id", teacherId)
-        .eq("month_start_date", monthStart.toISOString().split("T")[0])
         .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
@@ -98,7 +94,6 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
             lessons_per_week: lessonsPerWeek,
             completed_lessons: [],
             lesson_dates: {},
-            month_start_date: monthStart.toISOString().split("T")[0],
           })
           .select()
           .single();
@@ -182,10 +177,6 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     if (pendingLesson === null) return;
 
     try {
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
       // CRITICAL: Ensure student lesson days are loaded before calculating dates
       if (studentLessonDays.length === 0) {
         toast({
@@ -227,8 +218,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
           lesson_dates: newLessonDates,
         })
         .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .eq("month_start_date", monthStart.toISOString().split("T")[0]);
+        .eq("teacher_id", teacherId);
 
       if (error) throw error;
 
