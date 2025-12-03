@@ -708,61 +708,86 @@ export function AdminDashboard() {
 
                                 <CollapsibleContent className="mt-4">
                                   <div className="pl-6 border-t pt-3 space-y-6">
-                                    {/* İşlenen Konular Bölümü - Sadece tamamlananlar */}
+                                    {/* İşlenen Konular Bölümü - En az bir kaynağı tamamlanmış konular */}
                                     <div className="space-y-3">
                                       <div className="flex justify-between items-center">
                                         <h5 className="font-medium text-sm">İşlenen Konular</h5>
-                                        <Badge variant="secondary">
-                                          {studentCompletedTopics.get(student.id)?.filter(t => t.is_completed).length || 0} konu tamamlandı
-                                        </Badge>
+                                        {(() => {
+                                          const allTopics = studentCompletedTopics.get(student.id) || [];
+                                          const topicsWithCompletedResources = allTopics.filter(t => t.resources.some(r => r.is_completed));
+                                          const fullyCompletedCount = topicsWithCompletedResources.filter(t => t.is_completed).length;
+                                          const totalCompletedResources = topicsWithCompletedResources.reduce((sum, t) => sum + t.resources.filter(r => r.is_completed).length, 0);
+                                          return (
+                                            <Badge variant="secondary">
+                                              {totalCompletedResources} kaynak işlendi ({fullyCompletedCount} konu tam)
+                                            </Badge>
+                                          );
+                                        })()}
                                       </div>
 
                                       {(() => {
-                                        const completedTopics = studentCompletedTopics.get(student.id)?.filter(t => t.is_completed) || [];
-                                        if (completedTopics.length === 0) {
+                                        // En az bir kaynağı tamamlanmış olan tüm konuları göster
+                                        const topicsWithCompletedResources = studentCompletedTopics.get(student.id)?.filter(t => 
+                                          t.resources.some(r => r.is_completed)
+                                        ) || [];
+                                        
+                                        if (topicsWithCompletedResources.length === 0) {
                                           return (
                                             <p className="text-sm text-muted-foreground py-2">
-                                              Henüz işlenmiş konu yok.
+                                              Henüz işlenmiş kaynak yok.
                                             </p>
                                           );
                                         }
                                         return (
                                           <div className="space-y-2 max-h-80 overflow-y-auto">
-                                            {completedTopics.map((topic) => (
-                                              <Card key={topic.id} className="border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20">
-                                                <Collapsible>
-                                                  <CardContent className="p-3">
-                                                    <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
-                                                      <Checkbox checked={true} className="h-4 w-4" disabled />
-                                                      <div className="flex-1">
-                                                        <span className="text-sm font-medium">{topic.title}</span>
-                                                        {topic.isGlobal && (
-                                                          <Badge variant="outline" className="ml-2 text-xs">Global</Badge>
-                                                        )}
-                                                      </div>
-                                                      <Badge variant="secondary" className="text-xs">
-                                                        {topic.resources.filter(r => r.is_completed).length} kaynak
-                                                      </Badge>
-                                                      <ChevronRight className="h-4 w-4" />
-                                                    </CollapsibleTrigger>
-                                                    <CollapsibleContent className="mt-2 pl-6 space-y-1">
-                                                      {topic.resources.filter(r => r.is_completed).map((resource) => (
-                                                        <div key={resource.id} className="flex items-center gap-2 py-1">
-                                                          <Checkbox checked={true} className="h-3 w-3" disabled />
-                                                          {getResourceIcon(resource.resource_type)}
-                                                          <span
-                                                            className="text-xs flex-1 cursor-pointer hover:text-primary"
-                                                            onClick={() => window.open(resource.resource_url, "_blank")}
-                                                          >
-                                                            {resource.title}
-                                                          </span>
+                                            {topicsWithCompletedResources.map((topic) => {
+                                              const completedResourcesCount = topic.resources.filter(r => r.is_completed).length;
+                                              const totalResourcesCount = topic.resources.length;
+                                              const isFullyCompleted = topic.is_completed || completedResourcesCount === totalResourcesCount;
+                                              
+                                              return (
+                                                <Card 
+                                                  key={topic.id} 
+                                                  className={`border-l-4 ${
+                                                    isFullyCompleted 
+                                                      ? "border-l-green-500 bg-green-50/50 dark:bg-green-950/20" 
+                                                      : "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+                                                  }`}
+                                                >
+                                                  <Collapsible>
+                                                    <CardContent className="p-3">
+                                                      <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
+                                                        <Checkbox checked={isFullyCompleted} className="h-4 w-4" disabled />
+                                                        <div className="flex-1">
+                                                          <span className="text-sm font-medium">{topic.title}</span>
+                                                          {topic.isGlobal && (
+                                                            <Badge variant="outline" className="ml-2 text-xs">Global</Badge>
+                                                          )}
                                                         </div>
-                                                      ))}
-                                                    </CollapsibleContent>
-                                                  </CardContent>
-                                                </Collapsible>
-                                              </Card>
-                                            ))}
+                                                        <Badge variant="secondary" className="text-xs">
+                                                          {completedResourcesCount}/{totalResourcesCount} kaynak
+                                                        </Badge>
+                                                        <ChevronRight className="h-4 w-4" />
+                                                      </CollapsibleTrigger>
+                                                      <CollapsibleContent className="mt-2 pl-6 space-y-1">
+                                                        {topic.resources.filter(r => r.is_completed).map((resource) => (
+                                                          <div key={resource.id} className="flex items-center gap-2 py-1">
+                                                            <Checkbox checked={true} className="h-3 w-3" disabled />
+                                                            {getResourceIcon(resource.resource_type)}
+                                                            <span
+                                                              className="text-xs flex-1 cursor-pointer hover:text-primary"
+                                                              onClick={() => window.open(resource.resource_url, "_blank")}
+                                                            >
+                                                              {resource.title}
+                                                            </span>
+                                                          </div>
+                                                        ))}
+                                                      </CollapsibleContent>
+                                                    </CardContent>
+                                                  </Collapsible>
+                                                </Card>
+                                              );
+                                            })}
                                           </div>
                                         );
                                       })()}
