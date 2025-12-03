@@ -53,6 +53,7 @@ interface Topic {
   is_completed: boolean;
   order_index: number;
   resources: Resource[];
+  isGlobal?: boolean;
 }
 
 interface Resource {
@@ -70,6 +71,7 @@ export function AdminDashboard() {
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [studentTopics, setStudentTopics] = useState<Map<string, Topic[]>>(new Map());
+  const [studentCompletedTopics, setStudentCompletedTopics] = useState<Map<string, Topic[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
   const [showCreateStudent, setShowCreateStudent] = useState(false);
@@ -181,20 +183,102 @@ export function AdminDashboard() {
 
   const fetchStudentTopics = async (studentUserId: string, studentId: string) => {
     try {
-      const { data: topicsData, error: topicsError } = await supabase
-        .from("topics")
-        .select("*, resources (*)")
-        .eq("student_id", studentUserId)
-        .order("order_index");
+      // Fetch all data in parallel
+      const [studentTopicsResponse, globalTopicsResponse, completionResponse] = await Promise.all([
+        // 1) Student-specific topics
+        supabase
+          .from("topics")
+          .select("*, resources (*)")
+          .eq("student_id", studentUserId)
+          .order("order_index"),
+        
+        // 2) Global topics
+        supabase
+          .from("global_topics")
+          .select("*, global_topic_resources(*)")
+          .order("order_index"),
+        
+        // 3) Completion data
+        supabase
+          .from("student_resource_completion")
+          .select("*")
+          .eq("student_id", studentUserId)
+      ]);
 
-      if (topicsError) throw topicsError;
+      if (studentTopicsResponse.error) throw studentTopicsResponse.error;
+      if (globalTopicsResponse.error) throw globalTopicsResponse.error;
+      if (completionResponse.error) throw completionResponse.error;
 
-      const topics = (topicsData || []).map((topic) => ({
+      const studentTopicsData = studentTopicsResponse.data || [];
+      const globalTopicsData = globalTopicsResponse.data || [];
+      const completionData = completionResponse.data || [];
+
+      // Create completion map
+      const completionMap = new Map();
+      completionData.forEach((completion: any) => {
+        completionMap.set(completion.resource_id, completion);
+      });
+
+      // Process student-specific topics (for CRUD)
+      const processedStudentTopics = studentTopicsData.map((topic) => ({
         ...topic,
-        resources: (topic.resources || []).sort((a: any, b: any) => a.order_index - b.order_index),
+        resources: (topic.resources || [])
+          .map((resource: any) => {
+            const completion = completionMap.get(resource.id);
+            return {
+              ...resource,
+              is_completed: completion?.is_completed || false,
+            };
+          })
+          .sort((a: any, b: any) => a.order_index - b.order_index),
+        isGlobal: false,
       }));
 
-      setStudentTopics((prev) => new Map(prev).set(studentId, topics));
+      setStudentTopics((prev) => new Map(prev).set(studentId, processedStudentTopics));
+
+      // Process all topics for "İşlenen Konular" view (global + student-specific with completion)
+      const studentTopicTitles = new Set(processedStudentTopics.map((t) => t.title));
+      
+      const processedGlobalTopics = globalTopicsData
+        .filter((topic) => !studentTopicTitles.has(topic.title))
+        .map((topic) => {
+          const globalResources = (topic.global_topic_resources || [])
+            .map((res: any) => {
+              const completion = completionMap.get(res.id);
+              return {
+                id: res.id,
+                title: res.title,
+                description: res.description,
+                resource_type: res.resource_type,
+                resource_url: res.resource_url,
+                order_index: res.order_index,
+                is_completed: completion?.is_completed || false,
+              };
+            })
+            .sort((a: any, b: any) => a.order_index - b.order_index);
+
+          const allResourcesCompleted =
+            globalResources.length > 0 && globalResources.every((resource: any) => resource.is_completed);
+
+          return {
+            id: topic.id,
+            title: topic.title,
+            description: topic.description,
+            is_completed: allResourcesCompleted,
+            order_index: topic.order_index,
+            resources: globalResources,
+            isGlobal: true,
+          };
+        });
+
+      // Combine all topics for completed topics view
+      const allTopics = [...processedStudentTopics, ...processedGlobalTopics].sort((a, b) => {
+        if (a.isGlobal && !b.isGlobal) return 1;
+        if (!a.isGlobal && b.isGlobal) return -1;
+        return a.order_index - b.order_index;
+      });
+
+      setStudentCompletedTopics((prev) => new Map(prev).set(studentId, allTopics));
     } catch (error: any) {
       toast({
         title: "Hata",
@@ -623,99 +707,108 @@ export function AdminDashboard() {
                                 </div>
 
                                 <CollapsibleContent className="mt-4">
-                                  <div className="pl-6 border-t pt-3 space-y-3">
-                                    <div className="flex justify-between items-center">
-                                      <h5 className="font-medium text-sm">Öğrenciye Özel Konular</h5>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          setSelectedStudentForTopic(student.id);
-                                          setShowAddTopic(true);
-                                        }}
-                                      >
-                                        <Plus className="h-4 w-4 mr-1" />
-                                        Konu Ekle
-                                      </Button>
+                                  <div className="pl-6 border-t pt-3 space-y-6">
+                                    {/* İşlenen Konular Bölümü */}
+                                    <div className="space-y-3">
+                                      <div className="flex justify-between items-center">
+                                        <h5 className="font-medium text-sm">İşlenen Konular</h5>
+                                        <Badge variant="outline">
+                                          {studentCompletedTopics.get(student.id)?.filter(t => t.is_completed).length || 0} / {studentCompletedTopics.get(student.id)?.length || 0} tamamlandı
+                                        </Badge>
+                                      </div>
+
+                                      {!studentCompletedTopics.get(student.id) || studentCompletedTopics.get(student.id)?.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground py-2">
+                                          Henüz konu atanmamış.
+                                        </p>
+                                      ) : (
+                                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                                          {studentCompletedTopics.get(student.id)?.map((topic) => (
+                                            <div 
+                                              key={topic.id} 
+                                              className={`flex items-center gap-2 p-2 rounded-md ${
+                                                topic.is_completed ? "bg-green-50 dark:bg-green-950/30" : "bg-accent/30"
+                                              }`}
+                                            >
+                                              <Checkbox checked={topic.is_completed} className="h-4 w-4" disabled />
+                                              <div className="flex-1">
+                                                <span className={`text-sm ${topic.is_completed ? "line-through text-muted-foreground" : ""}`}>
+                                                  {topic.title}
+                                                </span>
+                                                {topic.isGlobal && (
+                                                  <Badge variant="outline" className="ml-2 text-xs">Global</Badge>
+                                                )}
+                                              </div>
+                                              <span className="text-xs text-muted-foreground">
+                                                {topic.resources.filter(r => r.is_completed).length}/{topic.resources.length}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
 
-                                    {studentTopics.get(student.id)?.length === 0 ? (
-                                      <p className="text-sm text-muted-foreground py-4">
-                                        Bu öğrenciye henüz özel konu eklenmemiş.
-                                      </p>
-                                    ) : (
-                                      <div className="space-y-2">
-                                        {studentTopics.get(student.id)?.map((topic) => (
-                                          <Card key={topic.id} className="border">
-                                            <Collapsible>
-                                              <CardContent className="p-3">
-                                                <div className="flex items-start justify-between">
-                                                  <div className="flex items-start gap-2 flex-1">
-                                                    <Checkbox checked={topic.is_completed} className="mt-1" disabled />
-                                                    <CollapsibleTrigger className="flex-1 text-left">
-                                                      <div className="flex items-center gap-2">
-                                                        <ChevronRight className="h-3 w-3" />
-                                                        <div>
-                                                          <h6 className="font-medium text-sm">{topic.title}</h6>
-                                                          {topic.description && (
-                                                            <p className="text-xs text-muted-foreground mt-1">
-                                                              {topic.description}
-                                                            </p>
-                                                          )}
-                                                        </div>
-                                                      </div>
-                                                    </CollapsibleTrigger>
-                                                  </div>
-                                                  <div className="flex gap-1">
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      onClick={() => {
-                                                        setSelectedTopicForResource(topic.id);
-                                                        setShowAddResource(true);
-                                                      }}
-                                                    >
-                                                      <Plus className="h-3 w-3" />
-                                                    </Button>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      onClick={() => {
-                                                        setEditingTopic(topic);
-                                                        setShowEditTopic(true);
-                                                      }}
-                                                    >
-                                                      <Settings className="h-3 w-3" />
-                                                    </Button>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      onClick={() =>
-                                                        handleDeleteTopic(topic.id, student.id, student.student_id)
-                                                      }
-                                                    >
-                                                      <Trash2 className="h-3 w-3 text-destructive" />
-                                                    </Button>
-                                                  </div>
-                                                </div>
+                                    {/* Öğrenciye Özel Konular Bölümü (CRUD) */}
+                                    <div className="space-y-3 border-t pt-3">
+                                      <div className="flex justify-between items-center">
+                                        <h5 className="font-medium text-sm">Öğrenciye Özel Konular (Düzenle)</h5>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setSelectedStudentForTopic(student.id);
+                                            setShowAddTopic(true);
+                                          }}
+                                        >
+                                          <Plus className="h-4 w-4 mr-1" />
+                                          Konu Ekle
+                                        </Button>
+                                      </div>
 
-                                                <CollapsibleContent className="mt-2 space-y-1">
-                                                  {topic.resources.map((resource) => (
-                                                    <div key={resource.id} className="flex items-center gap-2 pl-8">
-                                                      <Checkbox checked={resource.is_completed} className="h-3 w-3" disabled />
-                                                      {getResourceIcon(resource.resource_type)}
-                                                      <span
-                                                        className="text-xs flex-1 cursor-pointer hover:text-primary"
-                                                        onClick={() => window.open(resource.resource_url, "_blank")}
-                                                      >
-                                                        {resource.title}
-                                                      </span>
+                                      {studentTopics.get(student.id)?.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground py-4">
+                                          Bu öğrenciye henüz özel konu eklenmemiş.
+                                        </p>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          {studentTopics.get(student.id)?.map((topic) => (
+                                            <Card key={topic.id} className="border">
+                                              <Collapsible>
+                                                <CardContent className="p-3">
+                                                  <div className="flex items-start justify-between">
+                                                    <div className="flex items-start gap-2 flex-1">
+                                                      <Checkbox checked={topic.is_completed} className="mt-1" disabled />
+                                                      <CollapsibleTrigger className="flex-1 text-left">
+                                                        <div className="flex items-center gap-2">
+                                                          <ChevronRight className="h-3 w-3" />
+                                                          <div>
+                                                            <h6 className="font-medium text-sm">{topic.title}</h6>
+                                                            {topic.description && (
+                                                              <p className="text-xs text-muted-foreground mt-1">
+                                                                {topic.description}
+                                                              </p>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                      </CollapsibleTrigger>
+                                                    </div>
+                                                    <div className="flex gap-1">
                                                       <Button
                                                         variant="ghost"
                                                         size="sm"
                                                         onClick={() => {
-                                                          setEditingResource(resource);
-                                                          setShowEditResource(true);
+                                                          setSelectedTopicForResource(topic.id);
+                                                          setShowAddResource(true);
+                                                        }}
+                                                      >
+                                                        <Plus className="h-3 w-3" />
+                                                      </Button>
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                          setEditingTopic(topic);
+                                                          setShowEditTopic(true);
                                                         }}
                                                       >
                                                         <Settings className="h-3 w-3" />
@@ -724,20 +817,54 @@ export function AdminDashboard() {
                                                         variant="ghost"
                                                         size="sm"
                                                         onClick={() =>
-                                                          handleDeleteResource(resource.id, student.id, student.student_id)
+                                                          handleDeleteTopic(topic.id, student.id, student.student_id)
                                                         }
                                                       >
                                                         <Trash2 className="h-3 w-3 text-destructive" />
                                                       </Button>
                                                     </div>
-                                                  ))}
-                                                </CollapsibleContent>
-                                              </CardContent>
-                                            </Collapsible>
-                                          </Card>
-                                        ))}
-                                      </div>
-                                    )}
+                                                  </div>
+
+                                                  <CollapsibleContent className="mt-2 space-y-1">
+                                                    {topic.resources.map((resource) => (
+                                                      <div key={resource.id} className="flex items-center gap-2 pl-8">
+                                                        <Checkbox checked={resource.is_completed} className="h-3 w-3" disabled />
+                                                        {getResourceIcon(resource.resource_type)}
+                                                        <span
+                                                          className="text-xs flex-1 cursor-pointer hover:text-primary"
+                                                          onClick={() => window.open(resource.resource_url, "_blank")}
+                                                        >
+                                                          {resource.title}
+                                                        </span>
+                                                        <Button
+                                                          variant="ghost"
+                                                          size="sm"
+                                                          onClick={() => {
+                                                            setEditingResource(resource);
+                                                            setShowEditResource(true);
+                                                          }}
+                                                        >
+                                                          <Settings className="h-3 w-3" />
+                                                        </Button>
+                                                        <Button
+                                                          variant="ghost"
+                                                          size="sm"
+                                                          onClick={() =>
+                                                            handleDeleteResource(resource.id, student.id, student.student_id)
+                                                          }
+                                                        >
+                                                          <Trash2 className="h-3 w-3 text-destructive" />
+                                                        </Button>
+                                                      </div>
+                                                    ))}
+                                                  </CollapsibleContent>
+                                                </CardContent>
+                                              </Collapsible>
+                                            </Card>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </CollapsibleContent>
                               </CardContent>
