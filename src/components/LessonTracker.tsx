@@ -63,17 +63,20 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   const fetchTracking = async () => {
     try {
-      // Ay filtresi olmadan mevcut kaydı getir
-      const { data, error } = await supabase
+      // CRITICAL: Get the MOST RECENT tracking record by ordering by updated_at DESC
+      // This ensures consistent results when multiple records exist
+      const { data: records, error } = await supabase
         .from("student_lesson_tracking")
         .select("*")
         .eq("student_id", studentId)
         .eq("teacher_id", teacherId)
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(1);
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) throw error;
 
-      if (data) {
+      if (records && records.length > 0) {
+        const data = records[0];
         setCompletedLessons((data as any).completed_lessons || []);
         setLessonDates((data as any).lesson_dates || {});
       } else {
@@ -211,14 +214,26 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
         }
       }
 
+      // CRITICAL: Get the most recent tracking record ID first, then update by ID
+      const { data: existingRecords } = await supabase
+        .from("student_lesson_tracking")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (!existingRecords || existingRecords.length === 0) {
+        throw new Error("Ders takip kaydı bulunamadı");
+      }
+
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({
           completed_lessons: newCompletedLessons,
           lesson_dates: newLessonDates,
         })
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId);
+        .eq("id", existingRecords[0].id);
 
       if (error) throw error;
 

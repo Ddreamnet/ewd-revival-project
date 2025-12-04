@@ -66,6 +66,7 @@ export function EditStudentDialog({
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
+  const [trackingRecordId, setTrackingRecordId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -95,21 +96,27 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
-      // Ay filtresi olmadan mevcut kaydı getir
-      const { data, error } = await supabase
+      // CRITICAL: Get the MOST RECENT tracking record by ordering by updated_at DESC
+      // This ensures consistent results when multiple records exist
+      const { data: records, error } = await supabase
         .from("student_lesson_tracking")
         .select("*")
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id)
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(1);
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) throw error;
 
-      if (data) {
+      if (records && records.length > 0) {
+        const data = records[0];
+        setTrackingRecordId(data.id);
         setCompletedLessons((data as any).completed_lessons || []);
         const dates = (data as any).lesson_dates || {};
         setLessonDates(dates);
         setOriginalLessonDates(dates);
+      } else {
+        setTrackingRecordId(null);
       }
     } catch (error: any) {
       console.error("Failed to fetch lesson tracking:", error);
@@ -221,11 +228,23 @@ export function EditStudentDialog({
       const nextLesson = completedLessons.length === 0 ? 1 : Math.max(...completedLessons) + 1;
       const newCompletedLessons = [...completedLessons, nextLesson].sort((a, b) => a - b);
 
+      // CRITICAL: Get the most recent tracking record ID and update by ID
+      const { data: existingRecords } = await supabase
+        .from("student_lesson_tracking")
+        .select("id")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (!existingRecords || existingRecords.length === 0) {
+        throw new Error("Ders takip kaydı bulunamadı");
+      }
+
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({ completed_lessons: newCompletedLessons })
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("id", existingRecords[0].id);
 
       if (error) throw error;
 
@@ -262,11 +281,23 @@ export function EditStudentDialog({
       const lastLesson = Math.max(...completedLessons);
       const newCompletedLessons = completedLessons.filter(l => l !== lastLesson);
 
+      // CRITICAL: Get the most recent tracking record ID and update by ID
+      const { data: existingRecords } = await supabase
+        .from("student_lesson_tracking")
+        .select("id")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (!existingRecords || existingRecords.length === 0) {
+        throw new Error("Ders takip kaydı bulunamadı");
+      }
+
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({ completed_lessons: newCompletedLessons })
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("id", existingRecords[0].id);
 
       if (error) throw error;
 
@@ -387,17 +418,28 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
+      // CRITICAL: Get the most recent tracking record ID and update by ID
+      const { data: existingRecords } = await supabase
+        .from("student_lesson_tracking")
+        .select("id")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (!existingRecords || existingRecords.length === 0) {
+        throw new Error("Ders takip kaydı bulunamadı");
+      }
+
       // IMPORTANT: Bu fonksiyon sadece öğrencinin ders takibini sıfırlar (yeni ay için).
       // Öğretmen bu dersleri zaten işlemiş olduğundan, öğretmen bakiyesinden eksilme YAPILMAMALIDIR.
-      // Sadece student_lesson_tracking tablosundaki completed_lessons ve lesson_dates sıfırlanır.
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({ 
           completed_lessons: [],
           lesson_dates: {}
         })
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("id", existingRecords[0].id);
 
       if (error) throw error;
 
@@ -443,11 +485,23 @@ export function EditStudentDialog({
         }
       }
 
+      // CRITICAL: Get the most recent tracking record ID and update by ID
+      const { data: existingRecords } = await supabase
+        .from("student_lesson_tracking")
+        .select("id")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (!existingRecords || existingRecords.length === 0) {
+        throw new Error("Ders takip kaydı bulunamadı");
+      }
+
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({ lesson_dates: finalDates })
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("id", existingRecords[0].id);
 
       if (error) throw error;
 

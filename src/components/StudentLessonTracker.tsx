@@ -65,17 +65,20 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
       if (studentError) throw studentError;
 
-      // Ay filtresi olmadan mevcut kaydı getir
-      const { data, error } = await supabase
+      // CRITICAL: Get the MOST RECENT tracking record by ordering by updated_at DESC
+      // This ensures consistent results when multiple records exist
+      const { data: records, error } = await supabase
         .from("student_lesson_tracking")
         .select("*")
         .eq("student_id", studentId)
         .eq("teacher_id", studentData.teacher_id)
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(1);
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) throw error;
 
-      if (data) {
+      if (records && records.length > 0) {
+        const data = records[0];
         setLessonsPerWeek((data as any).lessons_per_week);
         setCompletedLessons((data as any).completed_lessons || []);
         setLessonDates((data as any).lesson_dates || {});
