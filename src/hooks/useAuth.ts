@@ -154,7 +154,25 @@ export function useAuth() {
     setSigningOut(true);
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      
+      // Even if there's an error (like session_not_found), we should clear local state
+      // This happens when the session has already expired or been invalidated
+      if (error) {
+        console.warn("SignOut warning:", error.message);
+        // If it's a session_not_found error, the user is essentially already logged out
+        if (error.message?.includes("session") || error.message?.includes("Auth session missing")) {
+          // Clear local state manually since session is already gone
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          toast({
+            title: "Başarılı",
+            description: "Çıkış yapıldı",
+          });
+          return;
+        }
+        throw error;
+      }
       
       toast({
         title: "Başarılı",
@@ -162,10 +180,13 @@ export function useAuth() {
       });
     } catch (error: any) {
       console.error("Error signing out:", error);
+      // Even on error, try to clear local state to prevent stuck state
+      setUser(null);
+      setSession(null);
+      setProfile(null);
       toast({
-        title: "Hata",
-        description: error.message || "Çıkış yapılırken hata oluştu",
-        variant: "destructive",
+        title: "Çıkış yapıldı",
+        description: "Oturum sonlandırıldı",
       });
     } finally {
       setSigningOut(false);
