@@ -89,22 +89,34 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     try {
       setLoading(true);
 
-      // Fetch regular lessons
+      // First, get non-archived students for this teacher
+      const { data: activeStudents, error: studentsError } = await supabase
+        .from("students")
+        .select("student_id")
+        .eq("teacher_id", teacherId)
+        .eq("is_archived", false);
+      
+      if (studentsError) throw studentsError;
+      
+      const activeStudentIds = (activeStudents || []).map(s => s.student_id);
+
+      // Fetch regular lessons only for active students
       const { data: lessonsData, error: lessonsError } = await supabase
         .from("student_lessons")
         .select("id, student_id, day_of_week, start_time, end_time, note")
-        .eq("teacher_id", teacherId);
+        .eq("teacher_id", teacherId)
+        .in("student_id", activeStudentIds.length > 0 ? activeStudentIds : ['no-students']);
 
       if (lessonsError) throw lessonsError;
 
       // Fetch student names
       const studentIds = [...new Set(lessonsData?.map((l) => l.student_id) || [])];
-      const { data: studentsData, error: studentsError } = await supabase
+      const { data: studentsData, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, full_name")
-        .in("user_id", studentIds);
+        .in("user_id", studentIds.length > 0 ? studentIds : ['no-students']);
 
-      if (studentsError) throw studentsError;
+      if (profilesError) throw profilesError;
 
       // Create student name map
       const nameMap = new Map(studentsData?.map((s) => [s.user_id, s.full_name]) || []);

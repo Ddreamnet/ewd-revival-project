@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Archive } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, parse } from "date-fns";
 
@@ -871,27 +871,70 @@ export function EditStudentDialog({
               <div>
                 <Label className="text-base font-medium text-destructive">Tehlikeli Alan</Label>
                 <p className="text-sm text-muted-foreground">
-                  Öğrenciyi kalıcı olarak silmek için aşağıdaki butona tıklayın.
+                  Öğrenciyi arşivleyin veya kalıcı olarak silin.
                 </p>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => {
-                const confirmed = window.confirm(
-                  `${currentName} adlı öğrenciyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve öğrencinin tüm verileri (dersler, ödevler, konular, kaynaklar) silinecektir.`
-                );
-                if (confirmed) {
-                  handleDeleteStudent();
-                }
-              }}
-              disabled={loading}
-              className="w-full"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Öğrenciyi Sil
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    `${currentName} adlı öğrenciyi arşivlemek istediğinize emin misiniz? Öğrenci ders programından ve listeden kaldırılacak, ancak tüm verileri korunacaktır. İstediğiniz zaman geri alabilirsiniz.`
+                  );
+                  if (confirmed) {
+                    setLoading(true);
+                    try {
+                      const { error } = await supabase
+                        .from("students")
+                        .update({ is_archived: true, archived_at: new Date().toISOString() })
+                        .eq("id", studentId);
+
+                      if (error) throw error;
+
+                      toast({
+                        title: "Başarılı",
+                        description: "Öğrenci arşivlendi",
+                      });
+
+                      onStudentUpdated();
+                      onOpenChange(false);
+                    } catch (error: any) {
+                      toast({
+                        title: "Hata",
+                        description: error.message || "Öğrenci arşivlenemedi",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }
+                }}
+                disabled={loading}
+                className="w-full"
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Arşivle
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  const confirmed = window.confirm(
+                    `${currentName} adlı öğrenciyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve öğrencinin tüm verileri (dersler, ödevler, konular, kaynaklar) silinecektir.`
+                  );
+                  if (confirmed) {
+                    handleDeleteStudent();
+                  }
+                }}
+                disabled={loading}
+                className="w-full"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Sil
+              </Button>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

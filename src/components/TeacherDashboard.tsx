@@ -51,18 +51,19 @@ export function TeacherDashboard() {
   }, [profile]);
   const fetchStudents = async () => {
     try {
-      // Fetch students with their lessons
+      // Fetch students with their lessons (exclude archived students)
       const {
         data: studentsData,
         error: studentsError
       } = await supabase.from("students").select(`
           id,
           student_id,
+          is_archived,
           profiles!students_student_id_fkey (
             full_name,
             email
           )
-        `).eq("teacher_id", profile?.user_id);
+        `).eq("teacher_id", profile?.user_id).eq("is_archived", false);
       if (studentsError) throw studentsError;
 
       // Fetch lessons for all students

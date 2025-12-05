@@ -70,11 +70,20 @@ export function WeeklyScheduleDialog({
   const fetchSchedule = async () => {
     setLoading(true);
     try {
-      // First, fetch the lessons
+      // First, get non-archived students for this teacher
+      const {
+        data: activeStudents,
+        error: studentsError
+      } = await supabase.from("students").select("student_id").eq("teacher_id", teacherId).eq("is_archived", false);
+      if (studentsError) throw studentsError;
+      
+      const activeStudentIds = (activeStudents || []).map(s => s.student_id);
+      
+      // First, fetch the lessons only for active students
       const {
         data: lessonsData,
         error: lessonsError
-      } = await supabase.from("student_lessons").select("id, student_id, day_of_week, start_time, end_time, is_completed, note").eq("teacher_id", teacherId).order("start_time", {
+      } = await supabase.from("student_lessons").select("id, student_id, day_of_week, start_time, end_time, is_completed, note").eq("teacher_id", teacherId).in("student_id", activeStudentIds.length > 0 ? activeStudentIds : ['no-students']).order("start_time", {
         ascending: true
       });
       if (lessonsError) throw lessonsError;
@@ -94,7 +103,7 @@ export function WeeklyScheduleDialog({
       const {
         data: profilesData,
         error: profilesError
-      } = await supabase.from("profiles").select("user_id, full_name").in("user_id", studentIds);
+      } = await supabase.from("profiles").select("user_id, full_name").in("user_id", studentIds.length > 0 ? studentIds : ['no-students']);
       if (profilesError) throw profilesError;
 
       // Create a map of student_id to full_name
