@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,87 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const { toast } = useToast();
+  
+  // Refs to track signing out state and prevent race conditions
+  const isSigningOutRef = useRef(false);
+  const profileFetchAbortRef = useRef<AbortController | null>(null);
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    // Don't fetch profile if we're signing out
+    if (isSigningOutRef.current) {
+      console.log("Skipping profile fetch - signing out");
+      return;
+    }
+
+    // Cancel any previous fetch
+    if (profileFetchAbortRef.current) {
+      profileFetchAbortRef.current.abort();
+    }
+    profileFetchAbortRef.current = new AbortController();
+
+    try {
+      console.log("Fetching profile for user:", userId);
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+
+      // Check again if we're signing out after the async call
+      if (isSigningOutRef.current) {
+        console.log("Aborting profile set - signing out");
+        return;
+      }
+
+      if (profileError) {
+        console.log("Profile fetch error:", profileError);
+        if (profileError.code === "PGRST116") {
+          console.log("No profile found - user may need to complete signup");
+          setProfile(null);
+        } else {
+          throw profileError;
+        }
+      } else {
+        // Fetch user roles
+        const { data: rolesData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId);
+
+        // Check again after roles fetch
+        if (isSigningOutRef.current) {
+          console.log("Aborting profile set - signing out after roles fetch");
+          return;
+        }
+
+        const roles = rolesData?.map((r) => r.role as "teacher" | "student" | "admin") || [];
+        
+        // Determine primary role (admin > teacher > student)
+        const primaryRole = roles.includes("admin")
+          ? "admin"
+          : roles.includes("teacher")
+          ? "teacher"
+          : "student";
+
+        console.log("Profile loaded successfully:", profileData, "Roles:", roles);
+        setProfile({
+          ...profileData,
+          roles,
+          role: primaryRole,
+        });
+      }
+    } catch (error) {
+      if (!isSigningOutRef.current) {
+        console.error("Error fetching profile:", error);
+        setProfile(null);
+      }
+    } finally {
+      if (!isSigningOutRef.current) {
+        console.log("Setting loading to false after profile fetch");
+        setLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     console.log("useAuth effect running");
@@ -30,61 +111,25 @@ export function useAuth() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session?.user?.id);
+      
+      // If we're signing out, ignore any auth state changes
+      if (isSigningOutRef.current && event !== 'SIGNED_OUT') {
+        console.log("Ignoring auth state change during sign out");
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
 
-      if (session?.user) {
-        // Fetch user profile
-        setTimeout(async () => {
-          try {
-            console.log("Fetching profile for user:", session.user.id);
-            const { data: profileData, error: profileError } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("user_id", session.user.id)
-              .single();
-
-            if (profileError) {
-              console.log("Profile fetch error:", profileError);
-              if (profileError.code === "PGRST116") {
-                console.log("No profile found - user may need to complete signup");
-                setProfile(null);
-              } else {
-                throw profileError;
-              }
-            } else {
-              // Fetch user roles
-              const { data: rolesData } = await supabase
-                .from("user_roles")
-                .select("role")
-                .eq("user_id", session.user.id);
-
-              const roles = rolesData?.map((r) => r.role as "teacher" | "student" | "admin") || [];
-              
-              // Determine primary role (admin > teacher > student)
-              const primaryRole = roles.includes("admin")
-                ? "admin"
-                : roles.includes("teacher")
-                ? "teacher"
-                : "student";
-
-              console.log("Profile loaded successfully:", profileData, "Roles:", roles);
-              setProfile({
-                ...profileData,
-                roles,
-                role: primaryRole,
-              });
-            }
-          } catch (error) {
-            console.error("Error fetching profile:", error);
-            setProfile(null);
-          } finally {
-            console.log("Setting loading to false after profile fetch");
-            setLoading(false);
+      if (session?.user && !isSigningOutRef.current) {
+        // Defer profile fetch to avoid Supabase deadlock
+        setTimeout(() => {
+          if (!isSigningOutRef.current) {
+            fetchProfile(session.user.id);
           }
         }, 100);
       } else {
-        console.log("No user session, setting loading to false");
+        console.log("No user session or signing out, clearing profile");
         setProfile(null);
         setLoading(false);
       }
@@ -106,11 +151,20 @@ export function useAuth() {
         setLoading(false);
       });
 
-    return () => subscription.unsubscribe();
-  }, [toast]);
+    return () => {
+      subscription.unsubscribe();
+      // Abort any pending profile fetch on cleanup
+      if (profileFetchAbortRef.current) {
+        profileFetchAbortRef.current.abort();
+      }
+    };
+  }, [fetchProfile]);
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Reset signing out state on sign in attempt
+      isSigningOutRef.current = false;
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -149,21 +203,43 @@ export function useAuth() {
   };
 
   const signOut = async () => {
-    if (signingOut) return; // Prevent multiple clicks
+    // Prevent multiple clicks
+    if (signingOut || isSigningOutRef.current) {
+      console.log("Already signing out, ignoring");
+      return;
+    }
     
+    console.log("Starting sign out process");
+    isSigningOutRef.current = true;
     setSigningOut(true);
+    
+    // Cancel any pending profile fetch
+    if (profileFetchAbortRef.current) {
+      profileFetchAbortRef.current.abort();
+      profileFetchAbortRef.current = null;
+    }
+    
     try {
-      // First clear local state immediately - don't wait for onAuthStateChange
+      // Clear local state IMMEDIATELY - this triggers UI redirect
+      console.log("Clearing local auth state");
       setUser(null);
       setSession(null);
       setProfile(null);
+      setLoading(false);
       
-      // Then sign out from Supabase
+      // Then sign out from Supabase in the background
+      console.log("Calling Supabase signOut");
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.warn("SignOut warning:", error.message);
-        // Even if there's an error, state is already cleared so user will see login page
+        // Log but don't throw - local state is already cleared
+        console.warn("SignOut API warning:", error.message);
+        // Common case: session already expired on server
+        if (error.message.includes("session") || error.message.includes("Auth")) {
+          console.log("Session was already expired, continuing with logout");
+        }
+      } else {
+        console.log("Supabase signOut successful");
       }
       
       toast({
@@ -171,14 +247,17 @@ export function useAuth() {
         description: "Çıkış yapıldı",
       });
     } catch (error: any) {
-      console.error("Error signing out:", error);
-      // State is already cleared above, just show the toast
+      console.error("Unexpected error during sign out:", error);
+      // State is already cleared, show success anyway
       toast({
         title: "Çıkış yapıldı",
         description: "Oturum sonlandırıldı",
       });
     } finally {
+      console.log("Sign out process complete");
       setSigningOut(false);
+      // Keep isSigningOutRef true until next sign in to prevent any delayed callbacks
+      // It will be reset on next signIn call
     }
   };
 
