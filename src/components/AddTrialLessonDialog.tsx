@@ -31,6 +31,26 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
     { value: "0", label: "Pazar" },
   ];
 
+  // Calculate the next occurrence of a specific day of week
+  const getNextDayOfWeek = (targetDay: number): string => {
+    const today = new Date();
+    const currentDay = today.getDay(); // 0=Sunday, 1=Monday, etc.
+    
+    // Calculate days until target day
+    let daysUntilTarget = targetDay - currentDay;
+    
+    // If target day is today or already passed this week, use this week's day
+    // (if today, use today; if passed, still use this week for immediate display)
+    if (daysUntilTarget < 0) {
+      daysUntilTarget += 7; // Move to next week
+    }
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + daysUntilTarget);
+    
+    return targetDate.toISOString().split("T")[0];
+  };
+
   const handleSubmit = async () => {
     if (!dayOfWeek || !startTime || !endTime) {
       toast({
@@ -43,12 +63,15 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
 
     setLoading(true);
     try {
+      // Calculate the actual lesson date based on day_of_week
+      const lessonDate = getNextDayOfWeek(parseInt(dayOfWeek));
+      
       const { error } = await supabase.from("trial_lessons").insert({
         teacher_id: teacherId,
         day_of_week: parseInt(dayOfWeek),
         start_time: startTime,
         end_time: endTime,
-        lesson_date: new Date().toISOString().split("T")[0],
+        lesson_date: lessonDate,
       });
 
       if (error) throw error;
