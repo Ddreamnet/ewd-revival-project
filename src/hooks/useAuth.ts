@@ -153,25 +153,17 @@ export function useAuth() {
     
     setSigningOut(true);
     try {
+      // First clear local state immediately - don't wait for onAuthStateChange
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      
+      // Then sign out from Supabase
       const { error } = await supabase.auth.signOut();
       
-      // Even if there's an error (like session_not_found), we should clear local state
-      // This happens when the session has already expired or been invalidated
       if (error) {
         console.warn("SignOut warning:", error.message);
-        // If it's a session_not_found error, the user is essentially already logged out
-        if (error.message?.includes("session") || error.message?.includes("Auth session missing")) {
-          // Clear local state manually since session is already gone
-          setUser(null);
-          setSession(null);
-          setProfile(null);
-          toast({
-            title: "Başarılı",
-            description: "Çıkış yapıldı",
-          });
-          return;
-        }
-        throw error;
+        // Even if there's an error, state is already cleared so user will see login page
       }
       
       toast({
@@ -180,10 +172,7 @@ export function useAuth() {
       });
     } catch (error: any) {
       console.error("Error signing out:", error);
-      // Even on error, try to clear local state to prevent stuck state
-      setUser(null);
-      setSession(null);
-      setProfile(null);
+      // State is already cleared above, just show the toast
       toast({
         title: "Çıkış yapıldı",
         description: "Oturum sonlandırıldı",
