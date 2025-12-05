@@ -433,20 +433,26 @@ export type Database = {
       }
       students: {
         Row: {
+          archived_at: string | null
           created_at: string
           id: string
+          is_archived: boolean
           student_id: string
           teacher_id: string
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           id?: string
+          is_archived?: boolean
           student_id: string
           teacher_id: string
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           id?: string
+          is_archived?: boolean
           student_id?: string
           teacher_id?: string
         }
