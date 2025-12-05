@@ -145,6 +145,7 @@ export type Database = {
           homework_id: string
           id: string
           is_read: boolean
+          recipient_id: string
           student_id: string
           teacher_id: string
         }
@@ -153,6 +154,7 @@ export type Database = {
           homework_id: string
           id?: string
           is_read?: boolean
+          recipient_id: string
           student_id: string
           teacher_id: string
         }
@@ -161,6 +163,7 @@ export type Database = {
           homework_id?: string
           id?: string
           is_read?: boolean
+          recipient_id?: string
           student_id?: string
           teacher_id?: string
         }

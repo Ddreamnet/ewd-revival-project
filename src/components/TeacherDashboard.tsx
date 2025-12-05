@@ -179,6 +179,7 @@ export function TeacherDashboard() {
   return <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
       <Header rightActions={<>
             <NotificationBell 
+              userId={profile?.user_id || ""}
               teacherId={profile?.user_id || ""} 
               onNotificationClick={() => {
                 // Find the student that triggered the notification and open their homework dialog
