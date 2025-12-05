@@ -622,8 +622,8 @@ export function AdminDashboard() {
                           <div className="flex-1">
                             <h4 className="font-medium">{teacher.full_name}</h4>
                             <p className="text-sm text-muted-foreground">{teacher.email}</p>
-                            <Badge variant="outline" className="mt-1">
-                              {teacher.students.length} öğrenci
+                          <Badge variant="outline" className="mt-1">
+                              {teacher.students.filter(s => !s.is_archived).length} öğrenci
                             </Badge>
                           </div>
                           <Button
