@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Plus, Download, Trash2, CheckCircle, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
@@ -48,8 +49,10 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [studentColors, setStudentColors] = useState<Map<string, string>>(new Map());
   const [showAddTrial, setShowAddTrial] = useState(false);
   const [selectedTrialLesson, setSelectedTrialLesson] = useState<TrialLesson | null>(null);
+  const [showTrialActionDialog, setShowTrialActionDialog] = useState(false);
   const [showMarkAlert, setShowMarkAlert] = useState(false);
   const [showUnmarkAlert, setShowUnmarkAlert] = useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -175,10 +178,36 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
 
   const handleTrialLessonClick = (trial: TrialLesson) => {
     setSelectedTrialLesson(trial);
-    if (trial.is_completed) {
-      setShowUnmarkAlert(true);
-    } else {
-      setShowMarkAlert(true);
+    setShowTrialActionDialog(true);
+  };
+
+  const handleDeleteTrialLesson = async () => {
+    if (!selectedTrialLesson) return;
+
+    try {
+      const { error } = await supabase
+        .from("trial_lessons")
+        .delete()
+        .eq("id", selectedTrialLesson.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Deneme dersi silindi",
+      });
+
+      fetchSchedule();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setShowDeleteAlert(false);
+      setShowTrialActionDialog(false);
+      setSelectedTrialLesson(null);
     }
   };
 
@@ -445,7 +474,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                               variant="outline"
                               className={`w-full py-2 border-2 transition-all ${
                                 trialLesson.is_completed
-                                  ? "bg-red-50 text-red-400 border-red-200 hover:bg-red-100"
+                                  ? "bg-red-50/30 text-red-300 border-red-100 hover:bg-red-50/50 opacity-40"
                                   : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
                               }`}
                               onClick={() => handleTrialLessonClick(trialLesson)}
@@ -476,6 +505,56 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         onSuccess={fetchSchedule}
       />
 
+      {/* Trial Lesson Action Dialog */}
+      <Dialog open={showTrialActionDialog} onOpenChange={setShowTrialActionDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deneme Dersi İşlemleri</DialogTitle>
+            <DialogDescription>
+              {selectedTrialLesson && `${formatTime(selectedTrialLesson.start_time)} - ${formatTime(selectedTrialLesson.end_time)}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            {selectedTrialLesson?.is_completed ? (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3"
+                onClick={() => {
+                  setShowTrialActionDialog(false);
+                  setShowUnmarkAlert(true);
+                }}
+              >
+                <Undo2 className="h-5 w-5 text-orange-500" />
+                İşlendiyi Geri Al
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3"
+                onClick={() => {
+                  setShowTrialActionDialog(false);
+                  setShowMarkAlert(true);
+                }}
+              >
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                İşlendi Olarak İşaretle
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 text-destructive hover:text-destructive"
+              onClick={() => {
+                setShowTrialActionDialog(false);
+                setShowDeleteAlert(true);
+              }}
+            >
+              <Trash2 className="h-5 w-5" />
+              Deneme Dersini Sil
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={showMarkAlert} onOpenChange={setShowMarkAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -502,6 +581,23 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
             <AlertDialogAction onClick={handleMarkIncomplete}>Onayla</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deneme Dersini Sil</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu deneme dersini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTrialLesson} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Sil
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

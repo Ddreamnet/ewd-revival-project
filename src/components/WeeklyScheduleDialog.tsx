@@ -344,11 +344,11 @@ export function WeeklyScheduleDialog({
                               <div className="text-[10px] font-mono">
                                 {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
                               </div>
-                            </div> : trialLesson ? <div onClick={() => !processing && handleTrialLessonClick(trialLesson)} className={`p-2 rounded border-2 transition-opacity ${processing ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:opacity-80"} ${trialLesson.is_completed ? "bg-red-200/50 border-red-400/50" : "bg-red-200 border-red-400"}`}>
-                              <div className="font-medium text-xs mb-1 text-red-900">
+                            </div> : trialLesson ? <div onClick={() => !processing && handleTrialLessonClick(trialLesson)} className={`p-2 rounded border-2 transition-all ${processing ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:opacity-80"} ${trialLesson.is_completed ? "bg-red-100/30 border-red-200/50 opacity-30" : "bg-red-200 border-red-400"}`}>
+                              <div className={`font-medium text-xs mb-1 ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
                                 Deneme Dersi
                               </div>
-                              <div className="text-[10px] font-mono text-red-900">
+                              <div className={`text-[10px] font-mono ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
                                 {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
                               </div>
                             </div> : null}
