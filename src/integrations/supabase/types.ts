@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          notification_type: string
+          student_id: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          notification_type?: string
+          student_id: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          notification_type?: string
+          student_id?: string
+          teacher_id?: string
+        }
+        Relationships: []
+      }
       global_topic_resources: {
         Row: {
           completed_at: string | null

@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Image, UserPlus } from "lucide-react";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
+import { AdminNotificationBell } from "./AdminNotificationBell";
 import { CreateStudentDialog } from "./CreateStudentDialog";
 import { CreateTeacherDialog } from "./CreateTeacherDialog";
 import { EditStudentDialog } from "./EditStudentDialog";
@@ -539,6 +540,7 @@ export function AdminDashboard() {
       <Header
         rightActions={
           <>
+            <AdminNotificationBell adminId={profile?.user_id || ''} />
             <Button onClick={() => setShowGlobalTopics(true)} variant="outline" size="sm">
               <FolderOpen className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Konular</span>
