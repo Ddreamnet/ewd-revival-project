@@ -297,7 +297,9 @@ export function StudentDashboard() {
         rightActions={
           <>
             <NotificationBell 
-              teacherId={teacherId} 
+              userId={profile?.user_id || ""}
+              teacherId={teacherId}
+              studentId={profile?.user_id}
               isStudent={true}
               onNotificationClick={() => setListDialogOpen(true)}
             />

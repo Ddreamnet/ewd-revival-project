@@ -23,12 +23,14 @@ interface Notification {
 }
 
 interface NotificationBellProps {
-  teacherId: string;
+  userId: string; // Current user's ID (either teacher or student)
+  teacherId: string; // Teacher ID for the relationship
+  studentId?: string; // Student ID for the relationship (needed for student panel)
   isStudent?: boolean;
   onNotificationClick?: () => void;
 }
 
-export function NotificationBell({ teacherId, isStudent = false, onNotificationClick }: NotificationBellProps) {
+export function NotificationBell({ userId, teacherId, studentId, isStudent = false, onNotificationClick }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -36,22 +38,24 @@ export function NotificationBell({ teacherId, isStudent = false, onNotificationC
 
   useEffect(() => {
     fetchNotifications();
-    setupRealtimeSubscription();
-  }, [teacherId]);
+    const cleanup = setupRealtimeSubscription();
+    return cleanup;
+  }, [userId]);
 
   const fetchNotifications = async () => {
     try {
-      // Önce bildirimleri al
+      // Bildirimleri recipient_id ile filtrele (kullanıcının kendisine gelen bildirimler)
       const { data: notificationsData, error: notificationsError } = await supabase
         .from('notifications')
         .select('*')
-        .eq('teacher_id', teacherId)
+        .eq('recipient_id', userId)
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (notificationsError) throw notificationsError;
 
       // Fetch names based on whether user is student or teacher
+      // Öğrenci ise öğretmen adını, öğretmen ise öğrenci adını göster
       const userIds = isStudent 
         ? [...new Set(notificationsData?.map(n => n.teacher_id) || [])]
         : [...new Set(notificationsData?.map(n => n.student_id) || [])];
@@ -86,14 +90,14 @@ export function NotificationBell({ teacherId, isStudent = false, onNotificationC
 
   const setupRealtimeSubscription = () => {
     const channel = supabase
-      .channel('notifications-channel')
+      .channel(`notifications-${userId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'notifications',
-          filter: `teacher_id=eq.${teacherId}`
+          filter: `recipient_id=eq.${userId}`
         },
         (payload) => {
           console.log('New notification received:', payload);
