@@ -1,14 +1,14 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Phone, Contact } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 
 export function ContactDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <Contact className="h-4 w-4" />
+          <Phone className="h-4 w-4" />
           <span className="hidden sm:inline ml-2">İletişim</span>
         </Button>
       </DialogTrigger>

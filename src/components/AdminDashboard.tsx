@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Image, UserPlus, Archive, RotateCcw, UserRoundCog } from "lucide-react";
+import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Image, UserPlus, Archive, RotateCcw, FileUser } from "lucide-react";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { AdminNotificationBell } from "./AdminNotificationBell";
@@ -759,7 +759,7 @@ export function AdminDashboard() {
                                             }}
                                             title="Öğrenci hakkında"
                                           >
-                                            <UserRoundCog className="h-4 w-4" />
+                                            <FileUser className="h-4 w-4" />
                                           </Button>
                                           <Button variant="ghost" size="sm" onClick={() => openStudentSettings(student)}>
                                             <Settings className="h-4 w-4" />
