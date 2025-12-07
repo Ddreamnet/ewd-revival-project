@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, BookOpen, LogOut, Clock, Wallet, Calendar } from "lucide-react";
+import { Users, BookOpen, LogOut, Clock, Wallet, Calendar, UserRoundCog } from "lucide-react";
 import { StudentTopics } from "./StudentTopics";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
@@ -13,6 +13,7 @@ import { NotificationBell } from "./NotificationBell";
 import { ContactDialog } from "./ContactDialog";
 import { WeeklyScheduleDialog } from "./WeeklyScheduleDialog";
 import { TeacherBalanceDialog } from "./TeacherBalanceDialog";
+import { StudentAboutDialog } from "./StudentAboutDialog";
 interface StudentLesson {
   id?: string;
   dayOfWeek: number;
@@ -24,6 +25,7 @@ interface Student {
   id: string;
   student_id: string;
   lessons: StudentLesson[];
+  about_text: string | null;
   profiles: {
     full_name: string;
     email: string;
@@ -36,6 +38,8 @@ export function TeacherDashboard() {
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
   const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
+  const [showStudentAbout, setShowStudentAbout] = useState(false);
+  const [studentAboutData, setStudentAboutData] = useState<{ studentId: string; studentName: string; aboutText: string | null } | null>(null);
   const {
     profile,
     signOut,
@@ -59,6 +63,7 @@ export function TeacherDashboard() {
           id,
           student_id,
           is_archived,
+          about_text,
           profiles!students_student_id_fkey (
             full_name,
             email
@@ -76,6 +81,7 @@ export function TeacherDashboard() {
       // Combine students with their lessons
       const studentsWithLessons = (studentsData || []).map(student => ({
         ...student,
+        about_text: student.about_text || null,
         lessons: (lessonsData || []).filter(lesson => lesson.student_id === student.student_id).map(lesson => ({
           id: lesson.id,
           dayOfWeek: lesson.day_of_week,
@@ -238,7 +244,26 @@ export function TeacherDashboard() {
                       <CardContent className="p-3">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h4 className="font-medium">{student.profiles.full_name}</h4>
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-medium">{student.profiles.full_name}</h4>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setStudentAboutData({
+                                    studentId: student.student_id,
+                                    studentName: student.profiles.full_name,
+                                    aboutText: student.about_text
+                                  });
+                                  setShowStudentAbout(true);
+                                }}
+                                title="Öğrenci hakkında"
+                              >
+                                <UserRoundCog className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            </div>
                             <p className="text-sm text-muted-foreground">{student.profiles.email}</p>
 
                             {student.lessons.length > 0 && <div className="mt-1 space-y-1">
@@ -284,5 +309,16 @@ export function TeacherDashboard() {
       <WeeklyScheduleDialog open={showWeeklySchedule} onOpenChange={setShowWeeklySchedule} teacherId={profile?.user_id || ""} />
 
       <TeacherBalanceDialog open={showBalance} onOpenChange={setShowBalance} teacherId={profile?.user_id || ""} />
+
+      {studentAboutData && (
+        <StudentAboutDialog
+          open={showStudentAbout}
+          onOpenChange={setShowStudentAbout}
+          studentId={studentAboutData.studentId}
+          studentName={studentAboutData.studentName}
+          aboutText={studentAboutData.aboutText}
+          isReadOnly={true}
+        />
+      )}
     </div>;
 }

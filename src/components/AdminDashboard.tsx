@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Image, UserPlus, Archive, RotateCcw } from "lucide-react";
+import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Image, UserPlus, Archive, RotateCcw, UserRoundCog } from "lucide-react";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { AdminNotificationBell } from "./AdminNotificationBell";
@@ -21,6 +21,7 @@ import { EditTopicDialog } from "./EditTopicDialog";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AdminWeeklySchedule } from "./AdminWeeklySchedule";
 import { AdminBalanceManager } from "./AdminBalanceManager";
+import { StudentAboutDialog } from "./StudentAboutDialog";
 
 interface Teacher {
   user_id: string;
@@ -34,6 +35,7 @@ interface Student {
   student_id: string;
   lessons: StudentLesson[];
   is_archived: boolean;
+  about_text: string | null;
   profiles: {
     full_name: string;
     email: string;
@@ -91,6 +93,8 @@ export function AdminDashboard() {
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [activeTab, setActiveTab] = useState<"students" | "schedule" | "payments">("students");
+  const [showStudentAbout, setShowStudentAbout] = useState(false);
+  const [studentAboutData, setStudentAboutData] = useState<{ studentId: string; studentName: string; aboutText: string | null } | null>(null);
   const { profile, signOut, signingOut } = useAuth();
   const { toast } = useToast();
 
@@ -119,6 +123,7 @@ export function AdminDashboard() {
               id,
               student_id,
               is_archived,
+              about_text,
               profiles!students_student_id_fkey (
                 full_name,
                 email
@@ -141,6 +146,7 @@ export function AdminDashboard() {
           const studentsWithLessons = (studentsData || []).map((student) => ({
             ...student,
             is_archived: student.is_archived || false,
+            about_text: student.about_text || null,
             lessons: (lessonsData || [])
               .filter((lesson) => lesson.student_id === student.student_id)
               .map((lesson) => ({
@@ -738,9 +744,27 @@ export function AdminDashboard() {
                                           </div>
                                         </CollapsibleTrigger>
 
-                                        <Button variant="ghost" size="sm" onClick={() => openStudentSettings(student)}>
-                                          <Settings className="h-4 w-4" />
-                                        </Button>
+                                        <div className="flex items-center gap-1">
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setStudentAboutData({
+                                                studentId: student.student_id,
+                                                studentName: student.profiles.full_name,
+                                                aboutText: student.about_text
+                                              });
+                                              setShowStudentAbout(true);
+                                            }}
+                                            title="Öğrenci hakkında"
+                                          >
+                                            <UserRoundCog className="h-4 w-4" />
+                                          </Button>
+                                          <Button variant="ghost" size="sm" onClick={() => openStudentSettings(student)}>
+                                            <Settings className="h-4 w-4" />
+                                          </Button>
+                                        </div>
                                       </div>
 
                                       <CollapsibleContent className="mt-4">
@@ -1070,6 +1094,18 @@ export function AdminDashboard() {
         onEditResource={handleEditResource}
         resource={editingResource}
       />
+
+      {studentAboutData && (
+        <StudentAboutDialog
+          open={showStudentAbout}
+          onOpenChange={setShowStudentAbout}
+          studentId={studentAboutData.studentId}
+          studentName={studentAboutData.studentName}
+          aboutText={studentAboutData.aboutText}
+          isReadOnly={false}
+          onSaved={fetchTeachers}
+        />
+      )}
     </div>
   );
 }

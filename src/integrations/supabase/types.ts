@@ -433,6 +433,7 @@ export type Database = {
       }
       students: {
         Row: {
+          about_text: string | null
           archived_at: string | null
           created_at: string
           id: string
@@ -441,6 +442,7 @@ export type Database = {
           teacher_id: string
         }
         Insert: {
+          about_text?: string | null
           archived_at?: string | null
           created_at?: string
           id?: string
@@ -449,6 +451,7 @@ export type Database = {
           teacher_id: string
         }
         Update: {
+          about_text?: string | null
           archived_at?: string | null
           created_at?: string
           id?: string
