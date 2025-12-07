@@ -12,9 +12,16 @@ import { toast } from "sonner";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
-import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Undo, Redo } from "lucide-react";
+import { Color } from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Undo, Redo, Heading1, Heading2, Heading3, Palette } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface StudentAboutDialogProps {
   open: boolean;
@@ -25,6 +32,18 @@ interface StudentAboutDialogProps {
   isReadOnly?: boolean;
   onSaved?: () => void;
 }
+
+const COLORS = [
+  { name: "Varsayılan", value: "inherit" },
+  { name: "Kırmızı", value: "#ef4444" },
+  { name: "Turuncu", value: "#f97316" },
+  { name: "Sarı", value: "#eab308" },
+  { name: "Yeşil", value: "#22c55e" },
+  { name: "Mavi", value: "#3b82f6" },
+  { name: "Mor", value: "#8b5cf6" },
+  { name: "Pembe", value: "#ec4899" },
+  { name: "Gri", value: "#6b7280" },
+];
 
 export function StudentAboutDialog({
   open,
@@ -41,6 +60,8 @@ export function StudentAboutDialog({
     extensions: [
       StarterKit,
       Underline,
+      TextStyle,
+      Color,
     ],
     content: aboutText || "",
     editable: !isReadOnly,
@@ -82,6 +103,14 @@ export function StudentAboutDialog({
     }
   };
 
+  const setColor = (color: string) => {
+    if (color === "inherit") {
+      editor?.chain().focus().unsetColor().run();
+    } else {
+      editor?.chain().focus().setColor(color).run();
+    }
+  };
+
   if (!editor) {
     return null;
   }
@@ -98,12 +127,45 @@ export function StudentAboutDialog({
 
         <div className="py-2">
           {!isReadOnly && (
-            <div className="flex items-center gap-1 p-2 border rounded-t-lg bg-muted/30 border-b-0">
+            <div className="flex flex-wrap items-center gap-1 p-2 border rounded-t-lg bg-muted/30 border-b-0">
+              {/* Headings */}
+              <Toggle
+                size="sm"
+                pressed={editor.isActive("heading", { level: 1 })}
+                onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                aria-label="Başlık 1"
+                title="Başlık 1"
+              >
+                <Heading1 className="h-4 w-4" />
+              </Toggle>
+              <Toggle
+                size="sm"
+                pressed={editor.isActive("heading", { level: 2 })}
+                onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                aria-label="Başlık 2"
+                title="Başlık 2"
+              >
+                <Heading2 className="h-4 w-4" />
+              </Toggle>
+              <Toggle
+                size="sm"
+                pressed={editor.isActive("heading", { level: 3 })}
+                onPressedChange={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+                aria-label="Başlık 3"
+                title="Başlık 3"
+              >
+                <Heading3 className="h-4 w-4" />
+              </Toggle>
+              
+              <Separator orientation="vertical" className="h-6 mx-1" />
+              
+              {/* Text formatting */}
               <Toggle
                 size="sm"
                 pressed={editor.isActive("bold")}
                 onPressedChange={() => editor.chain().focus().toggleBold().run()}
                 aria-label="Kalın"
+                title="Kalın"
               >
                 <Bold className="h-4 w-4" />
               </Toggle>
@@ -112,6 +174,7 @@ export function StudentAboutDialog({
                 pressed={editor.isActive("italic")}
                 onPressedChange={() => editor.chain().focus().toggleItalic().run()}
                 aria-label="İtalik"
+                title="İtalik"
               >
                 <Italic className="h-4 w-4" />
               </Toggle>
@@ -120,17 +183,47 @@ export function StudentAboutDialog({
                 pressed={editor.isActive("underline")}
                 onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
                 aria-label="Altı çizili"
+                title="Altı çizili"
               >
                 <UnderlineIcon className="h-4 w-4" />
               </Toggle>
               
+              {/* Color picker */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Yazı rengi">
+                    <Palette className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-2" align="start">
+                  <div className="grid grid-cols-3 gap-1">
+                    {COLORS.map((color) => (
+                      <button
+                        key={color.value}
+                        onClick={() => setColor(color.value)}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-sm transition-colors"
+                        title={color.name}
+                      >
+                        <div 
+                          className="w-4 h-4 rounded-full border border-border"
+                          style={{ backgroundColor: color.value === "inherit" ? "transparent" : color.value }}
+                        />
+                        <span className="text-xs">{color.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
               <Separator orientation="vertical" className="h-6 mx-1" />
               
+              {/* Lists */}
               <Toggle
                 size="sm"
                 pressed={editor.isActive("bulletList")}
                 onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
                 aria-label="Madde listesi"
+                title="Madde listesi"
               >
                 <List className="h-4 w-4" />
               </Toggle>
@@ -139,18 +232,21 @@ export function StudentAboutDialog({
                 pressed={editor.isActive("orderedList")}
                 onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
                 aria-label="Numaralı liste"
+                title="Numaralı liste"
               >
                 <ListOrdered className="h-4 w-4" />
               </Toggle>
               
               <Separator orientation="vertical" className="h-6 mx-1" />
               
+              {/* Undo/Redo */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => editor.chain().focus().undo().run()}
                 disabled={!editor.can().undo()}
                 className="h-8 w-8 p-0"
+                title="Geri al"
               >
                 <Undo className="h-4 w-4" />
               </Button>
@@ -160,6 +256,7 @@ export function StudentAboutDialog({
                 onClick={() => editor.chain().focus().redo().run()}
                 disabled={!editor.can().redo()}
                 className="h-8 w-8 p-0"
+                title="İleri al"
               >
                 <Redo className="h-4 w-4" />
               </Button>
