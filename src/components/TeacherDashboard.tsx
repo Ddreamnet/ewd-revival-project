@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, BookOpen, LogOut, Clock, Wallet, Calendar, UserRoundCog } from "lucide-react";
+import { Users, BookOpen, LogOut, Clock, Wallet, Calendar, FileUser } from "lucide-react";
 import { StudentTopics } from "./StudentTopics";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
@@ -261,7 +261,7 @@ export function TeacherDashboard() {
                                 }}
                                 title="Öğrenci hakkında"
                               >
-                                <UserRoundCog className="h-4 w-4 text-muted-foreground" />
+                                <FileUser className="h-4 w-4 text-muted-foreground" />
                               </Button>
                             </div>
                             <p className="text-sm text-muted-foreground">{student.profiles.email}</p>
