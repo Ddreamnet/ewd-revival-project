@@ -55,6 +55,26 @@ export function StudentAboutDialog({
   onSaved,
 }: StudentAboutDialogProps) {
   const [saving, setSaving] = useState(false);
+  const [currentAboutText, setCurrentAboutText] = useState<string | null>(aboutText);
+  const [loading, setLoading] = useState(false);
+
+  // Diyalog açıldığında veritabanından güncel veriyi çek
+  useEffect(() => {
+    if (open && studentId) {
+      setLoading(true);
+      supabase
+        .from("students")
+        .select("about_text")
+        .eq("student_id", studentId)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setCurrentAboutText(data.about_text);
+          }
+          setLoading(false);
+        });
+    }
+  }, [open, studentId]);
 
   const editor = useEditor({
     extensions: [
@@ -87,11 +107,11 @@ export function StudentAboutDialog({
   });
 
   useEffect(() => {
-    if (editor && open) {
-      editor.commands.setContent(aboutText || "");
+    if (editor && open && !loading) {
+      editor.commands.setContent(currentAboutText || "");
       editor.setEditable(!isReadOnly);
     }
-  }, [aboutText, open, editor, isReadOnly]);
+  }, [currentAboutText, open, editor, isReadOnly, loading]);
 
   const handleSave = async () => {
     if (!editor) return;
