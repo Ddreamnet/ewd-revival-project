@@ -4,8 +4,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Calendar } from "lucide-react";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
+import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
+import { format, startOfWeek, addDays } from "date-fns";
+
 interface StudentLesson {
   id: string;
   student_id: string;
@@ -44,10 +47,12 @@ export function WeeklyScheduleDialog({
   const {
     toast
   } = useToast();
+  const { overrides, isLessonCancelled, getLessonOverride, refetch: refetchOverrides } = useLessonOverrides(teacherId);
   const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
   useEffect(() => {
     if (open && teacherId) {
       fetchSchedule();
+      refetchOverrides();
     }
   }, [open, teacherId]);
 
@@ -150,22 +155,95 @@ export function WeeklyScheduleDialog({
       return time;
     }
   };
+  // Get the date for a specific day in the current week
+  const getDateForDayIndex = (dayIndex: number): Date => {
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
+    return addDays(weekStart, dayIndex);
+  };
+
   const getAllTimeSlots = () => {
     const times = new Set<string>();
+    
+    // Add regular lesson times, considering overrides
     lessons.forEach(lesson => {
-      times.add(lesson.start_time);
+      const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
+      const override = getLessonOverride(lesson.student_id, lessonDate);
+      
+      if (!isLessonCancelled(lesson.student_id, lessonDate)) {
+        if (override && override.new_start_time) {
+          times.add(override.new_start_time);
+        } else {
+          times.add(lesson.start_time);
+        }
+      }
     });
+    
     trialLessons.forEach(lesson => {
       times.add(lesson.start_time);
     });
+    
+    // Add moved lessons that might have different times
+    overrides.forEach((o) => {
+      if (!o.is_cancelled && o.new_start_time) {
+        times.add(o.new_start_time);
+      }
+    });
+    
     return Array.from(times).sort();
   };
-  const getLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
+  
+  const getLessonForDayAndTime = (dayIndex: number, timeSlot: string): (StudentLesson & { _isOverride?: boolean; _override?: LessonOverride }) | null => {
     // dayIndex: 0=Pazartesi, 6=Pazar
     // day_of_week in DB: 1=Pazartesi, 0=Pazar
     const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
-    return lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
+    const dateForDay = getDateForDayIndex(dayIndex);
+    
+    // First check if there's a moved lesson that should appear here
+    const movedLesson = overrides.find((o) => {
+      if (o.is_cancelled || !o.new_date) return false;
+      const newDate = new Date(o.new_date);
+      const effectiveTime = o.new_start_time || o.original_start_time;
+      return format(newDate, "yyyy-MM-dd") === format(dateForDay, "yyyy-MM-dd") && effectiveTime === timeSlot;
+    });
+    
+    if (movedLesson) {
+      // Find the original lesson
+      const originalLesson = lessons.find((l) => l.student_id === movedLesson.student_id);
+      if (originalLesson) {
+        return {
+          ...originalLesson,
+          start_time: movedLesson.new_start_time || movedLesson.original_start_time,
+          end_time: movedLesson.new_end_time || movedLesson.original_end_time,
+          _isOverride: true,
+          _override: movedLesson,
+        };
+      }
+    }
+    
+    // Check for regular lessons on this day
+    const lesson = lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
+    
+    if (lesson) {
+      const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
+      
+      // Check if this lesson is cancelled or moved
+      if (isLessonCancelled(lesson.student_id, lessonDate)) {
+        return null;
+      }
+      
+      const override = getLessonOverride(lesson.student_id, lessonDate);
+      if (override && override.new_date) {
+        // This lesson is moved, don't show it here
+        return null;
+      }
+      
+      return lesson;
+    }
+    
+    return null;
   };
+  
   const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
     const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
     return trialLessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
@@ -345,9 +423,11 @@ export function WeeklyScheduleDialog({
                     {DAYS.map((day, dayIndex) => {
                 const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
                 const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
+                const isOverride = lesson && '_isOverride' in lesson && lesson._isOverride;
                 return <td key={day} className="border p-2">
-                          {lesson ? <div className={`p-2 rounded border-2 transition-opacity ${lesson.is_completed ? "opacity-40" : "opacity-100"} ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}>
-                              <div className="font-medium text-xs mb-1">
+                          {lesson ? <div className={`p-2 rounded border-2 transition-opacity ${lesson.is_completed ? "opacity-40" : "opacity-100"} ${isOverride ? "ring-2 ring-yellow-400" : ""} ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}>
+                              <div className="font-medium text-xs mb-1 flex items-center gap-1">
+                                {isOverride && <Calendar className="h-3 w-3 text-yellow-600" />}
                                 {lesson.note ? `${lesson.student_name} - ${lesson.note}` : lesson.student_name}
                               </div>
                               <div className="text-[10px] font-mono">
