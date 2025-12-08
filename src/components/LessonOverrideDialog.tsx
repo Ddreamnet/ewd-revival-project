@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Ban } from "lucide-react";
+import { CalendarIcon, Ban, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ interface LessonOverrideDialogProps {
   currentDate?: Date;
   currentStartTime?: string;
   currentEndTime?: string;
+  hasExistingOverride?: boolean;
   onSuccess: () => void;
 }
 
@@ -59,6 +60,7 @@ export function LessonOverrideDialog({
   currentDate,
   currentStartTime,
   currentEndTime,
+  hasExistingOverride = false,
   onSuccess,
 }: LessonOverrideDialogProps) {
   // Use current values if provided, otherwise fall back to original
@@ -71,6 +73,7 @@ export function LessonOverrideDialog({
   const [newEndTime, setNewEndTime] = useState(displayEndTime.slice(0, 5));
   const [saving, setSaving] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const { toast } = useToast();
 
   // Reset state when dialog opens with new lesson data
@@ -228,6 +231,38 @@ export function LessonOverrideDialog({
     }
   };
 
+  const handleRevert = async () => {
+    setSaving(true);
+    try {
+      // Delete the existing override record
+      const { error } = await supabase
+        .from("lesson_overrides")
+        .delete()
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .eq("original_date", format(originalDate, "yyyy-MM-dd"));
+
+      if (error) throw error;
+
+      toast({
+        title: "Başarılı",
+        description: "Ders orijinal tarih ve saatine döndürüldü",
+      });
+      onSuccess();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Error reverting lesson override:", error);
+      toast({
+        title: "Hata",
+        description: error.message || "Değişiklik geri alınamadı",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+      setShowRevertConfirm(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -291,6 +326,15 @@ export function LessonOverrideDialog({
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
+              variant="outline"
+              onClick={() => setShowRevertConfirm(true)}
+              disabled={saving || !hasExistingOverride}
+              className="w-full sm:w-auto"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Değişikliği Geri Al
+            </Button>
+            <Button
               variant="destructive"
               onClick={() => setShowCancelConfirm(true)}
               disabled={saving}
@@ -320,6 +364,23 @@ export function LessonOverrideDialog({
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
             <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               İptal Et
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Değişikliği Geri Al</AlertDialogTitle>
+            <AlertDialogDescription>
+              {studentName} öğrencisinin dersini orijinal tarih ve saatine ({format(originalDate, "d MMMM yyyy", { locale: tr })} {formatTime(originalStartTime)}) döndürmek istediğinize emin misiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRevert}>
+              Geri Al
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
