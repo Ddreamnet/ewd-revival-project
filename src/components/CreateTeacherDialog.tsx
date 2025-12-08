@@ -36,41 +36,45 @@ export function CreateTeacherDialog({
       return;
     }
 
+    if (password.length < 6) {
+      toast.error("Şifre en az 6 karakter olmalıdır");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Create new teacher account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            role: "teacher",
-          },
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Oturum bulunamadı");
+        return;
+      }
+
+      // Call edge function to create teacher
+      const response = await supabase.functions.invoke('create-teacher', {
+        body: {
+          email,
+          name: fullName,
+          password,
         },
       });
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Add teacher role to user_roles table
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert({
-            user_id: authData.user.id,
-            role: "teacher",
-          });
-
-        if (roleError) throw roleError;
-
-        toast.success("Öğretmen başarıyla oluşturuldu");
-        setFullName("");
-        setEmail("");
-        setPassword("");
-        onOpenChange(false);
-        onSuccess();
+      if (response.error) {
+        throw new Error(response.error.message || 'Öğretmen oluşturulamadı');
       }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      toast.success("Öğretmen başarıyla oluşturuldu");
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      onOpenChange(false);
+      onSuccess();
     } catch (error: any) {
       console.error("Error creating teacher:", error);
       toast.error(error.message || "Öğretmen oluşturulurken hata oluştu");
