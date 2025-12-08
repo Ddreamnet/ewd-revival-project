@@ -203,13 +203,9 @@ export function useAuth() {
   };
 
   const signOut = async () => {
-    // Prevent multiple clicks
-    if (signingOut || isSigningOutRef.current) {
-      console.log("Already signing out, ignoring");
-      return;
-    }
+    console.log("signOut called, current state:", { signingOut, isSigningOutRef: isSigningOutRef.current });
     
-    console.log("Starting sign out process");
+    // Force reset and proceed - don't block on previous state
     isSigningOutRef.current = true;
     setSigningOut(true);
     

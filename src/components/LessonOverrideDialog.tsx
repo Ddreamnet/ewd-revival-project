@@ -39,6 +39,10 @@ interface LessonOverrideDialogProps {
   originalDayOfWeek: number;
   originalStartTime: string;
   originalEndTime: string;
+  // Current display date/time (might be different from original if already overridden)
+  currentDate?: Date;
+  currentStartTime?: string;
+  currentEndTime?: string;
   onSuccess: () => void;
 }
 
@@ -52,11 +56,19 @@ export function LessonOverrideDialog({
   originalDayOfWeek,
   originalStartTime,
   originalEndTime,
+  currentDate,
+  currentStartTime,
+  currentEndTime,
   onSuccess,
 }: LessonOverrideDialogProps) {
-  const [newDate, setNewDate] = useState<Date | undefined>(originalDate);
-  const [newStartTime, setNewStartTime] = useState(originalStartTime.slice(0, 5));
-  const [newEndTime, setNewEndTime] = useState(originalEndTime.slice(0, 5));
+  // Use current values if provided, otherwise fall back to original
+  const displayDate = currentDate || originalDate;
+  const displayStartTime = currentStartTime || originalStartTime;
+  const displayEndTime = currentEndTime || originalEndTime;
+
+  const [newDate, setNewDate] = useState<Date | undefined>(displayDate);
+  const [newStartTime, setNewStartTime] = useState(displayStartTime.slice(0, 5));
+  const [newEndTime, setNewEndTime] = useState(displayEndTime.slice(0, 5));
   const [saving, setSaving] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const { toast } = useToast();
@@ -64,11 +76,14 @@ export function LessonOverrideDialog({
   // Reset state when dialog opens with new lesson data
   useEffect(() => {
     if (open) {
-      setNewDate(originalDate);
-      setNewStartTime(originalStartTime.slice(0, 5));
-      setNewEndTime(originalEndTime.slice(0, 5));
+      const dateToUse = currentDate || originalDate;
+      const startTimeToUse = currentStartTime || originalStartTime;
+      const endTimeToUse = currentEndTime || originalEndTime;
+      setNewDate(dateToUse);
+      setNewStartTime(startTimeToUse.slice(0, 5));
+      setNewEndTime(endTimeToUse.slice(0, 5));
     }
-  }, [open, originalDate, originalStartTime, originalEndTime]);
+  }, [open, originalDate, originalStartTime, originalEndTime, currentDate, currentStartTime, currentEndTime]);
 
   const formatTime = (time: string) => {
     try {
