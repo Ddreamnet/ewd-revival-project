@@ -24,6 +24,7 @@ interface StudentLesson {
   note?: string;
   _originalStartTime?: string;
   _originalEndTime?: string;
+  _hasOverride?: boolean;
 }
 
 interface TrialLesson {
@@ -311,11 +312,12 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       originalEndTimeForDialog = lesson.end_time;
     }
     
-    // Store the original times in the lesson object for the dialog
+    // Store the original times and override status in the lesson object for the dialog
     const lessonWithOriginalTimes = {
       ...lesson,
       _originalStartTime: originalStartTimeForDialog,
       _originalEndTime: originalEndTimeForDialog,
+      _hasOverride: !!override,
     };
     
     setSelectedLesson(lessonWithOriginalTimes);
@@ -774,6 +776,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           currentDate={selectedLessonCurrentDate || undefined}
           currentStartTime={selectedLessonCurrentStartTime || undefined}
           currentEndTime={selectedLessonCurrentEndTime || undefined}
+          hasExistingOverride={selectedLesson._hasOverride || false}
           onSuccess={handleOverrideSuccess}
         />
       )}
