@@ -120,6 +120,7 @@ export function StudentAboutDialog({
   // İçeriği sadece bir kez set et (dialog açılıp veri yüklendiğinde)
   useEffect(() => {
     if (editor && open && !loading && !contentInitializedRef.current) {
+      // setContent ile içeriği yükle - undo/redo history temiz başlar
       editor.commands.setContent(currentAboutText || "");
       editor.setEditable(!isReadOnly);
       contentInitializedRef.current = true;
