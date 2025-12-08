@@ -139,7 +139,8 @@ export function StudentAboutDialog({
 
   const setColor = (color: string) => {
     if (color === "inherit") {
-      editor?.chain().focus().unsetColor().run();
+      // Sadece seçili metin için rengi kaldır (unsetMark kullan)
+      editor?.chain().focus().unsetMark('textStyle').run();
     } else {
       editor?.chain().focus().setColor(color).run();
     }
