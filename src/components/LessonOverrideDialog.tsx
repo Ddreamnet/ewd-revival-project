@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +60,15 @@ export function LessonOverrideDialog({
   const [saving, setSaving] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const { toast } = useToast();
+
+  // Reset state when dialog opens with new lesson data
+  useEffect(() => {
+    if (open) {
+      setNewDate(originalDate);
+      setNewStartTime(originalStartTime.slice(0, 5));
+      setNewEndTime(originalEndTime.slice(0, 5));
+    }
+  }, [open, originalDate, originalStartTime, originalEndTime]);
 
   const formatTime = (time: string) => {
     try {
