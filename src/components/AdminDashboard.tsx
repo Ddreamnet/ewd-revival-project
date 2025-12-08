@@ -1108,8 +1108,8 @@ export function AdminDashboard() {
           studentName={studentAboutData.studentName}
           aboutText={studentAboutData.aboutText}
           isReadOnly={false}
-          onSaved={() => {
-            fetchTeachers();
+          onSaved={async () => {
+            await fetchTeachers();
             setStudentAboutData(null);
           }}
         />
