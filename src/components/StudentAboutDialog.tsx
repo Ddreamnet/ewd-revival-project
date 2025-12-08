@@ -58,7 +58,11 @@ export function StudentAboutDialog({
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+      }),
       Underline,
       TextStyle,
       Color,
@@ -69,6 +73,16 @@ export function StudentAboutDialog({
       attributes: {
         class: "prose prose-sm max-w-none min-h-[150px] p-4 focus:outline-none",
       },
+    },
+    onUpdate: ({ editor }) => {
+      // Heading'den sonra boş paragraf oluşturulduğunda, heading formatını kaldır
+      const { $from } = editor.state.selection;
+      const currentNode = $from.parent;
+      
+      // Eğer boş heading'e Enter ile geçilmişse, paragraph'a dönüştür
+      if (currentNode.type.name === 'heading' && currentNode.textContent === '') {
+        editor.chain().setParagraph().run();
+      }
     },
   });
 
