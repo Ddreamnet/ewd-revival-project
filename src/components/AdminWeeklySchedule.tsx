@@ -276,9 +276,21 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date; _override?: LessonOverride }) => {
-    const originalDate = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
+    // If this lesson has an override, use the ORIGINAL date from the override
+    // This is the date we need to use to identify and update the override record
+    const override = lesson._override;
+    let originalDateForOverride: Date;
+    
+    if (override) {
+      // This is a moved lesson - use the original_date from the override record
+      originalDateForOverride = new Date(override.original_date);
+    } else {
+      // Normal lesson - calculate from day_of_week
+      originalDateForOverride = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
+    }
+    
     setSelectedLesson(lesson);
-    setSelectedLessonDate(originalDate);
+    setSelectedLessonDate(originalDateForOverride);
     setShowOverrideDialog(true);
   };
 
