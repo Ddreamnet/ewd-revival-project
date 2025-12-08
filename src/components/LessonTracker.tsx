@@ -44,6 +44,12 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const { toast } = useToast();
 
   useEffect(() => {
+    // Guard: Don't fetch if IDs are missing or empty (e.g., during logout)
+    if (!studentId || !teacherId) {
+      setLoading(false);
+      return;
+    }
+    
     // CRITICAL: Fetch schedule FIRST before tracking, to ensure studentLessonDays is populated
     const loadData = async () => {
       await fetchStudentSchedule();

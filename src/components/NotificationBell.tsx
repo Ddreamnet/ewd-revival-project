@@ -37,12 +37,18 @@ export function NotificationBell({ userId, teacherId, studentId, isStudent = fal
   const { toast } = useToast();
 
   useEffect(() => {
+    // Guard: Don't fetch if userId is missing or empty (e.g., during logout)
+    if (!userId) return;
+    
     fetchNotifications();
     const cleanup = setupRealtimeSubscription();
     return cleanup;
   }, [userId]);
 
   const fetchNotifications = async () => {
+    // Guard: Don't fetch if userId is missing
+    if (!userId) return;
+    
     try {
       // Bildirimleri recipient_id ile filtrele (kullanıcının kendisine gelen bildirimler)
       const { data: notificationsData, error: notificationsError } = await supabase
