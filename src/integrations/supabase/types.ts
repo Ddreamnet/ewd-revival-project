@@ -169,6 +169,54 @@ export type Database = {
         }
         Relationships: []
       }
+      lesson_overrides: {
+        Row: {
+          created_at: string
+          id: string
+          is_cancelled: boolean
+          new_date: string | null
+          new_end_time: string | null
+          new_start_time: string | null
+          original_date: string
+          original_day_of_week: number
+          original_end_time: string
+          original_start_time: string
+          student_id: string
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_cancelled?: boolean
+          new_date?: string | null
+          new_end_time?: string | null
+          new_start_time?: string | null
+          original_date: string
+          original_day_of_week: number
+          original_end_time: string
+          original_start_time: string
+          student_id: string
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_cancelled?: boolean
+          new_date?: string | null
+          new_end_time?: string | null
+          new_start_time?: string | null
+          original_date?: string
+          original_day_of_week?: number
+          original_end_time?: string
+          original_start_time?: string
+          student_id?: string
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string

@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays } from "date-fns";
+import { format, addDays, parseISO, isBefore } from "date-fns";
+import { Ban } from "lucide-react";
 
 interface LessonTrackerProps {
   studentId: string;
@@ -25,10 +26,18 @@ interface LessonDates {
   [key: string]: string;
 }
 
+interface LessonOverride {
+  id: string;
+  original_date: string;
+  new_date: string | null;
+  is_cancelled: boolean;
+}
+
 export function LessonTracker({ studentId, studentName, teacherId }: LessonTrackerProps) {
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [studentLessonDays, setStudentLessonDays] = useState<number[]>([]);
+  const [lessonOverrides, setLessonOverrides] = useState<LessonOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingLesson, setPendingLesson] = useState<number | null>(null);
@@ -38,6 +47,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     // CRITICAL: Fetch schedule FIRST before tracking, to ensure studentLessonDays is populated
     const loadData = async () => {
       await fetchStudentSchedule();
+      await fetchLessonOverrides();
       await fetchTracking();
     };
     loadData();
@@ -58,6 +68,21 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
       setStudentLessonDays(days);
     } catch (error: any) {
       console.error("Failed to fetch student schedule:", error);
+    }
+  };
+
+  const fetchLessonOverrides = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("lesson_overrides")
+        .select("id, original_date, new_date, is_cancelled")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId);
+
+      if (error) throw error;
+      setLessonOverrides(data || []);
+    } catch (error: any) {
+      console.error("Failed to fetch lesson overrides:", error);
     }
   };
 
@@ -337,28 +362,44 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
                   const isCompleted = completedLessons.includes(lessonNumber);
                   const lessonDate = lessonDates[lessonNumber.toString()];
+                  
+                  // Check if this lesson date has an override (cancelled or moved)
+                  const override = lessonDate ? lessonOverrides.find(
+                    (o) => o.original_date === lessonDate
+                  ) : null;
+                  
+                  // Get effective display date
+                  const displayDate = override && override.new_date && !override.is_cancelled 
+                    ? override.new_date 
+                    : lessonDate;
+                  
+                  const isCancelled = override?.is_cancelled || false;
 
                   return (
                     <div key={lessonNumber} className="flex flex-col items-center gap-0.5">
                       <button
                         onClick={() => handleLessonClick(lessonNumber)}
-                        disabled={isCompleted}
+                        disabled={isCompleted || isCancelled}
                         className={`
                           h-8 w-8 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
-                          flex items-center justify-center shadow-sm
+                          flex items-center justify-center shadow-sm relative
                           ${
-                            isCompleted
-                              ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md"
-                              : "bg-background border-primary/30 hover:bg-primary/10 hover:scale-105 hover:shadow-md cursor-pointer hover:border-primary"
+                            isCancelled
+                              ? "bg-muted text-muted-foreground border-muted-foreground/30 opacity-50 cursor-not-allowed"
+                              : isCompleted
+                                ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md"
+                                : "bg-background border-primary/30 hover:bg-primary/10 hover:scale-105 hover:shadow-md cursor-pointer hover:border-primary"
                           }
                         `}
-                        title={`Ders ${lessonNumber}`}
+                        title={isCancelled ? `Ders ${lessonNumber} - İptal Edildi` : `Ders ${lessonNumber}`}
                       >
-                        {lessonNumber}
+                        {isCancelled ? <Ban className="h-4 w-4" /> : lessonNumber}
                       </button>
-                      {lessonDate && (
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                          {format(new Date(lessonDate), "dd.MM")}
+                      {displayDate && (
+                        <span className={`text-[10px] whitespace-nowrap ${
+                          override && !override.is_cancelled ? "text-amber-600 font-medium" : "text-muted-foreground"
+                        }`}>
+                          {format(new Date(displayDate), "dd.MM")}
                         </span>
                       )}
                     </div>
