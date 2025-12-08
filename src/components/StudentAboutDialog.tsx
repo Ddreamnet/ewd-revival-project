@@ -107,8 +107,8 @@ export function StudentAboutDialog({
       if (error) throw error;
 
       toast.success("Bilgiler kaydedildi");
+      await onSaved?.();
       onOpenChange(false);
-      onSaved?.();
     } catch (error) {
       console.error("Error saving about text:", error);
       toast.error("Kaydetme sırasında bir hata oluştu");
