@@ -215,46 +215,39 @@ export function useAuth() {
       profileFetchAbortRef.current = null;
     }
     
-    try {
-      // Clear local state IMMEDIATELY - this triggers UI redirect
-      console.log("Clearing local auth state");
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setLoading(false);
-      
-      // Then sign out from Supabase in the background
-      console.log("Calling Supabase signOut");
-      const { error } = await supabase.auth.signOut();
-      
+    // Clear local state IMMEDIATELY - this triggers UI redirect
+    console.log("Clearing local auth state");
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    
+    // Show toast immediately
+    toast({
+      title: "Başarılı",
+      description: "Çıkış yapıldı",
+    });
+    
+    // Then sign out from Supabase in the background (don't await)
+    console.log("Calling Supabase signOut");
+    supabase.auth.signOut().then(({ error }) => {
       if (error) {
-        // Log but don't throw - local state is already cleared
         console.warn("SignOut API warning:", error.message);
-        // Common case: session already expired on server
-        if (error.message.includes("session") || error.message.includes("Auth")) {
-          console.log("Session was already expired, continuing with logout");
-        }
       } else {
         console.log("Supabase signOut successful");
       }
-      
-      toast({
-        title: "Başarılı",
-        description: "Çıkış yapıldı",
-      });
-    } catch (error: any) {
-      console.error("Unexpected error during sign out:", error);
-      // State is already cleared, show success anyway
-      toast({
-        title: "Çıkış yapıldı",
-        description: "Oturum sonlandırıldı",
-      });
-    } finally {
+    }).catch((error) => {
+      console.warn("SignOut error:", error);
+    }).finally(() => {
       console.log("Sign out process complete");
       setSigningOut(false);
-      // Keep isSigningOutRef true until next sign in to prevent any delayed callbacks
-      // It will be reset on next signIn call
-    }
+      // Reset the ref after a delay to allow any pending callbacks to be ignored
+      setTimeout(() => {
+        // Only reset if we're not in the middle of another signout
+        if (!signingOut) {
+          isSigningOutRef.current = false;
+        }
+      }, 1000);
+    });
   };
 
   return {

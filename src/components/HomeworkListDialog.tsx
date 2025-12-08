@@ -313,23 +313,31 @@ export function HomeworkListDialog({
 
                         {/* Files list */}
                         <div className="space-y-2">
-                          {group.files.map((file) => (
-                            <div
-                              key={file.id}
-                              className="flex items-center gap-2 bg-background/50 p-2 rounded border"
-                            >
-                              {getFileIcon(file.file_type)}
-                              <span className="text-sm flex-1 truncate">{file.file_name}</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDownload(file.file_url, file.file_name)}
-                                title="İndir"
+                          {group.files.map((file) => {
+                            const truncatedName = file.file_name.length > 40 
+                              ? file.file_name.substring(0, 40) + "..." 
+                              : file.file_name;
+                            return (
+                              <div
+                                key={file.id}
+                                className="flex items-center gap-2 bg-background/50 p-2 rounded border min-w-0"
                               >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
+                                <div className="shrink-0">{getFileIcon(file.file_type)}</div>
+                                <span className="text-sm flex-1 truncate min-w-0" title={file.file_name}>
+                                  {truncatedName}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDownload(file.file_url, file.file_name)}
+                                  title="İndir"
+                                  className="shrink-0"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            );
+                          })}
                         </div>
 
                         <Badge 

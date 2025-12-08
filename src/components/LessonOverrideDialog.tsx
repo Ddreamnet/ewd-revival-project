@@ -266,7 +266,7 @@ export function LessonOverrideDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Ders Düzenle</DialogTitle>
             <DialogDescription>
