@@ -87,7 +87,7 @@ export function StudentAboutDialog({
       TextStyle,
       Color,
     ],
-    content: currentAboutText || "",
+    content: "",
     editable: !isReadOnly,
     editorProps: {
       attributes: {
@@ -104,13 +104,14 @@ export function StudentAboutDialog({
         editor.chain().setParagraph().run();
       }
     },
-  }, [open, currentAboutText]);
+  });
 
   useEffect(() => {
-    if (editor) {
+    if (editor && open && !loading) {
+      editor.commands.setContent(currentAboutText || "");
       editor.setEditable(!isReadOnly);
     }
-  }, [editor, isReadOnly]);
+  }, [currentAboutText, open, editor, isReadOnly, loading]);
 
   const handleSave = async () => {
     if (!editor) return;
