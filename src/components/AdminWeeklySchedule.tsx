@@ -61,6 +61,9 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   // Lesson override state
   const [selectedLesson, setSelectedLesson] = useState<StudentLesson | null>(null);
   const [selectedLessonDate, setSelectedLessonDate] = useState<Date | null>(null);
+  const [selectedLessonCurrentDate, setSelectedLessonCurrentDate] = useState<Date | null>(null);
+  const [selectedLessonCurrentStartTime, setSelectedLessonCurrentStartTime] = useState<string | null>(null);
+  const [selectedLessonCurrentEndTime, setSelectedLessonCurrentEndTime] = useState<string | null>(null);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   
   const { toast } = useToast();
@@ -280,17 +283,30 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     // This is the date we need to use to identify and update the override record
     const override = lesson._override;
     let originalDateForOverride: Date;
+    let currentDisplayDate: Date;
+    let currentStartTime: string;
+    let currentEndTime: string;
     
     if (override) {
       // This is a moved lesson - use the original_date from the override record
       originalDateForOverride = new Date(override.original_date);
+      // The current display is the NEW date/time from override
+      currentDisplayDate = override.new_date ? new Date(override.new_date) : originalDateForOverride;
+      currentStartTime = override.new_start_time || override.original_start_time;
+      currentEndTime = override.new_end_time || override.original_end_time;
     } else {
       // Normal lesson - calculate from day_of_week
       originalDateForOverride = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
+      currentDisplayDate = originalDateForOverride;
+      currentStartTime = lesson.start_time;
+      currentEndTime = lesson.end_time;
     }
     
     setSelectedLesson(lesson);
     setSelectedLessonDate(originalDateForOverride);
+    setSelectedLessonCurrentDate(currentDisplayDate);
+    setSelectedLessonCurrentStartTime(currentStartTime);
+    setSelectedLessonCurrentEndTime(currentEndTime);
     setShowOverrideDialog(true);
   };
 
@@ -739,6 +755,9 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           originalDayOfWeek={selectedLesson.day_of_week}
           originalStartTime={selectedLesson.start_time}
           originalEndTime={selectedLesson.end_time}
+          currentDate={selectedLessonCurrentDate || undefined}
+          currentStartTime={selectedLessonCurrentStartTime || undefined}
+          currentEndTime={selectedLessonCurrentEndTime || undefined}
           onSuccess={handleOverrideSuccess}
         />
       )}
