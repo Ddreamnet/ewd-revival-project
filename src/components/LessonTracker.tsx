@@ -344,6 +344,73 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   const rowConfig = getRowConfig();
 
+  // Build sorted lesson data with overrides applied
+  const getSortedLessons = () => {
+    const lessonsWithDates: { lessonNumber: number; originalDate: string; effectiveDate: string; isCancelled: boolean }[] = [];
+    
+    for (let i = 1; i <= totalLessonsPerMonth; i++) {
+      const originalDate = lessonDates[i.toString()];
+      if (!originalDate) continue;
+      
+      const override = lessonOverrides.find((o) => o.original_date === originalDate);
+      const isCancelled = override?.is_cancelled || false;
+      const effectiveDate = override && override.new_date && !isCancelled 
+        ? override.new_date 
+        : originalDate;
+      
+      lessonsWithDates.push({
+        lessonNumber: i,
+        originalDate,
+        effectiveDate,
+        isCancelled,
+      });
+    }
+    
+    // Sort by effective date (chronological order)
+    lessonsWithDates.sort((a, b) => {
+      // Cancelled lessons go to their original position
+      if (a.isCancelled && b.isCancelled) return a.originalDate.localeCompare(b.originalDate);
+      if (a.isCancelled) return a.originalDate.localeCompare(b.effectiveDate);
+      if (b.isCancelled) return a.effectiveDate.localeCompare(b.originalDate);
+      return a.effectiveDate.localeCompare(b.effectiveDate);
+    });
+    
+    return lessonsWithDates;
+  };
+
+  const sortedLessons = getSortedLessons();
+
+  // Create a map from display position to lesson data
+  const getDisplayLessonData = (displayPosition: number) => {
+    if (Object.keys(lessonDates).length === 0) {
+      // No dates yet, show sequential numbers
+      return {
+        lessonNumber: displayPosition,
+        displayDate: null,
+        isCancelled: false,
+        isOverridden: false,
+      };
+    }
+    
+    // Find the lesson at this display position from sorted array
+    const lessonData = sortedLessons[displayPosition - 1];
+    if (!lessonData) {
+      return {
+        lessonNumber: displayPosition,
+        displayDate: null,
+        isCancelled: false,
+        isOverridden: false,
+      };
+    }
+    
+    return {
+      lessonNumber: lessonData.lessonNumber,
+      displayDate: lessonData.effectiveDate,
+      isCancelled: lessonData.isCancelled,
+      isOverridden: lessonData.effectiveDate !== lessonData.originalDate,
+    };
+  };
+
   if (loading) {
     return <div className="animate-pulse h-40 bg-muted rounded-lg"></div>;
   }
@@ -357,26 +424,15 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (
               <div key={rowIndex} className="flex gap-1.5">
                 {Array.from({ length: rowConfig.buttonsPerRow }, (_, colIndex) => {
-                  const lessonNumber = rowIndex * rowConfig.buttonsPerRow + colIndex + 1;
-                  if (lessonNumber > totalLessonsPerMonth) return null;
+                  const displayPosition = rowIndex * rowConfig.buttonsPerRow + colIndex + 1;
+                  if (displayPosition > totalLessonsPerMonth) return null;
 
+                  const lessonData = getDisplayLessonData(displayPosition);
+                  const { lessonNumber, displayDate, isCancelled, isOverridden } = lessonData;
                   const isCompleted = completedLessons.includes(lessonNumber);
-                  const lessonDate = lessonDates[lessonNumber.toString()];
-                  
-                  // Check if this lesson date has an override (cancelled or moved)
-                  const override = lessonDate ? lessonOverrides.find(
-                    (o) => o.original_date === lessonDate
-                  ) : null;
-                  
-                  // Get effective display date
-                  const displayDate = override && override.new_date && !override.is_cancelled 
-                    ? override.new_date 
-                    : lessonDate;
-                  
-                  const isCancelled = override?.is_cancelled || false;
 
                   return (
-                    <div key={lessonNumber} className="flex flex-col items-center gap-0.5">
+                    <div key={displayPosition} className="flex flex-col items-center gap-0.5">
                       <button
                         onClick={() => handleLessonClick(lessonNumber)}
                         disabled={isCompleted || isCancelled}
@@ -391,13 +447,13 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
                                 : "bg-background border-primary/30 hover:bg-primary/10 hover:scale-105 hover:shadow-md cursor-pointer hover:border-primary"
                           }
                         `}
-                        title={isCancelled ? `Ders ${lessonNumber} - İptal Edildi` : `Ders ${lessonNumber}`}
+                        title={isCancelled ? `Ders ${displayPosition} - İptal Edildi` : `Ders ${displayPosition}`}
                       >
-                        {isCancelled ? <Ban className="h-4 w-4" /> : lessonNumber}
+                        {isCancelled ? <Ban className="h-4 w-4" /> : displayPosition}
                       </button>
                       {displayDate && (
                         <span className={`text-[10px] whitespace-nowrap ${
-                          override && !override.is_cancelled ? "text-amber-600 font-medium" : "text-muted-foreground"
+                          isOverridden ? "text-amber-600 font-medium" : "text-muted-foreground"
                         }`}>
                           {format(new Date(displayDate), "dd.MM")}
                         </span>
