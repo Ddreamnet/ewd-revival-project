@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +76,9 @@ export function StudentAboutDialog({
     }
   }, [open, studentId]);
 
+  const contentInitializedRef = useRef(false);
+  const lastOpenStateRef = useRef(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -106,10 +109,20 @@ export function StudentAboutDialog({
     },
   });
 
+  // Dialog kapandığında flag'i sıfırla
   useEffect(() => {
-    if (editor && open && !loading) {
+    if (!open && lastOpenStateRef.current) {
+      contentInitializedRef.current = false;
+    }
+    lastOpenStateRef.current = open;
+  }, [open]);
+
+  // İçeriği sadece bir kez set et (dialog açılıp veri yüklendiğinde)
+  useEffect(() => {
+    if (editor && open && !loading && !contentInitializedRef.current) {
       editor.commands.setContent(currentAboutText || "");
       editor.setEditable(!isReadOnly);
+      contentInitializedRef.current = true;
     }
   }, [currentAboutText, open, editor, isReadOnly, loading]);
 
