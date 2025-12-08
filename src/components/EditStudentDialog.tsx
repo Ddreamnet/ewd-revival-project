@@ -33,6 +33,13 @@ interface LessonDates {
   [key: string]: string;
 }
 
+interface LessonOverride {
+  id: string;
+  original_date: string;
+  new_date: string | null;
+  is_cancelled: boolean;
+}
+
 interface EditStudentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -66,6 +73,7 @@ export function EditStudentDialog({
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
+  const [lessonOverrides, setLessonOverrides] = useState<LessonOverride[]>([]);
   const [trackingRecordId, setTrackingRecordId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -83,6 +91,7 @@ export function EditStudentDialog({
           : [{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]
       );
       fetchLessonTracking();
+      fetchLessonOverrides();
     }
   }, [open, currentName, currentLessons]);
 
@@ -120,6 +129,29 @@ export function EditStudentDialog({
       }
     } catch (error: any) {
       console.error("Failed to fetch lesson tracking:", error);
+    }
+  };
+
+  const fetchLessonOverrides = async () => {
+    try {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("student_id, teacher_id")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError) throw studentError;
+
+      const { data, error } = await supabase
+        .from("lesson_overrides")
+        .select("id, original_date, new_date, is_cancelled")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id);
+
+      if (error) throw error;
+      setLessonOverrides(data || []);
+    } catch (error: any) {
+      console.error("Failed to fetch lesson overrides:", error);
     }
   };
 
@@ -824,31 +856,92 @@ export function EditStudentDialog({
               </div>
             </div>
             <div className="space-y-2">
-              {Array.from({ length: lessonsPerWeek * 4 }, (_, i) => i + 1).map((lessonNumber) => (
-                <div key={lessonNumber} className="flex items-center gap-3 p-3 border rounded-lg">
-                  <div className="flex items-center gap-2 flex-1">
-                    <div 
-                      className={`h-4 w-4 rounded-full ${
-                        completedLessons.includes(lessonNumber) ? "bg-primary" : "bg-muted"
-                      }`} 
-                    />
-                    <span className={`font-medium ${
-                      completedLessons.includes(lessonNumber) ? "text-foreground" : "text-muted-foreground"
-                    }`}>
-                      Ders {lessonNumber}
-                    </span>
+              {(() => {
+                const totalLessons = lessonsPerWeek * 4;
+                
+                // Build sorted lesson data with overrides applied
+                const lessonsWithDates: { lessonNumber: number; originalDate: string; effectiveDate: string; isCancelled: boolean; isOverridden: boolean }[] = [];
+                
+                for (let i = 1; i <= totalLessons; i++) {
+                  const originalDate = lessonDates[i.toString()];
+                  if (!originalDate) {
+                    lessonsWithDates.push({
+                      lessonNumber: i,
+                      originalDate: "",
+                      effectiveDate: "",
+                      isCancelled: false,
+                      isOverridden: false,
+                    });
+                    continue;
+                  }
+                  
+                  const override = lessonOverrides.find((o) => o.original_date === originalDate);
+                  const isCancelled = override?.is_cancelled || false;
+                  const effectiveDate = override && override.new_date && !isCancelled 
+                    ? override.new_date 
+                    : originalDate;
+                  
+                  lessonsWithDates.push({
+                    lessonNumber: i,
+                    originalDate,
+                    effectiveDate,
+                    isCancelled,
+                    isOverridden: effectiveDate !== originalDate,
+                  });
+                }
+                
+                // Sort by effective date (chronological order)
+                const sortedLessons = [...lessonsWithDates].filter(l => l.originalDate).sort((a, b) => {
+                  if (a.isCancelled && b.isCancelled) return a.originalDate.localeCompare(b.originalDate);
+                  if (a.isCancelled) return a.originalDate.localeCompare(b.effectiveDate);
+                  if (b.isCancelled) return a.effectiveDate.localeCompare(b.originalDate);
+                  return a.effectiveDate.localeCompare(b.effectiveDate);
+                });
+                
+                // Add lessons without dates at the end
+                const lessonsWithoutDates = lessonsWithDates.filter(l => !l.originalDate);
+                const allLessons = [...sortedLessons, ...lessonsWithoutDates];
+                
+                return allLessons.map((lesson, displayIndex) => (
+                  <div key={lesson.lessonNumber} className={`flex items-center gap-3 p-3 border rounded-lg ${
+                    lesson.isCancelled ? "opacity-50 bg-muted" : ""
+                  } ${lesson.isOverridden ? "border-amber-500" : ""}`}>
+                    <div className="flex items-center gap-2 flex-1">
+                      <div 
+                        className={`h-4 w-4 rounded-full ${
+                          lesson.isCancelled 
+                            ? "bg-muted-foreground" 
+                            : completedLessons.includes(lesson.lessonNumber) 
+                              ? "bg-primary" 
+                              : "bg-muted"
+                        }`} 
+                      />
+                      <span className={`font-medium ${
+                        lesson.isCancelled 
+                          ? "text-muted-foreground line-through" 
+                          : completedLessons.includes(lesson.lessonNumber) 
+                            ? "text-foreground" 
+                            : "text-muted-foreground"
+                      }`}>
+                        Ders {displayIndex + 1}
+                        {lesson.isCancelled && " (İptal)"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className={`text-sm ${lesson.isOverridden ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                        {lesson.isOverridden ? "Yeni Tarih:" : "Tarih:"}
+                      </Label>
+                      <Input
+                        type="date"
+                        value={lesson.effectiveDate || lessonDates[lesson.lessonNumber.toString()] || ""}
+                        onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
+                        className={`w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
+                        disabled={lesson.isCancelled}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm text-muted-foreground">Tarih:</Label>
-                    <Input
-                      type="date"
-                      value={lessonDates[lessonNumber.toString()] || ""}
-                      onChange={(e) => updateLessonDate(lessonNumber, e.target.value)}
-                      className="w-40"
-                    />
-                  </div>
-                </div>
-              ))}
+                ));
+              })()}
               <Button
                 type="button"
                 variant="default"
