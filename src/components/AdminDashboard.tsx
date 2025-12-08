@@ -1098,12 +1098,20 @@ export function AdminDashboard() {
       {studentAboutData && (
         <StudentAboutDialog
           open={showStudentAbout}
-          onOpenChange={setShowStudentAbout}
+          onOpenChange={(open) => {
+            setShowStudentAbout(open);
+            if (!open) {
+              setStudentAboutData(null);
+            }
+          }}
           studentId={studentAboutData.studentId}
           studentName={studentAboutData.studentName}
           aboutText={studentAboutData.aboutText}
           isReadOnly={false}
-          onSaved={fetchTeachers}
+          onSaved={() => {
+            fetchTeachers();
+            setStudentAboutData(null);
+          }}
         />
       )}
     </div>
