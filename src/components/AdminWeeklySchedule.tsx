@@ -22,6 +22,8 @@ interface StudentLesson {
   start_time: string;
   end_time: string;
   note?: string;
+  _originalStartTime?: string;
+  _originalEndTime?: string;
 }
 
 interface TrialLesson {
@@ -286,6 +288,8 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     let currentDisplayDate: Date;
     let currentStartTime: string;
     let currentEndTime: string;
+    let originalStartTimeForDialog: string;
+    let originalEndTimeForDialog: string;
     
     if (override) {
       // This is a moved lesson - use the original_date from the override record
@@ -294,15 +298,27 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       currentDisplayDate = override.new_date ? new Date(override.new_date) : originalDateForOverride;
       currentStartTime = override.new_start_time || override.original_start_time;
       currentEndTime = override.new_end_time || override.original_end_time;
+      // Original times from override record (for dialog title display)
+      originalStartTimeForDialog = override.original_start_time;
+      originalEndTimeForDialog = override.original_end_time;
     } else {
       // Normal lesson - calculate from day_of_week
       originalDateForOverride = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
       currentDisplayDate = originalDateForOverride;
       currentStartTime = lesson.start_time;
       currentEndTime = lesson.end_time;
+      originalStartTimeForDialog = lesson.start_time;
+      originalEndTimeForDialog = lesson.end_time;
     }
     
-    setSelectedLesson(lesson);
+    // Store the original times in the lesson object for the dialog
+    const lessonWithOriginalTimes = {
+      ...lesson,
+      _originalStartTime: originalStartTimeForDialog,
+      _originalEndTime: originalEndTimeForDialog,
+    };
+    
+    setSelectedLesson(lessonWithOriginalTimes);
     setSelectedLessonDate(originalDateForOverride);
     setSelectedLessonCurrentDate(currentDisplayDate);
     setSelectedLessonCurrentStartTime(currentStartTime);
@@ -753,8 +769,8 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           studentName={selectedLesson.student_name}
           originalDate={selectedLessonDate}
           originalDayOfWeek={selectedLesson.day_of_week}
-          originalStartTime={selectedLesson.start_time}
-          originalEndTime={selectedLesson.end_time}
+          originalStartTime={selectedLesson._originalStartTime || selectedLesson.start_time}
+          originalEndTime={selectedLesson._originalEndTime || selectedLesson.end_time}
           currentDate={selectedLessonCurrentDate || undefined}
           currentStartTime={selectedLessonCurrentStartTime || undefined}
           currentEndTime={selectedLessonCurrentEndTime || undefined}
