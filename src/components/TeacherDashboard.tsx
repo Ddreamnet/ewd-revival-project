@@ -312,6 +312,7 @@ export function TeacherDashboard() {
 
       {studentAboutData && (
         <StudentAboutDialog
+          key={studentAboutData.studentId}
           open={showStudentAbout}
           onOpenChange={setShowStudentAbout}
           studentId={studentAboutData.studentId}
