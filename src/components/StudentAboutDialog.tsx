@@ -111,19 +111,27 @@ export function StudentAboutDialog({
 
   const lastStudentIdRef = useRef<string | null>(null);
 
-  // Dialog kapandığında veya öğrenci değiştiğinde flag'i sıfırla
+  // Öğrenci değiştiğinde state'leri sıfırla
   useEffect(() => {
-    // Öğrenci değişti mi kontrol et
     if (studentId !== lastStudentIdRef.current) {
       contentInitializedRef.current = false;
+      setCurrentAboutText(null); // Eski öğrencinin verisini temizle
       lastStudentIdRef.current = studentId;
+      
+      // Editor içeriğini de hemen temizle
+      if (editor) {
+        editor.commands.setContent("");
+      }
     }
-    // Dialog kapandığında da sıfırla
+  }, [studentId, editor]);
+
+  // Dialog kapandığında flag'i sıfırla
+  useEffect(() => {
     if (!open && lastOpenStateRef.current) {
       contentInitializedRef.current = false;
     }
     lastOpenStateRef.current = open;
-  }, [open, studentId]);
+  }, [open]);
 
   // İçeriği sadece bir kez set et (dialog açılıp veri yüklendiğinde)
   useEffect(() => {
