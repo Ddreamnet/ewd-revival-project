@@ -109,13 +109,21 @@ export function StudentAboutDialog({
     },
   });
 
-  // Dialog kapandığında flag'i sıfırla
+  const lastStudentIdRef = useRef<string | null>(null);
+
+  // Dialog kapandığında veya öğrenci değiştiğinde flag'i sıfırla
   useEffect(() => {
+    // Öğrenci değişti mi kontrol et
+    if (studentId !== lastStudentIdRef.current) {
+      contentInitializedRef.current = false;
+      lastStudentIdRef.current = studentId;
+    }
+    // Dialog kapandığında da sıfırla
     if (!open && lastOpenStateRef.current) {
       contentInitializedRef.current = false;
     }
     lastOpenStateRef.current = open;
-  }, [open]);
+  }, [open, studentId]);
 
   // İçeriği sadece bir kez set et (dialog açılıp veri yüklendiğinde)
   useEffect(() => {
