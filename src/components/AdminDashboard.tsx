@@ -1097,6 +1097,7 @@ export function AdminDashboard() {
 
       {studentAboutData && (
         <StudentAboutDialog
+          key={studentAboutData.studentId}
           open={showStudentAbout}
           onOpenChange={(open) => {
             setShowStudentAbout(open);
