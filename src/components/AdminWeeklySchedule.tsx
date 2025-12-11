@@ -213,13 +213,12 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     return addDays(weekStart, dayIndex);
   };
 
-  // Check if a lesson is postponed (has override with new_date)
-  const isLessonPostponed = (studentId: string, date: Date): LessonOverride | null => {
+  // Check if a lesson has any override (postponed or cancelled)
+  const getLessonOverrideForAdmin = (studentId: string, date: Date): LessonOverride | null => {
     const dateStr = format(date, "yyyy-MM-dd");
     return overrides.find((o) => {
       return o.student_id === studentId && 
-             format(new Date(o.original_date), "yyyy-MM-dd") === dateStr &&
-             o.new_date !== null;
+             format(new Date(o.original_date), "yyyy-MM-dd") === dateStr;
     }) || null;
   };
 
@@ -258,26 +257,17 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     if (lesson) {
       const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
       
-      // Check if this lesson is postponed (admin can still see it but dimmed)
-      const postponeOverride = isLessonPostponed(lesson.student_id, lessonDate);
-      if (postponeOverride) {
+      // Check if this lesson has any override (cancelled or postponed)
+      // Admin should see ALL lessons including cancelled/postponed ones (but dimmed)
+      const override = getLessonOverrideForAdmin(lesson.student_id, lessonDate);
+      if (override) {
+        // Show the lesson as postponed/cancelled with dimmed style
         return { 
           ...lesson, 
           _originalDate: lessonDate,
           _isPostponed: true,
-          _override: postponeOverride,
+          _override: override,
         };
-      }
-      
-      // Check if this lesson is cancelled
-      if (isLessonCancelled(lesson.student_id, lessonDate)) {
-        return null;
-      }
-      
-      const override = getLessonOverride(lesson.student_id, lessonDate);
-      if (override && override.new_date) {
-        // This lesson is moved - but we already handle postponed above
-        return null;
       }
       
       return { ...lesson, _originalDate: lessonDate };
