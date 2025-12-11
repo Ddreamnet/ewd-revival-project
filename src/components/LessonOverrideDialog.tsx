@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Ban, RotateCcw } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -169,9 +169,66 @@ export function LessonOverrideDialog({
     }
   };
 
+  // Calculate next lesson date based on student's lesson days
+  const calculateNextLessonDate = async (currentDate: Date): Promise<Date | null> => {
+    try {
+      // Get student's lesson days
+      const { data: lessonDays, error } = await supabase
+        .from("student_lessons")
+        .select("day_of_week")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId);
+
+      if (error || !lessonDays || lessonDays.length === 0) {
+        console.error("Could not fetch lesson days:", error);
+        return null;
+      }
+
+      const days = lessonDays.map((l: any) => l.day_of_week);
+      
+      // Find the next lesson day after current date
+      let nextDate = new Date(currentDate);
+      nextDate.setHours(0, 0, 0, 0);
+      
+      // Start from next day
+      nextDate = addDays(nextDate, 1);
+      
+      // Find the next day that matches a lesson day
+      let attempts = 0;
+      while (!days.includes(nextDate.getDay()) && attempts < 14) {
+        nextDate = addDays(nextDate, 1);
+        attempts++;
+      }
+      
+      if (attempts >= 14) {
+        console.error("Could not find next lesson day");
+        return null;
+      }
+      
+      return nextDate;
+    } catch (error) {
+      console.error("Error calculating next lesson date:", error);
+      return null;
+    }
+  };
+
   const handleCancel = async () => {
     setSaving(true);
     try {
+      // Calculate the next lesson date to shift this lesson to
+      const nextLessonDate = await calculateNextLessonDate(originalDate);
+      
+      if (!nextLessonDate) {
+        toast({
+          title: "Hata",
+          description: "Sonraki ders tarihi hesaplanamadı",
+          variant: "destructive",
+        });
+        setSaving(false);
+        setShowCancelConfirm(false);
+        return;
+      }
+
       // Check if there's an existing override for this date
       const { data: existingOverride } = await supabase
         .from("lesson_overrides")
@@ -182,20 +239,20 @@ export function LessonOverrideDialog({
         .maybeSingle();
 
       if (existingOverride) {
-        // Update existing override to cancelled
+        // Update existing override - move to next lesson date instead of cancelling
         const { error } = await supabase
           .from("lesson_overrides")
           .update({
-            new_date: null,
-            new_start_time: null,
-            new_end_time: null,
-            is_cancelled: true,
+            new_date: format(nextLessonDate, "yyyy-MM-dd"),
+            new_start_time: originalStartTime,
+            new_end_time: originalEndTime,
+            is_cancelled: false,
           })
           .eq("id", existingOverride.id);
 
         if (error) throw error;
       } else {
-        // Create new cancelled override
+        // Create new override - move to next lesson date
         const { error } = await supabase.from("lesson_overrides").insert({
           student_id: studentId,
           teacher_id: teacherId,
@@ -203,10 +260,10 @@ export function LessonOverrideDialog({
           original_day_of_week: originalDayOfWeek,
           original_start_time: originalStartTime,
           original_end_time: originalEndTime,
-          new_date: null,
-          new_start_time: null,
-          new_end_time: null,
-          is_cancelled: true,
+          new_date: format(nextLessonDate, "yyyy-MM-dd"),
+          new_start_time: originalStartTime,
+          new_end_time: originalEndTime,
+          is_cancelled: false,
         });
 
         if (error) throw error;
@@ -214,15 +271,15 @@ export function LessonOverrideDialog({
 
       toast({
         title: "Başarılı",
-        description: "Ders bu hafta için iptal edildi",
+        description: `Ders ${format(nextLessonDate, "d MMMM", { locale: tr })} tarihine ertelendi`,
       });
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error cancelling lesson:", error);
+      console.error("Error postponing lesson:", error);
       toast({
         title: "Hata",
-        description: error.message || "Ders iptal edilemedi",
+        description: error.message || "Ders ertelenemedi",
         variant: "destructive",
       });
     } finally {
@@ -341,7 +398,7 @@ export function LessonOverrideDialog({
               className="w-full sm:w-auto"
             >
               <Ban className="h-4 w-4 mr-2" />
-              Bu Hafta İptal Et
+              Dersi Ertele
             </Button>
             <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
               {saving ? "Kaydediliyor..." : "Kaydet"}
@@ -353,17 +410,17 @@ export function LessonOverrideDialog({
       <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Dersi İptal Et</AlertDialogTitle>
+            <AlertDialogTitle>Dersi Ertele</AlertDialogTitle>
             <AlertDialogDescription>
-              {studentName} öğrencisinin {format(originalDate, "d MMMM yyyy", { locale: tr })} tarihli dersini sadece bu hafta için iptal etmek istediğinize emin misiniz?
+              {studentName} öğrencisinin {format(originalDate, "d MMMM yyyy", { locale: tr })} tarihli dersini bir sonraki ders gününe ertelemek istediğinize emin misiniz?
               <br /><br />
-              Bu işlem sadece bu haftayı etkiler. Gelecek haftalarda ders normal saatinde görünecektir.
+              Ders, öğrencinin ders programına göre bir sonraki uygun tarihe kaydırılacaktır.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
             <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              İptal Et
+              Ertele
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
