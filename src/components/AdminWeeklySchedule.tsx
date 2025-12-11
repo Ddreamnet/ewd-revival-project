@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban } from "lucide-react";
+import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
@@ -186,18 +186,9 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const getAllTimeSlots = () => {
     const allTimes = new Set<string>();
     
-    // Add regular lesson times
+    // Add regular lesson times (including cancelled ones for admin view)
     lessons.forEach((l) => {
-      const lessonDate = getLessonDateForCurrentWeek(l.day_of_week);
-      const override = getLessonOverride(l.student_id, lessonDate);
-      
-      if (!isLessonCancelled(l.student_id, lessonDate)) {
-        if (override && override.new_start_time) {
-          allTimes.add(override.new_start_time);
-        } else {
-          allTimes.add(l.start_time);
-        }
-      }
+      allTimes.add(l.start_time);
     });
     
     // Add trial lesson times
@@ -220,6 +211,16 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     const today = new Date();
     const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
     return addDays(weekStart, dayIndex);
+  };
+
+  // Check if a lesson is postponed (has override with new_date)
+  const isLessonPostponed = (studentId: string, date: Date): LessonOverride | null => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    return overrides.find((o) => {
+      return o.student_id === studentId && 
+             format(new Date(o.original_date), "yyyy-MM-dd") === dateStr &&
+             o.new_date !== null;
+    }) || null;
   };
 
   const getLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
@@ -257,14 +258,25 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     if (lesson) {
       const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
       
-      // Check if this lesson is cancelled or moved
+      // Check if this lesson is postponed (admin can still see it but dimmed)
+      const postponeOverride = isLessonPostponed(lesson.student_id, lessonDate);
+      if (postponeOverride) {
+        return { 
+          ...lesson, 
+          _originalDate: lessonDate,
+          _isPostponed: true,
+          _override: postponeOverride,
+        };
+      }
+      
+      // Check if this lesson is cancelled
       if (isLessonCancelled(lesson.student_id, lessonDate)) {
         return null;
       }
       
       const override = getLessonOverride(lesson.student_id, lessonDate);
       if (override && override.new_date) {
-        // This lesson is moved, don't show it here
+        // This lesson is moved - but we already handle postponed above
         return null;
       }
       
@@ -612,11 +624,16 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                           {lesson && (
                             <Button
                               variant="outline"
-                              className={`w-full justify-center py-2 cursor-pointer ${
-                                studentColors.get(lesson.student_id) || "bg-gray-100 text-gray-800"
+                              className={`w-full justify-center py-2 cursor-pointer relative ${
+                                (lesson as any)._isPostponed 
+                                  ? "opacity-40 bg-gray-100 text-gray-500 border-gray-300 hover:opacity-60" 
+                                  : studentColors.get(lesson.student_id) || "bg-gray-100 text-gray-800"
                               } ${(lesson as any)._isOverride ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
                               onClick={() => handleLessonClick(lesson as any)}
                             >
+                              {(lesson as any)._isPostponed && (
+                                <X className="absolute top-1 right-1 h-4 w-4 text-red-500" />
+                              )}
                               <div className="text-center">
                                 <div className="font-medium flex items-center justify-center gap-1">
                                   {(lesson as any)._isOverride && <Calendar className="h-3 w-3 text-amber-600" />}
