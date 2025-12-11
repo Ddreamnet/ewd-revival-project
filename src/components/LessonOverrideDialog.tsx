@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Ban, RotateCcw } from "lucide-react";
+import { CalendarIcon, ArrowRight, CalendarClock, RotateCcw, Save } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -72,8 +72,9 @@ export function LessonOverrideDialog({
   const [newStartTime, setNewStartTime] = useState(displayStartTime.slice(0, 5));
   const [newEndTime, setNewEndTime] = useState(displayEndTime.slice(0, 5));
   const [saving, setSaving] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showPostponeConfirm, setShowPostponeConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+  const [nextLessonDate, setNextLessonDate] = useState<Date | null>(null);
   const { toast } = useToast();
 
   // Reset state when dialog opens with new lesson data
@@ -85,6 +86,9 @@ export function LessonOverrideDialog({
       setNewDate(dateToUse);
       setNewStartTime(startTimeToUse.slice(0, 5));
       setNewEndTime(endTimeToUse.slice(0, 5));
+      
+      // Calculate next lesson date for "Sonraki Derse Aktar" button
+      calculateNextLessonDate(originalDate).then(setNextLessonDate);
     }
   }, [open, originalDate, originalStartTime, originalEndTime, currentDate, currentStartTime, currentEndTime]);
 
@@ -99,12 +103,200 @@ export function LessonOverrideDialog({
     }
   };
 
-  const handleSave = async () => {
+  // Check if date/time has been changed from the display values
+  const hasDateTimeChanges = (): boolean => {
+    if (!newDate) return false;
+    
+    const dateChanged = format(newDate, "yyyy-MM-dd") !== format(displayDate, "yyyy-MM-dd");
+    const startTimeChanged = newStartTime !== displayStartTime.slice(0, 5);
+    const endTimeChanged = newEndTime !== displayEndTime.slice(0, 5);
+    
+    return dateChanged || startTimeChanged || endTimeChanged;
+  };
+
+  // Calculate next lesson date based on student's lesson days
+  const calculateNextLessonDate = async (currentDate: Date): Promise<Date | null> => {
+    try {
+      // Get student's lesson days
+      const { data: lessonDays, error } = await supabase
+        .from("student_lessons")
+        .select("day_of_week")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId);
+
+      if (error || !lessonDays || lessonDays.length === 0) {
+        console.error("Could not fetch lesson days:", error);
+        return null;
+      }
+
+      const days = lessonDays.map((l: any) => l.day_of_week);
+      
+      // Find the next lesson day after current date
+      let nextDate = new Date(currentDate);
+      nextDate.setHours(0, 0, 0, 0);
+      
+      // Start from next day
+      nextDate = addDays(nextDate, 1);
+      
+      // Find the next day that matches a lesson day
+      let attempts = 0;
+      while (!days.includes(nextDate.getDay()) && attempts < 14) {
+        nextDate = addDays(nextDate, 1);
+        attempts++;
+      }
+      
+      if (attempts >= 14) {
+        console.error("Could not find next lesson day");
+        return null;
+      }
+      
+      return nextDate;
+    } catch (error) {
+      console.error("Error calculating next lesson date:", error);
+      return null;
+    }
+  };
+
+  // Handler for "Sonraki Derse Aktar" - shifts all subsequent lesson dates
+  const handlePostponeToNextLesson = async () => {
+    setSaving(true);
+    try {
+      // Get current lesson tracking data
+      const { data: trackingData, error: trackingError } = await supabase
+        .from("student_lesson_tracking")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (trackingError) throw trackingError;
+
+      if (!trackingData || !trackingData.lesson_dates) {
+        toast({
+          title: "Hata",
+          description: "Ders takip verisi bulunamadı",
+          variant: "destructive",
+        });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      const lessonDates = trackingData.lesson_dates as Record<string, string>;
+      const originalDateStr = format(originalDate, "yyyy-MM-dd");
+      
+      // Find which lesson number corresponds to this date
+      let targetLessonNumber: number | null = null;
+      for (const [lessonNum, dateStr] of Object.entries(lessonDates)) {
+        if (dateStr === originalDateStr) {
+          targetLessonNumber = parseInt(lessonNum);
+          break;
+        }
+      }
+
+      if (targetLessonNumber === null) {
+        toast({
+          title: "Hata",
+          description: "Bu tarih için ders kaydı bulunamadı",
+          variant: "destructive",
+        });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      // Get student's lesson days for calculating new dates
+      const { data: lessonDays, error: lessonDaysError } = await supabase
+        .from("student_lessons")
+        .select("day_of_week")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId);
+
+      if (lessonDaysError || !lessonDays || lessonDays.length === 0) {
+        toast({
+          title: "Hata",
+          description: "Öğrenci ders günleri bulunamadı",
+          variant: "destructive",
+        });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      const days = lessonDays.map((l: any) => l.day_of_week).sort((a: number, b: number) => a - b);
+      
+      // Shift all lessons from targetLessonNumber onwards
+      const totalLessons = trackingData.lessons_per_week * 4;
+      const newLessonDates: Record<string, string> = { ...lessonDates };
+      
+      // Start from the original date and find the next lesson date
+      let currentLessonDate = new Date(originalDate);
+      
+      for (let i = targetLessonNumber; i <= totalLessons; i++) {
+        // Find next lesson date
+        let nextDate = addDays(currentLessonDate, 1);
+        let attempts = 0;
+        while (!days.includes(nextDate.getDay()) && attempts < 14) {
+          nextDate = addDays(nextDate, 1);
+          attempts++;
+        }
+        
+        newLessonDates[i.toString()] = format(nextDate, "yyyy-MM-dd");
+        currentLessonDate = nextDate;
+      }
+
+      // Update the lesson_dates in database
+      const { error: updateError } = await supabase
+        .from("student_lesson_tracking")
+        .update({ lesson_dates: newLessonDates })
+        .eq("id", trackingData.id);
+
+      if (updateError) throw updateError;
+
+      // Also delete any existing override for this original date
+      await supabase
+        .from("lesson_overrides")
+        .delete()
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .eq("original_date", originalDateStr);
+
+      toast({
+        title: "Başarılı",
+        description: `${targetLessonNumber}. ders ve sonraki tüm dersler kaydırıldı`,
+      });
+      onSuccess();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Error postponing lesson:", error);
+      toast({
+        title: "Hata",
+        description: error.message || "Ders ertelenemedi",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+      setShowPostponeConfirm(false);
+    }
+  };
+
+  // Handler for "Tarihi Değiştir (1 Seferlik)" - creates/updates lesson_override
+  const handleOneTimeChange = async () => {
     if (!newDate) {
       toast({
         title: "Hata",
         description: "Lütfen yeni tarih seçin",
         variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasDateTimeChanges()) {
+      toast({
+        title: "Bilgi",
+        description: "Tarih veya saat değişikliği yapılmadı",
       });
       return;
     }
@@ -153,7 +345,7 @@ export function LessonOverrideDialog({
 
       toast({
         title: "Başarılı",
-        description: "Ders başarıyla ertelendi",
+        description: `Ders ${format(newDate, "d MMMM", { locale: tr })} tarihine taşındı`,
       });
       onSuccess();
       onOpenChange(false);
@@ -161,7 +353,7 @@ export function LessonOverrideDialog({
       console.error("Error saving lesson override:", error);
       toast({
         title: "Hata",
-        description: error.message || "Ders ertelenemedi",
+        description: error.message || "Ders tarihi değiştirilemedi",
         variant: "destructive",
       });
     } finally {
@@ -169,125 +361,7 @@ export function LessonOverrideDialog({
     }
   };
 
-  // Calculate next lesson date based on student's lesson days
-  const calculateNextLessonDate = async (currentDate: Date): Promise<Date | null> => {
-    try {
-      // Get student's lesson days
-      const { data: lessonDays, error } = await supabase
-        .from("student_lessons")
-        .select("day_of_week")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId);
-
-      if (error || !lessonDays || lessonDays.length === 0) {
-        console.error("Could not fetch lesson days:", error);
-        return null;
-      }
-
-      const days = lessonDays.map((l: any) => l.day_of_week);
-      
-      // Find the next lesson day after current date
-      let nextDate = new Date(currentDate);
-      nextDate.setHours(0, 0, 0, 0);
-      
-      // Start from next day
-      nextDate = addDays(nextDate, 1);
-      
-      // Find the next day that matches a lesson day
-      let attempts = 0;
-      while (!days.includes(nextDate.getDay()) && attempts < 14) {
-        nextDate = addDays(nextDate, 1);
-        attempts++;
-      }
-      
-      if (attempts >= 14) {
-        console.error("Could not find next lesson day");
-        return null;
-      }
-      
-      return nextDate;
-    } catch (error) {
-      console.error("Error calculating next lesson date:", error);
-      return null;
-    }
-  };
-
-  const handleCancel = async () => {
-    setSaving(true);
-    try {
-      // Calculate the next lesson date to shift this lesson to
-      const nextLessonDate = await calculateNextLessonDate(originalDate);
-      
-      if (!nextLessonDate) {
-        toast({
-          title: "Hata",
-          description: "Sonraki ders tarihi hesaplanamadı",
-          variant: "destructive",
-        });
-        setSaving(false);
-        setShowCancelConfirm(false);
-        return;
-      }
-
-      // Check if there's an existing override for this date
-      const { data: existingOverride } = await supabase
-        .from("lesson_overrides")
-        .select("id")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .eq("original_date", format(originalDate, "yyyy-MM-dd"))
-        .maybeSingle();
-
-      if (existingOverride) {
-        // Update existing override - move to next lesson date instead of cancelling
-        const { error } = await supabase
-          .from("lesson_overrides")
-          .update({
-            new_date: format(nextLessonDate, "yyyy-MM-dd"),
-            new_start_time: originalStartTime,
-            new_end_time: originalEndTime,
-            is_cancelled: false,
-          })
-          .eq("id", existingOverride.id);
-
-        if (error) throw error;
-      } else {
-        // Create new override - move to next lesson date
-        const { error } = await supabase.from("lesson_overrides").insert({
-          student_id: studentId,
-          teacher_id: teacherId,
-          original_date: format(originalDate, "yyyy-MM-dd"),
-          original_day_of_week: originalDayOfWeek,
-          original_start_time: originalStartTime,
-          original_end_time: originalEndTime,
-          new_date: format(nextLessonDate, "yyyy-MM-dd"),
-          new_start_time: originalStartTime,
-          new_end_time: originalEndTime,
-          is_cancelled: false,
-        });
-
-        if (error) throw error;
-      }
-
-      toast({
-        title: "Başarılı",
-        description: `Ders ${format(nextLessonDate, "d MMMM", { locale: tr })} tarihine ertelendi`,
-      });
-      onSuccess();
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error postponing lesson:", error);
-      toast({
-        title: "Hata",
-        description: error.message || "Ders ertelenemedi",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-      setShowCancelConfirm(false);
-    }
-  };
-
+  // Handler for "Değişiklikleri Geri Al"
   const handleRevert = async () => {
     setSaving(true);
     try {
@@ -317,6 +391,15 @@ export function LessonOverrideDialog({
     } finally {
       setSaving(false);
       setShowRevertConfirm(false);
+    }
+  };
+
+  // Handler for "Kaydet" - just saves date/time changes
+  const handleSave = async () => {
+    if (hasDateTimeChanges()) {
+      await handleOneTimeChange();
+    } else {
+      onOpenChange(false);
     }
   };
 
@@ -381,55 +464,89 @@ export function LessonOverrideDialog({
             </div>
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowRevertConfirm(true)}
-              disabled={saving || !hasExistingOverride}
-              className="w-full sm:w-auto"
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Değişikliği Geri Al
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setShowCancelConfirm(true)}
-              disabled={saving}
-              className="w-full sm:w-auto"
-            >
-              <Ban className="h-4 w-4 mr-2" />
-              Dersi Ertele
-            </Button>
-            <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
-              {saving ? "Kaydediliyor..." : "Kaydet"}
-            </Button>
+          <DialogFooter className="flex-col gap-2">
+            {/* Row 1: Main action buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
+              <Button
+                variant="outline"
+                onClick={() => setShowPostponeConfirm(true)}
+                disabled={saving}
+                className="w-full sm:w-1/2"
+              >
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Sonraki Derse Aktar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleOneTimeChange}
+                disabled={saving || !hasDateTimeChanges()}
+                className={cn(
+                  "w-full sm:w-1/2",
+                  !hasDateTimeChanges() && "opacity-50"
+                )}
+              >
+                <CalendarClock className="h-4 w-4 mr-2" />
+                Tarihi Değiştir (1 Seferlik)
+              </Button>
+            </div>
+
+            {/* Row 2: Revert and Save buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
+              <Button
+                variant="outline"
+                onClick={() => setShowRevertConfirm(true)}
+                disabled={saving || !hasExistingOverride}
+                className={cn(
+                  "w-full sm:w-1/2",
+                  !hasExistingOverride && "opacity-50"
+                )}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Değişiklikleri Geri Al
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                disabled={saving} 
+                className="w-full sm:w-1/2"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? "Kaydediliyor..." : "Kaydet"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+      {/* Postpone Confirmation Dialog */}
+      <AlertDialog open={showPostponeConfirm} onOpenChange={setShowPostponeConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Dersi Ertele</AlertDialogTitle>
+            <AlertDialogTitle>Sonraki Derse Aktar</AlertDialogTitle>
             <AlertDialogDescription>
-              {studentName} öğrencisinin {format(originalDate, "d MMMM yyyy", { locale: tr })} tarihli dersini bir sonraki ders gününe ertelemek istediğinize emin misiniz?
+              {studentName} öğrencisinin {format(originalDate, "d MMMM yyyy", { locale: tr })} tarihli dersini sonraki derse aktarmak istediğinize emin misiniz?
               <br /><br />
-              Ders, öğrencinin ders programına göre bir sonraki uygun tarihe kaydırılacaktır.
+              <strong>Bu işlem ile:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Bu ders {nextLessonDate ? format(nextLessonDate, "d MMMM", { locale: tr }) : "sonraki ders gününe"} tarihine kaydırılacak</li>
+                <li>Sonraki tüm dersler de birer ders ileri kaydırılacak</li>
+                <li>Öğrencinin ders hakkı korunacak</li>
+              </ul>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Ertele
+            <AlertDialogAction onClick={handlePostponeToNextLesson}>
+              Aktar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Revert Confirmation Dialog */}
       <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Değişikliği Geri Al</AlertDialogTitle>
+            <AlertDialogTitle>Değişiklikleri Geri Al</AlertDialogTitle>
             <AlertDialogDescription>
               {studentName} öğrencisinin dersini orijinal tarih ve saatine ({format(originalDate, "d MMMM yyyy", { locale: tr })} {formatTime(originalStartTime)}) döndürmek istediğinize emin misiniz?
             </AlertDialogDescription>
