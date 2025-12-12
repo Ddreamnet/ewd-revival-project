@@ -203,9 +203,9 @@ export function useAuth() {
   };
 
   const signOut = async () => {
-    console.log("signOut called, current state:", { signingOut, isSigningOutRef: isSigningOutRef.current });
+    console.log("=== SIGNOUT START ===");
     
-    // Force reset and proceed - don't block on previous state
+    // Set signing out flag immediately
     isSigningOutRef.current = true;
     setSigningOut(true);
     
@@ -215,46 +215,53 @@ export function useAuth() {
       profileFetchAbortRef.current = null;
     }
     
-    // Clear local state IMMEDIATELY - this triggers UI redirect
-    console.log("Clearing local auth state");
+    // Clear local React state FIRST - this triggers UI redirect
+    console.log("Step 1: Clearing React state");
     setUser(null);
     setSession(null);
     setProfile(null);
     
-    // Show toast immediately
+    // Manually clear localStorage to ensure session is gone
+    console.log("Step 2: Clearing localStorage");
+    try {
+      // Clear all Supabase-related items from localStorage
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => {
+        console.log("Removing localStorage key:", key);
+        localStorage.removeItem(key);
+      });
+    } catch (e) {
+      console.warn("localStorage clear error:", e);
+    }
+    
+    // Show toast
     toast({
       title: "Başarılı",
       description: "Çıkış yapıldı",
     });
     
-    // First, clear local storage session (scope: 'local') - this always works
-    // even if server session is already invalidated
-    console.log("Clearing local Supabase session");
+    // Try to sign out from Supabase (may fail if session already gone, that's OK)
+    console.log("Step 3: Calling Supabase signOut");
     try {
-      await supabase.auth.signOut({ scope: 'local' });
-      console.log("Local session cleared");
-    } catch (localError) {
-      console.warn("Local signOut warning:", localError);
+      await supabase.auth.signOut();
+      console.log("Supabase signOut successful");
+    } catch (error: any) {
+      console.warn("Supabase signOut error (OK if session expired):", error?.message);
     }
     
-    // Then try to invalidate on server (can fail if session already gone)
-    console.log("Attempting server signOut");
-    supabase.auth.signOut({ scope: 'global' }).then(({ error }) => {
-      if (error) {
-        console.warn("Server signOut warning (expected if session expired):", error.message);
-      } else {
-        console.log("Server signOut successful");
-      }
-    }).catch((error) => {
-      console.warn("Server signOut error (expected if session expired):", error);
-    }).finally(() => {
-      console.log("Sign out process complete");
-      setSigningOut(false);
-      // Reset the ref after a delay to allow any pending callbacks to be ignored
-      setTimeout(() => {
-        isSigningOutRef.current = false;
-      }, 1000);
-    });
+    console.log("=== SIGNOUT COMPLETE ===");
+    setSigningOut(false);
+    
+    // Reset the ref after a delay
+    setTimeout(() => {
+      isSigningOutRef.current = false;
+    }, 1000);
   };
 
   return {
