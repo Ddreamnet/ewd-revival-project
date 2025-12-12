@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfWeek, endOfWeek, addDays, parseISO, isWithinInterval } from "date-fns";
+import { format, startOfWeek, addDays, parseISO, isBefore } from "date-fns";
 
 export interface LessonOverride {
   id: string;
@@ -24,6 +24,7 @@ export function useLessonOverrides(teacherId: string) {
     try {
       // Get overrides for current week and future
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
       
       const { data, error } = await supabase
@@ -34,7 +35,24 @@ export function useLessonOverrides(teacherId: string) {
         .order("original_date", { ascending: true });
 
       if (error) throw error;
-      setOverrides(data || []);
+      
+      // Filter out expired overrides on the client side as well
+      // An override is expired when BOTH original_date AND new_date are in the past
+      const todayStr = format(today, "yyyy-MM-dd");
+      const activeOverrides = (data || []).filter((o: LessonOverride) => {
+        // If no new_date, keep the override (it's active)
+        if (!o.new_date) return true;
+        
+        // If either original_date or new_date is today or in the future, keep it
+        if (o.original_date >= todayStr || o.new_date >= todayStr) {
+          return true;
+        }
+        
+        // Both dates are in the past, filter it out
+        return false;
+      });
+      
+      setOverrides(activeOverrides);
     } catch (error) {
       console.error("Error fetching lesson overrides:", error);
     } finally {
