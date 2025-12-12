@@ -406,31 +406,32 @@ export function LessonOverrideDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Ders Düzenle</DialogTitle>
-            <DialogDescription>
-              {studentName} - {format(originalDate, "d MMMM yyyy", { locale: tr })} {formatTime(originalStartTime)}
+            <DialogTitle className="text-base">Ders Düzenle</DialogTitle>
+            <DialogDescription className="text-sm">
+              {studentName} - {format(originalDate, "d MMM yyyy", { locale: tr })} {formatTime(originalStartTime)}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Yeni Tarih</Label>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Tarih</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
+                    size="sm"
                     className={cn(
                       "w-full justify-start text-left font-normal",
                       !newDate && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {newDate ? format(newDate, "d MMMM yyyy", { locale: tr }) : "Tarih seçin"}
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    {newDate ? format(newDate, "d MMM yyyy", { locale: tr }) : "Tarih seçin"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 z-50" align="start">
                   <Calendar
                     mode="single"
                     selected={newDate}
@@ -442,78 +443,77 @@ export function LessonOverrideDialog({
               </Popover>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startTime">Başlangıç Saati</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="startTime" className="text-sm">Başlangıç</Label>
                 <Input
                   id="startTime"
                   type="time"
                   value={newStartTime}
                   onChange={(e) => setNewStartTime(e.target.value)}
+                  className="h-9"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="endTime">Bitiş Saati</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="endTime" className="text-sm">Bitiş</Label>
                 <Input
                   id="endTime"
                   type="time"
                   value={newEndTime}
                   onChange={(e) => setNewEndTime(e.target.value)}
+                  className="h-9"
                 />
               </div>
             </div>
           </div>
 
-          <DialogFooter className="flex-col gap-2">
-            {/* Row 1: Main action buttons */}
-            <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <Button
-                variant="outline"
-                onClick={() => setShowPostponeConfirm(true)}
-                disabled={saving}
-                className="w-full sm:w-1/2"
-              >
-                <ArrowRight className="h-4 w-4 mr-2" />
-                Sonraki Derse Aktar
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleOneTimeChange}
-                disabled={saving || !hasDateTimeChanges()}
-                className={cn(
-                  "w-full sm:w-1/2",
-                  !hasDateTimeChanges() && "opacity-50"
-                )}
-              >
-                <CalendarClock className="h-4 w-4 mr-2" />
-                Tarihi Değiştir (1 Seferlik)
-              </Button>
-            </div>
-
-            {/* Row 2: Revert and Save buttons */}
-            <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <Button
-                variant="outline"
-                onClick={() => setShowRevertConfirm(true)}
-                disabled={saving || !hasExistingOverride}
-                className={cn(
-                  "w-full sm:w-1/2",
-                  !hasExistingOverride && "opacity-50"
-                )}
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Değişiklikleri Geri Al
-              </Button>
-              <Button 
-                onClick={handleSave} 
-                disabled={saving} 
-                className="w-full sm:w-1/2"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? "Kaydediliyor..." : "Kaydet"}
-              </Button>
-            </div>
-          </DialogFooter>
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPostponeConfirm(true)}
+              disabled={saving}
+              className="text-xs px-2"
+            >
+              <ArrowRight className="h-3.5 w-3.5 mr-1 shrink-0" />
+              <span className="truncate">Sonraki Derse Aktar</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOneTimeChange}
+              disabled={saving || !hasDateTimeChanges()}
+              className={cn(
+                "text-xs px-2",
+                !hasDateTimeChanges() && "opacity-50"
+              )}
+            >
+              <CalendarClock className="h-3.5 w-3.5 mr-1 shrink-0" />
+              <span className="truncate">1 Seferlik Değiştir</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRevertConfirm(true)}
+              disabled={saving || !hasExistingOverride}
+              className={cn(
+                "text-xs px-2",
+                !hasExistingOverride && "opacity-50"
+              )}
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1 shrink-0" />
+              <span className="truncate">Geri Al</span>
+            </Button>
+            <Button 
+              size="sm"
+              onClick={handleSave} 
+              disabled={saving} 
+              className="col-span-2 text-xs"
+            >
+              <Save className="h-3.5 w-3.5 mr-1 shrink-0" />
+              {saving ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
