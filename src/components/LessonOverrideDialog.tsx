@@ -508,10 +508,10 @@ export function LessonOverrideDialog({
               size="sm"
               onClick={handleSave} 
               disabled={saving} 
-              className="col-span-2 text-xs"
+              className="text-xs px-2"
             >
               <Save className="h-3.5 w-3.5 mr-1 shrink-0" />
-              {saving ? "Kaydediliyor..." : "Kaydet"}
+              <span className="truncate">{saving ? "Kaydediliyor..." : "Kaydet"}</span>
             </Button>
           </div>
         </DialogContent>
