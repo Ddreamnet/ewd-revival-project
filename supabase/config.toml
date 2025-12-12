@@ -1,1 +1,13 @@
 project_id = "hwwpbtcgppzuscbvjkde"
+
+[functions.cleanup-lesson-overrides]
+verify_jwt = false
+
+[functions.cleanup-trial-lessons]
+verify_jwt = false
+
+[functions.create-student]
+verify_jwt = true
+
+[functions.create-teacher]
+verify_jwt = true
