@@ -1,0 +1,33 @@
+-- ============================================================================
+-- ENGLISH WITH DILARA - İLK ADMIN KULLANICI KURULUMU
+-- Bu SQL, admin kullanıcısı oluşturduktan SONRA çalıştırılmalıdır
+-- ============================================================================
+-- 
+-- AŞAMA 1: Supabase Dashboard → Authentication → Users → Add User
+--          - Email: admin@yourdomain.com
+--          - Password: güçlü bir şifre
+--          - Auto Confirm User: İşaretli olmalı
+--
+-- AŞAMA 2: Oluşturulan kullanıcının UUID'sini kopyalayın
+--
+-- AŞAMA 3: Aşağıdaki SQL'i düzenleyip çalıştırın
+-- ============================================================================
+
+-- Admin rolü ata (UUID'yi değiştirin!)
+-- INSERT INTO public.user_roles (user_id, role)
+-- VALUES ('BURAYA_ADMIN_USER_ID_YAZIN', 'admin'::public.app_role)
+-- ON CONFLICT (user_id, role) DO NOTHING;
+
+-- ============================================================================
+-- ÖRNEK:
+-- ============================================================================
+-- INSERT INTO public.user_roles (user_id, role)
+-- VALUES ('550e8400-e29b-41d4-a716-446655440000', 'admin'::public.app_role)
+-- ON CONFLICT (user_id, role) DO NOTHING;
+
+-- ============================================================================
+-- Admin profilini "Admin" olarak güncelle (opsiyonel)
+-- ============================================================================
+-- UPDATE public.profiles 
+-- SET full_name = 'Admin' 
+-- WHERE user_id = 'BURAYA_ADMIN_USER_ID_YAZIN';
