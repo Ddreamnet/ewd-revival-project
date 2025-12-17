@@ -2,7 +2,7 @@
 -- ENGLISH WITH DILARA - TEMİZ VERITABANI ŞEMASI
 -- Bu SQL yeni Supabase projesinde çalıştırılmalıdır
 -- ============================================================================
--- ÖNEMLİ: Sırayla çalıştırın! İlk önce Enums, sonra Functions, sonra Tables...
+-- ÖNEMLİ: Bu dosya tek seferde çalıştırılabilir. Doğru sıralama yapılmıştır.
 -- ============================================================================
 
 -- ============================================================================
@@ -26,7 +26,7 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- BÖLÜM 2: TEMEL FONKSİYONLAR (Tablolardan önce oluşturulmalı)
+-- BÖLÜM 2: BAĞIMSIZ FONKSİYONLAR (Tablolara bağımlı değil)
 -- ============================================================================
 
 -- Updated_at otomatik güncelleme fonksiyonu
@@ -40,54 +40,6 @@ BEGIN
   NEW.updated_at = now(); 
   RETURN NEW; 
 END; 
-$$;
-
--- Rol kontrol fonksiyonu (RLS için kritik)
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_roles
-    WHERE user_id = _user_id
-      AND role = _role
-  )
-$$;
-
--- Öğretmen kontrol fonksiyonu
-CREATE OR REPLACE FUNCTION public.is_teacher(_user_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_roles
-    WHERE user_id = _user_id
-      AND role = 'teacher'::app_role
-  )
-$$;
-
--- Öğretmen-öğrenci ilişki kontrol fonksiyonu
-CREATE OR REPLACE FUNCTION public.teacher_owns_student(_teacher_id uuid, _student_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.students
-    WHERE teacher_id = _teacher_id
-    AND student_id = _student_id
-  )
 $$;
 
 -- ============================================================================
@@ -333,7 +285,59 @@ CREATE TABLE IF NOT EXISTS public.trial_lessons (
 ALTER TABLE public.trial_lessons ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
--- BÖLÜM 4: İNDEKSLER
+-- BÖLÜM 4: TABLOLARA BAĞIMLI FONKSİYONLAR
+-- ============================================================================
+
+-- Rol kontrol fonksiyonu (RLS için kritik)
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = _user_id
+      AND role = _role
+  )
+$$;
+
+-- Öğretmen kontrol fonksiyonu
+CREATE OR REPLACE FUNCTION public.is_teacher(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = _user_id
+      AND role = 'teacher'::app_role
+  )
+$$;
+
+-- Öğretmen-öğrenci ilişki kontrol fonksiyonu
+CREATE OR REPLACE FUNCTION public.teacher_owns_student(_teacher_id uuid, _student_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.students
+    WHERE teacher_id = _teacher_id
+    AND student_id = _student_id
+  )
+$$;
+
+-- ============================================================================
+-- BÖLÜM 5: İNDEKSLER
 -- ============================================================================
 
 -- profiles
@@ -378,7 +382,7 @@ CREATE INDEX IF NOT EXISTS idx_trial_lessons_teacher_date ON public.trial_lesson
 CREATE INDEX IF NOT EXISTS idx_trial_lessons_date ON public.trial_lessons(lesson_date);
 
 -- ============================================================================
--- BÖLÜM 5: TETİKLEYİCİ FONKSİYONLARI
+-- BÖLÜM 6: TETİKLEYİCİ FONKSİYONLARI
 -- ============================================================================
 
 -- Yeni kullanıcı profil oluşturma
@@ -484,7 +488,7 @@ BEGIN
 END; 
 $$;
 
--- Konu tamamlandığında kaynakları tamamla
+-- Konu tamamlandığında kaynakları işaretle
 CREATE OR REPLACE FUNCTION public.complete_topic_resources()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -509,7 +513,7 @@ BEGIN
 END; 
 $$;
 
--- Global konu tamamlandığında kaynakları tamamla
+-- Global konu tamamlandığında kaynakları işaretle
 CREATE OR REPLACE FUNCTION public.complete_global_topic_resources()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -527,10 +531,10 @@ BEGIN
       DO UPDATE SET is_completed = true, completed_at = now(), updated_at = now();
   END IF;
   RETURN NEW;
-END;
+END; 
 $$;
 
--- Öğrenci ilişkisi oluşturma
+-- Öğrenci-öğretmen ilişkisi oluşturma
 CREATE OR REPLACE FUNCTION public.create_student_relationship(student_user_id uuid, teacher_user_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -558,8 +562,8 @@ BEGIN
   RETURN json_build_object('success',true,'message','Student relationship created successfully');
 EXCEPTION
   WHEN OTHERS THEN
-    RETURN json_build_object('error', sqlerrm);
-END;
+    RETURN json_build_object('error', SQLERRM);
+END; 
 $$;
 
 -- Eksik profilleri senkronize et
@@ -592,11 +596,11 @@ BEGIN
   RETURN json_build_object('success',true,'synced_profiles',sync_count,'message',format('Synced %s missing profiles', sync_count));
 EXCEPTION
   WHEN OTHERS THEN
-    RETURN json_build_object('error', sqlerrm);
-END;
+    RETURN json_build_object('error', SQLERRM);
+END; 
 $$;
 
--- Global topics sıralama güncelleme
+-- Global konuları yeniden sırala
 CREATE OR REPLACE FUNCTION public.update_global_topics_order(topic_orders jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -615,7 +619,7 @@ BEGIN
 END;
 $$;
 
--- Global resources sıralama güncelleme
+-- Global kaynakları yeniden sırala
 CREATE OR REPLACE FUNCTION public.update_global_resources_order(resource_orders jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -635,145 +639,95 @@ END;
 $$;
 
 -- ============================================================================
--- BÖLÜM 6: TRİGGER'LAR
+-- BÖLÜM 7: TETİKLEYİCİLER (TRIGGERS)
 -- ============================================================================
 
--- Auth trigger (yeni kullanıcı profil oluşturma)
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
+-- Yeni kullanıcı oluşturulduğunda profil oluştur
+CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- profiles updated_at
-DROP TRIGGER IF EXISTS trg_set_updated_at_profiles ON public.profiles;
-CREATE TRIGGER trg_set_updated_at_profiles
-  BEFORE UPDATE ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- student_lessons updated_at
-DROP TRIGGER IF EXISTS trg_set_updated_at_lessons ON public.student_lessons;
-CREATE TRIGGER trg_set_updated_at_lessons
-  BEFORE UPDATE ON public.student_lessons
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- student_lessons validation
-DROP TRIGGER IF EXISTS trg_validate_max_lessons ON public.student_lessons;
-CREATE TRIGGER trg_validate_max_lessons
-  BEFORE INSERT ON public.student_lessons
-  FOR EACH ROW EXECUTE FUNCTION public.validate_max_lessons_per_week();
-
--- student_lesson_tracking updated_at
-DROP TRIGGER IF EXISTS update_student_lesson_tracking_updated_at ON public.student_lesson_tracking;
-CREATE TRIGGER update_student_lesson_tracking_updated_at
-  BEFORE UPDATE ON public.student_lesson_tracking
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- student_lesson_tracking admin notification
-DROP TRIGGER IF EXISTS on_lesson_tracking_update_notify_admin ON public.student_lesson_tracking;
-CREATE TRIGGER on_lesson_tracking_update_notify_admin
-  AFTER UPDATE ON public.student_lesson_tracking
-  FOR EACH ROW EXECUTE FUNCTION public.notify_admin_last_lesson();
-
--- lesson_overrides updated_at
-DROP TRIGGER IF EXISTS update_lesson_overrides_updated_at ON public.lesson_overrides;
-CREATE TRIGGER update_lesson_overrides_updated_at
-  BEFORE UPDATE ON public.lesson_overrides
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- global_topics updated_at
-DROP TRIGGER IF EXISTS trg_set_updated_at_global_topics ON public.global_topics;
-CREATE TRIGGER trg_set_updated_at_global_topics
-  BEFORE UPDATE ON public.global_topics
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- global_topic_resources updated_at
-DROP TRIGGER IF EXISTS trg_set_updated_at_global_topic_resources ON public.global_topic_resources;
-CREATE TRIGGER trg_set_updated_at_global_topic_resources
-  BEFORE UPDATE ON public.global_topic_resources
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- topics updated_at
-DROP TRIGGER IF EXISTS trg_set_updated_at_topics ON public.topics;
-CREATE TRIGGER trg_set_updated_at_topics
-  BEFORE UPDATE ON public.topics
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- topics complete resources
-DROP TRIGGER IF EXISTS trg_complete_topic_resources ON public.topics;
-CREATE TRIGGER trg_complete_topic_resources
-  AFTER UPDATE ON public.topics
-  FOR EACH ROW EXECUTE FUNCTION public.complete_topic_resources();
-
-DROP TRIGGER IF EXISTS trg_complete_topic_resources_ins ON public.topics;
-CREATE TRIGGER trg_complete_topic_resources_ins
-  AFTER INSERT ON public.topics
-  FOR EACH ROW EXECUTE FUNCTION public.complete_topic_resources();
-
-DROP TRIGGER IF EXISTS trg_complete_topic_resources_upd ON public.topics;
-CREATE TRIGGER trg_complete_topic_resources_upd
-  AFTER UPDATE ON public.topics
-  FOR EACH ROW EXECUTE FUNCTION public.complete_topic_resources();
-
--- topics complete global topic resources
-DROP TRIGGER IF EXISTS trg_complete_global_topic_resources_ins ON public.topics;
-CREATE TRIGGER trg_complete_global_topic_resources_ins
-  AFTER INSERT ON public.topics
-  FOR EACH ROW EXECUTE FUNCTION public.complete_global_topic_resources();
-
-DROP TRIGGER IF EXISTS trg_complete_global_topic_resources_upd ON public.topics;
-CREATE TRIGGER trg_complete_global_topic_resources_upd
-  AFTER UPDATE ON public.topics
-  FOR EACH ROW EXECUTE FUNCTION public.complete_global_topic_resources();
-
--- resources updated_at
-DROP TRIGGER IF EXISTS trg_set_updated_at_resources ON public.resources;
-CREATE TRIGGER trg_set_updated_at_resources
-  BEFORE UPDATE ON public.resources
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- student_resource_completion updated_at
-DROP TRIGGER IF EXISTS trg_set_updated_at_src ON public.student_resource_completion;
-CREATE TRIGGER trg_set_updated_at_src
-  BEFORE UPDATE ON public.student_resource_completion
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- homework_submissions updated_at
-DROP TRIGGER IF EXISTS update_homework_submissions_updated_at ON public.homework_submissions;
-CREATE TRIGGER update_homework_submissions_updated_at
-  BEFORE UPDATE ON public.homework_submissions
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- homework_submissions notification
-DROP TRIGGER IF EXISTS on_homework_uploaded ON public.homework_submissions;
-CREATE TRIGGER on_homework_uploaded
+-- Ödev yüklendiğinde bildirim gönder
+CREATE OR REPLACE TRIGGER on_homework_upload
   AFTER INSERT ON public.homework_submissions
   FOR EACH ROW EXECUTE FUNCTION public.notify_on_homework_upload();
 
--- teacher_balance updated_at
-DROP TRIGGER IF EXISTS update_teacher_balance_updated_at ON public.teacher_balance;
-CREATE TRIGGER update_teacher_balance_updated_at
+-- Son ders uyarısı
+CREATE OR REPLACE TRIGGER on_last_lesson_warning
+  AFTER UPDATE ON public.student_lesson_tracking
+  FOR EACH ROW EXECUTE FUNCTION public.notify_admin_last_lesson();
+
+-- Maksimum ders kontrolü
+CREATE OR REPLACE TRIGGER check_max_lessons_per_week
+  BEFORE INSERT ON public.student_lessons
+  FOR EACH ROW EXECUTE FUNCTION public.validate_max_lessons_per_week();
+
+-- Konu tamamlandığında kaynakları işaretle
+CREATE OR REPLACE TRIGGER on_topic_completion
+  AFTER UPDATE OF is_completed ON public.topics
+  FOR EACH ROW EXECUTE FUNCTION public.complete_topic_resources();
+
+-- Global konu tamamlandığında kaynakları işaretle
+CREATE OR REPLACE TRIGGER on_global_topic_completion
+  AFTER UPDATE OF is_completed ON public.topics
+  FOR EACH ROW EXECUTE FUNCTION public.complete_global_topic_resources();
+
+-- updated_at otomatik güncelleme trigger'ları
+CREATE OR REPLACE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_student_lessons_updated_at
+  BEFORE UPDATE ON public.student_lessons
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_student_lesson_tracking_updated_at
+  BEFORE UPDATE ON public.student_lesson_tracking
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_lesson_overrides_updated_at
+  BEFORE UPDATE ON public.lesson_overrides
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_global_topics_updated_at
+  BEFORE UPDATE ON public.global_topics
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_global_topic_resources_updated_at
+  BEFORE UPDATE ON public.global_topic_resources
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_topics_updated_at
+  BEFORE UPDATE ON public.topics
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_resources_updated_at
+  BEFORE UPDATE ON public.resources
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_student_resource_completion_updated_at
+  BEFORE UPDATE ON public.student_resource_completion
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_homework_submissions_updated_at
+  BEFORE UPDATE ON public.homework_submissions
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_teacher_balance_updated_at
   BEFORE UPDATE ON public.teacher_balance
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- trial_lessons updated_at
-DROP TRIGGER IF EXISTS update_trial_lessons_updated_at ON public.trial_lessons;
-CREATE TRIGGER update_trial_lessons_updated_at
+CREATE OR REPLACE TRIGGER update_trial_lessons_updated_at
   BEFORE UPDATE ON public.trial_lessons
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============================================================================
--- BÖLÜM 7: REALTIME AYARLARI
+-- BÖLÜM 8: REALTIME AYARLARI
 -- ============================================================================
 
-ALTER TABLE public.notifications REPLICA IDENTITY FULL;
-ALTER TABLE public.admin_notifications REPLICA IDENTITY FULL;
-ALTER TABLE public.trial_lessons REPLICA IDENTITY FULL;
-
--- Realtime publication'a tablolar ekle (varsa)
-DO $$ 
-BEGIN
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.trial_lessons;
-  EXCEPTION WHEN duplicate_object THEN NULL;
-  END;
-END $$;
+-- Realtime için tabloları etkinleştir
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_notifications;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.homework_submissions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.student_lesson_tracking;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.trial_lessons;
