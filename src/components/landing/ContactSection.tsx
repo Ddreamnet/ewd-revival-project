@@ -211,7 +211,7 @@ export function ContactSection() {
             <img
               src="/uploads/dilarateacher.png"
               alt="Dilara Teacher"
-              className="w-[400px] xl:w-[500px] h-auto object-contain drop-shadow-xl"
+              className="w-[600px] xl:w-[750px] h-auto object-contain drop-shadow-xl"
             />
           </div>
         </div>
