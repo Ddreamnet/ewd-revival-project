@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,16 +6,17 @@
 
 /* Aprilia Font (decorative script font for DILARA) */
 @font-face {
-  font-family: 'Aprilia';
-  src: url('/uploads/fonts/Aprilia.woff2') format('woff2'),
-       url('/uploads/fonts/Aprilia.woff') format('woff');
+  font-family: "Aprilia";
+  src:
+    url("/uploads/fonts/Aprilia.woff2") format("woff2"),
+    url("/uploads/fonts/Aprilia.woff") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
 
 /* Fallback: Use a similar decorative script from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap");
 
 /* TipTap Editor Styles */
 .ProseMirror {
@@ -197,7 +198,8 @@ All colors MUST be HSL.
   }
 
   /* Scrollbar arka planı için html ve body aynı background */
-  html, body {
+  html,
+  body {
     height: 100%;
     margin: 0;
     background: url("/uploads/pinkgingham.png") repeat;
@@ -212,13 +214,13 @@ All colors MUST be HSL.
 
   body {
     @apply text-foreground;
-    font-family: 'Poppins', sans-serif;
+    font-family: "Poppins", sans-serif;
     overflow-x: hidden;
-    
+
     /* Custom Scrollbar Variables */
     --sb-track-color: transparent;
-    --sb-thumb-color: rgba(157, 89, 192, 0.70);
-    --sb-size: 6px;
+    --sb-thumb-color: rgba(157, 89, 192, 0.7);
+    --sb-size: 8px;
   }
 
   /* Custom Scrollbar - Floating Purple Design */
@@ -245,7 +247,7 @@ All colors MUST be HSL.
   /* Firefox fallback */
   @supports not selector(::-webkit-scrollbar) {
     body {
-      scrollbar-color: rgba(157, 89, 192, 0.70) transparent;
+      scrollbar-color: rgba(157, 89, 192, 0.7) transparent;
       scrollbar-width: thin;
     }
   }
@@ -254,7 +256,7 @@ All colors MUST be HSL.
 /* Landing page specific styles */
 @layer components {
   .landing-body {
-    background-image: url('/uploads/pinkgingham.png');
+    background-image: url("/uploads/pinkgingham.png");
     background-repeat: repeat;
     background-size: auto;
     background-attachment: scroll;
@@ -262,7 +264,7 @@ All colors MUST be HSL.
   }
 
   .font-aprilia {
-    font-family: 'Aprilia', 'Dancing Script', cursive;
+    font-family: "Aprilia", "Dancing Script", cursive;
   }
 
   /* Section scroll margin for sticky header */
@@ -298,7 +300,8 @@ All colors MUST be HSL.
 
 /* Keyframes */
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px);
   }
   50% {
@@ -307,7 +310,8 @@ All colors MUST be HSL.
 }
 
 @keyframes breathe {
-  0%, 100% {
+  0%,
+  100% {
     transform: rotate(-2deg) scale(1);
   }
   50% {
@@ -317,16 +321,22 @@ All colors MUST be HSL.
 
 /* Sticky Bubble Animations */
 @keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 20px hsla(330, 85%, 86%, 0.4), 0 0 40px hsla(280, 50%, 75%, 0.2);
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px hsla(330, 85%, 86%, 0.4),
+      0 0 40px hsla(280, 50%, 75%, 0.2);
   }
   50% {
-    box-shadow: 0 0 40px hsla(330, 85%, 86%, 0.8), 0 0 60px hsla(280, 50%, 75%, 0.4);
+    box-shadow:
+      0 0 40px hsla(330, 85%, 86%, 0.8),
+      0 0 60px hsla(280, 50%, 75%, 0.4);
   }
 }
 
 @keyframes gradient-shift {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -335,7 +345,8 @@ All colors MUST be HSL.
 }
 
 @keyframes wiggle {
-  0%, 100% {
+  0%,
+  100% {
     transform: rotate(-8deg);
   }
   50% {
@@ -344,7 +355,8 @@ All colors MUST be HSL.
 }
 
 @keyframes sparkle {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0;
     transform: scale(0) rotate(0deg);
   }
@@ -355,7 +367,8 @@ All colors MUST be HSL.
 }
 
 @keyframes arrow-bounce {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(0);
   }
   50% {
@@ -364,7 +377,8 @@ All colors MUST be HSL.
 }
 
 @keyframes bounce-gentle {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -382,7 +396,8 @@ All colors MUST be HSL.
 }
 
 @keyframes pulse-scale {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
