@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,21 +80,25 @@ export function AuthForm() {
         <div className="absolute inset-0 bg-black/40" />
 
         {/* Masaüstü görünüm: Logo sol-üstte (ana sayfayla aynı stil) */}
-        <img 
-          src="/uploads/logo.webp" 
-          alt="English with Dilara" 
-          className="hidden md:block absolute top-6 left-6 h-40 w-auto z-20 transform -rotate-[10deg]" 
-        />
+        <Link to="/" className="hidden md:block absolute top-6 left-6 z-20">
+          <img 
+            src="/uploads/logo.webp" 
+            alt="English with Dilara" 
+            className="h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
+          />
+        </Link>
 
         {/* İçerik */}
         <div className="relative z-10 w-full max-w-sm space-y-6">
           {/* Mobil görünüm: Logo Card'ın hemen üstünde ortalı (ana sayfayla aynı stil) */}
           <div className="block md:hidden text-center mb-2">
-            <img 
-              src="/uploads/logo.webp" 
-              alt="English with Dilara" 
-              className="h-20 sm:h-28 w-auto mx-auto transform -rotate-[10deg]" 
-            />
+            <Link to="/">
+              <img 
+                src="/uploads/logo.webp" 
+                alt="English with Dilara" 
+                className="h-20 sm:h-28 w-auto mx-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
+              />
+            </Link>
           </div>
 
           {/* Başlık (istersen burada kalabilir; mobilde logo üstte görünüyor, masaüstünde sol-üstte ayrı logo var) */}
