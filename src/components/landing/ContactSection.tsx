@@ -116,9 +116,9 @@ export function ContactSection() {
           {/* Center - Form */}
           <div className="w-full max-w-[340px] mx-auto lg:mx-0">
             {/* Dış Pembe Çerçeve */}
-            <div className="bg-pink-200/70 rounded-[20px] p-3 shadow-lg">
+            <div className="bg-pink-300/80 rounded-[20px] p-3 shadow-lg">
               {/* İç Panel - Lila/Beyaz */}
-              <div className="bg-white/60 backdrop-blur-sm rounded-[16px] p-4">
+              <div className="bg-white/70 backdrop-blur-sm rounded-[16px] p-4">
                 {/* Başlık */}
                 <h3 className="text-lg font-bold text-purple-900 mb-4">
                   {t.contact.form.title[language]}
@@ -132,11 +132,11 @@ export function ContactSection() {
                       placeholder={t.contact.form.fullName[language]}
                       value={formData.fullName}
                       onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      className="w-full h-9 px-3 pr-10 bg-purple-100/60 border-0 rounded-xl 
-                                 placeholder:text-purple-400 text-sm text-foreground
-                                 focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                      className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl 
+                                 placeholder:text-purple-500 text-sm text-foreground
+                                 focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
-                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
                   </div>
                   
                   {/* Select - Öğrenci yaşı */}
@@ -144,13 +144,13 @@ export function ContactSection() {
                     value={formData.studentAge}
                     onValueChange={(value) => setFormData({ ...formData, studentAge: value })}
                   >
-                    <SelectTrigger className="h-9 bg-purple-100/60 border-0 rounded-xl text-sm 
-                                               placeholder:text-purple-400 
-                                               focus:ring-2 focus:ring-pink-300 focus:outline-none
-                                               [&>span]:text-purple-400 [&>span]:data-[state=selected]:text-foreground">
+                    <SelectTrigger className="h-9 bg-purple-200/70 border-0 rounded-xl text-sm 
+                                               placeholder:text-purple-500 
+                                               focus:ring-2 focus:ring-pink-400 focus:outline-none
+                                               [&>span]:text-purple-500 [&>span]:data-[state=selected]:text-foreground">
                       <SelectValue placeholder={t.contact.form.studentAge[language]} />
                     </SelectTrigger>
-                    <SelectContent className="bg-white z-[60] rounded-xl border-purple-200/50">
+                    <SelectContent className="bg-white z-[60] rounded-xl border-purple-300">
                       {ageOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value} className="text-sm">
                           {option.label[language]}
@@ -161,8 +161,8 @@ export function ContactSection() {
                   
                   {/* Telefon - +90 prefix birleşik */}
                   <div className="flex">
-                    <div className="flex items-center px-3 bg-purple-100/80 rounded-l-xl 
-                                    text-sm font-medium text-purple-700 border-r border-purple-200/50 h-9">
+                    <div className="flex items-center px-3 bg-purple-300/70 rounded-l-xl 
+                                    text-sm font-medium text-purple-800 border-r border-purple-300/60 h-9">
                       +90
                     </div>
                     <input 
@@ -170,9 +170,9 @@ export function ContactSection() {
                       placeholder={t.contact.form.phone[language]}
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="flex-1 h-9 px-3 bg-purple-100/60 border-0 rounded-r-xl 
-                                 placeholder:text-purple-400 text-sm text-foreground
-                                 focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                      className="flex-1 h-9 px-3 bg-purple-200/70 border-0 rounded-r-xl 
+                                 placeholder:text-purple-500 text-sm text-foreground
+                                 focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
                   </div>
                   
@@ -181,9 +181,9 @@ export function ContactSection() {
                     placeholder={t.contact.form.message[language]}
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    className="w-full min-h-[80px] px-3 py-2 bg-purple-100/60 border-0 rounded-xl 
-                               placeholder:text-purple-400 text-sm text-foreground resize-none
-                               focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                    className="w-full min-h-[80px] px-3 py-2 bg-purple-200/70 border-0 rounded-xl 
+                               placeholder:text-purple-500 text-sm text-foreground resize-none
+                               focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
                   
                   {/* Sarı Gönder Butonu */}
