@@ -4,19 +4,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Aprilia Font (decorative script font for DILARA) */
-@font-face {
-  font-family: "Aprilia";
-  src:
-    url("/uploads/fonts/Aprilia.woff2") format("woff2"),
-    url("/uploads/fonts/Aprilia.woff") format("woff");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Fallback: Use a similar decorative script from Google Fonts */
-@import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap");
+/* Pacifico Font for DILARA branding - reliable Google Font */
+@import url("https://fonts.googleapis.com/css2?family=Pacifico&display=swap");
 
 /* TipTap Editor Styles */
 .ProseMirror {
@@ -268,7 +257,7 @@ All colors MUST be HSL.
   }
 
   .font-aprilia {
-    font-family: "Aprilia", "Dancing Script", cursive;
+    font-family: "Pacifico", cursive !important;
   }
 
   /* Section scroll margin for sticky header */

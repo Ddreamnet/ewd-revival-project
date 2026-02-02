@@ -27,6 +27,10 @@ export function FAQSection() {
         t.faq.questions.lessonType.subItems.group,
       ],
     },
+    {
+      question: t.faq.questions.login.question,
+      answer: t.faq.questions.login.answer,
+    },
   ];
 
   const toggleItem = (index: number) => {
