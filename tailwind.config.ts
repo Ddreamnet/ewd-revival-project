@@ -167,6 +167,26 @@ export default {
             transform: "scale(1.05)",
           },
         },
+        "bubble-exit": {
+          "0%": {
+            opacity: "1",
+            transform: "scale(1) rotate(0deg)",
+          },
+          "100%": {
+            opacity: "0",
+            transform: "scale(0.6) rotate(-10deg)",
+          },
+        },
+        "bubble-enter": {
+          "0%": {
+            opacity: "0",
+            transform: "scale(0.6) rotate(10deg)",
+          },
+          "100%": {
+            opacity: "1",
+            transform: "scale(1) rotate(0deg)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -180,6 +200,8 @@ export default {
         "arrow-bounce": "arrow-bounce 1s ease-in-out infinite",
         "bounce-gentle": "bounce-gentle 2s ease-in-out infinite",
         "pulse-scale": "pulse-scale 2s ease-in-out infinite",
+        "bubble-exit": "bubble-exit 0.3s ease-in-out forwards",
+        "bubble-enter": "bubble-enter 0.3s ease-in-out forwards",
       },
     },
   },
