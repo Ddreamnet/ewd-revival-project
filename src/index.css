@@ -206,13 +206,16 @@ All colors MUST be HSL.
     font-family: 'Poppins', sans-serif;
     overflow-x: hidden;
 
-    /* Custom scrollbar */
+    /* Custom floating scrollbar */
     --sb-thumb-color: hsl(280, 45%, 55%);
     --sb-size: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--sb-thumb-color) transparent;
   }
 
   body::-webkit-scrollbar {
     width: var(--sb-size);
+    background: transparent;
   }
 
   body::-webkit-scrollbar-track {
@@ -222,12 +225,11 @@ All colors MUST be HSL.
   body::-webkit-scrollbar-thumb {
     background: var(--sb-thumb-color);
     border-radius: 50px;
+    box-shadow: 0 2px 8px hsla(280, 45%, 40%, 0.4);
   }
 
-  @supports not selector(::-webkit-scrollbar) {
-    body {
-      scrollbar-color: var(--sb-thumb-color) transparent;
-    }
+  body::-webkit-scrollbar-thumb:hover {
+    background: hsl(280, 50%, 50%);
   }
 }
 
