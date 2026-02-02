@@ -395,3 +395,297 @@ All colors MUST be HSL.
     transform: scale(1.05);
   }
 }
+
+/* ===== Hero Book Styles ===== */
+.hero-book-wrap {
+  --book-a: #c8a3ea;
+  --book-b: #b48ae0;
+  --spine: #a26ed6;
+  --page: #fff3fb;
+  --ink: rgba(0, 0, 0, 0.88);
+  --muted: rgba(0, 0, 0, 0.74);
+  --spark: rgba(255, 255, 255, 0.92);
+  --stitch: rgba(0, 0, 0, 0.28);
+  --radius: 26px;
+  --tilt: -2deg;
+  --dur: 3.2s;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-book {
+  position: relative;
+  width: min(360px, 92vw);
+  aspect-ratio: 1 / 1;
+  transform: rotate(var(--tilt));
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.14));
+}
+
+.hero-book__spine {
+  position: absolute;
+  left: -14px;
+  top: 10px;
+  bottom: 10px;
+  width: 26px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--spine), #9158cf);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+
+.hero-book__pages {
+  position: absolute;
+  right: -10px;
+  top: 16px;
+  bottom: 16px;
+  width: 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--page), #ffeef8);
+  box-shadow: inset -2px 0 0 rgba(0, 0, 0, 0.06);
+  transform-origin: 50% 50%;
+}
+
+.hero-book__cover {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, var(--book-a), var(--book-b));
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.3),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.1);
+  transform-origin: 18% 55%;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.hero-book__stitches {
+  position: absolute;
+  inset: 18px;
+  border-radius: calc(var(--radius) - 10px);
+  border: 2px dashed var(--stitch);
+  opacity: 0.55;
+}
+
+.hero-book__corner {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 24px;
+  background: rgba(255, 210, 234, 0.58);
+}
+
+.hero-book__corner--a {
+  left: -26px;
+  bottom: -26px;
+  transform: rotate(8deg);
+}
+
+.hero-book__corner--b {
+  right: -30px;
+  top: -30px;
+  transform: rotate(-10deg);
+  opacity: 0.52;
+}
+
+.hero-book__dot {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 210, 234, 0.95);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+}
+
+.hero-book__dot--1 {
+  top: 18px;
+  right: 18px;
+  width: 16px;
+  height: 16px;
+}
+
+.hero-book__dot--2 {
+  top: 34px;
+  right: 32px;
+  width: 10px;
+  height: 10px;
+  opacity: 0.9;
+}
+
+.hero-book__content {
+  position: absolute;
+  inset: 28px;
+  border-radius: 18px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+}
+
+.hero-book__english {
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-weight: 800;
+  font-size: 40px;
+  letter-spacing: 0.5px;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.hero-book__with {
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+  opacity: 0.92;
+  margin-top: -6px;
+}
+
+.hero-book__dilara {
+  font-family: "Mystery Quest", serif;
+  font-size: 38px;
+  color: var(--ink);
+  letter-spacing: 0.4px;
+  margin-top: -6px;
+}
+
+.hero-book__lead {
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 19px;
+  color: var(--ink);
+  text-align: center;
+  margin-top: 6px;
+}
+
+.hero-book__sub {
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.25;
+}
+
+.hero-book__mini {
+  margin-top: auto;
+  align-self: flex-end;
+  font-size: 22px;
+  color: rgba(255, 230, 120, 0.95);
+  transform: rotate(-8deg);
+}
+
+.hero-book__spark {
+  position: absolute;
+  font-size: 16px;
+  color: var(--spark);
+  text-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.hero-book__spark--1 {
+  left: 10px;
+  top: -6px;
+}
+
+.hero-book__spark--2 {
+  right: -8px;
+  bottom: 18px;
+  font-size: 14px;
+  opacity: 0.35;
+}
+
+/* Hero Book Animations */
+.hero-book--alive {
+  will-change: transform;
+  animation: bookFloat var(--dur) ease-in-out infinite;
+}
+
+.hero-book--alive .hero-book__cover {
+  will-change: transform;
+  animation: coverFlap var(--dur) cubic-bezier(0.34, 1.35, 0.64, 1) infinite;
+}
+
+.hero-book--alive .hero-book__pages {
+  will-change: transform;
+  animation: pagesWiggle var(--dur) ease-in-out infinite;
+}
+
+.hero-book--alive .hero-book__spark {
+  will-change: transform, opacity;
+  animation: sparkleBlink calc(var(--dur) * 0.75) ease-in-out infinite;
+}
+
+@keyframes bookFloat {
+  0% {
+    transform: rotate(var(--tilt)) translateY(0);
+  }
+  50% {
+    transform: rotate(calc(var(--tilt) + 1.1deg)) translateY(-10px);
+  }
+  100% {
+    transform: rotate(var(--tilt)) translateY(0);
+  }
+}
+
+@keyframes coverFlap {
+  0% {
+    transform: rotateY(0) rotateX(0) scale(1);
+  }
+  18% {
+    transform: rotateY(-4.2deg) rotateX(2deg) scale(1.024, 0.988);
+  }
+  42% {
+    transform: rotateY(3.2deg) rotateX(-1.8deg) scale(0.988, 1.026);
+  }
+  70% {
+    transform: rotateY(-2.2deg) rotateX(1.4deg) scale(1.016, 0.994);
+  }
+  100% {
+    transform: rotateY(0) rotateX(0) scale(1);
+  }
+}
+
+@keyframes pagesWiggle {
+  0% {
+    transform: translateX(0) rotate(0deg);
+  }
+  50% {
+    transform: translateX(2px) rotate(-2deg);
+  }
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+@keyframes sparkleBlink {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateY(-4px) scale(1.18) rotate(10deg);
+  }
+}
+
+/* Reduced motion for Hero Book */
+@media (prefers-reduced-motion: reduce) {
+  .hero-book--alive,
+  .hero-book--alive .hero-book__cover,
+  .hero-book--alive .hero-book__pages,
+  .hero-book--alive .hero-book__spark {
+    animation: none !important;
+  }
+}
+
+/* Slower animation on small screens (battery-friendly) */
+@media (max-width: 420px) {
+  .hero-book-wrap {
+    --dur: 3.6s;
+  }
+}
