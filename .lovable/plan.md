@@ -1,121 +1,94 @@
 
-# Mobil Header İkon ve Logo Uyumu Planı
+
+# Özel Scrollbar Tasarımı Ekleme Planı
+
+## Özet
+
+Yüzen, şeffaf arkaplanı ve mor renkli thumb'ı olan özel bir scrollbar tasarımı eklenecek. Tasarım metinlerde kullanılan mor tonuyla (landing-purple-dark) uyumlu olacak.
 
 ## Yapılacak Değişiklikler
 
-### 1. Menü Butonlarına İkonlar Ekleme
-
-**Dersler Butonu:**
-- `BookOpen` ikonu eklenecek (kitap ikonu)
-- İkon + metin yan yana, mobilde de görünür
-
-**İletişim Butonu:**
-- `MessageCircle` veya `Mail` ikonu eklenecek (contact ikonu)
-- İkon + metin yan yana, mobilde de görünür
-
-### 2. Canlı ve Güzel Tasarım
+### Scrollbar Tasarım Özellikleri
 
 ```text
-┌────────────────────────────────────────┐
-│  Mobil Menü Butonları                  │
-│                                        │
-│  ┌──────────────┐  ┌──────────────┐   │
-│  │ 📚 Dersler   │  │ 💬 İletişim  │   │
-│  └──────────────┘  └──────────────┘   │
-│                                        │
-│  • Gradient arka plan (pink → purple) │
-│  • İkonlar animasyonlu (hover bounce) │
-│  • Hafif gölge efekti                  │
-└────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│                                     │
+│  • Track: Tamamen şeffaf            │
+│  • Thumb: Mor renk (rgba)           │
+│  • Genişlik: 6px (ince & zarif)     │
+│  • Yuvarlak köşeler: 50px           │
+│  • Hover: Daha koyu mor             │
+│  • Yüzen his için border efekti     │
+│                                     │
+└─────────────────────────────────────┘
 ```
 
-**Stil Özellikleri:**
-- İkonlar: Buton rengiyle uyumlu, sol tarafta
-- Hover efekti: İkon hafif bounce/pulse yapacak
-- Mobilde daha kompakt spacing (`gap-1`)
-- Aktif durumda daha yoğun renk ve gölge
+### CSS Değişkenleri
 
-### 3. Logo ve Header Uyumu (Mobil)
-
-**Mevcut Sorun:**
-- Logo `h-28` ile oldukça büyük
-- Header height `h-20` - logo taşıyor
-- Menü butonları logoya yakın kalabiliyor
-
-**Çözüm:**
-- Mobilde logo boyutunu küçült: `h-20` (mobil) → `h-28` (tablet) → `h-40` (desktop)
-- Logo'nun `top` pozisyonunu ayarla
-- Menü butonlarının padding/margin'ini optimize et
-- Header'a minimum height garantisi ekle
+| Değişken | Değer |
+|----------|-------|
+| Track rengi | `transparent` |
+| Thumb rengi | `rgba(157, 89, 192, 0.75)` |
+| Scrollbar genişliği | `6px` |
+| Hover durumu | `rgba(157, 89, 192, 0.9)` |
 
 ### Teknik Detaylar
 
-**Import Güncellemesi:**
-```tsx
-import { Globe, LogIn, BookOpen, MessageCircle } from 'lucide-react';
-```
+**Dosya: `src/index.css`**
 
-**Dersler Butonu:**
-```tsx
-<button className="flex items-center gap-1 md:gap-2 px-3 md:px-6 py-2 md:py-2.5 
-                   rounded-full text-xs md:text-base font-medium 
-                   transition-all duration-300 group
-                   bg-gradient-to-r from-landing-pink/80 to-landing-purple/30
-                   hover:from-landing-pink/90 hover:to-landing-purple/40
-                   hover:shadow-md">
-  <BookOpen className="w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
-  {t.header.lessons[language]}
-</button>
-```
+Mevcut `body` stilinin altına scrollbar CSS'i eklenecek:
 
-**İletişim Butonu:**
-```tsx
-<button className="flex items-center gap-1 md:gap-2 px-3 md:px-6 py-2 md:py-2.5 
-                   rounded-full text-xs md:text-base font-medium 
-                   transition-all duration-300 group
-                   bg-gradient-to-r from-landing-pink/80 to-landing-purple/30
-                   hover:from-landing-pink/90 hover:to-landing-purple/40
-                   hover:shadow-md">
-  <MessageCircle className="w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
-  {t.header.contact[language]}
-</button>
-```
+```css
+/* Custom Scrollbar - Floating Purple Design */
+body {
+  /* Track tamamen şeffaf */
+  --sb-track-color: transparent;
+  /* Thumb rengi - landing-purple-dark tonunda */
+  --sb-thumb-color: rgba(157, 89, 192, 0.75);
+  --sb-size: 6px;
+  /* Scrollbar alanı her zaman ayrı kalsın */
+  scrollbar-gutter: stable both-edges;
+}
 
-**Logo Responsive Boyutlandırma:**
-```tsx
-<img
-  src="/uploads/logo.webp"
-  alt="English with Dilara"
-  className="h-20 sm:h-28 md:h-40 w-auto transform -rotate-[10deg] 
-             hover:scale-105 transition-transform duration-300"
-/>
+body::-webkit-scrollbar {
+  width: var(--sb-size);
+}
 
-{/* Logo container pozisyon ayarı */}
-<div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
-```
+body::-webkit-scrollbar-track {
+  background: var(--sb-track-color);
+  border-radius: 50px;
+  box-shadow: none;
+}
 
-**Invisible Placeholder Güncelleme:**
-```tsx
-<div className="w-20 sm:w-28 md:w-40 flex-shrink-0 invisible" />
+body::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb-color);
+  border-radius: 50px;
+  /* Yüzen his için border efekti */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: rgba(157, 89, 192, 0.9);
+}
+
+/* Firefox desteği */
+@supports not selector(::-webkit-scrollbar) {
+  body {
+    scrollbar-color: rgba(157, 89, 192, 0.75) transparent;
+    scrollbar-width: thin;
+  }
+}
 ```
 
 ## Değiştirilecek Dosyalar
 
 | Dosya | Değişiklik |
 |-------|------------|
-| `src/components/landing/LandingHeader.tsx` | İkon import, buton tasarımı, logo responsive |
+| `src/index.css` | Scrollbar stilleri ekleme (satır ~209 civarına) |
 
-## Görsel Sonuç
+## Tarayıcı Desteği
 
-**Mobil (320-640px):**
-- Logo: Daha küçük (`h-20`), sol üstte
-- Menü: Kompakt butonlar, ikonlu, ortalanmış
-- Sağ: Globe ve Login ikonları
+- **Chrome/Edge/Safari**: WebKit scrollbar pseudo-elementleri
+- **Firefox**: `scrollbar-color` ve `scrollbar-width` fallback
 
-**Tablet (640-768px):**
-- Logo: Orta boy (`h-28`)
-- Menü: Normal boyut butonlar
-
-**Desktop (768px+):**
-- Logo: Tam boyut (`h-40`)
-- Menü: Geniş padding, tam metin
