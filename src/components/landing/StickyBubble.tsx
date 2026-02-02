@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Gift, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -17,73 +17,36 @@ const FloatingSparkle = ({ delay, position }: { delay: string; position: string 
 export function StickyBubble() {
   const { language, t } = useLanguage();
   const [bubbleType, setBubbleType] = useState<BubbleType>('trial');
-  const [displayedBubble, setDisplayedBubble] = useState<BubbleType>('trial');
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // IntersectionObserver for reliable section detection
+  // Simple scroll-based section detection
   useEffect(() => {
-    const heroSection = document.getElementById('hero');
-    const whySection = document.getElementById('why');
-    const kidsSection = document.getElementById('kids-packages');
-    const adultSection = document.getElementById('adult-packages');
-    const faqSection = document.getElementById('faq');
-    const contactSection = document.getElementById('contact');
+    const handleScroll = () => {
+      const kidsPackagesSection = document.getElementById('kids-packages');
+      const contactSection = document.getElementById('contact');
 
-    const sections = [heroSection, whySection, kidsSection, adultSection, faqSection, contactSection].filter(Boolean) as HTMLElement[];
+      if (!kidsPackagesSection || !contactSection) return;
 
-    if (sections.length === 0) return;
+      // Use getBoundingClientRect for accurate position relative to viewport
+      const kidsRect = kidsPackagesSection.getBoundingClientRect();
+      const contactRect = contactSection.getBoundingClientRect();
+      
+      // Check if kids-packages top is above center of viewport
+      const viewportCenter = window.innerHeight / 2;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const id = entry.target.id;
-
-            if (id === 'hero' || id === 'why') {
-              setBubbleType('trial');
-            } else if (id === 'kids-packages' || id === 'adult-packages' || id === 'faq') {
-              setBubbleType('contact');
-            } else if (id === 'contact') {
-              setBubbleType('none');
-            }
-          }
-        });
-      },
-      {
-        rootMargin: '-40% 0px -40% 0px', // Detect section in center of viewport
-        threshold: 0
-      }
-    );
-
-    sections.forEach(section => observer.observe(section));
-
-    return () => observer.disconnect();
-  }, []);
-
-  // Handle smooth transition between bubbles
-  useEffect(() => {
-    if (bubbleType !== displayedBubble && !isTransitioning) {
-      // Clear any existing timeout
-      if (transitionTimeoutRef.current) {
-        clearTimeout(transitionTimeoutRef.current);
-      }
-
-      setIsTransitioning(true);
-
-      // Wait for exit animation to complete, then switch bubble
-      transitionTimeoutRef.current = setTimeout(() => {
-        setDisplayedBubble(bubbleType);
-        setIsTransitioning(false);
-      }, 300);
-    }
-
-    return () => {
-      if (transitionTimeoutRef.current) {
-        clearTimeout(transitionTimeoutRef.current);
+      if (contactRect.top < viewportCenter) {
+        setBubbleType('none');
+      } else if (kidsRect.top < viewportCenter) {
+        setBubbleType('contact');
+      } else {
+        setBubbleType('trial');
       }
     };
-  }, [bubbleType, displayedBubble, isTransitioning]);
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Run once on mount
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const scrollToContact = () => {
     const element = document.getElementById('contact');
@@ -92,17 +55,12 @@ export function StickyBubble() {
     }
   };
 
-  // Don't render anything if both target and current are 'none'
-  if (displayedBubble === 'none' && bubbleType === 'none') return null;
+  if (bubbleType === 'none') return null;
 
   return (
     <div className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-40 pb-safe">
-      <div
-        className={`transform-gpu ${
-          isTransitioning ? 'animate-bubble-exit' : 'animate-bubble-enter'
-        }`}
-      >
-        {displayedBubble === 'trial' && (
+      <div className="transition-all duration-300 ease-in-out">
+        {bubbleType === 'trial' && (
           <button
             onClick={scrollToContact}
             className="relative group"
@@ -132,7 +90,6 @@ export function StickyBubble() {
 
               {/* Text content */}
               <div className="text-center space-y-0">
-                {/* "ÜCRETSİZ" - Gradient animated text */}
                 <p className="text-base md:text-lg font-black 
                              bg-gradient-to-r from-landing-purple-dark via-landing-pink to-landing-purple-dark 
                              bg-[length:200%_auto] bg-clip-text text-transparent 
@@ -141,19 +98,16 @@ export function StickyBubble() {
                   {t.stickyBubble.line1[language]}
                 </p>
                 
-                {/* "Deneme" - Gentle bounce with delay */}
                 <p className="text-sm md:text-base font-bold text-foreground animate-bounce-gentle"
                    style={{ animationDelay: '0.2s' }}>
                   {t.stickyBubble.line2[language]}
                 </p>
                 
-                {/* "Dersi!" - Gentle bounce with more delay */}
                 <p className="text-sm md:text-base font-bold text-foreground animate-bounce-gentle"
                    style={{ animationDelay: '0.4s' }}>
                   {t.stickyBubble.line3[language]}
                 </p>
 
-                {/* CTA with arrow */}
                 <div className="flex items-center justify-center gap-1 pt-1.5 text-xs md:text-sm font-semibold text-landing-purple-dark
                                 opacity-80 group-hover:opacity-100 transition-opacity">
                   <span>{t.stickyBubble.cta[language]}</span>
@@ -169,7 +123,7 @@ export function StickyBubble() {
           </button>
         )}
 
-        {displayedBubble === 'contact' && (
+        {bubbleType === 'contact' && (
           <button
             onClick={scrollToContact}
             className="transform transition-all duration-300 hover:scale-105"
