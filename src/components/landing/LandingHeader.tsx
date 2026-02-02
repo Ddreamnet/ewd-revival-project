@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Globe, LogIn } from 'lucide-react';
+import { Globe, LogIn, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   DropdownMenu,
@@ -57,13 +57,13 @@ export function LandingHeader() {
         />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="flex items-center justify-between h-20 md:h-24">
           {/* Invisible placeholder for logo space */}
           <div className="w-28 md:w-40 flex-shrink-0 invisible" />
 
-          {/* Menu - Center */}
-          <nav className="flex items-center gap-2 md:gap-4">
+          {/* Menu - Absolute Center */}
+          <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-4">
             <button
               onClick={() => scrollToSection('kids-packages')}
               className={`px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm md:text-base font-medium transition-all duration-300 ${
@@ -88,47 +88,61 @@ export function LandingHeader() {
 
           {/* Language + Login - Right */}
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Language Dropdown */}
+            {/* Language Dropdown - Creative Purple Design */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full hover:bg-landing-pink/30"
+                  className="relative rounded-full bg-landing-purple/10 text-landing-purple-dark 
+                             hover:bg-landing-purple/20 hover:scale-110 
+                             hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
+                             transition-all duration-300"
                 >
                   <Globe className="h-5 w-5" />
+                  {/* Sparkle decoration */}
+                  <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-landing-purple opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-sm z-[60]">
                 <DropdownMenuItem
                   onClick={() => setLanguage('tr')}
-                  className={`cursor-pointer ${language === 'tr' ? 'bg-landing-pink/30' : ''}`}
+                  className={`cursor-pointer ${language === 'tr' ? 'bg-landing-purple/20' : ''}`}
                 >
                   🇹🇷 TR
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setLanguage('en')}
-                  className={`cursor-pointer ${language === 'en' ? 'bg-landing-pink/30' : ''}`}
+                  className={`cursor-pointer ${language === 'en' ? 'bg-landing-purple/20' : ''}`}
                 >
                   🇬🇧 GB
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Login Button */}
+            {/* Login Button - Creative Purple Design */}
             <Link to="/login">
-              {/* Desktop: Text button */}
+              {/* Desktop: Text button with sparkle */}
               <Button
                 variant="ghost"
-                className="hidden md:flex rounded-full hover:bg-landing-pink/30 font-medium"
+                className="hidden md:flex items-center gap-2 rounded-full px-4 font-medium
+                           bg-gradient-to-r from-landing-purple/15 to-landing-pink/15
+                           text-landing-purple-dark
+                           hover:from-landing-purple/25 hover:to-landing-pink/25
+                           hover:scale-105 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
+                           transition-all duration-300"
               >
+                <Sparkles className="w-4 h-4" />
                 {t.header.login[language]}
               </Button>
-              {/* Mobile: Icon button */}
+              {/* Mobile: Icon button matching globe style */}
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden rounded-full hover:bg-landing-pink/30"
+                className="md:hidden rounded-full bg-landing-purple/10 text-landing-purple-dark
+                           hover:bg-landing-purple/20 hover:scale-110 
+                           hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
+                           transition-all duration-300"
                 aria-label={t.header.login[language]}
               >
                 <LogIn className="h-5 w-5" />
