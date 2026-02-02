@@ -205,6 +205,29 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
     font-family: 'Poppins', sans-serif;
     overflow-x: hidden;
+
+    /* Custom scrollbar */
+    --sb-thumb-color: hsl(280, 45%, 55%);
+    --sb-size: 6px;
+  }
+
+  body::-webkit-scrollbar {
+    width: var(--sb-size);
+  }
+
+  body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: var(--sb-thumb-color);
+    border-radius: 50px;
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    body {
+      scrollbar-color: var(--sb-thumb-color) transparent;
+    }
   }
 }
 
