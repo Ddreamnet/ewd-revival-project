@@ -126,6 +126,13 @@ export const translations = {
           group: { tr: 'Grup dersleri (maksimum 5 kişilik, aynı seviyedeki öğrencilerle)', en: 'Group lessons (up to 5 students, at the same level)' },
         },
       },
+      login: {
+        question: { tr: 'Neden giriş yapamıyorum?', en: 'Why can\'t I log in?' },
+        answer: { 
+          tr: 'Derslerimize kaydolduğunuzda size giriş yapabilmeniz için bir mail ve şifre veriliyor. Bu bilgilerle sisteme giriş yaparsanız hesabınızı açtığınızda öğrenci panelinize erişebileceksiniz. Ödev gönderimi, işlenen dersler bu panelden takip edilir.',
+          en: 'When you register for our courses, you are given an email and password to log in. If you log in with this information, you will be able to access your student panel once you create your account. Assignment submissions and course progress are tracked through this panel.'
+        },
+      },
     },
   },
 
