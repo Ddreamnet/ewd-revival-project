@@ -63,19 +63,10 @@ export function WhySection() {
           }}>
               {/* Sparkles around preview */}
               
-              <Star className="why-sparkle-blink absolute -bottom-2 -right-2 w-3 h-3 text-landing-pink opacity-50" fill="currentColor" style={{
-              animationDelay: '1.5s'
-            }} />
+              
 
               {/* Panel */}
-              <div className="bg-landing-purple/15 border-2 border-landing-purple/30 rounded-2xl p-6 flex flex-col items-center justify-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-landing-purple/20 flex items-center justify-center">
-                  <Monitor className="w-8 h-8 text-landing-purple-dark" />
-                </div>
-                <span className="text-sm font-medium text-foreground/70 text-center">
-                  {language === 'tr' ? 'Online Dersler' : 'Online Lessons'}
-                </span>
-              </div>
+              
             </div>
           </div>
         </div>
