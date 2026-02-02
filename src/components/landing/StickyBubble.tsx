@@ -21,40 +21,44 @@ export function StickyBubble() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // IntersectionObserver for reliable section detection
   useEffect(() => {
-    const handleScroll = () => {
-      const kidsPackagesSection = document.getElementById('kids-packages');
-      const contactSection = document.getElementById('contact');
+    const heroSection = document.getElementById('hero');
+    const whySection = document.getElementById('why');
+    const kidsSection = document.getElementById('kids-packages');
+    const adultSection = document.getElementById('adult-packages');
+    const faqSection = document.getElementById('faq');
+    const contactSection = document.getElementById('contact');
 
-      if (!contactSection) return;
+    const sections = [heroSection, whySection, kidsSection, adultSection, faqSection, contactSection].filter(Boolean) as HTMLElement[];
 
-      const scrollY = window.scrollY + window.innerHeight * 0.4;
-      const contactTop = contactSection.offsetTop;
+    if (sections.length === 0) return;
 
-      if (kidsPackagesSection) {
-        const kidsPackagesTop = kidsPackagesSection.offsetTop;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
 
-        if (scrollY < kidsPackagesTop) {
-          setBubbleType('trial');
-        } else if (scrollY < contactTop) {
-          setBubbleType('contact');
-        } else {
-          setBubbleType('none');
-        }
-      } else {
-        // Fallback if kids-packages section doesn't exist
-        if (scrollY < contactTop) {
-          setBubbleType('trial');
-        } else {
-          setBubbleType('none');
-        }
+            if (id === 'hero' || id === 'why') {
+              setBubbleType('trial');
+            } else if (id === 'kids-packages' || id === 'adult-packages' || id === 'faq') {
+              setBubbleType('contact');
+            } else if (id === 'contact') {
+              setBubbleType('none');
+            }
+          }
+        });
+      },
+      {
+        rootMargin: '-40% 0px -40% 0px', // Detect section in center of viewport
+        threshold: 0
       }
-    };
+    );
 
-    window.addEventListener('scroll', handleScroll);
-    handleScroll();
+    sections.forEach(section => observer.observe(section));
 
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => observer.disconnect();
   }, []);
 
   // Handle smooth transition between bubbles
