@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ export function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [signInData, setSignInData] = useState({
     email: "",
@@ -38,6 +40,9 @@ export function AuthForm() {
           description: error.message,
           variant: "destructive",
         });
+      } else {
+        // Başarılı giriş - dashboard'a yönlendir
+        navigate('/dashboard');
       }
     } finally {
       setIsLoading(false);
@@ -74,14 +79,22 @@ export function AuthForm() {
         {/* Overlay */}
         <div className="absolute inset-0 bg-black/40" />
 
-        {/* Masaüstü görünüm: Logo sol-üstte (3x büyük) */}
-        <img src="/uploads/logo.webp" alt="Logo" className="hidden md:block absolute top-6 left-6 h-48 w-auto z-20" />
+        {/* Masaüstü görünüm: Logo sol-üstte (ana sayfayla aynı stil) */}
+        <img 
+          src="/uploads/logo.webp" 
+          alt="English with Dilara" 
+          className="hidden md:block absolute top-6 left-6 h-40 w-auto z-20 transform -rotate-[10deg]" 
+        />
 
         {/* İçerik */}
         <div className="relative z-10 w-full max-w-sm space-y-6">
-          {/* Mobil görünüm: Logo Card'ın hemen üstünde ortalı (3x büyük) */}
+          {/* Mobil görünüm: Logo Card'ın hemen üstünde ortalı (ana sayfayla aynı stil) */}
           <div className="block md:hidden text-center mb-2">
-            <img src="/uploads/logo.webp" alt="Logo" className="h-48 w-auto mx-auto" />
+            <img 
+              src="/uploads/logo.webp" 
+              alt="English with Dilara" 
+              className="h-20 sm:h-28 w-auto mx-auto transform -rotate-[10deg]" 
+            />
           </div>
 
           {/* Başlık (istersen burada kalabilir; mobilde logo üstte görünüyor, masaüstünde sol-üstte ayrı logo var) */}
