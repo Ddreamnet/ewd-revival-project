@@ -62,9 +62,7 @@ export function WhySection() {
             animationDelay: '0.5s'
           }}>
               {/* Sparkles around preview */}
-              <Star className="why-sparkle-blink absolute -top-3 -left-3 w-4 h-4 text-landing-yellow opacity-40" fill="currentColor" style={{
-              animationDelay: '1s'
-            }} />
+              
               <Star className="why-sparkle-blink absolute -bottom-2 -right-2 w-3 h-3 text-landing-pink opacity-50" fill="currentColor" style={{
               animationDelay: '1.5s'
             }} />
