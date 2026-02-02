@@ -205,32 +205,34 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
     font-family: 'Poppins', sans-serif;
     overflow-x: hidden;
-
-    /* Custom floating scrollbar */
-    --sb-thumb-color: hsl(280, 45%, 55%);
-    --sb-size: 6px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--sb-thumb-color) transparent;
   }
+}
 
-  body::-webkit-scrollbar {
-    width: var(--sb-size);
-    background: transparent;
-  }
+/* Custom floating scrollbar - outside @layer for browser compatibility */
+body {
+  --sb-thumb-color: hsl(280, 45%, 55%);
+  --sb-size: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb-color) transparent;
+}
 
-  body::-webkit-scrollbar-track {
-    background: transparent;
-  }
+body::-webkit-scrollbar {
+  width: var(--sb-size);
+  background: transparent;
+}
 
-  body::-webkit-scrollbar-thumb {
-    background: var(--sb-thumb-color);
-    border-radius: 50px;
-    box-shadow: 0 2px 8px hsla(280, 45%, 40%, 0.4);
-  }
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-  body::-webkit-scrollbar-thumb:hover {
-    background: hsl(280, 50%, 50%);
-  }
+body::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb-color);
+  border-radius: 50px;
+  box-shadow: 0 2px 8px hsla(280, 45%, 40%, 0.4);
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: hsl(280, 50%, 50%);
 }
 
 /* Landing page specific styles */
