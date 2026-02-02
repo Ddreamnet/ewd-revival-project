@@ -50,11 +50,17 @@ export function LandingHeader() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible">
       {/* Logo - Absolute positioned, independent from header flow */}
       <div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
-        <img
-          src="/uploads/logo.webp"
-          alt="English with Dilara"
-          className="h-20 sm:h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300"
-        />
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="focus:outline-none"
+          aria-label="Sayfanın başına git"
+        >
+          <img
+            src="/uploads/logo.webp"
+            alt="English with Dilara"
+            className="h-20 sm:h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer"
+          />
+        </button>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
