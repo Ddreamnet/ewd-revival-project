@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Phone, Globe, Mail, Check, User } from "lucide-react";
-import whatsappLogo from "@/assets/whatsappLogo.png";
-import instagramLogo from "@/assets/instagramLogo.png";
+const whatsappLogo = "/uploads/whatsappLogo.png";
+const instagramLogo = "/uploads/instagramLogo.png";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 export function ContactSection() {
   const {
