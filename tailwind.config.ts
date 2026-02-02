@@ -13,6 +13,11 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Poppins', 'sans-serif'],
+        poppins: ['Poppins', 'sans-serif'],
+        aprilia: ['Aprilia', 'Dancing Script', 'cursive'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +62,14 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Landing page specific colors
+        landing: {
+          pink: "hsl(var(--landing-pink))",
+          purple: "hsl(var(--landing-purple))",
+          "purple-dark": "hsl(var(--landing-purple-dark))",
+          yellow: "hsl(var(--landing-yellow))",
+          "yellow-light": "hsl(var(--landing-yellow-light))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -80,10 +93,28 @@ export default {
             height: "0",
           },
         },
+        float: {
+          "0%, 100%": {
+            transform: "translateY(0px)",
+          },
+          "50%": {
+            transform: "translateY(-12px)",
+          },
+        },
+        breathe: {
+          "0%, 100%": {
+            transform: "rotate(-2deg) scale(1)",
+          },
+          "50%": {
+            transform: "rotate(-2deg) scale(1.02)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        float: "float 4s ease-in-out infinite",
+        breathe: "breathe 5s ease-in-out infinite",
       },
     },
   },

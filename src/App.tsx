@@ -2,18 +2,18 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthForm } from "@/components/AuthForm";
 import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { StudentDashboard } from "@/components/StudentDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
-import Index from "./pages/Index";
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function AppRoutes() {
+function DashboardRoutes() {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
@@ -24,28 +24,26 @@ function AppRoutes() {
     );
   }
 
+  if (!user) {
+    return <AuthForm />;
+  }
+
+  if (profile?.roles?.includes('admin')) {
+    return <AdminDashboard />;
+  }
+  
+  if (profile?.role === 'teacher') {
+    return <TeacherDashboard />;
+  }
+  
+  if (profile?.role === 'student') {
+    return <StudentDashboard />;
+  }
+
   return (
-    <Routes>
-      <Route 
-        path="/" 
-        element={
-          !user ? (
-            <AuthForm />
-          ) : profile?.roles?.includes('admin') ? (
-            <AdminDashboard />
-          ) : profile?.role === 'teacher' ? (
-            <TeacherDashboard />
-          ) : profile?.role === 'student' ? (
-            <StudentDashboard />
-          ) : (
-            <div className="min-h-screen flex items-center justify-center">
-              <p>Profil yükleniyor...</p>
-            </div>
-          )
-        } 
-      />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <div className="min-h-screen flex items-center justify-center">
+      <p>Profil yükleniyor...</p>
+    </div>
   );
 }
 
@@ -55,7 +53,19 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppRoutes />
+        <Routes>
+          {/* Landing Page - Public */}
+          <Route path="/" element={<LandingPage />} />
+          
+          {/* Login Page - Public */}
+          <Route path="/login" element={<AuthForm />} />
+          
+          {/* Dashboard - Protected, role-based */}
+          <Route path="/dashboard" element={<DashboardRoutes />} />
+          
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
