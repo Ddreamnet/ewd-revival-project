@@ -9,7 +9,7 @@ export function WhySection() {
   return <section id="why" className="scroll-section py-16 md:py-24 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Two column layout on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center justify-items-center">
           
           {/* Left Column - Title (45%) */}
           <div className="lg:col-span-5 text-center lg:text-left relative">
@@ -32,7 +32,7 @@ export function WhySection() {
           </div>
 
           {/* Right Column - Benefits Card + Preview (55%) */}
-          <div className="lg:col-span-7 flex flex-col items-center lg:items-end gap-6">
+          <div className="lg:col-span-7 flex flex-col items-center lg:items-start gap-6">
             
             {/* Benefits Card - Sticker Style */}
             <div className="why-card-float relative w-full max-w-md">
