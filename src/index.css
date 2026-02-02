@@ -689,3 +689,45 @@ All colors MUST be HSL.
     --dur: 3.6s;
   }
 }
+
+/* ===== Why Section Styles ===== */
+
+/* Float animation for why cards */
+.why-card-float {
+  will-change: transform;
+  animation: whyCardFloat 5s ease-in-out infinite;
+}
+
+/* Sparkle blink animation */
+.why-sparkle-blink {
+  will-change: opacity;
+  animation: whySparkleBlink 3s ease-in-out infinite;
+}
+
+@keyframes whyCardFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes whySparkleBlink {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Reduced motion for Why Section */
+@media (prefers-reduced-motion: reduce) {
+  .why-card-float,
+  .why-sparkle-blink {
+    animation: none !important;
+  }
+}

@@ -1,5 +1,5 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Check } from 'lucide-react';
+import { Star, Sparkles, Monitor } from 'lucide-react';
 
 export function WhySection() {
   const { language, t } = useLanguage();
@@ -16,47 +16,90 @@ export function WhySection() {
   return (
     <section
       id="why"
-      className="scroll-section py-16 md:py-24"
+      className="scroll-section py-16 md:py-24 overflow-x-hidden"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-16">
-          {/* Left - Title */}
-          <div className="flex-1 text-center lg:text-left">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight">
+        {/* Two column layout on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          
+          {/* Left Column - Title (45%) */}
+          <div className="lg:col-span-5 text-center lg:text-left relative">
+            {/* Decorative sparkle near title */}
+            <Star 
+              className="why-sparkle-blink absolute -top-4 -left-2 lg:left-0 w-6 h-6 text-landing-yellow opacity-60" 
+              fill="currentColor"
+            />
+            
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight">
               <span className="text-foreground">{t.why.title[language]}</span>
               <br />
-              <span className="text-landing-purple-dark">ENGLISH</span>
+              <span className="text-landing-purple-dark text-4xl md:text-5xl lg:text-6xl">ENGLISH</span>
               <br />
-              <span className="text-foreground">with</span>
+              <span className="text-foreground/80 text-xl md:text-2xl font-semibold">with</span>
               <br />
-              <span className="font-aprilia text-landing-purple-dark">DILARA</span>
-              <span className="text-foreground">?</span>
+              <span className="font-aprilia text-landing-purple-dark text-4xl md:text-5xl lg:text-6xl">DILARA</span>
+              <span className="text-landing-yellow text-4xl md:text-5xl lg:text-6xl font-extrabold">?</span>
             </h2>
+
+            {/* Decorative arrow/accent */}
+            <div className="hidden lg:flex items-center gap-2 mt-6 justify-start">
+              <div className="w-12 h-1 bg-landing-yellow rounded-full" />
+              <Sparkles className="w-5 h-5 text-landing-yellow opacity-70" />
+            </div>
           </div>
 
-          {/* Right - Purple Card */}
-          <div className="flex-1 w-full max-w-md lg:max-w-lg">
-            <div className="bg-landing-purple/20 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-lg">
-              <ul className="space-y-4">
-                {features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-landing-purple/40 flex items-center justify-center">
-                      <Check className="w-4 h-4 text-landing-purple-dark" />
-                    </div>
-                    <span className="text-base md:text-lg text-foreground">
-                      {feature[language]}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+          {/* Right Column - Benefits Card + Preview (55%) */}
+          <div className="lg:col-span-7 flex flex-col items-center lg:items-end gap-6">
+            
+            {/* Benefits Card - Sticker Style */}
+            <div className="why-card-float relative w-full max-w-md">
+              {/* Yellow clip decoration */}
+              <div className="absolute -top-3 left-8 w-8 h-6 bg-landing-yellow rounded-b-lg shadow-md z-10" />
+              <div className="absolute -top-1 left-9 w-6 h-2 bg-landing-yellow-light rounded-full" />
+              
+              {/* Sparkle on card */}
+              <Sparkles 
+                className="why-sparkle-blink absolute -top-2 -right-2 w-5 h-5 text-landing-pink opacity-50" 
+              />
 
-              {/* Small decorative area at bottom */}
-              <div className="mt-6 pt-4 border-t border-landing-purple/30">
-                <div className="flex justify-center">
-                  <div className="w-16 h-16 rounded-full bg-landing-purple/30 flex items-center justify-center">
-                    <span className="text-2xl">📚</span>
-                  </div>
+              {/* Card */}
+              <div className="bg-landing-purple/30 border-[3px] border-landing-purple/50 rounded-[20px] p-5 md:p-6 shadow-xl backdrop-blur-sm">
+                <ul className="space-y-3">
+                  {features.map((feature, index) => (
+                    <li key={index} className="flex items-center gap-3">
+                      {/* Yellow bullet */}
+                      <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-landing-yellow shadow-sm" />
+                      <span className="text-base md:text-lg font-semibold text-foreground/90">
+                        {feature[language]}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Preview Panel */}
+            <div className="why-card-float relative w-48 md:w-56 lg:mr-8" style={{ animationDelay: '0.5s' }}>
+              {/* Sparkles around preview */}
+              <Star 
+                className="why-sparkle-blink absolute -top-3 -left-3 w-4 h-4 text-landing-yellow opacity-40" 
+                fill="currentColor"
+                style={{ animationDelay: '1s' }}
+              />
+              <Star 
+                className="why-sparkle-blink absolute -bottom-2 -right-2 w-3 h-3 text-landing-pink opacity-50" 
+                fill="currentColor"
+                style={{ animationDelay: '1.5s' }}
+              />
+
+              {/* Panel */}
+              <div className="bg-landing-purple/15 border-2 border-landing-purple/30 rounded-2xl p-6 flex flex-col items-center justify-center gap-3">
+                <div className="w-16 h-16 rounded-full bg-landing-purple/20 flex items-center justify-center">
+                  <Monitor className="w-8 h-8 text-landing-purple-dark" />
                 </div>
+                <span className="text-sm font-medium text-foreground/70 text-center">
+                  {language === 'tr' ? 'Online Dersler' : 'Online Lessons'}
+                </span>
               </div>
             </div>
           </div>
