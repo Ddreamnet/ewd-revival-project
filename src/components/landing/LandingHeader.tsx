@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Globe, LogIn, Sparkles } from 'lucide-react';
+import { Globe, LogIn } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   DropdownMenu,
@@ -94,14 +94,12 @@ export function LandingHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative rounded-full bg-landing-purple/10 text-landing-purple-dark 
+                  className="rounded-full bg-landing-purple/10 text-landing-purple-dark 
                              hover:bg-landing-purple/20 hover:scale-110 
                              hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
                              transition-all duration-300"
                 >
                   <Globe className="h-5 w-5" />
-                  {/* Sparkle decoration */}
-                  <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-landing-purple opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-sm z-[60]">
@@ -125,14 +123,13 @@ export function LandingHeader() {
               {/* Desktop: Text button with sparkle */}
               <Button
                 variant="ghost"
-                className="hidden md:flex items-center gap-2 rounded-full px-4 font-medium
+                className="hidden md:flex items-center rounded-full px-4 font-medium
                            bg-gradient-to-r from-landing-purple/15 to-landing-pink/15
                            text-landing-purple-dark
                            hover:from-landing-purple/25 hover:to-landing-pink/25
                            hover:scale-105 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
                            transition-all duration-300"
               >
-                <Sparkles className="w-4 h-4" />
                 {t.header.login[language]}
               </Button>
               {/* Mobile: Icon button matching globe style */}
