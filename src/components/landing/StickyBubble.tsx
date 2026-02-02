@@ -10,7 +10,7 @@ const FloatingSparkle = ({ delay, position }: { delay: string; position: string 
     className={`absolute ${position} text-landing-yellow-light animate-sparkle`}
     style={{ animationDelay: delay }}
   >
-    <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
+    <Sparkles className="w-2 h-2 md:w-2.5 md:h-2.5" />
   </span>
 );
 
@@ -68,9 +68,9 @@ export function StickyBubble() {
           <FloatingSparkle delay="1s" position="-bottom-2 -left-1" />
           <FloatingSparkle delay="1.5s" position="bottom-4 -right-4" />
 
-          {/* Main card with glow effect */}
+          {/* Main card with glow effect - 50% smaller */}
           <div className="relative bg-gradient-to-br from-landing-yellow via-landing-pink to-landing-purple 
-                          rounded-3xl p-4 md:p-5 
+                          rounded-2xl p-2 md:p-2.5 
                           animate-glow-pulse
                           transform transition-all duration-300 
                           group-hover:scale-105 group-hover:shadow-2xl
@@ -81,14 +81,14 @@ export function StickyBubble() {
                             -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
             {/* Gift icon with wiggle */}
-            <div className="flex justify-center mb-2">
-              <Gift className="w-8 h-8 md:w-10 md:h-10 text-landing-purple-dark animate-wiggle" />
+            <div className="flex justify-center mb-1">
+              <Gift className="w-4 h-4 md:w-5 md:h-5 text-landing-purple-dark animate-wiggle" />
             </div>
 
             {/* Text content */}
-            <div className="text-center space-y-0.5">
+            <div className="text-center space-y-0">
               {/* "ÜCRETSİZ" - Gradient animated text */}
-              <p className="text-lg md:text-xl font-black 
+              <p className="text-xs md:text-sm font-black 
                            bg-gradient-to-r from-landing-purple-dark via-landing-pink to-landing-purple-dark 
                            bg-[length:200%_auto] bg-clip-text text-transparent 
                            animate-gradient-shift
@@ -97,27 +97,27 @@ export function StickyBubble() {
               </p>
               
               {/* "Deneme" - Gentle bounce with delay */}
-              <p className="text-base md:text-lg font-bold text-foreground animate-bounce-gentle"
+              <p className="text-[10px] md:text-xs font-bold text-foreground animate-bounce-gentle"
                  style={{ animationDelay: '0.2s' }}>
                 {t.stickyBubble.line2[language]}
               </p>
               
               {/* "Dersi!" - Gentle bounce with more delay */}
-              <p className="text-base md:text-lg font-bold text-foreground animate-bounce-gentle"
+              <p className="text-[10px] md:text-xs font-bold text-foreground animate-bounce-gentle"
                  style={{ animationDelay: '0.4s' }}>
                 {t.stickyBubble.line3[language]}
               </p>
 
               {/* CTA with arrow */}
-              <div className="flex items-center justify-center gap-1 pt-2 text-sm md:text-base font-semibold text-landing-purple-dark
+              <div className="flex items-center justify-center gap-0.5 pt-1 text-[9px] md:text-[10px] font-semibold text-landing-purple-dark
                               opacity-80 group-hover:opacity-100 transition-opacity">
                 <span>{t.stickyBubble.cta[language]}</span>
-                <ArrowRight className="w-4 h-4 animate-arrow-bounce" />
+                <ArrowRight className="w-2.5 h-2.5 animate-arrow-bounce" />
               </div>
             </div>
 
             {/* Bubble tail */}
-            <div className="absolute -bottom-2 right-4 w-4 h-4 
+            <div className="absolute -bottom-1 right-2 w-2 h-2 
                             bg-gradient-to-br from-landing-pink to-landing-purple 
                             transform rotate-45" />
           </div>
