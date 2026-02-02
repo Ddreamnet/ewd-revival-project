@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Phone, Globe, Mail, Check, MessageCircle } from "lucide-react";
+import { Phone, Globe, Mail, Check } from "lucide-react";
+import whatsappLogo from "@/assets/whatsappLogo.png";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export function ContactSection() {
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-3 px-6 py-4 bg-landing-yellow text-foreground rounded-2xl font-medium text-lg hover:bg-landing-yellow/80 transition-colors shadow-lg"
           >
-            <MessageCircle className="w-6 h-6" />
+            <img src={whatsappLogo} alt="WhatsApp" className="w-6 h-6" />
             {t.contact.whatsapp[language]}
           </a>
           <a
