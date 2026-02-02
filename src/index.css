@@ -198,18 +198,22 @@ All colors MUST be HSL.
   }
 
   /* Scrollbar arka planı için html ve body aynı background */
-  html,
-  body {
-    height: 100%;
+  html {
+    min-height: 100%;
     margin: 0;
     background: url("/uploads/pinkgingham.png") repeat;
     background-attachment: fixed;
     background-color: transparent;
-  }
-
-  html {
     scroll-behavior: smooth;
     overflow-x: hidden;
+  }
+
+  body {
+    min-height: 100%;
+    margin: 0;
+    background: url("/uploads/pinkgingham.png") repeat;
+    background-attachment: fixed;
+    background-color: transparent;
   }
 
   body {
