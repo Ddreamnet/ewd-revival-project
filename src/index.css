@@ -205,6 +205,40 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
     font-family: 'Poppins', sans-serif;
     overflow-x: hidden;
+    
+    /* Custom Scrollbar */
+    --sb-track-color: transparent;
+    --sb-thumb-color: hsla(280, 50%, 55%, 0.75);
+    --sb-size: 6px;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  body::-webkit-scrollbar {
+    width: var(--sb-size);
+  }
+
+  body::-webkit-scrollbar-track {
+    background: var(--sb-track-color);
+    border-radius: 50px;
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: var(--sb-thumb-color);
+    border-radius: 50px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: hsla(280, 50%, 55%, 0.9);
+  }
+
+  /* Firefox fallback */
+  @supports not selector(::-webkit-scrollbar) {
+    body {
+      scrollbar-color: hsla(280, 50%, 55%, 0.75) transparent;
+      scrollbar-width: thin;
+    }
   }
 }
 
