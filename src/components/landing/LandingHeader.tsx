@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Globe, LogIn } from 'lucide-react';
+import { Globe, LogIn, BookOpen, MessageCircle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   DropdownMenu,
@@ -49,24 +49,36 @@ export function LandingHeader() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible">
       {/* Logo - Absolute positioned, independent from header flow */}
-      <div className="absolute left-4 sm:left-6 lg:left-8 top-2 md:top-3 z-[60]">
+      <div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
         <img
           src="/uploads/logo.webp"
           alt="English with Dilara"
-          className="h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300"
+          className="h-20 sm:h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300"
         />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="flex items-center justify-between h-20 md:h-24">
           {/* Invisible placeholder for logo space */}
-          <div className="w-28 md:w-40 flex-shrink-0 invisible" />
+          <div className="w-20 sm:w-28 md:w-40 flex-shrink-0 invisible" />
 
           {/* Menu - Absolute Center */}
           <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-4">
+            {/* Lessons Button - Mobile: Icon only, Desktop: Text */}
             <button
               onClick={() => scrollToSection('kids-packages')}
-              className={`px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm md:text-base font-medium transition-all duration-300 ${
+              className={`md:hidden rounded-full p-2.5 transition-all duration-300 ${
+                isLessonsActive
+                  ? 'bg-landing-purple/20 text-landing-purple-dark shadow-[0_0_12px_rgba(147,112,219,0.4)]'
+                  : 'bg-landing-purple/10 text-landing-purple-dark hover:bg-landing-purple/20 hover:scale-110 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]'
+              }`}
+              aria-label={t.header.lessons[language]}
+            >
+              <BookOpen className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => scrollToSection('kids-packages')}
+              className={`hidden md:block px-6 py-2.5 rounded-full text-base font-medium transition-all duration-300 ${
                 isLessonsActive
                   ? 'bg-landing-pink/90 text-foreground shadow-md'
                   : 'bg-landing-pink/70 text-foreground hover:bg-landing-pink/80'
@@ -74,9 +86,22 @@ export function LandingHeader() {
             >
               {t.header.lessons[language]}
             </button>
+
+            {/* Contact Button - Mobile: Icon only, Desktop: Text */}
             <button
               onClick={() => scrollToSection('contact')}
-              className={`px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm md:text-base font-medium transition-all duration-300 ${
+              className={`md:hidden rounded-full p-2.5 transition-all duration-300 ${
+                isContactActive
+                  ? 'bg-landing-purple/20 text-landing-purple-dark shadow-[0_0_12px_rgba(147,112,219,0.4)]'
+                  : 'bg-landing-purple/10 text-landing-purple-dark hover:bg-landing-purple/20 hover:scale-110 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]'
+              }`}
+              aria-label={t.header.contact[language]}
+            >
+              <MessageCircle className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => scrollToSection('contact')}
+              className={`hidden md:block px-6 py-2.5 rounded-full text-base font-medium transition-all duration-300 ${
                 isContactActive
                   ? 'bg-landing-pink/90 text-foreground shadow-md'
                   : 'bg-landing-pink/70 text-foreground hover:bg-landing-pink/80'
