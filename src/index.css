@@ -4,8 +4,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Pacifico Font for DILARA branding - reliable Google Font */
-@import url("https://fonts.googleapis.com/css2?family=Pacifico&display=swap");
+/* Mystery Quest Font for DILARA branding */
+@import url("https://fonts.googleapis.com/css2?family=Mystery+Quest&display=swap");
 
 /* TipTap Editor Styles */
 .ProseMirror {
@@ -257,7 +257,7 @@ All colors MUST be HSL.
   }
 
   .font-aprilia {
-    font-family: "Pacifico", cursive !important;
+    font-family: "Mystery Quest", system-ui !important;
   }
 
   /* Section scroll margin for sticky header */
