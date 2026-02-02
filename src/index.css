@@ -196,21 +196,29 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  /* Scrollbar arka planı için html ve body aynı background */
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: url("/uploads/pinkgingham.png") repeat;
+    background-attachment: fixed;
+    background-color: transparent;
+  }
+
   html {
     scroll-behavior: smooth;
     overflow-x: hidden;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     font-family: 'Poppins', sans-serif;
     overflow-x: hidden;
     
     /* Custom Scrollbar Variables */
     --sb-track-color: transparent;
-    --sb-thumb-color: rgba(157, 89, 192, 0.75);
+    --sb-thumb-color: rgba(157, 89, 192, 0.70);
     --sb-size: 6px;
-    scrollbar-gutter: stable both-edges;
   }
 
   /* Custom Scrollbar - Floating Purple Design */
@@ -218,27 +226,26 @@ All colors MUST be HSL.
     width: var(--sb-size);
   }
 
-  body::-webkit-scrollbar-track {
-    background: var(--sb-track-color);
-    border-radius: 50px;
-    box-shadow: none;
+  body::-webkit-scrollbar-track,
+  body::-webkit-scrollbar-track-piece {
+    background: transparent !important;
   }
 
   body::-webkit-scrollbar-thumb {
-    background: var(--sb-thumb-color);
-    border-radius: 50px;
+    background-color: var(--sb-thumb-color);
+    border-radius: 999px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
 
   body::-webkit-scrollbar-thumb:hover {
-    background: rgba(157, 89, 192, 0.9);
+    background-color: rgba(157, 89, 192, 0.88);
   }
 
   /* Firefox fallback */
   @supports not selector(::-webkit-scrollbar) {
     body {
-      scrollbar-color: rgba(157, 89, 192, 0.75) transparent;
+      scrollbar-color: rgba(157, 89, 192, 0.70) transparent;
       scrollbar-width: thin;
     }
   }
