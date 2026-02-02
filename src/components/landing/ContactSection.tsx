@@ -1,13 +1,9 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Phone, Globe, Mail, Check } from "lucide-react";
+import { Phone, Globe, Mail, Check, User } from "lucide-react";
 import whatsappLogo from "@/assets/whatsappLogo.png";
 import instagramLogo from "@/assets/instagramLogo.png";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 export function ContactSection() {
   const { language, t } = useLanguage();
   const [formData, setFormData] = useState({
@@ -118,54 +114,95 @@ export function ContactSection() {
           </div>
 
           {/* Center - Form */}
-          <div className="lg:col-span-1">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
-              <h3 className="text-xl font-bold text-foreground mb-6">{t.contact.form.title[language]}</h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  placeholder={t.contact.form.fullName[language]}
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="bg-white/50"
-                />
-                <Select
-                  value={formData.studentAge}
-                  onValueChange={(value) => setFormData({ ...formData, studentAge: value })}
-                >
-                  <SelectTrigger className="bg-white/50">
-                    <SelectValue placeholder={t.contact.form.studentAge[language]} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white z-[60]">
-                    {ageOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label[language]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2">
-                  <div className="flex items-center justify-center px-3 bg-muted rounded-md text-sm font-medium">
-                    +90
+          <div className="w-full max-w-[340px] mx-auto lg:mx-0">
+            {/* Dış Pembe Çerçeve */}
+            <div className="bg-pink-200/70 rounded-[20px] p-3 shadow-lg">
+              {/* İç Panel - Lila/Beyaz */}
+              <div className="bg-white/60 backdrop-blur-sm rounded-[16px] p-4">
+                {/* Başlık */}
+                <h3 className="text-lg font-bold text-purple-900 mb-4">
+                  {t.contact.form.title[language]}
+                </h3>
+                
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  {/* Ad Soyad - Sağda User ikonu */}
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      placeholder={t.contact.form.fullName[language]}
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      className="w-full h-9 px-3 pr-10 bg-purple-100/60 border-0 rounded-xl 
+                                 placeholder:text-purple-400 text-sm text-foreground
+                                 focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                    />
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
                   </div>
-                  <Input
-                    placeholder={t.contact.form.phone[language]}
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="flex-1 bg-white/50"
+                  
+                  {/* Select - Öğrenci yaşı */}
+                  <Select
+                    value={formData.studentAge}
+                    onValueChange={(value) => setFormData({ ...formData, studentAge: value })}
+                  >
+                    <SelectTrigger className="h-9 bg-purple-100/60 border-0 rounded-xl text-sm 
+                                               placeholder:text-purple-400 
+                                               focus:ring-2 focus:ring-pink-300 focus:outline-none
+                                               [&>span]:text-purple-400 [&>span]:data-[state=selected]:text-foreground">
+                      <SelectValue placeholder={t.contact.form.studentAge[language]} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white z-[60] rounded-xl border-purple-200/50">
+                      {ageOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value} className="text-sm">
+                          {option.label[language]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* Telefon - +90 prefix birleşik */}
+                  <div className="flex">
+                    <div className="flex items-center px-3 bg-purple-100/80 rounded-l-xl 
+                                    text-sm font-medium text-purple-700 border-r border-purple-200/50 h-9">
+                      +90
+                    </div>
+                    <input 
+                      type="tel"
+                      placeholder={t.contact.form.phone[language]}
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="flex-1 h-9 px-3 bg-purple-100/60 border-0 rounded-r-xl 
+                                 placeholder:text-purple-400 text-sm text-foreground
+                                 focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                    />
+                  </div>
+                  
+                  {/* Mesaj Textarea */}
+                  <textarea 
+                    placeholder={t.contact.form.message[language]}
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    className="w-full min-h-[80px] px-3 py-2 bg-purple-100/60 border-0 rounded-xl 
+                               placeholder:text-purple-400 text-sm text-foreground resize-none
+                               focus:ring-2 focus:ring-pink-300 focus:outline-none"
                   />
-                </div>
-                <Textarea
-                  placeholder={t.contact.form.message[language]}
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  rows={4}
-                  className="bg-white/50"
-                />
-                <Button type="submit" className="w-full bg-landing-purple hover:bg-landing-purple-dark text-white">
-                  {t.contact.form.submit[language]}
-                </Button>
-                <p className="text-xs text-center text-muted-foreground">{t.contact.form.note[language]}</p>
-              </form>
+                  
+                  {/* Sarı Gönder Butonu */}
+                  <button 
+                    type="submit"
+                    className="w-full h-10 rounded-xl font-bold text-amber-900
+                               bg-gradient-to-b from-yellow-300 to-landing-yellow
+                               hover:brightness-105 active:translate-y-[1px] transition-all
+                               shadow-sm"
+                  >
+                    {t.contact.form.submit[language]}
+                  </button>
+                  
+                  {/* Alt açıklama */}
+                  <p className="text-xs text-center text-purple-700/70 mt-2">
+                    {t.contact.form.note[language]}
+                  </p>
+                </form>
+              </div>
             </div>
           </div>
 
