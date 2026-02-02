@@ -47,17 +47,20 @@ export function LandingHeader() {
   const isContactActive = activeSection === 'contact';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-transparent">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible">
+      {/* Logo - Absolute positioned, independent from header flow */}
+      <div className="absolute left-4 sm:left-6 lg:left-8 top-2 md:top-3 z-[60]">
+        <img
+          src="/uploads/logo.webp"
+          alt="English with Dilara"
+          className="h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300"
+        />
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 md:h-24">
-          {/* Logo - Left */}
-          <div className="flex-shrink-0">
-            <img
-              src="/uploads/logo.webp"
-              alt="English with Dilara"
-              className="h-14 md:h-20 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300"
-            />
-          </div>
+          {/* Invisible placeholder for logo space */}
+          <div className="w-28 md:w-40 flex-shrink-0 invisible" />
 
           {/* Menu - Center */}
           <nav className="flex items-center gap-2 md:gap-4">
