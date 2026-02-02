@@ -43,7 +43,7 @@ export function ContactSection() {
     // Form submission logic here
     console.log("Form submitted:", formData);
   };
-  return <section id="contact" className="scroll-section py-16 md:py-24 pb-safe">
+  return <section id="contact" className="scroll-section pt-16 md:pt-24 pb-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-8 md:mb-12">
