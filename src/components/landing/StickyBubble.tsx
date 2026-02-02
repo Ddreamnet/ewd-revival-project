@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { Gift, ArrowRight, Sparkles } from 'lucide-react';
 
 type BubbleType = 'trial' | 'contact' | 'none';
+
+// Sparkle component for floating decorations
+const FloatingSparkle = ({ delay, position }: { delay: string; position: string }) => (
+  <span
+    className={`absolute ${position} text-landing-yellow-light animate-sparkle`}
+    style={{ animationDelay: delay }}
+  >
+    <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
+  </span>
+);
 
 export function StickyBubble() {
   const { language, t } = useLanguage();
@@ -11,34 +22,26 @@ export function StickyBubble() {
     const handleScroll = () => {
       const heroSection = document.getElementById('hero');
       const whySection = document.getElementById('why');
-      const kidsSection = document.getElementById('kids-packages');
-      const adultSection = document.getElementById('adult-packages');
-      const faqSection = document.getElementById('faq');
       const contactSection = document.getElementById('contact');
 
       if (!heroSection || !contactSection) return;
 
       const scrollY = window.scrollY + window.innerHeight / 2;
       
-      const heroBottom = heroSection.offsetTop + heroSection.offsetHeight;
-      const whyBottom = whySection ? whySection.offsetTop + whySection.offsetHeight : heroBottom;
+      const whyBottom = whySection ? whySection.offsetTop + whySection.offsetHeight : heroSection.offsetTop + heroSection.offsetHeight;
       const contactTop = contactSection.offsetTop;
 
-      // Determine which bubble to show based on scroll position
       if (scrollY < whyBottom) {
-        // Hero or Why section - show trial bubble
         setBubbleType('trial');
       } else if (scrollY < contactTop) {
-        // Kids, Adult, or FAQ sections - show contact image
         setBubbleType('contact');
       } else {
-        // Contact section - hide all
         setBubbleType('none');
       }
     };
 
     window.addEventListener('scroll', handleScroll);
-    handleScroll(); // Initial check
+    handleScroll();
 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -59,21 +62,64 @@ export function StickyBubble() {
           onClick={scrollToContact}
           className="relative group"
         >
-          {/* Chat bubble shape */}
-          <div className="bg-landing-yellow shadow-xl rounded-2xl p-4 md:p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-            <div className="text-center">
-              <p className="text-sm md:text-base font-bold text-foreground leading-tight">
+          {/* Floating sparkles around the bubble */}
+          <FloatingSparkle delay="0s" position="-top-2 -left-2" />
+          <FloatingSparkle delay="0.5s" position="-top-1 -right-3" />
+          <FloatingSparkle delay="1s" position="-bottom-2 -left-1" />
+          <FloatingSparkle delay="1.5s" position="bottom-4 -right-4" />
+
+          {/* Main card with glow effect */}
+          <div className="relative bg-gradient-to-br from-landing-yellow via-landing-pink to-landing-purple 
+                          rounded-3xl p-4 md:p-5 
+                          animate-glow-pulse
+                          transform transition-all duration-300 
+                          group-hover:scale-105 group-hover:shadow-2xl
+                          overflow-hidden">
+            
+            {/* Shimmer overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent 
+                            -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+
+            {/* Gift icon with wiggle */}
+            <div className="flex justify-center mb-2">
+              <Gift className="w-8 h-8 md:w-10 md:h-10 text-landing-purple-dark animate-wiggle" />
+            </div>
+
+            {/* Text content */}
+            <div className="text-center space-y-0.5">
+              {/* "ÜCRETSİZ" - Gradient animated text */}
+              <p className="text-lg md:text-xl font-black 
+                           bg-gradient-to-r from-landing-purple-dark via-landing-pink to-landing-purple-dark 
+                           bg-[length:200%_auto] bg-clip-text text-transparent 
+                           animate-gradient-shift
+                           animate-pulse-scale">
                 {t.stickyBubble.line1[language]}
               </p>
-              <p className="text-sm md:text-base font-bold text-foreground leading-tight">
+              
+              {/* "Deneme" - Gentle bounce with delay */}
+              <p className="text-base md:text-lg font-bold text-foreground animate-bounce-gentle"
+                 style={{ animationDelay: '0.2s' }}>
                 {t.stickyBubble.line2[language]}
               </p>
-              <p className="text-sm md:text-base font-bold text-foreground leading-tight">
+              
+              {/* "Dersi!" - Gentle bounce with more delay */}
+              <p className="text-base md:text-lg font-bold text-foreground animate-bounce-gentle"
+                 style={{ animationDelay: '0.4s' }}>
                 {t.stickyBubble.line3[language]}
               </p>
+
+              {/* CTA with arrow */}
+              <div className="flex items-center justify-center gap-1 pt-2 text-sm md:text-base font-semibold text-landing-purple-dark
+                              opacity-80 group-hover:opacity-100 transition-opacity">
+                <span>{t.stickyBubble.cta[language]}</span>
+                <ArrowRight className="w-4 h-4 animate-arrow-bounce" />
+              </div>
             </div>
+
             {/* Bubble tail */}
-            <div className="absolute -bottom-2 right-4 w-4 h-4 bg-landing-yellow transform rotate-45" />
+            <div className="absolute -bottom-2 right-4 w-4 h-4 
+                            bg-gradient-to-br from-landing-pink to-landing-purple 
+                            transform rotate-45" />
           </div>
         </button>
       )}

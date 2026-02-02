@@ -22,9 +22,10 @@ export const translations = {
 
   // Sticky Bubble
   stickyBubble: {
-    line1: { tr: 'Ücretsiz', en: 'Free' },
+    line1: { tr: 'ÜCRETSİZ', en: 'FREE' },
     line2: { tr: 'Deneme', en: 'Trial' },
     line3: { tr: 'Dersi!', en: 'Lesson!' },
+    cta: { tr: 'Hemen deneyin', en: 'Try now' },
   },
 
   // Why Section
