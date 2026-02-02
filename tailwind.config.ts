@@ -167,24 +167,91 @@ export default {
             transform: "scale(1.05)",
           },
         },
-        "bubble-exit": {
+        // Magic pop animations for trial bubble
+        "magic-pop-in": {
           "0%": {
+            opacity: "0",
+            transform: "scale(0.3) rotate(-20deg)",
+          },
+          "40%": {
             opacity: "1",
-            transform: "scale(1) rotate(0deg)",
+            transform: "scale(1.15) rotate(5deg)",
+          },
+          "60%": {
+            transform: "scale(0.95) rotate(-2deg)",
+          },
+          "80%": {
+            transform: "scale(1.02) rotate(1deg)",
           },
           "100%": {
-            opacity: "0",
-            transform: "scale(0.6) rotate(-10deg)",
+            opacity: "1",
+            transform: "scale(1) rotate(0deg)",
           },
         },
-        "bubble-enter": {
+        "magic-pop-out": {
+          "0%": {
+            opacity: "1",
+            transform: "scale(1) rotate(0deg)",
+          },
+          "30%": {
+            transform: "scale(1.1) rotate(5deg)",
+          },
+          "100%": {
+            opacity: "0",
+            transform: "scale(0.2) rotate(-30deg)",
+          },
+        },
+        // 3D flip animations for contact bubble
+        "flip-in-y": {
           "0%": {
             opacity: "0",
-            transform: "scale(0.6) rotate(10deg)",
+            transform: "perspective(400px) rotateY(-90deg) scale(0.9)",
+          },
+          "40%": {
+            transform: "perspective(400px) rotateY(15deg) scale(1.05)",
+          },
+          "70%": {
+            transform: "perspective(400px) rotateY(-5deg) scale(1)",
           },
           "100%": {
             opacity: "1",
-            transform: "scale(1) rotate(0deg)",
+            transform: "perspective(400px) rotateY(0deg) scale(1)",
+          },
+        },
+        "flip-out-y": {
+          "0%": {
+            opacity: "1",
+            transform: "perspective(400px) rotateY(0deg)",
+          },
+          "100%": {
+            opacity: "0",
+            transform: "perspective(400px) rotateY(90deg) scale(0.9)",
+          },
+        },
+        // Burst particle animation
+        "burst-particle": {
+          "0%": {
+            opacity: "1",
+            transform: "translate(-50%, -50%) scale(1)",
+          },
+          "100%": {
+            opacity: "0",
+            transform: "translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0)",
+          },
+        },
+        // Glow trail for transitions
+        "glow-trail": {
+          "0%": {
+            opacity: "0.8",
+            transform: "scale(1)",
+          },
+          "50%": {
+            opacity: "0.4",
+            transform: "scale(1.5)",
+          },
+          "100%": {
+            opacity: "0",
+            transform: "scale(2)",
           },
         },
       },
@@ -200,8 +267,12 @@ export default {
         "arrow-bounce": "arrow-bounce 1s ease-in-out infinite",
         "bounce-gentle": "bounce-gentle 2s ease-in-out infinite",
         "pulse-scale": "pulse-scale 2s ease-in-out infinite",
-        "bubble-exit": "bubble-exit 0.3s ease-in-out forwards",
-        "bubble-enter": "bubble-enter 0.3s ease-in-out forwards",
+        "magic-pop-in": "magic-pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+        "magic-pop-out": "magic-pop-out 0.4s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards",
+        "flip-in-y": "flip-in-y 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards",
+        "flip-out-y": "flip-out-y 0.4s ease-in forwards",
+        "burst-particle": "burst-particle 0.6s ease-out forwards",
+        "glow-trail": "glow-trail 0.5s ease-out forwards",
       },
     },
   },
