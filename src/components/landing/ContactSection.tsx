@@ -78,7 +78,7 @@ export function ContactSection() {
         </div>
 
         {/* Three Column Layout */}
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-end">
           {/* Left - Contact Cards */}
           <div className="space-y-4">
             {/* Yellow Contact Info Card */}
@@ -100,7 +100,7 @@ export function ContactSection() {
             </div>
 
             {/* Why Card */}
-            <div className="bg-landing-purple/20 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
+            <div className="hidden lg:block bg-landing-purple/20 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
               <h3 className="text-lg font-bold text-landing-purple-dark mb-4">{t.contact.whyCard.title[language]}</h3>
               <ul className="space-y-2">
                 {whyItems.map((item, index) => (
@@ -207,11 +207,11 @@ export function ContactSection() {
           </div>
 
           {/* Right - Character */}
-          <div className="hidden lg:flex items-end justify-center">
+          <div className="hidden lg:flex items-end justify-end overflow-hidden">
             <img
               src="/uploads/dilarateacher.png"
               alt="Dilara Teacher"
-              className="w-48 xl:w-64 h-auto object-contain drop-shadow-xl"
+              className="w-[400px] xl:w-[500px] h-auto object-contain drop-shadow-xl"
             />
           </div>
         </div>
