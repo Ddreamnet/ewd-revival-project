@@ -1,159 +1,111 @@
 
 
-# Sticky Bubble Geçiş Sorunu - Kök Neden Analizi ve Düzeltme Planı
+# "DILARA" Fontu ve SSS Güncellemesi
 
-## Tespit Edilen Sorun
+## 1. Aprilia Font Sorunu
 
-Scrollbar CSS değişikliği yapılırken `html, body` elementlerine `height: 100%` eklendi (satır 201-208). Bu değişiklik, scroll hesaplamasını bozuyor:
+### Tespit Edilen Sorun
 
+Font dosyaları (`public/uploads/fonts/Aprilia.woff2` ve `Aprilia.woff`) mevcut değil! Bu nedenle:
+
+- CSS'de tanımlanan `@font-face` çalışmıyor
+- Tarayıcı fallback font olan "Dancing Script" kullanıyor
+- `font-aprilia` sınıfı doğru tanımlı ama font dosyası yüklenemiyor
+
+Mevcut yapı:
 ```css
-html,
-body {
-  height: 100%;  /* ← Bu satır soruna neden oluyor */
-  margin: 0;
-  background: url("/uploads/pinkgingham.png") repeat;
-  background-attachment: fixed;
-  background-color: transparent;
-}
-```
-
-### Neden Bozuluyor?
-
-`height: 100%` verildiğinde:
-- Bazı tarayıcılarda scroll davranışı değişiyor
-- `window.scrollY` değeri doğru güncellenmeyebiliyor
-- `offsetTop` hesaplamaları etkilenebiliyor
-
-StickyBubble şu anda `window.scrollY` kullanıyor:
-```tsx
-const scrollY = window.scrollY + window.innerHeight * 0.4;
-```
-
-## Çözüm Planı
-
-İki aşamalı çözüm uygulayacağız:
-
-### Aşama 1: CSS Düzeltmesi
-
-`height: 100%` yerine `min-height: 100%` kullanarak scroll davranışını düzeltme:
-
-```text
-┌─────────────────────────────────────────────────┐
-│  ÖNCE                    │  SONRA               │
-├─────────────────────────────────────────────────┤
-│  html, body {            │  html {              │
-│    height: 100%;         │    min-height: 100%; │
-│    ...                   │    ...               │
-│  }                       │  }                   │
-│                          │                      │
-│                          │  body {              │
-│                          │    min-height: 100%; │
-│                          │    ...               │
-│                          │  }                   │
-└─────────────────────────────────────────────────┘
-```
-
-### Aşama 2: StickyBubble IntersectionObserver Geçişi
-
-`window.scrollY` yerine **IntersectionObserver API** kullanarak daha güvenilir section detection yapma:
-
-```text
-┌─────────────────────────────────────────────────┐
-│  IntersectionObserver Avantajları:              │
-│                                                 │
-│  ✓ Scroll event'e bağımlı değil                 │
-│  ✓ CSS değişikliklerinden etkilenmiyor          │
-│  ✓ Performans açısından daha verimli            │
-│  ✓ Daha güvenilir kesişim tespiti               │
-└─────────────────────────────────────────────────┘
-```
-
-## Teknik Uygulama
-
-### 1. CSS Değişikliği (`src/index.css`)
-
-```css
-/* Scrollbar arka planı için html ve body aynı background */
-html {
-  min-height: 100%;
-  margin: 0;
-  background: url("/uploads/pinkgingham.png") repeat;
-  background-attachment: fixed;
-  background-color: transparent;
-  scroll-behavior: smooth;
-  overflow-x: hidden;
+/* index.css */
+@font-face {
+  font-family: "Aprilia";
+  src:
+    url("/uploads/fonts/Aprilia.woff2") format("woff2"),
+    url("/uploads/fonts/Aprilia.woff") format("woff");
+  /* ... */
 }
 
-body {
-  min-height: 100%;
-  margin: 0;
-  background: url("/uploads/pinkgingham.png") repeat;
-  background-attachment: fixed;
-  background-color: transparent;
-}
+/* Fallback tanımı */
+@import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap");
 ```
 
-### 2. StickyBubble IntersectionObserver (`src/components/landing/StickyBubble.tsx`)
+### Çözüm Yaklaşımı
 
-Yeni mantık:
+**Seçenek A (Önerilen)**: Font dosyalarını yükle
+- `Aprilia.woff2` ve `Aprilia.woff` dosyalarını `public/uploads/fonts/` klasörüne yüklemeniz gerekiyor
+- Bu dosyalar mevcutsa font otomatik çalışacak
 
-```tsx
-useEffect(() => {
-  const heroSection = document.getElementById('hero');
-  const whySection = document.getElementById('why');
-  const kidsSection = document.getElementById('kids-packages');
-  const adultSection = document.getElementById('adult-packages');
-  const faqSection = document.getElementById('faq');
-  const contactSection = document.getElementById('contact');
+**Seçenek B**: Google Fonts'tan benzer bir font kullan
+- "Pacifico", "Satisfy", "Great Vibes" gibi script fontları alternatif olabilir
+- Bu durumda CSS güncellemesi yapılır
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const id = entry.target.id;
-          
-          if (id === 'hero' || id === 'why') {
-            setBubbleType('trial');
-          } else if (id === 'kids-packages' || id === 'adult-packages' || id === 'faq') {
-            setBubbleType('contact');
-          } else if (id === 'contact') {
-            setBubbleType('none');
-          }
-        }
-      });
-    },
-    {
-      rootMargin: '-40% 0px -40% 0px', // Ekranın ortasındaki bölümü algıla
-      threshold: 0
-    }
-  );
+Mevcut "DILARA" yazıları doğru şekilde `font-aprilia` sınıfı kullanıyor:
+- `HeroSection.tsx` satır 37: `className="... font-aprilia ..."`
+- `WhySection.tsx` satır 32: `className="font-aprilia ..."`
 
-  // Tüm bölümleri gözlemle
-  [heroSection, whySection, kidsSection, adultSection, faqSection, contactSection]
-    .filter(Boolean)
-    .forEach(section => observer.observe(section!));
+---
 
-  return () => observer.disconnect();
-}, []);
-```
+## 2. SSS'e Yeni Soru Ekleme
 
-### Animasyon Mantığı (Mevcut kod korunacak)
+### Eklenecek İçerik
 
-Mevcut smooth geçiş animasyonu (`bubble-exit` / `bubble-enter`) korunacak ve IntersectionObserver ile birlikte çalışacak.
+**Türkçe:**
+- Soru: "Neden giriş yapamıyorum?"
+- Cevap: "Derslerimize kaydolduğunuzda size giriş yapabilmeniz için bir mail ve şifre veriliyor. Bu bilgilerle sisteme giriş yaparsanız hesabınızı açtığınızda öğrenci panelinize erişebileceksiniz. Ödev gönderimi, işlenen dersler bu panelden takip edilir."
 
-## Değiştirilecek Dosyalar
+**İngilizce:**
+- Soru: "Why can't I log in?"
+- Cevap: "When you register for our courses, you are given an email and password to log in. If you log in with this information, you will be able to access your student panel once you create your account. Assignment submissions and course progress are tracked through this panel."
+
+### Değişiklikler
 
 | Dosya | Değişiklik |
 |-------|------------|
-| `src/index.css` | `height: 100%` → `min-height: 100%` ve html/body ayrımı |
-| `src/components/landing/StickyBubble.tsx` | Scroll event → IntersectionObserver |
+| `src/lib/translations.ts` | `faq.questions` altına `login` objesi ekleme |
+| `src/components/landing/FAQSection.tsx` | `faqItems` dizisine yeni soru ekleme |
 
-## Beklenen Sonuç
+---
 
-1. Scrollbar tasarımı aynen korunur (şeffaf track, mor thumb)
-2. Section geçişleri güvenilir şekilde algılanır
-3. Hero/Why bölümlerinde → Trial bubble (hediye kutusu)
-4. Kids/Adult/FAQ bölümlerinde → Contact bubble
-5. Contact bölümünde → Bubble kaybolur
-6. Smooth morph animasyonları çalışmaya devam eder
+## Teknik Detaylar
+
+### translations.ts Güncelleme
+
+```typescript
+faq: {
+  // ... mevcut sorular
+  questions: {
+    duration: { ... },
+    freeTrial: { ... },
+    platform: { ... },
+    lessonType: { ... },
+    // YENİ SORU:
+    login: {
+      question: { 
+        tr: 'Neden giriş yapamıyorum?', 
+        en: 'Why can\'t I log in?' 
+      },
+      answer: { 
+        tr: 'Derslerimize kaydolduğunuzda size giriş yapabilmeniz için bir mail ve şifre veriliyor. Bu bilgilerle sisteme giriş yaparsanız hesabınızı açtığınızda öğrenci panelinize erişebileceksiniz. Ödev gönderimi, işlenen dersler bu panelden takip edilir.',
+        en: 'When you register for our courses, you are given an email and password to log in. If you log in with this information, you will be able to access your student panel once you create your account. Assignment submissions and course progress are tracked through this panel.'
+      },
+    },
+  },
+}
+```
+
+### FAQSection.tsx Güncelleme
+
+```typescript
+const faqItems = [
+  // ... mevcut 4 soru
+  {
+    question: t.faq.questions.login.question,
+    answer: t.faq.questions.login.answer,
+  },
+];
+```
+
+---
+
+## Font Dosyası Hakkında Not
+
+Aprilia fontunu zorunlu kılmak için font dosyalarının yüklenmesi gerekiyor. Eğer font dosyalarınız varsa, bunları projeye yükleyebilirsiniz. Alternatif olarak, benzer bir Google Font kullanılabilir - bu durumda hangi fontu tercih ettiğinizi belirtmeniz yeterli.
 
