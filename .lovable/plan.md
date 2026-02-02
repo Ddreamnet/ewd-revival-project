@@ -1,24 +1,11 @@
 
-# İletişim Bölümü - Bottom Hizalama ve Görsel Boyutu
+# Sayfa Alt Boşluğunu Kaldırma
 
-## Yapılacak Değişiklikler
+## Sorun
+ContactSection'da `py-16 md:py-24` ve `pb-safe` class'ları sayfanın en altında fazla boşluk oluşturuyor.
 
-### 1. Form ve Dilara Teacher Bottom'a Bitişik Olsun
-Grid container'a `items-end` zaten ekli durumda. Form kartının ve görsel container'ın alt kenarlarının section'a bitişik olması için:
-- Section'a veya container'a ek padding-bottom ayarlaması yapılabilir
-- Mevcut yapı zaten `items-end` ile alta hizalı, ancak form kartının dış container'ına `self-end` eklenebilir
-
-### 2. Dilara Teacher 1.5 Kat Büyüsün
-Mevcut boyut: `w-[400px] xl:w-[500px]`
-Yeni boyut (1.5x): `w-[600px] xl:w-[750px]`
-
----
-
-## Teknik Detaylar
-
-| Değişiklik | Mevcut | Yeni |
-|------------|--------|------|
-| Dilara boyut | `w-[400px] xl:w-[500px]` | `w-[600px] xl:w-[750px]` |
+## Çözüm
+Section'ın alt padding'ini kaldırarak boşluğu gidermek.
 
 ---
 
@@ -26,18 +13,29 @@ Yeni boyut (1.5x): `w-[600px] xl:w-[750px]`
 
 `src/components/landing/ContactSection.tsx`
 
-**Satır 214 - Dilara Teacher Görsel Boyutu:**
+**Satır 46 - Section padding:**
 ```tsx
 // Önceki
-className="w-[400px] xl:w-[500px] h-auto object-contain drop-shadow-xl"
+<section id="contact" className="scroll-section py-16 md:py-24 pb-safe">
 
-// Yeni - 1.5x büyük
-className="w-[600px] xl:w-[750px] h-auto object-contain drop-shadow-xl"
+// Yeni - Alt padding kaldırıldı
+<section id="contact" className="scroll-section pt-16 md:pt-24 pb-0">
 ```
 
 ---
 
-## Özet
+## Teknik Detay
 
-- Dilara görseli 1.5 kat büyütülür (400px → 600px, 500px → 750px)
-- `items-end` zaten mevcut olduğu için form ve görsel bottom'a hizalı kalır
+| Değişiklik | Önceki | Yeni |
+|------------|--------|------|
+| Padding | `py-16 md:py-24 pb-safe` | `pt-16 md:pt-24 pb-0` |
+
+- `py-16` → `pt-16` (sadece üst padding)
+- `md:py-24` → `md:pt-24` (sadece üst padding)
+- `pb-safe` → `pb-0` (alt boşluk tamamen kaldırıldı)
+
+---
+
+## Özet
+- Sayfanın en altındaki boşluk kaldırılır
+- Section sadece üstten padding alır, alttan sıfır
