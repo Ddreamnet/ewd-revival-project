@@ -211,15 +211,15 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 min-w-[100px]">
-            <BookCheck className="h-8 w-8 text-primary flex-shrink-0" />
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 sm:min-w-[100px]">
+            <BookCheck className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
             <div>
-              <p className="text-2x1 font-bold">
+              <p className="text-lg sm:text-2xl font-bold">
                 {completedLessons.length}/{totalLessonsPerMonth}
               </p>
-              <p className="text-sm text-muted-foreground">İşlenen Dersler</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">İşlenen Dersler</p>
             </div>
           </div>
           <div className="flex flex-col gap-1.5 flex-1">

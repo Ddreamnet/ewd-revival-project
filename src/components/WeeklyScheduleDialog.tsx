@@ -390,12 +390,12 @@ export function WeeklyScheduleDialog({
     }
   };
   return <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>Haftalık Ders Programı</DialogTitle>
-            {lessons.length > 0 && <Button onClick={handleExportPNG} size="sm" variant="outline" className="mx-0 mr-[15px]">
-                <Download className="h-4 w-4 mr-2" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <DialogTitle className="text-base sm:text-lg">Haftalık Ders Programı</DialogTitle>
+            {lessons.length > 0 && <Button onClick={handleExportPNG} size="sm" variant="outline" className="text-xs sm:text-sm mx-0 sm:mr-[15px]">
+                <Download className="h-4 w-4 mr-1 sm:mr-2" />
                 PNG İndir
               </Button>}
           </div>
