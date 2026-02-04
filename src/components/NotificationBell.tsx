@@ -27,7 +27,7 @@ interface NotificationBellProps {
   teacherId: string; // Teacher ID for the relationship
   studentId?: string; // Student ID for the relationship (needed for student panel)
   isStudent?: boolean;
-  onNotificationClick?: () => void;
+  onNotificationClick?: (studentId: string) => void; // Pass student_id when clicking notification
 }
 
 export function NotificationBell({ userId, teacherId, studentId, isStudent = false, onNotificationClick }: NotificationBellProps) {
@@ -160,9 +160,10 @@ export function NotificationBell({ userId, teacherId, studentId, isStudent = fal
     }
   };
 
-  const handleNotificationClick = () => {
+  const handleNotificationClick = (notification: Notification) => {
     setOpen(false);
-    onNotificationClick?.();
+    // Pass the student_id from the notification to open the correct homework dialog
+    onNotificationClick?.(notification.student_id);
   };
 
   return (
@@ -218,7 +219,7 @@ export function NotificationBell({ userId, teacherId, studentId, isStudent = fal
                           ? 'bg-primary/5 border-l-4 border-l-primary' 
                           : ''
                       }`}
-                      onClick={handleNotificationClick}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`mt-0.5 rounded-full p-2 ${

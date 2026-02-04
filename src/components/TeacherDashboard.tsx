@@ -14,6 +14,7 @@ import { ContactDialog } from "./ContactDialog";
 import { WeeklyScheduleDialog } from "./WeeklyScheduleDialog";
 import { TeacherBalanceDialog } from "./TeacherBalanceDialog";
 import { StudentAboutDialog } from "./StudentAboutDialog";
+import { HomeworkListDialog } from "./HomeworkListDialog";
 interface StudentLesson {
   id?: string;
   dayOfWeek: number;
@@ -39,6 +40,7 @@ export function TeacherDashboard() {
   const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
   const [showStudentAbout, setShowStudentAbout] = useState(false);
+  const [showHomeworkForStudent, setShowHomeworkForStudent] = useState<Student | null>(null);
   const [studentAboutData, setStudentAboutData] = useState<{ studentId: string; studentName: string; aboutText: string | null } | null>(null);
   const {
     profile,
@@ -188,10 +190,12 @@ export function TeacherDashboard() {
             <NotificationBell 
               userId={profile?.user_id || ""}
               teacherId={profile?.user_id || ""} 
-              onNotificationClick={() => {
+              onNotificationClick={(studentId) => {
                 // Find the student that triggered the notification and open their homework dialog
-                if (selectedStudent) {
-                  // The StudentTopics component will handle opening homework dialog
+                const studentToShow = students.find(s => s.student_id === studentId);
+                if (studentToShow) {
+                  setSelectedStudent(studentToShow);
+                  setShowHomeworkForStudent(studentToShow);
                 }
               }}
             />
@@ -319,6 +323,18 @@ export function TeacherDashboard() {
           studentName={studentAboutData.studentName}
           aboutText={studentAboutData.aboutText}
           isReadOnly={true}
+        />
+      )}
+
+      {/* Homework Dialog opened from notification click */}
+      {showHomeworkForStudent && (
+        <HomeworkListDialog
+          open={!!showHomeworkForStudent}
+          onOpenChange={(open) => !open && setShowHomeworkForStudent(null)}
+          studentId={showHomeworkForStudent.student_id}
+          teacherId={profile?.user_id || ""}
+          currentUserId={profile?.user_id || ""}
+          isTeacher={true}
         />
       )}
     </div>;

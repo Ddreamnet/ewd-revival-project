@@ -301,7 +301,7 @@ export function StudentDashboard() {
               teacherId={teacherId}
               studentId={profile?.user_id}
               isStudent={true}
-              onNotificationClick={() => setListDialogOpen(true)}
+              onNotificationClick={(_studentId) => setListDialogOpen(true)}
             />
             <ContactDialog />
             <Button onClick={signOut} variant="outline" size="sm" disabled={signingOut}>
