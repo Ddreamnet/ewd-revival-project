@@ -219,15 +219,15 @@ export function HomeworkListDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Ödevler</DialogTitle>
             <DialogDescription>
               Tüm ödevleri görüntüleyin
             </DialogDescription>
           </DialogHeader>
 
-          <div className="h-[500px]">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
             {loading ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -238,7 +238,7 @@ export function HomeworkListDialog({
                 <p className="text-muted-foreground">Henüz ödev yok</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 pr-1">
                 {groupedHomeworks.map((group) => {
                   const uploadedByStudent = isUploadedByStudent(group);
                   const cardColorClass = uploadedByStudent 
@@ -247,23 +247,23 @@ export function HomeworkListDialog({
                   
                   return (
                     <Card key={group.batch_id} className={cardColorClass}>
-                      <CardContent className="p-4 relative pb-8">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm mb-1">{group.title}</h4>
+                      <CardContent className="p-3 sm:p-4 relative pb-10">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-3">
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <h4 className="font-medium text-sm mb-1 break-words">{group.title}</h4>
                             {group.description && (
-                              <p className="text-sm text-muted-foreground mb-2">
+                              <p className="text-sm text-muted-foreground mb-2 break-words">
                                 {group.description}
                               </p>
                             )}
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
+                                <Calendar className="h-3 w-3 flex-shrink-0" />
                                 {format(new Date(group.created_at), "dd MMM yyyy HH:mm", { locale: tr })}
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             {canEdit(group) && (
                               <>
                                 <Button
@@ -312,32 +312,27 @@ export function HomeworkListDialog({
                         </div>
 
                         {/* Files list */}
-                        <div className="space-y-2">
-                          {group.files.map((file) => {
-                            const truncatedName = file.file_name.length > 40 
-                              ? file.file_name.substring(0, 40) + "..." 
-                              : file.file_name;
-                            return (
-                              <div
-                                key={file.id}
-                                className="flex items-center gap-2 bg-background/50 p-2 rounded border min-w-0"
+                        <div className="space-y-2 overflow-hidden">
+                          {group.files.map((file) => (
+                            <div
+                              key={file.id}
+                              className="flex items-center gap-2 bg-background/50 p-2 rounded border overflow-hidden"
+                            >
+                              <div className="flex-shrink-0">{getFileIcon(file.file_type)}</div>
+                              <span className="text-xs sm:text-sm flex-1 truncate" title={file.file_name}>
+                                {file.file_name}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDownload(file.file_url, file.file_name)}
+                                title="İndir"
+                                className="flex-shrink-0 h-8 w-8 p-0"
                               >
-                                <div className="shrink-0">{getFileIcon(file.file_type)}</div>
-                                <span className="text-sm flex-1 truncate min-w-0" title={file.file_name}>
-                                  {truncatedName}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDownload(file.file_url, file.file_name)}
-                                  title="İndir"
-                                  className="shrink-0"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            );
-                          })}
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
 
                         <Badge 
