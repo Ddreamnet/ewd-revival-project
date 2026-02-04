@@ -423,9 +423,9 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   return (
     <>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
         {/* İşlenen Dersler */}
-        <div className="flex items-center gap-2 border-2 border-primary/30 rounded-xl p-2.5 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-sm">
+        <div className="flex items-center gap-2 border-2 border-primary/30 rounded-xl p-2 sm:p-2.5 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-sm w-full sm:w-auto overflow-x-auto">
           <div className="flex flex-col gap-1.5">
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (
               <div key={rowIndex} className="flex gap-1.5">
