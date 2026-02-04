@@ -14,6 +14,49 @@ const FloatingSparkle = ({ delay, position }: { delay: string; position: string 
   </span>
 );
 
+// Burst particles for transition effect - CSS only, no state dependency
+const BurstParticles = ({ show }: { show: boolean }) => {
+  const particles = [
+    { tx: 60, ty: 0, color: 'hsl(330, 85%, 86%)' },
+    { tx: 42, ty: 42, color: 'hsl(280, 50%, 75%)' },
+    { tx: 0, ty: 60, color: 'hsl(45, 93%, 58%)' },
+    { tx: -42, ty: 42, color: 'hsl(330, 85%, 86%)' },
+    { tx: -60, ty: 0, color: 'hsl(45, 85%, 75%)' },
+    { tx: -42, ty: -42, color: 'hsl(280, 50%, 75%)' },
+    { tx: 0, ty: -60, color: 'hsl(330, 85%, 86%)' },
+    { tx: 42, ty: -42, color: 'hsl(45, 93%, 58%)' },
+  ];
+
+  return (
+    <div 
+      className={`absolute inset-0 pointer-events-none overflow-visible z-50 transition-opacity duration-200
+                  ${show ? 'opacity-100' : 'opacity-0'}`}
+    >
+      {particles.map((particle, i) => (
+        <span
+          key={i}
+          className={`absolute w-3 h-3 rounded-full ${show ? 'animate-burst-particle' : ''}`}
+          style={{
+            '--tx': `${particle.tx}px`,
+            '--ty': `${particle.ty}px`,
+            background: particle.color,
+            left: '50%',
+            top: '50%',
+            boxShadow: `0 0 10px ${particle.color}`,
+          } as React.CSSProperties}
+        />
+      ))}
+      {/* Center glow effect */}
+      <div 
+        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 
+                    w-20 h-20 rounded-full 
+                    bg-gradient-to-r from-landing-yellow via-landing-pink to-landing-purple
+                    ${show ? 'animate-glow-trail' : 'opacity-0'}`}
+      />
+    </div>
+  );
+};
+
 // Trial bubble component
 const TrialBubble = ({ onClick, language, t }: { onClick: () => void; language: 'tr' | 'en'; t: any }) => (
   <button onClick={onClick} className="relative group">
@@ -95,7 +138,7 @@ export function StickyBubble() {
   // Simplified state machine: 3 states only
   const [targetBubble, setTargetBubble] = useState<BubbleType>('trial');
   const [visibleBubble, setVisibleBubble] = useState<BubbleType>('trial');
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [animationPhase, setAnimationPhase] = useState<'idle' | 'exiting' | 'entering'>('idle');
   
   // Single ref for cleanup
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -105,7 +148,6 @@ export function StickyBubble() {
     let rafId: number | null = null;
 
     const handleScroll = () => {
-      // Throttle with RAF - skip if already pending
       if (rafId !== null) return;
 
       rafId = requestAnimationFrame(() => {
@@ -136,7 +178,7 @@ export function StickyBubble() {
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // Initial check
+    handleScroll();
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -146,9 +188,8 @@ export function StickyBubble() {
     };
   }, []);
 
-  // Transition handler with proper cleanup
+  // Transition handler with animations
   useEffect(() => {
-    // Same bubble type - no transition needed
     if (targetBubble === visibleBubble) {
       return;
     }
@@ -159,22 +200,20 @@ export function StickyBubble() {
       transitionTimeoutRef.current = null;
     }
 
-    // Start exit transition
-    setIsTransitioning(true);
+    // Start exit animation
+    setAnimationPhase('exiting');
 
-    // After exit animation duration, switch bubble
+    // After exit, switch bubble and start entry animation
     transitionTimeoutRef.current = setTimeout(() => {
       setVisibleBubble(targetBubble);
+      setAnimationPhase('entering');
 
-      // Use RAF to ensure state update is rendered before removing transition class
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsTransitioning(false);
-        });
-      });
-    }, 300); // Exit animation duration
+      // After entry animation, go to idle
+      transitionTimeoutRef.current = setTimeout(() => {
+        setAnimationPhase('idle');
+      }, 400);
+    }, 350);
 
-    // Cleanup on unmount or dependency change
     return () => {
       if (transitionTimeoutRef.current) {
         clearTimeout(transitionTimeoutRef.current);
@@ -190,34 +229,49 @@ export function StickyBubble() {
     }
   };
 
-  // Don't render if both target and visible are 'none'
-  if (visibleBubble === 'none' && targetBubble === 'none') {
+  // Don't render if both target and visible are 'none' and not animating
+  if (visibleBubble === 'none' && targetBubble === 'none' && animationPhase === 'idle') {
     return null;
   }
 
-  // Container classes based on transition state
-  const containerClasses = isTransitioning
-    ? 'opacity-0 scale-75'
-    : 'opacity-100 scale-100';
+  // Get animation class based on phase and bubble type
+  const getAnimationClass = () => {
+    if (animationPhase === 'idle') return 'animate-floating';
+    
+    if (animationPhase === 'exiting') {
+      return visibleBubble === 'trial' ? 'animate-magic-pop-out' : 'animate-flip-out-y';
+    }
+    
+    if (animationPhase === 'entering') {
+      return visibleBubble === 'trial' ? 'animate-magic-pop-in' : 'animate-flip-in-y';
+    }
+    
+    return '';
+  };
 
   return (
     <div 
       className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-40 pb-safe"
       style={{ 
-        willChange: 'opacity, transform',
-        transform: 'translateZ(0)' // Force GPU layer
+        willChange: 'transform',
+        transform: 'translateZ(0)'
       }}
     >
-      <div 
-        className={`transition-all duration-300 ease-out ${containerClasses}`}
-        style={{ transformOrigin: 'center center' }}
-      >
-        {visibleBubble === 'trial' && (
-          <TrialBubble onClick={scrollToContact} language={language} t={t} />
-        )}
-        {visibleBubble === 'contact' && (
-          <ContactBubble onClick={scrollToContact} />
-        )}
+      <div className="relative">
+        {/* Burst particles during exit transition */}
+        <BurstParticles show={animationPhase === 'exiting'} />
+
+        <div 
+          className={`${getAnimationClass()}`}
+          style={{ transformOrigin: 'center center' }}
+        >
+          {visibleBubble === 'trial' && (
+            <TrialBubble onClick={scrollToContact} language={language} t={t} />
+          )}
+          {visibleBubble === 'contact' && (
+            <ContactBubble onClick={scrollToContact} />
+          )}
+        </div>
       </div>
     </div>
   );
