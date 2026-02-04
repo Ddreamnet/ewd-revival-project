@@ -460,7 +460,7 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <div>
               <CardTitle>{student.profiles.full_name} için konular</CardTitle>
               <CardDescription>
@@ -468,9 +468,9 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
               </CardDescription>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full md:w-auto">
               {/* Ödev Kartı */}
-              <Card className="min-w-[200px]">
+              <Card className="w-full sm:w-auto sm:min-w-[200px]">
                 <CardContent className="p-3">
                   <div className="grid grid-cols-2 gap-2">
                     <Button
