@@ -660,24 +660,24 @@ export function AdminDashboard() {
                   <CardDescription>{selectedTeacher.email}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-2 border-b mb-4">
+                  <div className="flex gap-1 sm:gap-2 border-b mb-4 overflow-x-auto pb-1">
                     <Button
                       variant={activeTab === "students" ? "default" : "ghost"}
-                      className="rounded-b-none"
+                      className="rounded-b-none text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap flex-shrink-0"
                       onClick={() => setActiveTab("students")}
                     >
                       Öğrenciler
                     </Button>
                     <Button
                       variant={activeTab === "schedule" ? "default" : "ghost"}
-                      className="rounded-b-none"
+                      className="rounded-b-none text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap flex-shrink-0"
                       onClick={() => setActiveTab("schedule")}
                     >
                       Ders programı
                     </Button>
                     <Button
                       variant={activeTab === "payments" ? "default" : "ghost"}
-                      className="rounded-b-none"
+                      className="rounded-b-none text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap flex-shrink-0"
                       onClick={() => setActiveTab("payments")}
                     >
                       Ödemeler

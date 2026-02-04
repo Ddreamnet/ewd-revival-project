@@ -547,15 +547,15 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     return (
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Haftalık Ders Programı</CardTitle>
-            <div className="flex gap-2">
-              <Button onClick={handleExportPNG} size="sm" variant="outline">
-                <Download className="h-4 w-4 mr-2" />
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <CardTitle className="text-base sm:text-lg">Haftalık Ders Programı</CardTitle>
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={handleExportPNG} size="sm" variant="outline" className="text-xs sm:text-sm">
+                <Download className="h-4 w-4 mr-1 sm:mr-2" />
                 PNG İndir
               </Button>
-              <Button onClick={() => setShowAddTrial(true)} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button onClick={() => setShowAddTrial(true)} size="sm" className="text-xs sm:text-sm">
+                <Plus className="h-4 w-4 mr-1 sm:mr-2" />
                 Deneme Ekle
               </Button>
             </div>
@@ -578,17 +578,17 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Haftalık Ders Programı</CardTitle>
-            <Button onClick={() => setShowAddTrial(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <CardTitle className="text-base sm:text-lg">Haftalık Ders Programı</CardTitle>
+            <Button onClick={() => setShowAddTrial(true)} size="sm" className="text-xs sm:text-sm">
+              <Plus className="h-4 w-4 mr-1 sm:mr-2" />
               Deneme Ekle
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse min-w-[800px]">
               <thead>
                 <tr>
                   <th className="border border-border p-2 bg-muted font-medium text-sm">Saat</th>

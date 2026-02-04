@@ -272,7 +272,7 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <Clock className="h-5 w-5 text-primary" />
                 <p className="text-sm font-medium text-muted-foreground">Toplam Bakiye</p>
               </div>
-              <p className="text-3xl font-bold text-primary">{formatMinutes(balance?.total_minutes || 0)}</p>
+              <p className="text-xl sm:text-3xl font-bold text-primary">{formatMinutes(balance?.total_minutes || 0)}</p>
             </div>
           </CardContent>
         </Card>
@@ -284,7 +284,7 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <CheckCircle2 className="h-5 w-5 text-blue-500" />
                 <p className="text-sm font-medium text-muted-foreground">Normal Dersler</p>
               </div>
-              <p className="text-3xl font-bold">{balance?.completed_regular_lessons || 0} ders ({formatMinutes(balance?.regular_lessons_minutes || 0)})</p>
+              <p className="text-lg sm:text-3xl font-bold">{balance?.completed_regular_lessons || 0} ders ({formatMinutes(balance?.regular_lessons_minutes || 0)})</p>
             </div>
           </CardContent>
         </Card>
@@ -296,7 +296,7 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <Calendar className="h-5 w-5 text-purple-500" />
                 <p className="text-sm font-medium text-muted-foreground">Deneme Dersleri</p>
               </div>
-              <p className="text-3xl font-bold">{balance?.completed_trial_lessons || 0} ders ({formatMinutes(balance?.trial_lessons_minutes || 0)})</p>
+              <p className="text-lg sm:text-3xl font-bold">{balance?.completed_trial_lessons || 0} ders ({formatMinutes(balance?.trial_lessons_minutes || 0)})</p>
             </div>
           </CardContent>
         </Card>

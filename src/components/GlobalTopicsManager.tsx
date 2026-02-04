@@ -441,10 +441,10 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
               Global Konular Yönetimi
             </DialogTitle>
           </DialogHeader>
@@ -452,13 +452,13 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
           <div className="flex-1 overflow-y-auto">
             <div className="space-y-4">
               {/* Header Actions */}
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {isAdmin 
                     ? "Herhangi bir öğrenciye atanabilecek global konuları yönetin" 
                     : "Global konular ve kaynaklar"}
                 </p>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                   {!loading && globalTopics.length > 0 && (
                     <div className="flex items-center gap-2">
                       <Switch
@@ -466,14 +466,14 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
                         checked={expandAll}
                         onCheckedChange={setExpandAll}
                       />
-                      <Label htmlFor="expand-all" className="cursor-pointer">
+                      <Label htmlFor="expand-all" className="cursor-pointer text-xs sm:text-sm">
                         Tümünü Aç
                       </Label>
                     </div>
                   )}
                   {isAdmin && (
-                    <Button onClick={() => setShowAddTopic(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
+                    <Button onClick={() => setShowAddTopic(true)} size="sm" className="text-xs sm:text-sm">
+                      <Plus className="h-4 w-4 mr-1 sm:mr-2" />
                       Konu Ekle
                     </Button>
                   )}
