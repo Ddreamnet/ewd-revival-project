@@ -42,40 +42,48 @@ export function SortableResource({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 p-2 bg-accent/30 rounded-md"
+      className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-2 bg-accent/30 rounded-md"
     >
-      {isAdmin && (
-        <button
-          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-      )}
-      {getResourceIcon(resource.resource_type)}
-      <div
-        className="flex-1 cursor-pointer"
-        onClick={() => window.open(resource.resource_url, "_blank")}
-      >
-        <p className="font-medium text-sm hover:text-primary transition-colors">
-          {resource.title}
-        </p>
-        {resource.description && (
-          <p className="text-xs text-muted-foreground">{resource.description}</p>
+      <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        {isAdmin && (
+          <button
+            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
         )}
+        <div className="flex-shrink-0">{getResourceIcon(resource.resource_type)}</div>
+        <div
+          className="flex-1 cursor-pointer min-w-0"
+          onClick={() => window.open(resource.resource_url, "_blank")}
+        >
+          <p className="font-medium text-sm hover:text-primary transition-colors truncate">
+            {resource.title}
+          </p>
+          {resource.description && (
+            <p className="text-xs text-muted-foreground truncate">{resource.description}</p>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-shrink-0 ml-auto sm:ml-0">
         {isAdmin && (
           <>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onEditResource(resource)}
+              className="h-7 w-7 p-0"
             >
               <Pencil className="h-3 w-3" />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => onDeleteResource(resource.id)}>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => onDeleteResource(resource.id)}
+              className="h-7 w-7 p-0"
+            >
               <Trash2 className="h-3 w-3 text-destructive" />
             </Button>
           </>
@@ -84,6 +92,7 @@ export function SortableResource({
           size="sm"
           variant="ghost"
           onClick={() => window.open(resource.resource_url, "_blank")}
+          className="h-7 w-7 p-0"
         >
           <ExternalLink className="h-3 w-3" />
         </Button>

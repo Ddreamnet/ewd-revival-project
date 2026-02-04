@@ -94,7 +94,7 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
@@ -117,23 +117,23 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-card border rounded-lg p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="bg-card border rounded-lg p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="h-4 w-4 text-blue-500" />
+                  <CheckCircle2 className="h-4 w-4 text-blue-500 flex-shrink-0" />
                   <p className="text-xs text-muted-foreground">Normal Dersler</p>
                 </div>
-                <p className="text-2xl font-semibold">
+                <p className="text-lg sm:text-2xl font-semibold break-words">
                   {balance?.completed_regular_lessons || 0} ders ({formatMinutes(balance?.regular_lessons_minutes || 0)})
                 </p>
               </div>
 
-              <div className="bg-card border rounded-lg p-4">
+              <div className="bg-card border rounded-lg p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="h-4 w-4 text-purple-500" />
+                  <Calendar className="h-4 w-4 text-purple-500 flex-shrink-0" />
                   <p className="text-xs text-muted-foreground">Deneme Dersleri</p>
                 </div>
-                <p className="text-2xl font-semibold">
+                <p className="text-lg sm:text-2xl font-semibold break-words">
                   {balance?.completed_trial_lessons || 0} ders ({formatMinutes(balance?.trial_lessons_minutes || 0)})
                 </p>
               </div>

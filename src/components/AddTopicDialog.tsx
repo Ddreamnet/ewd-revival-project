@@ -92,7 +92,7 @@ export function AddTopicDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Yeni Konu Ekle</DialogTitle>
           <DialogDescription>

@@ -101,7 +101,7 @@ export function EditStudentScheduleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit Student Settings</DialogTitle>
           <DialogDescription>Update the student's name and lesson schedule.</DialogDescription>
@@ -118,7 +118,7 @@ export function EditStudentScheduleDialog({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label>Day of Week</Label>
               <Select value={dayOfWeek?.toString()} onValueChange={(value) => setDayOfWeek(Number(value))}>
@@ -152,13 +152,13 @@ export function EditStudentScheduleDialog({
             </div>
           </div>
 
-          <div className="flex justify-between items-center">
-            <Button type="button" variant="destructive" onClick={handleRemove} disabled={isLoading || isRemoving}>
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
+            <Button type="button" variant="destructive" onClick={handleRemove} disabled={isLoading || isRemoving} className="w-full sm:w-auto">
               {isRemoving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Remove Student
             </Button>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               <Button
                 type="button"
                 variant="outline"

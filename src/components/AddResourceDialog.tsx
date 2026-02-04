@@ -203,7 +203,7 @@ export function AddResourceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Öğrenme Kaynağı Ekle</DialogTitle>
           <DialogDescription>

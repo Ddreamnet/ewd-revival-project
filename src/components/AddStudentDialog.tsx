@@ -74,7 +74,7 @@ export function AddStudentDialog({ open, onOpenChange, onAddStudent }: AddStuden
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Öğrenci Ekle</DialogTitle>
           <DialogDescription>
@@ -112,7 +112,7 @@ export function AddStudentDialog({ open, onOpenChange, onAddStudent }: AddStuden
             </div>
 
             {lessons.map((lesson, index) => (
-              <div key={index} className="grid grid-cols-4 gap-3 p-4 border rounded-lg">
+              <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-3 sm:p-4 border rounded-lg">
                 <div className="space-y-2">
                   <Label>Gün</Label>
                   <Select
@@ -159,7 +159,7 @@ export function AddStudentDialog({ open, onOpenChange, onAddStudent }: AddStuden
                     size="sm"
                     onClick={() => removeLesson(index)}
                     disabled={lessons.length === 1}
-                    className="w-full"
+                    className="w-full sm:w-auto"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

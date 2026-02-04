@@ -99,7 +99,7 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Deneme Dersi Ekle</DialogTitle>
         </DialogHeader>

@@ -182,7 +182,7 @@ export function StudentAboutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="text-primary">📝</span>
@@ -192,7 +192,7 @@ export function StudentAboutDialog({
 
         <div className="py-2">
           {!isReadOnly && (
-            <div className="flex flex-wrap items-center gap-1 p-2 border rounded-t-lg bg-muted/30 border-b-0">
+            <div className="flex flex-wrap items-center gap-0.5 sm:gap-1 p-1.5 sm:p-2 border rounded-t-lg bg-muted/30 border-b-0 overflow-x-auto">
               {/* Headings */}
               <Toggle
                 size="sm"

@@ -56,7 +56,7 @@ export function EditResourceDialog({ open, onOpenChange, onEditResource, resourc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Kaynağı Düzenle</DialogTitle>
         </DialogHeader>

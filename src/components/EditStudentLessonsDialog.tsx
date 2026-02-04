@@ -67,11 +67,8 @@ function SortableLessonItem({ lesson, index, updateLesson, removeLesson, canRemo
   return (
     <div
       ref={setNodeRef}
-      style={{
-        ...style,
-        gridTemplateColumns: "auto 1fr 1fr 1fr auto",
-      }}
-      className="grid gap-3 p-4 border rounded-lg"
+      style={style}
+      className="grid grid-cols-1 sm:grid-cols-[auto_1fr_1fr_1fr_auto] gap-2 sm:gap-3 p-3 sm:p-4 border rounded-lg"
     >
       <div className="flex items-center">
         <div {...attributes} {...listeners} className="cursor-grab hover:cursor-grabbing rounded hover:bg-accent">
@@ -222,7 +219,7 @@ export function EditStudentLessonsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Öğrenci Ayarları</DialogTitle>
           <DialogDescription>Öğrencinin adını ve ders programını güncelleyin.</DialogDescription>
@@ -274,13 +271,13 @@ export function EditStudentLessonsDialog({
             </DndContext>
           </div>
 
-          <div className="flex justify-between items-center">
-            <Button type="button" variant="destructive" onClick={handleRemove} disabled={isLoading || isRemoving}>
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
+            <Button type="button" variant="destructive" onClick={handleRemove} disabled={isLoading || isRemoving} className="w-full sm:w-auto">
               {isRemoving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Öğrenciyi Kaldır
             </Button>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               <Button
                 type="button"
                 variant="outline"

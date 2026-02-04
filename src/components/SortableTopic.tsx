@@ -92,33 +92,38 @@ export function SortableTopic({
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card ref={setNodeRef} style={style}>
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-            <div className="flex justify-between items-start gap-3">
-              {isAdmin && (
-                <button
-                  className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={(e) => e.stopPropagation()}
-                  {...attributes}
-                  {...listeners}
-                >
-                  <GripVertical className="h-5 w-5" />
-                </button>
-              )}
-              <div className="flex-1">
-                <CardTitle className="text-lg">{topic.title}</CardTitle>
-                {topic.description && <CardDescription className="mt-1">{topic.description}</CardDescription>}
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{topic.resources.length} kaynak</Badge>
-                {topic.resources.length > 0 && (
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                )}
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-3">
+              <div className="flex items-start gap-2 sm:gap-3 w-full sm:w-auto">
                 {isAdmin && (
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                    {...attributes}
+                    {...listeners}
+                  >
+                    <GripVertical className="h-5 w-5" />
+                  </button>
+                )}
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-base sm:text-lg">{topic.title}</CardTitle>
+                  {topic.description && <CardDescription className="mt-1 text-xs sm:text-sm">{topic.description}</CardDescription>}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Badge variant="outline" className="text-xs">{topic.resources.length} kaynak</Badge>
+                  {topic.resources.length > 0 && (
+                    <ChevronDown className={`h-4 w-4 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+                  )}
+                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => onAddResource(topic.id)}
+                      className="h-8 w-8 p-0"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -126,10 +131,16 @@ export function SortableTopic({
                       variant="ghost"
                       size="sm"
                       onClick={() => onEditTopic(topic)}
+                      className="h-8 w-8 p-0"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => onDeleteTopic(topic.id)}>
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      onClick={() => onDeleteTopic(topic.id)}
+                      className="h-8 w-8 p-0"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
