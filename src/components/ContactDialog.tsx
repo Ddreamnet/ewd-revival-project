@@ -12,7 +12,7 @@ export function ContactDialog() {
           <span className="hidden sm:inline ml-2">İletişim</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>İletişim Bilgileri</DialogTitle>
         </DialogHeader>

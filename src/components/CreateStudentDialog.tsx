@@ -142,7 +142,7 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
@@ -214,7 +214,7 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
           <div className="space-y-3">
             <Label className="text-base font-medium">Ders Programı</Label>
             {lessons.map((lesson, index) => (
-              <div key={index} className="grid grid-cols-3 gap-3 p-3 border rounded-lg">
+              <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 border rounded-lg">
                 <div className="space-y-2">
                   <Label>Gün</Label>
                   <Select

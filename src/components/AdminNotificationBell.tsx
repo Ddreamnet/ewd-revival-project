@@ -130,7 +130,7 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0" align="end">
+      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-96 max-w-[400px] p-0" align="end">
         <Card className="border-0 shadow-lg">
           <CardHeader className="border-b bg-gradient-to-r from-amber-500/10 to-orange-500/10 pb-4">
             <div className="flex items-center justify-between">
