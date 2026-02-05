@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Gift, ArrowRight, Sparkles } from 'lucide-react';
 
 type BubbleType = 'trial' | 'contact' | 'none';
+type AnimationPhase = 'idle' | 'exiting' | 'entering';
 
 // Sparkle component for floating decorations
 const FloatingSparkle = ({ delay, position }: { delay: string; position: string }) => (
@@ -127,14 +128,15 @@ const ContactBubble = ({ onClick }: { onClick: () => void }) => (
 export function StickyBubble() {
   const { language, t } = useLanguage();
   
-  // Simplified state: what we want to show vs what is currently shown
+  // State machine: target vs visible bubble + animation phase
   const [targetBubble, setTargetBubble] = useState<BubbleType>('trial');
   const [visibleBubble, setVisibleBubble] = useState<BubbleType>('trial');
-  const [isExiting, setIsExiting] = useState(false);
+  const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('idle');
   const [showParticles, setShowParticles] = useState(false);
   
   // Single ref for cleanup
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const enterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number | null>(null);
 
   // Detect current section based on scroll position
@@ -185,35 +187,46 @@ export function StickyBubble() {
 
   // Handle transitions between bubble types
   useEffect(() => {
-    // No change needed
+    // Aynı bubble, işlem yapma
     if (targetBubble === visibleBubble) return;
 
-    // Clear any pending transition
+    // Önceki timeout'ları temizle
     if (transitionTimeoutRef.current) {
       clearTimeout(transitionTimeoutRef.current);
       transitionTimeoutRef.current = null;
     }
+    if (enterTimeoutRef.current) {
+      clearTimeout(enterTimeoutRef.current);
+      enterTimeoutRef.current = null;
+    }
 
-    // Start exit animation
-    setIsExiting(true);
+    // Phase 1: Exit animasyonu başlat
+    setAnimationPhase('exiting');
     setShowParticles(true);
 
-    // After exit animation completes, swap bubble and start enter
+    // Phase 2: Exit bittikten sonra bubble'ı değiştir ve entry başlat
     transitionTimeoutRef.current = setTimeout(() => {
       setShowParticles(false);
       setVisibleBubble(targetBubble);
+      setAnimationPhase('entering');
       
-      // Small delay then remove exiting state
-      transitionTimeoutRef.current = setTimeout(() => {
-        setIsExiting(false);
-        transitionTimeoutRef.current = null;
-      }, 50);
-    }, 350);
+      // Phase 3: Entry bittikten sonra idle'a geç
+      enterTimeoutRef.current = setTimeout(() => {
+        setAnimationPhase('idle');
+        enterTimeoutRef.current = null;
+      }, 600); // Entry animasyonu süresi
+      
+      transitionTimeoutRef.current = null;
+    }, 400); // Exit animasyonu süresi
 
     return () => {
       if (transitionTimeoutRef.current) {
         clearTimeout(transitionTimeoutRef.current);
         transitionTimeoutRef.current = null;
+      }
+      if (enterTimeoutRef.current) {
+        clearTimeout(enterTimeoutRef.current);
+        enterTimeoutRef.current = null;
       }
     };
   }, [targetBubble, visibleBubble]);
@@ -223,6 +236,9 @@ export function StickyBubble() {
     return () => {
       if (transitionTimeoutRef.current) {
         clearTimeout(transitionTimeoutRef.current);
+      }
+      if (enterTimeoutRef.current) {
+        clearTimeout(enterTimeoutRef.current);
       }
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
@@ -237,23 +253,28 @@ export function StickyBubble() {
     }
   };
 
-  // Get animation class based on current state
+  // Get animation class based on animation phase
   const getAnimationClass = () => {
-    if (isExiting) {
-      if (visibleBubble === 'trial') return 'animate-magic-pop-out';
-      if (visibleBubble === 'contact') return 'animate-flip-out-y';
-      return 'opacity-0 scale-75';
+    switch (animationPhase) {
+      case 'exiting':
+        if (visibleBubble === 'trial') return 'animate-magic-pop-out';
+        if (visibleBubble === 'contact') return 'animate-flip-out-y';
+        return 'opacity-0 scale-75';
+        
+      case 'entering':
+        if (visibleBubble === 'trial') return 'animate-magic-pop-in';
+        if (visibleBubble === 'contact') return 'animate-flip-in-y';
+        return 'opacity-100 scale-100';
+        
+      case 'idle':
+      default:
+        // Idle durumunda animasyon yok - sadece statik görünüm
+        return 'opacity-100 scale-100';
     }
-    
-    // Entry animation when bubble just changed
-    if (visibleBubble === 'trial') return 'animate-magic-pop-in';
-    if (visibleBubble === 'contact') return 'animate-flip-in-y';
-    
-    return '';
   };
 
   // Don't render if nothing to show
-  if (visibleBubble === 'none' && !isExiting) {
+  if (visibleBubble === 'none' && animationPhase === 'idle') {
     return null;
   }
 
