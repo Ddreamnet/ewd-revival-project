@@ -11,3 +11,9 @@ verify_jwt = true
 
 [functions.create-teacher]
 verify_jwt = true
+
+[functions.send-push]
+verify_jwt = false
+
+[functions.lesson-reminder-cron]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { ContactDialog } from "./ContactDialog";
 import { WeeklyScheduleDialog } from "./WeeklyScheduleDialog";
 import { TeacherBalanceDialog } from "./TeacherBalanceDialog";
 import { StudentAboutDialog } from "./StudentAboutDialog";
+import { initPushNotifications } from "@/lib/pushNotifications";
 import { HomeworkListDialog } from "./HomeworkListDialog";
 interface StudentLesson {
   id?: string;
@@ -50,9 +51,16 @@ export function TeacherDashboard() {
   const {
     toast
   } = useToast();
+  const pushInitRef = useRef(false);
+
   useEffect(() => {
     if (profile?.user_id) {
       fetchStudents();
+      // Initialize push notifications once
+      if (!pushInitRef.current) {
+        pushInitRef.current = true;
+        initPushNotifications(profile.user_id, 'teacher');
+      }
     }
   }, [profile]);
   const fetchStudents = async () => {

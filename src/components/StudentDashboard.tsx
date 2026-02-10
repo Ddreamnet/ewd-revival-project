@@ -4,7 +4,7 @@
 // Bu bileşen öğrencilerin kendi öğrenme materyallerini görüntülemesini sağlar.
 // Sadece tamamlanmış kaynakları gösterir.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
 import { HomeworkListDialog } from "./HomeworkListDialog";
 import { ContactDialog } from "./ContactDialog";
 import { NotificationBell } from "./NotificationBell";
+import { initPushNotifications } from "@/lib/pushNotifications";
 
 // ============================================================================
 // TİPLER
@@ -73,6 +74,7 @@ export function StudentDashboard() {
   const [teacherId, setTeacherId] = useState<string>("");
   const { profile, signOut, signingOut } = useAuth();
   const { toast } = useToast();
+  const pushInitRef = useRef(false);
 
   // ============================================================================
   // EFFECTS
@@ -82,6 +84,10 @@ export function StudentDashboard() {
   useEffect(() => {
     if (profile?.user_id) {
       fetchTopics();
+      if (!pushInitRef.current) {
+        pushInitRef.current = true;
+        initPushNotifications(profile.user_id, 'student');
+      }
     }
   }, [profile]);
 
