@@ -9,6 +9,8 @@ import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { StudentDashboard } from "@/components/StudentDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import LandingPage from "./pages/LandingPage";
+import WorkWithUsPage from "./pages/WorkWithUsPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +58,12 @@ const App = () => (
         <Routes>
           {/* Landing Page - Public */}
           <Route path="/" element={<LandingPage />} />
+          
+          {/* Work With Us - Public */}
+          <Route path="/bizimle-calisin" element={<WorkWithUsPage />} />
+          
+          {/* Privacy Policy - Public */}
+          <Route path="/gizlilik-politikasi" element={<PrivacyPolicyPage />} />
           
           {/* Login Page - Public */}
           <Route path="/login" element={<AuthForm />} />
