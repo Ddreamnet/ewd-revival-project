@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Globe, LogIn, BookOpen, MessageCircle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 
 export function LandingHeader() {
   const { language, setLanguage, t } = useLanguage();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<string>('hero');
 
   useEffect(() => {
@@ -40,6 +41,8 @@ export function LandingHeader() {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      navigate('/', { state: { scrollTo: id } });
     }
   };
 

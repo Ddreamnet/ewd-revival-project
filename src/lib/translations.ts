@@ -175,6 +175,101 @@ export const translations = {
       },
     },
   },
+
+  // Footer
+  footer: {
+    workWithUs: { tr: 'Bizimle Çalışın', en: 'Work with Us' },
+    privacyPolicy: { tr: 'Gizlilik Politikası', en: 'Privacy Policy' },
+    downloadGooglePlay: { tr: "Google Play'den İndir", en: 'Get it on Google Play' },
+    downloadAppStore: { tr: "App Store'dan İndir", en: 'Download on the App Store' },
+    comingSoon: { tr: 'Yakında', en: 'Coming Soon' },
+    copyright: { tr: 'Tüm hakları saklıdır.', en: 'All rights reserved.' },
+  },
+
+  // Work With Us
+  workWithUs: {
+    title: { tr: 'Bizimle Çalışın', en: 'Work with Us' },
+    fullName: { tr: 'Ad Soyad', en: 'Full Name' },
+    age: { tr: 'Yaş', en: 'Age' },
+    university: { tr: 'Üniversite', en: 'University' },
+    department: { tr: 'Bölüm', en: 'Department' },
+    email: { tr: 'E-posta', en: 'Email' },
+    phone: { tr: 'Telefon Numaranız', en: 'Your Phone Number' },
+    submit: { tr: 'Gönder', en: 'Submit' },
+    submitted: { tr: 'Gönderildi ✓', en: 'Submitted ✓' },
+    note: {
+      tr: 'Başvurunuzu aldıktan sonra en kısa sürede sizinle iletişime geçeceğiz.',
+      en: 'After receiving your application, we will contact you as soon as possible.',
+    },
+    success: {
+      tr: 'Başvurunuz başarıyla gönderildi!',
+      en: 'Your application has been submitted successfully!',
+    },
+    error: {
+      tr: 'Bir hata oluştu, lütfen tekrar deneyin.',
+      en: 'An error occurred, please try again.',
+    },
+    formNotReady: {
+      tr: 'Form şu an aktif değil.',
+      en: 'The form is not active at the moment.',
+    },
+  },
+
+  // Privacy Policy
+  privacyPolicy: {
+    title: { tr: 'Gizlilik Politikası', en: 'Privacy Policy' },
+    sections: [
+      {
+        title: { tr: 'Topladığımız Bilgiler', en: 'Information We Collect' },
+        content: {
+          tr: 'İletişim ve başvuru formları aracılığıyla ad soyad, e-posta, telefon ve yaş bilgisi toplamaktayız. Bu bilgiler yalnızca sizin tarafınızdan formlara girildiğinde alınır.',
+          en: 'We collect your full name, email address, phone number, and age through our contact and application forms. This information is only collected when you voluntarily submit it via our forms.',
+        },
+      },
+      {
+        title: { tr: 'Bilgileri Ne Amaçla Kullanıyoruz', en: 'How We Use Your Information' },
+        content: {
+          tr: 'Toplanan bilgiler yalnızca sizinle iletişime geçmek, ders ve başvuru süreçlerini yönetmek ve hizmet kalitemizi artırmak amacıyla kullanılır.',
+          en: 'The information we collect is used solely to contact you, manage lesson and application processes, and improve the quality of our services.',
+        },
+      },
+      {
+        title: { tr: 'Üçüncü Taraflar', en: 'Third Parties' },
+        content: {
+          tr: 'Form verileriniz Formspree aracılığıyla iletilmektedir. WhatsApp ve Instagram bağlantılarımız sizi ilgili platformlara yönlendirir; bu platformların kendi gizlilik politikaları geçerlidir. Gelecekte ek hizmetler kullanılması durumunda bu politika güncellenecektir.',
+          en: 'Your form data is transmitted via Formspree. Our WhatsApp and Instagram links redirect you to the respective platforms, which are governed by their own privacy policies. Should additional services be used in the future, this policy will be updated accordingly.',
+        },
+      },
+      {
+        title: { tr: 'Veri Saklama Süresi', en: 'Data Retention' },
+        content: {
+          tr: 'Kişisel verileriniz hizmet süresince ve makul bir süre boyunca saklanır. Artık gerekli olmadığında güvenli bir şekilde silinir.',
+          en: 'Your personal data is retained for the duration of our services and for a reasonable period thereafter. It is securely deleted once it is no longer required.',
+        },
+      },
+      {
+        title: { tr: 'Güvenlik', en: 'Security' },
+        content: {
+          tr: 'Verilerinizi korumak için makul teknik ve organizasyonel önlemler uygularız.',
+          en: 'We implement reasonable technical and organisational measures to protect your data.',
+        },
+      },
+      {
+        title: { tr: 'Kullanıcı Hakları', en: 'Your Rights' },
+        content: {
+          tr: 'Kişisel verilerinize erişim, düzeltme veya silme talebinde bulunabilirsiniz. Talepleriniz için aşağıdaki iletişim adresinden bize ulaşabilirsiniz.',
+          en: 'You may request access to, correction of, or deletion of your personal data. Please contact us using the details below to submit your request.',
+        },
+      },
+      {
+        title: { tr: 'İletişim', en: 'Contact' },
+        content: {
+          tr: 'Gizlilik politikamız hakkındaki sorularınız için dilarasirlan30@gmail.com adresinden bize ulaşabilirsiniz.',
+          en: 'For any questions regarding our privacy policy, please contact us at dilarasirlan30@gmail.com.',
+        },
+      },
+    ],
+  },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
