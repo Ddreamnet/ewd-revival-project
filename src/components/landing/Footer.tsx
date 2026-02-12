@@ -60,7 +60,7 @@ export function Footer() {
           </div>
 
           {/* Right – Socials + Store */}
-          <div className="flex flex-col items-center md:items-end gap-4">
+          <div className="flex-col items-center gap-4 flex md:items-center justify-start">
             {/* Social icons */}
             <TooltipProvider delayDuration={200}>
               <div className="flex items-center gap-3">
