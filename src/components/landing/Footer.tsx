@@ -1,25 +1,20 @@
-import { Link } from 'react-router-dom';
-import { Instagram, MessageCircle, Smartphone } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger } from
-'@/components/ui/tooltip';
+import { Link } from "react-router-dom";
+import { Instagram, MessageCircle, Smartphone } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const socials = [
-{
-  label: 'Instagram',
-  icon: Instagram,
-  href: 'https://instagram.com/englishwithdilarateacher'
-},
-{
-  label: 'WhatsApp',
-  icon: MessageCircle,
-  href: 'https://wa.me/905306792831'
-}] as
-const;
+  {
+    label: "Instagram",
+    icon: Instagram,
+    href: "https://instagram.com/englishwithdilarateacher",
+  },
+  {
+    label: "WhatsApp",
+    icon: MessageCircle,
+    href: "https://wa.me/905306792831",
+  },
+] as const;
 
 export function Footer() {
   const { language, t } = useLanguage();
@@ -32,29 +27,23 @@ export function Footer() {
           {/* Left – Logo + Tagline */}
           <div className="flex-col items-center gap-2 flex md:items-center justify-start">
             <Link to="/">
-              <img
-                src="/uploads/logo.webp"
-                alt="English with Dilara"
-                className="h-12 w-auto object-contain" />
-
+              <img src="/uploads/logo.webp" alt="English with Dilara" className="h-20 w-auto object-contain" />
             </Link>
-            <p className="text-sm text-[#4A2040]/70 text-center md:text-left">
-              {t.footer.tagline[language]}
-            </p>
+            <p className="text-sm text-[#4A2040]/70 text-center md:text-left">{t.footer.tagline[language]}</p>
           </div>
 
           {/* Center – Links */}
           <div className="items-center gap-2 flex-row flex md:items-start justify-start">
             <Link
               to="/bizimle-calisin"
-              className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
-
+              className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors"
+            >
               {t.footer.workWithUs[language]}
             </Link>
             <Link
               to="/gizlilik-politikasi"
-              className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
-
+              className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors"
+            >
               {t.footer.privacyPolicy[language]}
             </Link>
           </div>
@@ -64,16 +53,16 @@ export function Footer() {
             {/* Social icons */}
             <TooltipProvider delayDuration={200}>
               <div className="flex items-center gap-3">
-                {socials.map(({ label, icon: Icon, href }) =>
-                <Tooltip key={label}>
+                {socials.map(({ label, icon: Icon, href }) => (
+                  <Tooltip key={label}>
                     <TooltipTrigger asChild>
                       <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={label}
-                      className="w-10 h-10 rounded-full bg-[#FFF0F6] border border-[#D98BB5] shadow-sm flex items-center justify-center text-[#4A2040] hover:bg-[#FFE0EE] hover:text-[#7C2D6B] transition-colors duration-200">
-
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={label}
+                        className="w-10 h-10 rounded-full bg-[#FFF0F6] border border-[#D98BB5] shadow-sm flex items-center justify-center text-[#4A2040] hover:bg-[#FFE0EE] hover:text-[#7C2D6B] transition-colors duration-200"
+                      >
                         <Icon className="w-5 h-5" />
                       </a>
                     </TooltipTrigger>
@@ -81,7 +70,7 @@ export function Footer() {
                       {label}
                     </TooltipContent>
                   </Tooltip>
-                )}
+                ))}
               </div>
             </TooltipProvider>
 
@@ -92,28 +81,22 @@ export function Footer() {
                 <button
                   disabled
                   onClick={(e) => e.preventDefault()}
-                  className="flex items-center gap-1.5 rounded-xl px-4 py-2 bg-[#FFF0F6] border border-[#D98BB5] text-xs font-medium text-[#4A2040] opacity-60 cursor-not-allowed">
-
+                  className="flex items-center gap-1.5 rounded-xl px-4 py-2 bg-[#FFF0F6] border border-[#D98BB5] text-xs font-medium text-[#4A2040] opacity-60 cursor-not-allowed"
+                >
                   <Smartphone className="w-3.5 h-3.5" />
                   {t.footer.downloadGooglePlay[language]}
                 </button>
-                
-
-
               </div>
               {/* App Store */}
               <div className="flex flex-col items-center">
                 <button
                   disabled
                   onClick={(e) => e.preventDefault()}
-                  className="flex items-center gap-1.5 rounded-xl px-4 py-2 bg-[#FFF0F6] border border-[#D98BB5] text-xs font-medium text-[#4A2040] opacity-60 cursor-not-allowed">
-
+                  className="flex items-center gap-1.5 rounded-xl px-4 py-2 bg-[#FFF0F6] border border-[#D98BB5] text-xs font-medium text-[#4A2040] opacity-60 cursor-not-allowed"
+                >
                   <Smartphone className="w-3.5 h-3.5" />
                   {t.footer.downloadAppStore[language]}
                 </button>
-                
-
-
               </div>
             </div>
           </div>
@@ -126,6 +109,6 @@ export function Footer() {
           </p>
         </div>
       </div>
-    </footer>);
-
+    </footer>
+  );
 }
