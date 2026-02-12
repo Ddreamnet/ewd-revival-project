@@ -44,7 +44,7 @@ export function ContactSection() {
     console.log("Form submitted:", formData);
   };
   return <section id="contact" className="scroll-section pt-16 md:pt-24 pb-0">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-[12px]">
         {/* Header */}
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark mb-4">
@@ -115,7 +115,7 @@ export function ContactSection() {
                 <form onSubmit={handleSubmit} className="space-y-3">
                   {/* Ad Soyad - Sağda User ikonu */}
                   <div className="relative">
-                    <input type="text" placeholder={t.contact.form.fullName[language]} value={formData.fullName} onChange={e => setFormData({
+                    <input type="text" placeholder={t.contact.form.fullName[language]} value={formData.fullName} onChange={(e) => setFormData({
                     ...formData,
                     fullName: e.target.value
                   })} className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl 
@@ -125,7 +125,7 @@ export function ContactSection() {
                   </div>
                   
                   {/* Select - Öğrenci yaşı */}
-                  <Select value={formData.studentAge} onValueChange={value => setFormData({
+                  <Select value={formData.studentAge} onValueChange={(value) => setFormData({
                   ...formData,
                   studentAge: value
                 })}>
@@ -136,7 +136,7 @@ export function ContactSection() {
                       <SelectValue placeholder={t.contact.form.studentAge[language]} />
                     </SelectTrigger>
                     <SelectContent className="bg-white z-[60] rounded-xl border-purple-300">
-                      {ageOptions.map(option => <SelectItem key={option.value} value={option.value} className="text-sm">
+                      {ageOptions.map((option) => <SelectItem key={option.value} value={option.value} className="text-sm">
                           {option.label[language]}
                         </SelectItem>)}
                     </SelectContent>
@@ -148,7 +148,7 @@ export function ContactSection() {
                                     text-sm font-medium text-purple-800 border-r border-purple-300/60 h-9">
                       +90
                     </div>
-                    <input type="tel" placeholder={t.contact.form.phone[language]} value={formData.phone} onChange={e => setFormData({
+                    <input type="tel" placeholder={t.contact.form.phone[language]} value={formData.phone} onChange={(e) => setFormData({
                     ...formData,
                     phone: e.target.value
                   })} className="flex-1 h-9 px-3 bg-purple-200/70 border-0 rounded-r-xl 
@@ -157,7 +157,7 @@ export function ContactSection() {
                   </div>
                   
                   {/* Mesaj Textarea */}
-                  <textarea placeholder={t.contact.form.message[language]} value={formData.message} onChange={e => setFormData({
+                  <textarea placeholder={t.contact.form.message[language]} value={formData.message} onChange={(e) => setFormData({
                   ...formData,
                   message: e.target.value
                 })} className="w-full min-h-[80px] px-3 py-2 bg-purple-200/70 border-0 rounded-xl 
