@@ -111,9 +111,9 @@ export function Footer() {
                   <Smartphone className="w-3.5 h-3.5" />
                   {t.footer.downloadAppStore[language]}
                 </button>
-                <span className="text-[10px] text-[#4A2040]/50 mt-0.5">
-                  {t.footer.comingSoon[language]}
-                </span>
+                
+
+
               </div>
             </div>
           </div>
