@@ -72,22 +72,22 @@ export function ContactSection() {
           {/* Left - Contact Cards */}
           <div className="space-y-4">
             {/* Yellow Contact Info Card */}
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            <div className="bg-landing-yellow/40 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Phone className="w-5 h-5 text-foreground/70" />
+                  <span className="text-base font-medium">0530 679 2831</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Globe className="w-5 h-5 text-foreground/70" />
+                  <span className="text-base font-medium">englishwithdilara.com</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="w-5 h-5 text-foreground/70" />
+                  <span className="text-base font-medium">englishwithdilara@gmail.com</span>
+                </div>
+              </div>
+            </div>
 
             {/* Why Card */}
             <div className="hidden lg:block bg-landing-purple/20 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
