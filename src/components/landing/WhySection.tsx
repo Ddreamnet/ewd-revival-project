@@ -14,7 +14,7 @@ export function WhySection() {
           {/* Left Column - Title (45%) */}
           <div className="lg:col-span-5 text-center lg:text-right relative">
             {/* Decorative sparkle near title */}
-            <Star className="why-sparkle-blink absolute -top-4 -left-2 lg:left-0 w-6 h-6 text-landing-yellow opacity-60" fill="currentColor" />
+            <Star className="why-sparkle-blink absolute -top-2 md:-top-3 left-0 md:left-auto md:right-[calc(100%-2rem)] lg:right-auto lg:-left-4 w-5 h-5 md:w-6 md:h-6 text-landing-yellow opacity-60" fill="currentColor" />
             
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight">
               <span className="text-foreground">{t.why.title[language]}</span>
