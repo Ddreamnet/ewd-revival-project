@@ -68,12 +68,10 @@ const TrialBubble = ({ onClick, language, t }: { onClick: () => void; language: 
                     animate-glow-pulse
                     transform transition-all duration-300 
                     group-hover:scale-105 group-hover:shadow-2xl
-                    ">
+                    overflow-hidden">
       
-      <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent 
-                        -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-      </div>
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent 
+                      -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
       <div className="flex justify-center mb-1.5">
         <Gift className="w-6 h-6 md:w-8 md:h-8 text-landing-purple-dark animate-wiggle" />
