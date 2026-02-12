@@ -44,7 +44,7 @@ export function Footer() {
           </div>
 
           {/* Center – Links */}
-          <div className="flex flex-col items-center md:items-start gap-2">
+          <div className="items-center gap-2 flex-row flex md:items-start justify-start">
             <Link
               to="/bizimle-calisin"
               className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
