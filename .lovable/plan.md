@@ -1,38 +1,40 @@
 
 
-## Sticky Bubble Metin Blur Sorunu Duzeltmesi
+## "UeCRETSiZ" Metin Okunabilirlik Duzeltmesi
 
-### Sorunun Nedeni
+### Sorunun Koek Nedeni
 
-"UeCRETSiZ" yazisinin sag tarafi bulanik gorunuyor. Bunun iki muhtemel sebebi var:
+Kartin arka plani `bg-gradient-to-br from-landing-yellow via-landing-pink to-landing-purple` kullaniyor. "UeCRETSiZ" yazisi ise `bg-clip-text text-transparent` ile kendi gradient rengini aliyor. Ancak `text-transparent` oldugu icin kartin arka plan gradient'i de metnin arkasinda gorunuyor. Ozellikle sag alt kosedeki koyu mor/pembe, son harflerin arkasinda birikip onlari okunaksiz yapiyor.
 
-1. **`overflow-hidden`** (satir 71): Parent div uzerindeki bu sinif, gradient text'in kenarlarini kesiyor. `bg-clip-text text-transparent` ile birlikte kullanildiginda, `bg-[length:200%_auto]` genisligindeki gradient arka plan kenarlardan tasiyor ve `overflow-hidden` tarafindan kesiliyor. Bu da ozellikle sag kenarda bulanik/soluk bir gorunum yaratiyor.
+### Cozum
 
-2. **Shine overlay** (satir 73-74): Uzerinden gecen yari saydam beyaz gradient katman (`via-white/20`) da metni hafifce ortuyor.
-
-### Yapilacak Degisiklik
-
-**Dosya:** `src/components/landing/StickyBubble.tsx`
-
-1. Satir 71'deki `overflow-hidden` sinifini kaldirmak. Bu sinif sadece shine efekti ve alt ucgen (satir 106-108) icin kullaniliyordu. Shine efekti `overflow-hidden` olmadan ekran disina tasabilir, bu yuzden shine overlay'e de `overflow-hidden` eklenecek veya `pointer-events-none` ile sinirlandirilacak.
-
-2. Alternatif olarak, shine overlay'i (satir 73-74) kendi icinde `overflow-hidden rounded-2xl` ile sarmalayarak, parent div'den `overflow-hidden`'i kaldirmak. Boylece metin tasmasi engellenmez ama shine efekti hala kutu icinde kalir.
+"UeCRETSiZ" yazisinin bulundugu `<p>` etiketinin arkasina kucuk, yuvarlak koseli, yari saydam beyaz bir arka plan eklenecek. Bu sayede:
+- Kartin gradient'i metnin arkasinda artik gorulmeyecek
+- Metnin kendi gradient renkleri net gorunecek
+- Kartin genel gorunumu bozulmayacak
 
 ### Teknik Detay
 
+**Dosya:** `src/components/landing/StickyBubble.tsx`
+
+Satir 81-87 arasindaki "UeCRETSiZ" `<p>` etiketine:
+- `bg-white/80 rounded-md px-1.5 py-0.5 inline-block` (veya benzeri) sinif eklenmeyecek cunku bu `bg-clip-text` ile catisir.
+
+Bunun yerine, bu `<p>` etiketini bir wrapper `<span>` veya `<div>` ile sarilacak ve arka plan bu wrapper'a uygulanacak:
+
 ```text
 Onceki:
-div (overflow-hidden) 
-  |- shine overlay (tasabilir)
-  |- text (gradient kesilir!)
-  |- ucgen
+<p className="... bg-clip-text text-transparent ...">UeCRETSiZ</p>
 
 Sonraki:
-div (overflow-hidden kaldirildi)
-  |- shine overlay (kendi icinde overflow-hidden + rounded)
-  |- text (artik kesilmez)
-  |- ucgen
+<span className="inline-block bg-white/70 rounded-md px-1.5 py-0.5">
+  <p className="... bg-clip-text text-transparent ...">UeCRETSiZ</p>
+</span>
 ```
 
-Shine overlay'e `overflow-hidden rounded-2xl` eklenecek ve parent'tan `overflow-hidden` cikarilacak. Boylece metin serbestce renderlanir, blur/kesme sorunu ortadan kalkar.
+Bu wrapper, metnin arkasina opak bir katman koyarak kart gradient'inin metne karismesini onler. `bg-white/70` opakligi gerekirse ayarlanabilir (daha net icin `/80`, daha seffaf icin `/50`).
+
+### Etkilenen Dosya
+
+- `src/components/landing/StickyBubble.tsx` (satir 80-87 arasi)
 
