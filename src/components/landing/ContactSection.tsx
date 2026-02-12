@@ -70,7 +70,7 @@ export function ContactSection() {
         {/* Three Column Layout */}
         <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-end">
           {/* Left - Contact Cards */}
-          <div className="flex flex-col justify-center space-y-4">
+          <div className="flex flex-col justify-center self-center space-y-4">
             {/* Yellow Contact Info Card */}
             <div className="bg-landing-yellow/40 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
               <div className="space-y-3">
