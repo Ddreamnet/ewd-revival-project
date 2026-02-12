@@ -21,7 +21,7 @@ export function Footer() {
 
   return (
     <footer className="bg-landing-purple/20 backdrop-blur-sm">
-      <div className="max-w-6xl mx-auto px-6 py-10 pt-[24px] pb-[24px]">
+      <div className="max-w-6xl mx-auto pt-[24px] pb-[24px] px-[12px] py-[12px]">
         {/* Main row */}
         <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-8">
           {/* Left – Logo + Tagline */}
