@@ -30,7 +30,7 @@ export function Footer() {
         {/* Main row */}
         <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-8">
           {/* Left – Logo + Tagline */}
-          <div className="flex flex-col items-center md:items-start gap-2">
+          <div className="flex-col items-center gap-2 flex md:items-center justify-start">
             <Link to="/">
               <img
                 src="/uploads/logo.webp"
