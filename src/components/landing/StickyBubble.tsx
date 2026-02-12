@@ -78,15 +78,13 @@ const TrialBubble = ({ onClick, language, t }: { onClick: () => void; language: 
       </div>
 
       <div className="text-center space-y-0">
-        <span className="inline-block bg-white/70 rounded-md px-1.5 py-0.5">
-          <p className="text-base md:text-lg font-black 
-                       bg-gradient-to-r from-landing-purple-dark via-landing-pink to-landing-purple-dark 
-                       bg-[length:200%_auto] bg-clip-text text-transparent 
-                       animate-gradient-shift
-                       animate-pulse-scale">
-            {t.stickyBubble.line1[language]}
-          </p>
-        </span>
+        <p className="text-base md:text-lg font-black 
+                     bg-gradient-to-r from-landing-purple-dark via-landing-pink to-landing-purple-dark 
+                     bg-[length:200%_auto] bg-clip-text text-transparent 
+                     animate-gradient-shift
+                     animate-pulse-scale">
+          {t.stickyBubble.line1[language]}
+        </p>
         
         <p className="text-sm md:text-base font-bold text-foreground animate-bounce-gentle"
            style={{ animationDelay: '0.2s' }}>
