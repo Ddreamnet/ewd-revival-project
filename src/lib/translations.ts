@@ -178,6 +178,7 @@ export const translations = {
 
   // Footer
   footer: {
+    tagline: { tr: 'Online İngilizce dersleri • Çocuk & Yetişkin', en: 'Online English lessons • Kids & Adults' },
     workWithUs: { tr: 'Bizimle Çalışın', en: 'Work with Us' },
     privacyPolicy: { tr: 'Gizlilik Politikası', en: 'Privacy Policy' },
     downloadGooglePlay: { tr: "Google Play'den İndir", en: 'Get it on Google Play' },
