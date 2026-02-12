@@ -9,10 +9,10 @@ export function WhySection() {
   return <section id="why" className="scroll-section py-16 md:py-24 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Two column layout on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center justify-items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-4 items-center">
           
           {/* Left Column - Title (45%) */}
-          <div className="lg:col-span-5 text-center lg:text-left relative">
+          <div className="lg:col-span-5 text-center lg:text-right relative">
             {/* Decorative sparkle near title */}
             <Star className="why-sparkle-blink absolute -top-4 -left-2 lg:left-0 w-6 h-6 text-landing-yellow opacity-60" fill="currentColor" />
             
