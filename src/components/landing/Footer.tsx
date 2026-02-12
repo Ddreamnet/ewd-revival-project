@@ -103,7 +103,7 @@ export function Footer() {
         </div>
 
         {/* Divider + Copyright */}
-        <div className="mt-8 pt-6 border-t border-[#E9AFCB]/40 text-center">
+        <div className="pt-6 border-t border-[#E9AFCB]/40 text-center mt-[12px]">
           <p className="text-sm text-[#4A2040]/60">
             © {new Date().getFullYear()} English with Dilara. {t.footer.copyright[language]}
           </p>
