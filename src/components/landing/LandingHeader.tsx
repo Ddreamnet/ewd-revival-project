@@ -14,16 +14,35 @@ export function LandingHeader() {
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<string>('hero');
-  const [isAtTop, setIsAtTop] = useState(true);
+  const [logoRotation, setLogoRotation] = useState(0);
 
   useEffect(() => {
+    let rafId: number;
+    let lastRotation = 0;
+
     const handleScroll = () => {
-      const atTop = window.scrollY <= 10;
-      setIsAtTop(prev => prev !== atTop ? atTop : prev);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const whyEl = document.getElementById('why');
+        if (!whyEl) return;
+        const whyTop = whyEl.getBoundingClientRect().top + window.scrollY;
+        const scrollY = window.scrollY;
+        const rawProgress = Math.min(1, Math.max(0, scrollY / whyTop));
+        // ease-out curve for smoother feel
+        const progress = 1 - Math.pow(1 - rawProgress, 2);
+        const rotation = progress * -10;
+        if (rotation !== lastRotation) {
+          lastRotation = rotation;
+          setLogoRotation(rotation);
+        }
+      });
     };
     handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -72,7 +91,8 @@ export function LandingHeader() {
           <img
             src="/uploads/logo.webp"
             alt="English with Dilara"
-            className={`h-20 sm:h-28 md:h-40 w-auto transform hover:scale-105 transition-transform duration-[400ms] ease-in-out cursor-pointer ${isAtTop ? 'rotate-0' : '-rotate-[10deg]'}`} />
+            className="h-20 sm:h-28 md:h-40 w-auto hover:scale-105 transition-transform duration-100 ease-out cursor-pointer"
+            style={{ transform: `rotate(${logoRotation}deg)` }} />
 
         </button>
       </div>
