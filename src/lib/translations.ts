@@ -206,7 +206,7 @@ export const translations = {
   // Footer
   footer: {
     tagline: { tr: "Online İngilizce dersleri", en: "Online English lessons" },
-    workWithUs: { tr: "Bizimle Çalışın", en: "Work with Us" },
+    workWithUs: { tr: "Bizimle Çalışın!", en: "Work with Us!" },
     privacyPolicy: { tr: "Gizlilik Politikası", en: "Privacy Policy" },
     downloadGooglePlay: { tr: "Google Play'den İndir", en: "Get it on Google Play" },
     downloadAppStore: { tr: "App Store'dan İndir", en: "Download on the App Store" },
@@ -216,7 +216,7 @@ export const translations = {
 
   // Work With Us
   workWithUs: {
-    title: { tr: "Bizimle Çalışın", en: "Work with Us" },
+    title: { tr: "Bizimle Çalışın!", en: "Work with Us!" },
     fullName: { tr: "Ad Soyad", en: "Full Name" },
     age: { tr: "Yaş", en: "Age" },
     university: { tr: "Üniversite", en: "University" },
