@@ -97,9 +97,9 @@ export function Footer() {
                   <Smartphone className="w-3.5 h-3.5" />
                   {t.footer.downloadGooglePlay[language]}
                 </button>
-                <span className="text-[10px] text-[#4A2040]/50 mt-0.5">
-                  {t.footer.comingSoon[language]}
-                </span>
+                
+
+
               </div>
               {/* App Store */}
               <div className="flex flex-col items-center">
