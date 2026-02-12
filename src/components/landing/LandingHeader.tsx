@@ -6,8 +6,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  DropdownMenuTrigger } from
+'@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
 export function LandingHeader() {
@@ -17,7 +17,7 @@ export function LandingHeader() {
 
   useEffect(() => {
     const sections = ['hero', 'why', 'kids-packages', 'adult-packages', 'faq', 'contact'];
-    
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -56,18 +56,18 @@ export function LandingHeader() {
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           className="focus:outline-none"
-          aria-label="Sayfanın başına git"
-        >
+          aria-label="Sayfanın başına git">
+
           <img
             src="/uploads/logo.webp"
             alt="English with Dilara"
-            className="h-20 sm:h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer"
-          />
+            className="h-20 sm:h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" />
+
         </button>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-        <div className="flex items-center justify-between h-20 md:h-24">
+        <div className="flex items-center justify-between h-20 md:h-24 mt-[16px]">
           {/* Invisible placeholder for logo space */}
           <div className="w-20 sm:w-28 md:w-40 flex-shrink-0 invisible" />
 
@@ -77,22 +77,22 @@ export function LandingHeader() {
             <button
               onClick={() => scrollToSection('kids-packages')}
               className={`md:hidden rounded-full p-2.5 transition-all duration-300 ${
-                isLessonsActive
-                  ? 'bg-landing-purple/20 text-landing-purple-dark shadow-[0_0_12px_rgba(147,112,219,0.4)]'
-                  : 'bg-landing-purple/10 text-landing-purple-dark hover:bg-landing-purple/20 hover:scale-110 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]'
-              }`}
-              aria-label={t.header.lessons[language]}
-            >
+              isLessonsActive ?
+              'bg-landing-purple/20 text-landing-purple-dark shadow-[0_0_12px_rgba(147,112,219,0.4)]' :
+              'bg-landing-purple/10 text-landing-purple-dark hover:bg-landing-purple/20 hover:scale-110 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]'}`
+              }
+              aria-label={t.header.lessons[language]}>
+
               <BookOpen className="h-5 w-5" />
             </button>
             <button
               onClick={() => scrollToSection('kids-packages')}
               className={`hidden md:block px-6 py-2.5 rounded-full text-base font-medium transition-all duration-300 ${
-                isLessonsActive
-                  ? 'bg-landing-pink/90 text-foreground shadow-md'
-                  : 'bg-landing-pink/70 text-foreground hover:bg-landing-pink/80'
-              }`}
-            >
+              isLessonsActive ?
+              'bg-landing-pink/90 text-foreground shadow-md' :
+              'bg-landing-pink/70 text-foreground hover:bg-landing-pink/80'}`
+              }>
+
               {t.header.lessons[language]}
             </button>
 
@@ -100,22 +100,22 @@ export function LandingHeader() {
             <button
               onClick={() => scrollToSection('contact')}
               className={`md:hidden rounded-full p-2.5 transition-all duration-300 ${
-                isContactActive
-                  ? 'bg-landing-purple/20 text-landing-purple-dark shadow-[0_0_12px_rgba(147,112,219,0.4)]'
-                  : 'bg-landing-purple/10 text-landing-purple-dark hover:bg-landing-purple/20 hover:scale-110 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]'
-              }`}
-              aria-label={t.header.contact[language]}
-            >
+              isContactActive ?
+              'bg-landing-purple/20 text-landing-purple-dark shadow-[0_0_12px_rgba(147,112,219,0.4)]' :
+              'bg-landing-purple/10 text-landing-purple-dark hover:bg-landing-purple/20 hover:scale-110 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]'}`
+              }
+              aria-label={t.header.contact[language]}>
+
               <MessageCircle className="h-5 w-5" />
             </button>
             <button
               onClick={() => scrollToSection('contact')}
               className={`hidden md:block px-6 py-2.5 rounded-full text-base font-medium transition-all duration-300 ${
-                isContactActive
-                  ? 'bg-landing-pink/90 text-foreground shadow-md'
-                  : 'bg-landing-pink/70 text-foreground hover:bg-landing-pink/80'
-              }`}
-            >
+              isContactActive ?
+              'bg-landing-pink/90 text-foreground shadow-md' :
+              'bg-landing-pink/70 text-foreground hover:bg-landing-pink/80'}`
+              }>
+
               {t.header.contact[language]}
             </button>
           </nav>
@@ -131,22 +131,22 @@ export function LandingHeader() {
                   className="rounded-full bg-landing-purple/10 text-landing-purple-dark 
                              hover:bg-landing-purple/20 hover:scale-110 
                              hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
-                             transition-all duration-300"
-                >
+                             transition-all duration-300">
+
                   <Globe className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-sm z-[60]">
                 <DropdownMenuItem
                   onClick={() => setLanguage('tr')}
-                  className={`cursor-pointer ${language === 'tr' ? 'bg-landing-purple/20' : ''}`}
-                >
+                  className={`cursor-pointer ${language === 'tr' ? 'bg-landing-purple/20' : ''}`}>
+
                   🇹🇷 TR
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setLanguage('en')}
-                  className={`cursor-pointer ${language === 'en' ? 'bg-landing-purple/20' : ''}`}
-                >
+                  className={`cursor-pointer ${language === 'en' ? 'bg-landing-purple/20' : ''}`}>
+
                   🇬🇧 GB
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -162,8 +162,8 @@ export function LandingHeader() {
                            text-landing-purple-dark
                            hover:from-landing-purple/25 hover:to-landing-pink/25
                            hover:scale-105 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
-                           transition-all duration-300"
-              >
+                           transition-all duration-300">
+
                 {t.header.login[language]}
               </Button>
               {/* Mobile: Icon button matching globe style */}
@@ -174,14 +174,14 @@ export function LandingHeader() {
                            hover:bg-landing-purple/20 hover:scale-110 
                            hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
                            transition-all duration-300"
-                aria-label={t.header.login[language]}
-              >
+                aria-label={t.header.login[language]}>
+
                 <LogIn className="h-5 w-5" />
               </Button>
             </Link>
           </div>
         </div>
       </div>
-    </header>
-  );
+    </header>);
+
 }
