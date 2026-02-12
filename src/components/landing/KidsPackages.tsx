@@ -12,29 +12,29 @@ export function KidsPackages() {
   };
 
   const classicItems = [
-    t.kidsPackages.classicPackage.items.lessonsPerWeek,
-    t.kidsPackages.classicPackage.items.speaking,
-    t.kidsPackages.classicPackage.items.coreEnglish,
-    t.kidsPackages.classicPackage.items.listening,
-    t.kidsPackages.classicPackage.items.games,
-    t.kidsPackages.classicPackage.items.duration,
-    t.kidsPackages.classicPackage.items.options,
-  ];
+  t.kidsPackages.classicPackage.items.lessonsPerWeek,
+  t.kidsPackages.classicPackage.items.speaking,
+  t.kidsPackages.classicPackage.items.coreEnglish,
+  t.kidsPackages.classicPackage.items.listening,
+  t.kidsPackages.classicPackage.items.games,
+  t.kidsPackages.classicPackage.items.duration,
+  t.kidsPackages.classicPackage.items.options];
+
 
   const schoolItems = [
-    t.kidsPackages.schoolPackage.items.parallel,
-    t.kidsPackages.schoolPackage.items.homework,
-    t.kidsPackages.schoolPackage.items.exams,
-    t.kidsPackages.schoolPackage.items.support,
-    t.kidsPackages.schoolPackage.items.duration,
-    t.kidsPackages.schoolPackage.items.options,
-  ];
+  t.kidsPackages.schoolPackage.items.parallel,
+  t.kidsPackages.schoolPackage.items.homework,
+  t.kidsPackages.schoolPackage.items.exams,
+  t.kidsPackages.schoolPackage.items.support,
+  t.kidsPackages.schoolPackage.items.duration,
+  t.kidsPackages.schoolPackage.items.options];
+
 
   return (
     <section
       id="kids-packages"
-      className="scroll-section py-16 md:py-24"
-    >
+      className="scroll-section py-16 md:py-24">
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
@@ -59,14 +59,14 @@ export function KidsPackages() {
                 {t.kidsPackages.classicPackage.subtitle[language]}
               </p>
               <ul className="space-y-3">
-                {classicItems.map((item, index) => (
-                  <li key={index} className="flex items-start gap-2">
+                {classicItems.map((item, index) =>
+                <li key={index} className="flex items-start gap-2">
                     <Check className="w-5 h-5 text-landing-purple-dark flex-shrink-0 mt-0.5" />
                     <span className="text-sm md:text-base text-foreground">
                       {item[language]}
                     </span>
                   </li>
-                ))}
+                )}
               </ul>
             </div>
 
@@ -79,14 +79,14 @@ export function KidsPackages() {
                 {t.kidsPackages.schoolPackage.subtitle[language]}
               </p>
               <ul className="space-y-3">
-                {schoolItems.map((item, index) => (
-                  <li key={index} className="flex items-start gap-2">
+                {schoolItems.map((item, index) =>
+                <li key={index} className="flex items-start gap-2">
                     <Check className="w-5 h-5 text-landing-purple-dark flex-shrink-0 mt-0.5" />
                     <span className="text-sm md:text-base text-foreground">
                       {item[language]}
                     </span>
                   </li>
-                ))}
+                )}
               </ul>
             </div>
           </div>
@@ -96,12 +96,12 @@ export function KidsPackages() {
             <div className="w-32 h-32 xl:w-48 xl:h-48 rounded-full bg-landing-purple/10 flex items-center justify-center">
               <GraduationCap className="w-16 h-16 xl:w-24 xl:h-24 text-landing-purple/50" />
             </div>
-            <button
-              onClick={scrollToContact}
-              className="mt-6 px-4 py-2 bg-landing-yellow text-foreground rounded-full text-sm font-medium hover:bg-landing-yellow/80 transition-colors shadow-md"
-            >
-              {t.kidsPackages.moreInfo[language]} →
-            </button>
+            
+
+
+
+
+
           </div>
         </div>
 
@@ -109,12 +109,12 @@ export function KidsPackages() {
         <div className="lg:hidden flex justify-center mt-8">
           <button
             onClick={scrollToContact}
-            className="px-6 py-3 bg-landing-yellow text-foreground rounded-full text-base font-medium hover:bg-landing-yellow/80 transition-colors shadow-md"
-          >
+            className="px-6 py-3 bg-landing-yellow text-foreground rounded-full text-base font-medium hover:bg-landing-yellow/80 transition-colors shadow-md">
+
             {t.kidsPackages.moreInfo[language]} →
           </button>
         </div>
       </div>
-    </section>
-  );
+    </section>);
+
 }
