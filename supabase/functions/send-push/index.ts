@@ -18,9 +18,24 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Security: require either X-CRON-SECRET or valid service-role Authorization
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const requestSecret = req.headers.get("x-cron-secret");
+  const authHeader = req.headers.get("authorization") || "";
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const hasCronSecret = cronSecret && requestSecret && requestSecret === cronSecret;
+  const hasServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
+
+  if (!hasCronSecret && !hasServiceRole) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const fcmServiceAccountJson = Deno.env.get("FCM_SERVICE_ACCOUNT");
 
     if (!fcmServiceAccountJson) {
