@@ -841,16 +841,19 @@ All colors MUST be HSL.
   margin-bottom: clamp(8px, 1.5vh, 16px);
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
+  position: relative;
 }
 
 .login-board__title > a {
   pointer-events: auto;
+  flex-shrink: 0;
 }
 
 .login-board__title-text {
   pointer-events: none;
+  flex: 1;
+  text-align: center;
 }
 
 @media (min-width: 768px) {
