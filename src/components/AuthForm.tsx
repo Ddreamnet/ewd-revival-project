@@ -82,21 +82,21 @@ export function AuthForm() {
             className="h-28 lg:h-36 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
           />
         </Link>
-        <div className="block md:hidden text-center mb-2">
-          <Link to="/">
+
+        {/* Title above the board — on mobile: logo + text side by side */}
+        <div className="login-board__title" aria-label="English with Dilara title">
+          <Link to="/" className="block md:hidden flex-shrink-0">
             <img 
               src="/uploads/logo.webp" 
               alt="English with Dilara" 
-              className="h-20 sm:h-28 w-auto mx-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
+              className="h-16 sm:h-20 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
             />
           </Link>
-        </div>
-
-        {/* Title above the board */}
-        <div className="login-board__title" aria-label="English with Dilara title">
-          <div className="t-english">English</div>
-          <div className="t-with">with</div>
-          <div className="t-dilara font-aprilia">DILARA</div>
+          <div className="login-board__title-text">
+            <div className="t-english">English</div>
+            <div className="t-with">with</div>
+            <div className="t-dilara font-aprilia">DILARA</div>
+          </div>
         </div>
 
         {/* Board */}
