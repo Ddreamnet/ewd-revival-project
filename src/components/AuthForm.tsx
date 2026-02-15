@@ -73,25 +73,18 @@ export function AuthForm() {
 
   return (
     <div className="login-board-wrap">
-      {/* Logo - desktop: top-left, mobile: centered above title */}
-      <div className="login-board-outer">
-        <Link to="/" className="hidden md:block absolute top-0 left-0 z-20">
-          <img 
-            src="/uploads/logo.webp" 
-            alt="English with Dilara" 
-            className="h-28 lg:h-36 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
-          />
-        </Link>
+      {/* Logo - same position as landing page */}
+      <Link to="/" className="fixed left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
+        <img 
+          src="/uploads/logo.webp" 
+          alt="English with Dilara" 
+          className="h-20 sm:h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
+        />
+      </Link>
 
-        {/* Title above the board — on mobile: logo + text side by side */}
+      <div className="login-board-outer">
+        {/* Title above the board — centered */}
         <div className="login-board__title" aria-label="English with Dilara title">
-          <Link to="/" className="block md:hidden flex-shrink-0">
-            <img 
-              src="/uploads/logo.webp" 
-              alt="English with Dilara" 
-              className="h-28 sm:h-36 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
-            />
-          </Link>
           <div className="login-board__title-text">
             <div className="t-english">English</div>
             <div className="t-with">with</div>
