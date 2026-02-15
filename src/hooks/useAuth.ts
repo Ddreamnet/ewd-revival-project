@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { clearSupabaseStorage } from "@/lib/capacitorStorage";
 import { useToast } from "@/hooks/use-toast";
 
 export interface Profile {
@@ -221,23 +222,12 @@ export function useAuth() {
     setSession(null);
     setProfile(null);
     
-    // Manually clear localStorage to ensure session is gone
-    console.log("Step 2: Clearing localStorage");
+    // Clear storage (native Preferences or localStorage depending on platform)
+    console.log("Step 2: Clearing auth storage");
     try {
-      // Clear all Supabase-related items from localStorage
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => {
-        console.log("Removing localStorage key:", key);
-        localStorage.removeItem(key);
-      });
+      await clearSupabaseStorage();
     } catch (e) {
-      console.warn("localStorage clear error:", e);
+      console.warn("Storage clear error:", e);
     }
     
     // Show toast
