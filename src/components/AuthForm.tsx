@@ -73,138 +73,155 @@ export function AuthForm() {
 
   return (
     <div className="login-board-wrap">
-      <div className="login-board" aria-label="Chalkboard">
-        <div className="login-board__surface">
+      {/* Logo - desktop: top-left, mobile: centered above title */}
+      <div className="login-board-outer">
+        <Link to="/" className="hidden md:block absolute top-0 left-0 z-20">
+          <img 
+            src="/uploads/logo.webp" 
+            alt="English with Dilara" 
+            className="h-28 lg:h-36 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
+          />
+        </Link>
+        <div className="block md:hidden text-center mb-2">
+          <Link to="/">
+            <img 
+              src="/uploads/logo.webp" 
+              alt="English with Dilara" 
+              className="h-20 sm:h-28 w-auto mx-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
+            />
+          </Link>
+        </div>
 
-          {/* Title */}
-          <div className="login-board__title" aria-label="English with Dilara title">
-            <div className="t-english">English</div>
-            <div className="t-with">with</div>
-            <div className="t-dilara font-aprilia">DILARA</div>
-          </div>
+        {/* Title above the board */}
+        <div className="login-board__title" aria-label="English with Dilara title">
+          <div className="t-english">English</div>
+          <div className="t-with">with</div>
+          <div className="t-dilara font-aprilia">DILARA</div>
+        </div>
 
-          {/* Login card centered */}
-          <div className="login-board__center">
+        {/* Board */}
+        <div className="login-board" aria-label="Chalkboard">
+          <div className="login-board__surface">
+            {/* Login card centered */}
+            <div className="login-board__center">
             <Card className="w-full max-w-sm bg-background/65 backdrop-blur-sm">
-              <CardHeader className="text-center">
-              </CardHeader>
-              <CardContent>
-                <div className="w-full">
-                  <div className="text-center mb-6">
-                    <h2 className="text-xl font-semibold">{isSignUp ? "Kayıt Ol" : "Giriş Yap"}</h2>
-                  </div>
+              <CardContent className="pt-6">
+                  <div className="w-full">
+                    <div className="text-center mb-6">
+                      <h2 className="text-xl font-semibold">{isSignUp ? "Kayıt Ol" : "Giriş Yap"}</h2>
+                    </div>
 
-                  {!isSignUp ? (
-                    <form onSubmit={handleSignIn} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="signin-email">E-posta</Label>
-                        <Input
-                          id="signin-email"
-                          type="email"
-                          placeholder="E-posta adresinizi girin"
-                          value={signInData.email}
-                          onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signin-password">Şifre</Label>
-                        <Input
-                          id="signin-password"
-                          type="password"
-                          placeholder="Şifrenizi girin"
-                          value={signInData.password}
-                          onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Giriş Yap
-                      </Button>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleSignUp} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-name">Ad Soyad</Label>
-                        <Input
-                          id="signup-name"
-                          type="text"
-                          placeholder="Ad ve soyadınızı girin"
-                          value={signUpData.fullName}
-                          onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-email">E-posta</Label>
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          placeholder="E-posta adresinizi girin"
-                          value={signUpData.email}
-                          onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-password">Şifre</Label>
-                        <Input
-                          id="signup-password"
-                          type="password"
-                          placeholder="Şifrenizi girin"
-                          value={signUpData.password}
-                          onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="role">Ben bir...</Label>
-                        <Select
-                          value={signUpData.role}
-                          onValueChange={(value: "teacher" | "student") => setSignUpData({ ...signUpData, role: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Rolünüzü seçin" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="student">Öğrenci</SelectItem>
-                            <SelectItem value="teacher">Öğretmen</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Kayıt Ol
-                      </Button>
-
-                      <div className="mt-4 text-center">
-                        <p className="text-sm text-muted-foreground">
-                          Zaten hesabınız var mı?{" "}
-                          <button
-                            type="button"
-                            onClick={() => setIsSignUp(false)}
-                            className="text-primary hover:underline font-medium"
+                    {!isSignUp ? (
+                      <form onSubmit={handleSignIn} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="signin-email">E-posta</Label>
+                          <Input
+                            id="signin-email"
+                            type="email"
+                            placeholder="E-posta adresinizi girin"
+                            value={signInData.email}
+                            onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="signin-password">Şifre</Label>
+                          <Input
+                            id="signin-password"
+                            type="password"
+                            placeholder="Şifrenizi girin"
+                            value={signInData.password}
+                            onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <Button type="submit" className="w-full" disabled={isLoading}>
+                          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Giriş Yap
+                        </Button>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleSignUp} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-name">Ad Soyad</Label>
+                          <Input
+                            id="signup-name"
+                            type="text"
+                            placeholder="Ad ve soyadınızı girin"
+                            value={signUpData.fullName}
+                            onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-email">E-posta</Label>
+                          <Input
+                            id="signup-email"
+                            type="email"
+                            placeholder="E-posta adresinizi girin"
+                            value={signUpData.email}
+                            onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-password">Şifre</Label>
+                          <Input
+                            id="signup-password"
+                            type="password"
+                            placeholder="Şifrenizi girin"
+                            value={signUpData.password}
+                            onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="role">Ben bir...</Label>
+                          <Select
+                            value={signUpData.role}
+                            onValueChange={(value: "teacher" | "student") => setSignUpData({ ...signUpData, role: value })}
                           >
-                            Giriş Yap
-                          </button>
-                        </p>
-                      </div>
-                    </form>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Rolünüzü seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="student">Öğrenci</SelectItem>
+                              <SelectItem value="teacher">Öğretmen</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button type="submit" className="w-full" disabled={isLoading}>
+                          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Kayıt Ol
+                        </Button>
 
-          {/* Shelf */}
-          <div className="login-board__shelf" aria-hidden="true">
-            <span className="chalk chalk--white"></span>
-            <span className="chalk chalk--pink"></span>
-            <span className="chalk chalk--yellow"></span>
-            <span className="eraser"></span>
-          </div>
+                        <div className="mt-4 text-center">
+                          <p className="text-sm text-muted-foreground">
+                            Zaten hesabınız var mı?{" "}
+                            <button
+                              type="button"
+                              onClick={() => setIsSignUp(false)}
+                              className="text-primary hover:underline font-medium"
+                            >
+                              Giriş Yap
+                            </button>
+                          </p>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
+            {/* Shelf */}
+            <div className="login-board__shelf" aria-hidden="true">
+              <span className="chalk chalk--white"></span>
+              <span className="chalk chalk--pink"></span>
+              <span className="chalk chalk--yellow"></span>
+              <span className="eraser"></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
