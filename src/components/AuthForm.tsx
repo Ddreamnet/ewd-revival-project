@@ -89,7 +89,7 @@ export function AuthForm() {
             <img 
               src="/uploads/logo.webp" 
               alt="English with Dilara" 
-              className="h-16 sm:h-20 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
+              className="h-28 sm:h-36 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" 
             />
           </Link>
           <div className="login-board__title-text">
