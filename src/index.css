@@ -532,6 +532,7 @@ All colors MUST be HSL.
   letter-spacing: 0.5px;
   color: var(--ink);
   line-height: 1;
+  text-align: left;
 }
 
 .hero-book__with {
@@ -541,6 +542,7 @@ All colors MUST be HSL.
   color: var(--ink);
   opacity: 0.92;
   margin-top: -6px;
+  text-align: center;
 }
 
 .hero-book__dilara {
@@ -549,6 +551,7 @@ All colors MUST be HSL.
   color: var(--ink);
   letter-spacing: 0.4px;
   margin-top: -6px;
+  text-align: right;
 }
 
 .hero-book__lead {
@@ -839,27 +842,11 @@ All colors MUST be HSL.
   text-align: center;
   width: min(620px, 92%);
   margin-bottom: clamp(8px, 1.5vh, 16px);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  position: relative;
-}
-
-.login-board__title > a {
-  pointer-events: auto;
-  flex-shrink: 0;
 }
 
 .login-board__title-text {
   pointer-events: none;
-  flex: 1;
   text-align: center;
-}
-
-@media (min-width: 768px) {
-  .login-board__title {
-    display: block;
-  }
 }
 
 .t-english {
