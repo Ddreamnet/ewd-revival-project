@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "245037389082",
+    "project_id": "english-with-dilara",
+    "storage_bucket": "english-with-dilara.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:245037389082:android:a64ecef8c5c97070e4c8a3",
+        "android_client_info": {
+          "package_name": "com.englishwithdilara.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTJ2z2FIOqI-TaaeXMU6y_KL0O6aySFHQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
