@@ -751,8 +751,8 @@ All colors MUST be HSL.
   --board-radius: 26px;
   --board-frame: 18px;
 
-  width: min(980px, 92vw);
-  height: clamp(540px, 85vh, 800px);
+  width: 100%;
+  aspect-ratio: auto;
   position: relative;
   border-radius: var(--board-radius);
   padding: var(--board-frame);
@@ -783,7 +783,7 @@ All colors MUST be HSL.
 }
 
 .login-board__surface {
-  height: 100%;
+  min-height: 100%;
   width: 100%;
   border-radius: calc(var(--board-radius) - 10px);
   position: relative;
@@ -827,23 +827,26 @@ All colors MUST be HSL.
   filter: blur(.2px);
 }
 
+.login-board-outer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(980px, 92vw);
+}
+
 .login-board__title {
-  position: absolute;
-  top: clamp(18px, 3.2vh, 26px);
-  left: 50%;
-  transform: translateX(-50%);
   text-align: center;
   width: min(620px, 92%);
   pointer-events: none;
-  z-index: 2;
+  margin-bottom: clamp(8px, 1.5vh, 16px);
 }
 
 .t-english {
   font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   font-weight: 800;
   letter-spacing: .5px;
-  color: rgba(255,255,255,.92);
-  text-shadow: 0 2px 0 rgba(0,0,0,.16);
+  color: hsl(var(--foreground));
   font-size: clamp(34px, 6.2vw, 56px);
   line-height: 1.05;
 }
@@ -851,8 +854,7 @@ All colors MUST be HSL.
 .t-with {
   font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   font-weight: 700;
-  color: rgba(255,255,255,.90);
-  text-shadow: 0 2px 0 rgba(0,0,0,.14);
+  color: hsl(var(--foreground));
   font-size: clamp(16px, 2.4vw, 22px);
   margin-top: 2px;
   transform: translateX(38px);
@@ -862,20 +864,16 @@ All colors MUST be HSL.
   font-family: "Mystery Quest", serif;
   font-weight: 800;
   letter-spacing: 1px;
-  color: rgba(255,255,255,.92);
-  text-shadow: 0 2px 0 rgba(0,0,0,.16);
+  color: hsl(var(--foreground));
   font-size: clamp(28px, 5.2vw, 44px);
   margin-top: 6px;
   transform: translateX(96px);
 }
 
 .login-board__center {
-  position: absolute;
-  inset: 0;
-  padding-top: clamp(130px, 22vh, 190px);
-  padding-left: clamp(18px, 3vw, 28px);
-  padding-right: clamp(18px, 3vw, 28px);
-  padding-bottom: clamp(50px, 8vh, 80px);
+  position: relative;
+  padding: clamp(18px, 3vw, 28px);
+  padding-bottom: clamp(70px, 10vh, 100px);
   display: grid;
   place-items: center;
   z-index: 3;
