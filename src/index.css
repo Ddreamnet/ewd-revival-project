@@ -188,7 +188,7 @@ All colors MUST be HSL.
   html {
     min-height: 100%;
     margin: 0;
-    background: url("/uploads/pinkgingham.png") repeat;
+    background: url("/uploads/pinkgingham.png");
     background-attachment: fixed;
     background-color: transparent;
     scroll-behavior: smooth;
@@ -198,7 +198,7 @@ All colors MUST be HSL.
   body {
     min-height: 100%;
     margin: 0;
-    background: url("/uploads/pinkgingham.png") repeat;
+    background: url("/uploads/pinkgingham.png");
     background-attachment: fixed;
     background-color: transparent;
   }
@@ -526,7 +526,13 @@ All colors MUST be HSL.
 }
 
 .hero-book__english {
-  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-family:
+    "Poppins",
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Arial,
+    sans-serif;
   font-weight: 800;
   font-size: 40px;
   letter-spacing: 0.5px;
@@ -536,7 +542,13 @@ All colors MUST be HSL.
 }
 
 .hero-book__with {
-  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-family:
+    "Poppins",
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Arial,
+    sans-serif;
   font-weight: 700;
   font-size: 16px;
   color: var(--ink);
@@ -555,7 +567,13 @@ All colors MUST be HSL.
 }
 
 .hero-book__lead {
-  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-family:
+    "Poppins",
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Arial,
+    sans-serif;
   font-weight: 600;
   font-size: 19px;
   color: var(--ink);
@@ -564,7 +582,13 @@ All colors MUST be HSL.
 }
 
 .hero-book__sub {
-  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  font-family:
+    "Poppins",
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Arial,
+    sans-serif;
   font-weight: 500;
   font-size: 16px;
   color: var(--muted);
@@ -761,17 +785,13 @@ All colors MUST be HSL.
   padding: var(--board-frame);
 
   background:
-    linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.14)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255,255,255,.06) 0 8px,
-      rgba(0,0,0,.05) 8px 14px
-    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.14)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 8px, rgba(0, 0, 0, 0.05) 8px 14px),
     linear-gradient(135deg, var(--board-frame-outer), var(--board-frame-inner));
 
   box-shadow:
-    0 18px 40px rgba(0,0,0,.18),
-    0 2px 0 rgba(255,255,255,.25) inset;
+    0 18px 40px rgba(0, 0, 0, 0.18),
+    0 2px 0 rgba(255, 255, 255, 0.25) inset;
 }
 
 .login-board::before {
@@ -780,8 +800,8 @@ All colors MUST be HSL.
   inset: 7px;
   border-radius: calc(var(--board-radius) - 8px);
   box-shadow:
-    0 0 0 2px rgba(0,0,0,.10) inset,
-    0 0 0 1px rgba(255,255,255,.20);
+    0 0 0 2px rgba(0, 0, 0, 0.1) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.2);
   pointer-events: none;
 }
 
@@ -793,14 +813,14 @@ All colors MUST be HSL.
   overflow: hidden;
 
   background:
-    radial-gradient(1200px 600px at 20% 10%, rgba(255,255,255,.10), transparent 55%),
-    radial-gradient(900px 520px at 80% 35%, rgba(0,0,0,.15), transparent 60%),
-    linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.08)),
+    radial-gradient(1200px 600px at 20% 10%, rgba(255, 255, 255, 0.1), transparent 55%),
+    radial-gradient(900px 520px at 80% 35%, rgba(0, 0, 0, 0.15), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.08)),
     linear-gradient(135deg, var(--board-surface), var(--board-surface-dark));
 
   box-shadow:
-    0 10px 18px rgba(0,0,0,.18) inset,
-    0 1px 0 rgba(255,255,255,.15) inset;
+    0 10px 18px rgba(0, 0, 0, 0.18) inset,
+    0 1px 0 rgba(255, 255, 255, 0.15) inset;
 }
 
 .login-board__surface::before {
@@ -810,24 +830,16 @@ All colors MUST be HSL.
   pointer-events: none;
 
   background:
-    radial-gradient(2px 2px at 12% 18%, rgba(255,255,255,.18), transparent 60%),
-    radial-gradient(2px 2px at 65% 28%, rgba(255,255,255,.14), transparent 60%),
-    radial-gradient(2px 2px at 35% 62%, rgba(255,255,255,.16), transparent 60%),
-    radial-gradient(2px 2px at 82% 70%, rgba(255,255,255,.14), transparent 60%),
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,.03) 0 2px,
-      transparent 2px 8px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      rgba(0,0,0,.03) 0 2px,
-      transparent 2px 10px
-    );
+    radial-gradient(2px 2px at 12% 18%, rgba(255, 255, 255, 0.18), transparent 60%),
+    radial-gradient(2px 2px at 65% 28%, rgba(255, 255, 255, 0.14), transparent 60%),
+    radial-gradient(2px 2px at 35% 62%, rgba(255, 255, 255, 0.16), transparent 60%),
+    radial-gradient(2px 2px at 82% 70%, rgba(255, 255, 255, 0.14), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 8px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0 2px, transparent 2px 10px);
 
-  opacity: .55;
+  opacity: 0.55;
   mix-blend-mode: overlay;
-  filter: blur(.2px);
+  filter: blur(0.2px);
 }
 
 .login-board-outer {
@@ -850,16 +862,30 @@ All colors MUST be HSL.
 }
 
 .t-english {
-  font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family:
+    Poppins,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Arial,
+    sans-serif;
   font-weight: 800;
-  letter-spacing: .5px;
+  letter-spacing: 0.5px;
   color: hsl(var(--foreground));
   font-size: clamp(34px, 6.2vw, 56px);
   line-height: 1.05;
 }
 
 .t-with {
-  font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family:
+    Poppins,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Arial,
+    sans-serif;
   font-weight: 700;
   color: hsl(var(--foreground));
   font-size: clamp(16px, 2.4vw, 22px);
@@ -897,12 +923,12 @@ All colors MUST be HSL.
   border-radius: 14px;
 
   background:
-    linear-gradient(180deg, rgba(255,255,255,.14), rgba(0,0,0,.14)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(0, 0, 0, 0.14)),
     linear-gradient(135deg, var(--board-shelf), var(--board-shelf-dark));
 
   box-shadow:
-    0 10px 18px rgba(0,0,0,.20),
-    0 2px 0 rgba(255,255,255,.12) inset;
+    0 10px 18px rgba(0, 0, 0, 0.2),
+    0 2px 0 rgba(255, 255, 255, 0.12) inset;
 
   display: flex;
   align-items: center;
@@ -917,14 +943,22 @@ All colors MUST be HSL.
   height: 10px;
   border-radius: 999px;
   box-shadow:
-    0 2px 0 rgba(0,0,0,.15),
-    0 0 0 1px rgba(0,0,0,.10) inset;
+    0 2px 0 rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.1) inset;
   transform: rotate(-8deg);
-  opacity: .95;
+  opacity: 0.95;
 }
-.chalk--white { background: linear-gradient(180deg, #fff, #e8e8e8); }
-.chalk--pink { background: linear-gradient(180deg, #ffb7d7, #f08bbd); transform: rotate(6deg); }
-.chalk--yellow { background: linear-gradient(180deg, #ffe28a, #f7c84c); transform: rotate(-3deg); }
+.chalk--white {
+  background: linear-gradient(180deg, #fff, #e8e8e8);
+}
+.chalk--pink {
+  background: linear-gradient(180deg, #ffb7d7, #f08bbd);
+  transform: rotate(6deg);
+}
+.chalk--yellow {
+  background: linear-gradient(180deg, #ffe28a, #f7c84c);
+  transform: rotate(-3deg);
+}
 
 .eraser {
   margin-left: auto;
@@ -934,8 +968,8 @@ All colors MUST be HSL.
   background: linear-gradient(180deg, #a78b6a, #7b5a3e);
   position: relative;
   box-shadow:
-    0 2px 0 rgba(0,0,0,.15),
-    0 0 0 1px rgba(0,0,0,.12) inset;
+    0 2px 0 rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.12) inset;
 }
 .eraser::before {
   content: "";
@@ -943,13 +977,25 @@ All colors MUST be HSL.
   inset: 3px 4px 7px 4px;
   border-radius: 6px;
   background: linear-gradient(180deg, #d7c4ad, #b89e82);
-  opacity: .9;
+  opacity: 0.9;
 }
 
 @media (max-width: 420px) {
-  .login-board { --board-frame: 14px; }
-  .chalk { width: 30px; height: 9px; }
-  .eraser { width: 60px; height: 16px; }
-  .t-with { transform: translateX(22px); }
-  .t-dilara { transform: translateX(58px); }
+  .login-board {
+    --board-frame: 14px;
+  }
+  .chalk {
+    width: 30px;
+    height: 9px;
+  }
+  .eraser {
+    width: 60px;
+    height: 16px;
+  }
+  .t-with {
+    transform: translateX(22px);
+  }
+  .t-dilara {
+    transform: translateX(58px);
+  }
 }
