@@ -11,6 +11,8 @@ import { AdminDashboard } from "@/components/AdminDashboard";
 import LandingPage from "./pages/LandingPage";
 import WorkWithUsPage from "./pages/WorkWithUsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import BlogPage from "./pages/BlogPage";
+import BlogPostPage from "./pages/BlogPostPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +66,10 @@ const App = () => (
           
           {/* Privacy Policy - Public */}
           <Route path="/gizlilik-politikasi" element={<PrivacyPolicyPage />} />
+          
+          {/* Blog - Public */}
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
           
           {/* Login Page - Public */}
           <Route path="/login" element={<AuthForm />} />
