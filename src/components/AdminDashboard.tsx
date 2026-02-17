@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Image, UserPlus, Archive, RotateCcw, FileUser } from "lucide-react";
+import { Users, LogOut, FolderOpen, ChevronDown, ChevronRight, Settings, Clock, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Image, UserPlus, Archive, RotateCcw, FileUser, PenSquare } from "lucide-react";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { AdminNotificationBell } from "./AdminNotificationBell";
@@ -22,6 +22,7 @@ import { EditResourceDialog } from "./EditResourceDialog";
 import { AdminWeeklySchedule } from "./AdminWeeklySchedule";
 import { AdminBalanceManager } from "./AdminBalanceManager";
 import { StudentAboutDialog } from "./StudentAboutDialog";
+import { AdminBlogManager } from "./AdminBlogManager";
 
 interface Teacher {
   user_id: string;
@@ -94,6 +95,7 @@ export function AdminDashboard() {
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [activeTab, setActiveTab] = useState<"students" | "schedule" | "payments">("students");
   const [showStudentAbout, setShowStudentAbout] = useState(false);
+  const [showBlogManager, setShowBlogManager] = useState(false);
   const [studentAboutData, setStudentAboutData] = useState<{ studentId: string; studentName: string; aboutText: string | null } | null>(null);
   const { profile, signOut, signingOut } = useAuth();
   const { toast } = useToast();
@@ -574,6 +576,10 @@ export function AdminDashboard() {
         rightActions={
           <>
             <AdminNotificationBell adminId={profile?.user_id || ''} />
+            <Button onClick={() => setShowBlogManager(true)} variant="outline" size="sm">
+              <PenSquare className="h-4 w-4" />
+              <span className="hidden sm:inline ml-2">Blog</span>
+            </Button>
             <Button onClick={() => setShowGlobalTopics(true)} variant="outline" size="sm">
               <FolderOpen className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Konular</span>
@@ -1115,6 +1121,8 @@ export function AdminDashboard() {
           }}
         />
       )}
+
+      <AdminBlogManager open={showBlogManager} onOpenChange={setShowBlogManager} />
     </div>
   );
 }

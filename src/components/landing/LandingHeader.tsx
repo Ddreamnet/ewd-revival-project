@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Globe, LogIn, BookOpen, MessageCircle } from 'lucide-react';
+import { Globe, LogIn, BookOpen, MessageCircle, FileText } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   DropdownMenu,
@@ -46,7 +46,7 @@ export function LandingHeader() {
   }, []);
 
   useEffect(() => {
-    const sections = ['hero', 'why', 'kids-packages', 'adult-packages', 'faq', 'contact'];
+    const sections = ['hero', 'why', 'kids-packages', 'adult-packages', 'faq', 'blog', 'contact'];
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -78,6 +78,7 @@ export function LandingHeader() {
 
   const isLessonsActive = ['kids-packages', 'adult-packages'].includes(activeSection);
   const isContactActive = activeSection === 'contact';
+  const isBlogActive = activeSection === 'blog';
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible">
@@ -148,6 +149,29 @@ export function LandingHeader() {
               }>
 
               {t.header.contact[language]}
+            </button>
+
+            {/* Blog Button - Mobile: Icon only, Desktop: Text */}
+            <button
+              onClick={() => navigate('/blog')}
+              className={`md:hidden rounded-full p-2.5 transition-all duration-300 ${
+              isBlogActive ?
+              'bg-landing-purple/20 text-landing-purple-dark shadow-[0_0_12px_rgba(147,112,219,0.4)]' :
+              'bg-landing-purple/10 text-landing-purple-dark hover:bg-landing-purple/20 hover:scale-110 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]'}`
+              }
+              aria-label="Blog">
+
+              <FileText className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => navigate('/blog')}
+              className={`hidden md:block px-6 py-2.5 rounded-full text-base font-medium transition-all duration-300 ${
+              isBlogActive ?
+              'bg-landing-pink/90 text-foreground shadow-md' :
+              'bg-landing-pink/70 text-foreground hover:bg-landing-pink/80'}`
+              }>
+
+              Blog
             </button>
           </nav>
 

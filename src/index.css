@@ -65,6 +65,34 @@
   text-decoration: underline;
 }
 
+.ProseMirror blockquote {
+  border-left: 3px solid hsl(280 50% 75%);
+  padding-left: 1rem;
+  margin: 0.5em 0;
+  color: hsl(240 10% 40%);
+  font-style: italic;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1em 0;
+}
+
+.ProseMirror .ProseMirror-placeholder::before {
+  content: attr(data-placeholder);
+  color: hsl(240 10% 60%);
+  pointer-events: none;
+  position: absolute;
+}
+
+.ProseMirror iframe {
+  max-width: 100%;
+  border-radius: 0.5rem;
+  margin: 1em 0;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
