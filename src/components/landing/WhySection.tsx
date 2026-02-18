@@ -1,5 +1,5 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Star, Sparkles, Monitor } from 'lucide-react';
+import { Sparkles, Monitor } from 'lucide-react';
 export function WhySection() {
   const {
     language,
@@ -9,12 +9,12 @@ export function WhySection() {
   return <section id="why" className="scroll-section py-16 md:py-24 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Two column layout on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-16 items-center">
           
           {/* Left Column - Title (45%) */}
           <div className="lg:col-span-5 text-center lg:text-right relative">
             {/* Decorative sparkle near title */}
-            <Star className="why-sparkle-blink absolute -top-2 md:-top-3 left-0 md:left-auto md:right-[calc(100%-2rem)] lg:right-auto lg:-left-4 w-5 h-5 md:w-6 md:h-6 text-landing-yellow opacity-60" fill="currentColor" />
+            
             
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight">
               <span className="text-foreground">{t.why.title[language]}</span>
