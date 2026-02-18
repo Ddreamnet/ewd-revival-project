@@ -21,7 +21,7 @@ export default function BlogPage() {
       <header className="py-6 px-4">
         <div className="max-w-6xl mx-auto flex items-center gap-4">
           <Link to="/">
-            <img src="/uploads/logo.webp" alt="English with Dilara" className="h-16 sm:h-20 w-auto" />
+            <img src="/uploads/logo.webp" alt="English with Dilara" className="h-20 sm:h-28 md:h-40 w-auto" />
           </Link>
           <div className="flex-1" />
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
