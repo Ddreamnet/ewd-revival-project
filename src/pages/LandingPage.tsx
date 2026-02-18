@@ -7,6 +7,7 @@ import { KidsPackages } from '@/components/landing/KidsPackages';
 import { AdultPackages } from '@/components/landing/AdultPackages';
 import { FAQSection } from '@/components/landing/FAQSection';
 import { BlogSection } from '@/components/landing/BlogSection';
+import { ValuesSection } from '@/components/landing/ValuesSection';
 import { ContactSection } from '@/components/landing/ContactSection';
 import { Footer } from '@/components/landing/Footer';
 import { StickyBubble } from '@/components/landing/StickyBubble';
@@ -39,6 +40,7 @@ function LandingContent() {
         <AdultPackages />
         <FAQSection />
         <BlogSection />
+        <ValuesSection />
         <ContactSection />
       </main>
       <Footer />
