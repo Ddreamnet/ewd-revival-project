@@ -5,6 +5,7 @@ import img2 from "@/assets/values-2.jpg";
 import img3 from "@/assets/values-3.jpg";
 import img4 from "@/assets/values-4.jpg";
 import img5 from "@/assets/values-5.jpg";
+import signatureImg from "@/assets/ataturk-signature.png";
 
 const CARDS = [
   {
@@ -226,13 +227,18 @@ export function ValuesSection() {
                           "
                         </span>
                         <p className="text-foreground/80 text-sm leading-relaxed -mt-2 italic font-medium">
-                          {card.quote}
+                          {card.quote}"
                         </p>
                         {/* Signature area */}
-                        <div className="mt-4 flex justify-end items-center gap-2">
-                          <span className="text-xs font-semibold tracking-widest text-landing-purple-dark/60 uppercase">
-                            Atatürk
-                          </span>
+                        <div className="mt-4 flex justify-end items-center">
+                          <img
+                            src={signatureImg}
+                            alt="Mustafa Kemal Atatürk imzası"
+                            loading="lazy"
+                            width={160}
+                            height={52}
+                            className="h-10 w-auto object-contain opacity-75"
+                          />
                         </div>
                       </div>
                     </div>
