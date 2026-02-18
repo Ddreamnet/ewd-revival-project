@@ -18,12 +18,19 @@ export default function BlogPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="py-6 px-4">
-        <div className="max-w-6xl mx-auto flex items-center gap-4">
+      <header className="relative py-6 px-4" style={{ minHeight: '80px' }}>
+        {/* Logo - Ana sayfayla aynı absolute konumda */}
+        <div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-10">
           <Link to="/">
-            <img src="/uploads/logo.webp" alt="English with Dilara" className="h-20 sm:h-28 md:h-40 w-auto" />
+            <img
+              src="/uploads/logo.webp"
+              alt="English with Dilara"
+              className="h-20 sm:h-28 md:h-40 w-auto hover:scale-105 transition-transform duration-100 ease-out"
+            />
           </Link>
-          <div className="flex-1" />
+        </div>
+        {/* Geri butonu - sağ taraf */}
+        <div className="flex justify-end items-center h-20 md:h-24 mt-[16px]">
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
             <ArrowLeft className="h-4 w-4" /> Ana Sayfa
           </Link>
