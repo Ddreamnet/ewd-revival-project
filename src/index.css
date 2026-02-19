@@ -212,16 +212,29 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  /* Pinkgingham arka plan sadece html'de — body'de tekrar tanımlanırsa
-     scrollbar genişliği (8px) yüzünden tile hizalaması bozulur */
+  /* Pinkgingham arka plan: html::before ile position:fixed pseudo-element
+     background-attachment: fixed yerine bu yöntem kullanılır çünkü
+     fixed attachment scrollbar genişliği (8-17px) ile birleşince
+     sağ kenarda dikey "dikiş" çizgisi oluşturur.
+     position:fixed + 100vw/100vh arka planı scrollbar'dan bağımsız kılar. */
   html {
     min-height: 100%;
     margin: 0;
-    background: url("/uploads/pinkgingham.png") repeat;
-    background-attachment: fixed;
-    background-size: auto;
     scroll-behavior: smooth;
     overflow-x: hidden;
+  }
+
+  html::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: url("/uploads/pinkgingham.png") repeat;
+    background-size: auto;
+    z-index: -1;
+    pointer-events: none;
   }
 
   body {
