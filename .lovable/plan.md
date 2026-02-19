@@ -1,49 +1,42 @@
 
-# Pinkgingham Dikey Çizgi — Gerçek Kök Neden ve Düzeltme
+# Pinkgingham Arka Plan — Gerçek Kök Neden Tespit Edildi
 
-## Neden Önceki Düzeltme Çalışmadı
+## Sorun: `100vw` Scrollbar Genişliğini Dahil Ediyor
 
-Önceki çözüm `body`den arka planı kaldırıp yalnızca `html`'de bıraktı. Ancak sorunun kökü bu değil.
-
-**Asıl sorun: `background-attachment: fixed` + scrollbar genişliği kombinasyonu**
-
-Tarayıcı bir sayfa scroll edildiğinde, scrollbar `viewport`dan 8-17px alan alır. `background-attachment: fixed` olan bir arka plan ise tam viewport genişliğini kullanmaya devam eder. Bu durumda:
-
-- `html` elementi: `background-attachment: fixed` → arka plan viewport'a göre sabitlenir (örn. 1920px)
-- `body` içerik alanı: scrollbar yüzünden 1903px (1920 - 17px)
-- `pinkgingham.png`'nin tile başlangıcı viewport'un sol kenarından başlar
-- Sağ kenarda içerik ile tile sınırı hizalanmaz → dikey "dikiş" görünür
-
-Ekran görüntüsünde görülen tam da bu: sağ tarafta tam dikey bir çizgi, görselin kenarıyla viewport kenarı arasındaki boşluk.
-
-## Çözüm: `background-attachment: fixed` Tamamen Kaldırılacak
-
-`background-attachment: fixed` kaldırılıp yerine standart `scroll` davranışı (veya hiç belirtilmemesi) kullanılacak. Bu durumda:
-- Arka plan içerik genişliğiyle birlikte tile edilir
-- Scrollbar genişliği fark yaratmaz çünkü tile, viewport'a değil içerik kutusuna göre hesaplanır
-- Desen her zaman simetrik ve hizalı görünür
-
-### Tek Dezavantaj ve Çözümü
-`background-attachment: fixed` kaldırılınca sayfa kaydırıldığında arka plan da kayar (parallax efekti gider). Bu, gingham desen için görsel olarak çok küçük bir fark — kullanıcı zaten "kareler hizalı görünsün" istiyor.
-
-Eğer parallax efekti korunmak istenirse, **alternatif yaklaşım:** arka planı `position: fixed` olan bir pseudo-element (`html::before`) ile tam viewport boyutunda çizmek. Bu yöntemde scrollbar hiç dahil olmaz çünkü element viewport'a göre pozisyonlanır.
-
-## Seçilen Yaklaşım: `html::before` ile Fixed Pseudo-element
-
-Bu yöntem hem parallax benzeri "sabit arka plan" efektini korur hem de scrollbar problemi tamamen ortadan kalkar:
+Şu anda uygulanan `html::before` yaklaşımında:
 
 ```css
-html {
-  /* arka plan html'den kaldırılır */
+html::before {
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  ...
 }
+```
 
+`100vw` değeri **scrollbar genişliğini her zaman içerir** (scrollbar görünür olsun ya da olmasın, `100vw = layout viewport genişliği`). Ama `html` elementinde `overflow-x: hidden` var. Bu kombinasyon şunu yaratır:
+
+- `html::before` scrollbar genişliği kadar (8-17px) dışarı taşar
+- `overflow-x: hidden` bu taşmayı kırpar
+- Gingham deseni tam sayfa genişliğini kaplamamış olur
+- Sağ kenarda tile'ın başladığı yerde dikey çizgi görünür
+
+Aynı zamanda ekran görüntülerinde net görülen çizgi, **pinkgingham.png'nin kendi doğal genişliğinin tile tekrar noktası ile viewport kenar farkından** kaynaklanıyor.
+
+## Çözüm: `width: 100%` + `right: 0` Kullan, `overflow-x: hidden`'ı Kaldır
+
+İki adımlı düzeltme:
+
+### Adım 1: `html::before` için `width: 100vw` yerine `right: 0` kullan
+
+```css
 html::before {
   content: '';
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  right: 0;      /* width: 100vw yerine right: 0 */
+  bottom: 0;     /* height: 100vh yerine bottom: 0 */
   background: url("/uploads/pinkgingham.png") repeat;
   background-size: auto;
   z-index: -1;
@@ -51,51 +44,28 @@ html::before {
 }
 ```
 
-`position: fixed` + `width: 100vw` + `height: 100vh` → arka plan her zaman tam ekranı kaplar, içerik genişliğinden veya scrollbar'dan etkilenmez. `z-index: -1` ile tüm içeriğin arkasında kalır.
+`right: 0` + `left: 0` kombinasyonu `width: 100vw`'den farklı davranır: element **containing block'a** göre genişler, scrollbar dahil `100vw` hesaplaması yapılmaz. `position: fixed` olduğunda containing block viewport kendisi olur ve scrollbar alanını **doğal olarak** dışarıda bırakır.
 
-## Etkilenen Dosya
+### Adım 2: `html`'den `overflow-x: hidden` kaldır, `body`'de bırak
 
-**`src/index.css`** — `html` bloğundan `background` ve `background-attachment` satırları kaldırılır, `html::before` pseudo-element eklenir.
+`overflow-x: hidden` sadece `body`'de kalacak. `html`'deki `overflow-x: hidden` `::before` pseudo-elementini etkileyip kırpıyordu.
 
-### Mevcut (Hatalı):
-```css
-html {
-  min-height: 100%;
-  margin: 0;
-  background: url("/uploads/pinkgingham.png") repeat;
-  background-attachment: fixed;
-  background-size: auto;
-  scroll-behavior: smooth;
-  overflow-x: hidden;
-}
-```
-
-### Sonrası (Doğru):
 ```css
 html {
   min-height: 100%;
   margin: 0;
   scroll-behavior: smooth;
-  overflow-x: hidden;
-}
-
-html::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: url("/uploads/pinkgingham.png") repeat;
-  background-size: auto;
-  z-index: -1;
-  pointer-events: none;
+  /* overflow-x: hidden kaldırıldı */
 }
 ```
 
-Bu tek değişiklikle:
-- Scrollbar genişliği arka plan tile'ını hiç etkilemez
-- Arka plan sayfa kaydırılınca da sabit kalır (parallax efekti korunur)
-- Dikiş/çizgi tamamen ortadan kalkar
+`body`'de zaten `overflow-x: hidden` var, bu yatay taşmayı engellemeye devam eder.
 
-Etkilenen dosya: 1 — `src/index.css`, ~6 satır değişiklik.
+## Özet
+
+| Değişiklik | Neden |
+|---|---|
+| `width: 100vw; height: 100vh` → `right: 0; bottom: 0` | `100vw` scrollbar genişliğini içerip taşmaya neden oluyordu |
+| `html`'den `overflow-x: hidden` kaldır | `overflow-x: hidden` `::before`'u kırpıp tile sınırı oluşturuyordu |
+
+Etkilenen dosya: 1 — `src/index.css`, ~5 satır değişiklik.
