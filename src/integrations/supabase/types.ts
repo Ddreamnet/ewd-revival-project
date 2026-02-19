@@ -289,6 +289,8 @@ export type Database = {
           homework_id: string
           id: string
           is_read: boolean
+          push_processing_at: string | null
+          push_sent_at: string | null
           recipient_id: string
           student_id: string
           teacher_id: string
@@ -298,6 +300,8 @@ export type Database = {
           homework_id: string
           id?: string
           is_read?: boolean
+          push_processing_at?: string | null
+          push_sent_at?: string | null
           recipient_id: string
           student_id: string
           teacher_id: string
@@ -307,6 +311,8 @@ export type Database = {
           homework_id?: string
           id?: string
           is_read?: boolean
+          push_processing_at?: string | null
+          push_sent_at?: string | null
           recipient_id?: string
           student_id?: string
           teacher_id?: string
