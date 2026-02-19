@@ -188,26 +188,8 @@ export function EditStudentDialog({
     // Set the changed lesson's date
     newDates[fromLessonNumber.toString()] = startDate;
     
-    // Recalculate PREVIOUS lessons (going backwards)
+    // Recalculate FUTURE lessons only (going forwards) — previous lessons are never touched
     let currentDate = parse(startDate, "yyyy-MM-dd", new Date());
-    currentDate.setHours(0, 0, 0, 0);
-    
-    for (let i = fromLessonNumber - 1; i >= 1; i--) {
-      // Find the previous lesson day (going backwards)
-      let daysToSubtract = 1;
-      let prevDate = addDays(currentDate, -daysToSubtract);
-      
-      while (!lessonDays.includes(prevDate.getDay())) {
-        daysToSubtract++;
-        prevDate = addDays(currentDate, -daysToSubtract);
-      }
-      
-      currentDate = prevDate;
-      newDates[i.toString()] = format(currentDate, "yyyy-MM-dd");
-    }
-    
-    // Recalculate FUTURE lessons (going forwards)
-    currentDate = parse(startDate, "yyyy-MM-dd", new Date());
     currentDate.setHours(0, 0, 0, 0);
     
     for (let i = fromLessonNumber + 1; i <= totalLessons; i++) {
@@ -933,7 +915,7 @@ export function EditStudentDialog({
                       </Label>
                       <Input
                         type="date"
-                        value={lesson.effectiveDate || lessonDates[lesson.lessonNumber.toString()] || ""}
+                        value={lessonDates[lesson.lessonNumber.toString()] || ""}
                         onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
                         className={`w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
                         disabled={lesson.isCancelled}
