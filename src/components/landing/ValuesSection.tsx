@@ -29,13 +29,12 @@ const CARDS = [
   {
     id: 4,
     image: img4,
-    quote: "Bu günün küçükleri yarının büyükleridir.",
+    quote: "Bugünün küçükleri yarının büyükleridir.",
   },
   {
     id: 5,
     image: img5,
-    quote:
-      "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
+    quote: "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
   },
 ];
 
@@ -60,7 +59,7 @@ export function ValuesSection() {
       setActiveIndex((prev) => mod(prev + dir, TOTAL));
       setTimeout(() => setAnimating(false), 400);
     },
-    [animating]
+    [animating],
   );
 
   // Pointer drag for swipe
@@ -141,9 +140,7 @@ export function ValuesSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">
-            Değerlerimiz
-          </h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">Değerlerimiz</h2>
           <p className="text-muted-foreground mt-3 max-w-lg mx-auto text-sm md:text-base">
             Eğitime ve geleceğe duyduğumuz inancın temelleri
           </p>
@@ -160,18 +157,15 @@ export function ValuesSection() {
             onPointerCancel={() => setDragging(false)}
           >
             {CARDS.map((card, cardIndex) => {
-              const { translateX, scale, opacity, zIndex, blur, isCenter } =
-                getCardProps(cardIndex);
+              const { translateX, scale, opacity, zIndex, blur, isCenter } = getCardProps(cardIndex);
 
               return (
                 <div
                   key={card.id}
                   onClick={() => {
                     if (!isCenter && !animating) {
-                      const offset = mod(
-                        cardIndex - activeIndex + Math.floor(TOTAL / 2),
-                        TOTAL
-                      ) - Math.floor(TOTAL / 2);
+                      const offset =
+                        mod(cardIndex - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
                       if (offset !== 0) go(offset > 0 ? 1 : -1);
                     }
                   }}
@@ -201,10 +195,7 @@ export function ValuesSection() {
                     {/* Inner dashed border (dikiş hissi) */}
                     <div className="m-[5px] rounded-[18px] border border-dashed border-landing-purple/30 overflow-hidden">
                       {/* Image area */}
-                      <div
-                        className="w-full overflow-hidden bg-muted"
-                        style={{ aspectRatio: "4/3" }}
-                      >
+                      <div className="w-full overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
                         <img
                           src={card.image}
                           alt={`Değer ${card.id}`}
@@ -281,9 +272,7 @@ export function ValuesSection() {
               }}
               aria-label={`Kart ${i + 1}`}
               className={`transition-all duration-300 rounded-full h-2 ${
-                i === activeIndex
-                  ? "w-6 bg-landing-purple-dark"
-                  : "w-2 bg-landing-purple/35"
+                i === activeIndex ? "w-6 bg-landing-purple-dark" : "w-2 bg-landing-purple/35"
               }`}
             />
           ))}
