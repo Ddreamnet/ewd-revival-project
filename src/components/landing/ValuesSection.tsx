@@ -6,35 +6,48 @@ import img3 from "@/assets/values-3.jpg";
 import img4 from "@/assets/values-4.jpg";
 import img5 from "@/assets/values-5.jpg";
 import signatureImg from "@/assets/ataturk-signature.png";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const CARDS = [
   {
     id: 1,
     image: img1,
-    quote:
-      "Eğitimdir ki bir milleti ya hür, bağımsız, şanlı, yüksek bir topluluk halinde yaşatır; ya da esaret ve sefalete terk eder.",
+    quote: {
+      tr: "Eğitimdir ki bir milleti ya hür, bağımsız, şanlı, yüksek bir topluluk halinde yaşatır; ya da esaret ve sefalete terk eder.",
+      en: "It is education that either enables a nation to live as a free, independent, honoured and elevated community, or abandons it to bondage and misery.",
+    },
   },
   {
     id: 2,
     image: img2,
-    quote:
-      "Küçük hanımlar, küçük beyler! Sizler hepiniz geleceğin bir gülü, yıldızı ve ikbal ışığısınız. Memleketi asıl ışığa boğacak olan sizsiniz. Kendinizin ne kadar önemli, değerli olduğunuzu düşünerek ona göre çalışınız. Sizlerden çok şey bekliyoruz.",
+    quote: {
+      tr: "Küçük hanımlar, küçük beyler! Sizler hepiniz geleceğin bir gülü, yıldızı ve ikbal ışığısınız. Memleketi asıl ışığa boğacak olan sizsiniz. Kendinizin ne kadar önemli, değerli olduğunuzu düşünerek ona göre çalışınız. Sizlerden çok şey bekliyoruz.",
+      en: "Little ladies, little gentlemen! You are all the roses, the stars, and the bright promise of the future. It is you who will bathe our country in true light. Be mindful of how important and valuable you are, and work accordingly. We expect great things from you.",
+    },
   },
   {
     id: 3,
     image: img3,
-    quote:
-      "Çocuklar geleceğimizin güvencesi, yaşama sevincimizdir. Bugünün çocuğunu, yarının büyüğü olarak yetiştirmek hepimizin insanlık görevidir.",
+    quote: {
+      tr: "Çocuklar geleceğimizin güvencesi, yaşama sevincimizdir. Bugünün çocuğunu, yarının büyüğü olarak yetiştirmek hepimizin insanlık görevidir.",
+      en: "Children are the guarantee of our future and the joy of our lives. To raise today's child as tomorrow's adult is a duty of humanity that belongs to us all.",
+    },
   },
   {
     id: 4,
     image: img4,
-    quote: "Bugünün küçükleri yarının büyükleridir.",
+    quote: {
+      tr: "Bugünün küçükleri yarının büyükleridir.",
+      en: "Today's little ones are tomorrow's great ones.",
+    },
   },
   {
     id: 5,
     image: img5,
-    quote: "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
+    quote: {
+      tr: "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
+      en: "Teachers, the Republic asks of you generations who are free in thought, free in conscience, and free in learning.",
+    },
   },
 ];
 
@@ -45,6 +58,7 @@ function mod(n: number, m: number) {
 }
 
 export function ValuesSection() {
+  const { language, t } = useTranslation();
   // activeIndex = index of the card displayed in the CENTER
   const [activeIndex, setActiveIndex] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -140,9 +154,13 @@ export function ValuesSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">Değerlerimiz</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">
+            {language === "tr" ? "Değerlerimiz" : "Our Values"}
+          </h2>
           <p className="text-muted-foreground mt-3 max-w-lg mx-auto text-sm md:text-base">
-            Eğitime ve geleceğe duyduğumuz inancın temelleri
+            {language === "tr"
+              ? "Eğitime ve geleceğe duyduğumuz inancın temelleri"
+              : "The foundations of our belief in education and the future"}
           </p>
         </div>
 
@@ -217,8 +235,8 @@ export function ValuesSection() {
                         >
                           "
                         </span>
-                        <p className="text-foreground/80 text-sm leading-relaxed -mt-2 italic font-medium">
-                          {card.quote}"
+                         <p className="text-foreground/80 text-sm leading-relaxed -mt-2 italic font-medium">
+                           {card.quote[language]}"
                         </p>
                         {/* Signature area */}
                         <div className="mt-4 flex justify-end items-center">
