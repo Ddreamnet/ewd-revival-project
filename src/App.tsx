@@ -56,12 +56,12 @@ function DashboardRoutes() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        {/* AuthProvider wraps the whole app so session is a true singleton */}
-        <AuthProvider>
+    {/* AuthProvider wraps the entire app — singleton session, available everywhere */}
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
           <Routes>
             {/* Landing Page - Public */}
             <Route path="/" element={<LandingPage />} />
@@ -85,9 +85,9 @@ const App = () => (
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
