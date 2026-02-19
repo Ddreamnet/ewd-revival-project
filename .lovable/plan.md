@@ -1,61 +1,77 @@
 
-# Ders Tarihi Düzenleme — İki Kritik Bug Düzeltmesi
+# Pinkgingham Arka Plan — Sağdaki Dikey Çizgi Sorunu
 
-## Sorun 1: "Kalan Günleri Güncelle" Geriye Dönük Değişiklik Yapıyor
+## Sorunun Kökü
 
-### Mevcut Hatalı Davranış
-`recalculateRemainingDates` fonksiyonu (satır 183-228), değiştirilen dersin numarasından hem **öncesine** hem **sonrasına** doğru tüm tarihleri yeniden hesaplıyor. Bu nedenle admin, örneğin 5. dersin tarihini değiştirip "Kalan günleri güncelle" seçeneğini işaretlediğinde, 1-4. derslerin tarihleri de değişiyor.
+`html` ve `body` elementlerinde `background-attachment: fixed` kullanılıyor.
 
-### Düzeltme
-Sadece ileri yönlü (fromLessonNumber + 1 ve üzeri) hesaplama yapılacak. Önceki dersler (`i < fromLessonNumber`) hiçbir koşulda değiştirilmeyecek.
+Bu özellik şu davranışı tetikler:
+- Browser, scrollbar için viewport'un sağından **8px** alan ayırır
+- `body` içeriği bu 8px'lik alanı kaybeder, ancak `fixed` arka plan **tam viewport genişliğini** kullanmaya devam eder
+- Sonuç: `body`nin tile başlangıç noktası ile `html`nin tile başlangıç noktası hizalanmaz
+- Gingham deseninin tekrar (tile) noktasında sağ kenarda dikey bir "dikiş" görünür
 
-Kaldırılacak blok (satır 191-207):
-```
-// Recalculate PREVIOUS lessons (going backwards)
-let currentDate = parse(startDate, "yyyy-MM-dd", new Date());
-...
-for (let i = fromLessonNumber - 1; i >= 1; i--) {
-  ...
+Ek sorun: `html` ve `body` **ikisi birden** aynı `background` tanımını taşıyor. Bu da iki katmanlı arka planın üst üste binmesine yol açabilir — özellikle scrollbar alanının 8px'lik farkıyla desenin yanlış hizalanmasına neden olur.
+
+## Çözüm
+
+### Değişiklik 1: `body`den background kaldır
+
+Arka planı **sadece `html` elementinde** tanımla. `body`nin kendi background'u olmasın — zaten `html`den görünüyor.
+
+```css
+/* ÖNCE */
+html {
+  background: url("/uploads/pinkgingham.png") repeat;
+  background-attachment: fixed;
+}
+body {
+  background: url("/uploads/pinkgingham.png") repeat;
+  background-attachment: fixed;
+}
+
+/* SONRA */
+html {
+  background: url("/uploads/pinkgingham.png") repeat;
+  background-attachment: fixed;
+}
+body {
+  /* background yok — html'den miras alır, çift katman ortadan kalkar */
 }
 ```
 
-Yeni davranış: Değiştirilen ders tarihini yaz, sadece sonrasındaki dersleri öğrencinin haftalık program günlerine göre ileri hesapla.
+### Değişiklik 2: `background-size` ile tam hizalama
 
----
+`background-attachment: fixed` olduğunda, browser'ın tile boyutunu viewport'a göre hesaplaması gerekir. `background-size` ile görselin tam pixel boyutunu belirterek scrollbar genişliğinden kaynaklanan 1px'lik kaymaları ortadan kaldır.
 
-## Sorun 2: Tarih Girerken Beklenmedik Geçiş / Input Çakışması
+Pinkgingham görseli `public/uploads/pinkgingham.png` — boyutunu kontrol et ve CSS'te açıkça yaz:
 
-### Mevcut Hatalı Davranış
-Input'un `value` prop'u şöyle tanımlı (satır 936):
-```tsx
-value={lesson.effectiveDate || lessonDates[lesson.lessonNumber.toString()] || ""}
+```css
+html {
+  background: url("/uploads/pinkgingham.png") repeat;
+  background-attachment: fixed;
+  background-size: auto; /* ya da görselin gerçek px boyutu: "200px 200px" gibi */
+}
 ```
 
-Sorun şu: `effectiveDate`, `lessonDates` state'inden değil, override verisiyle hesaplanan anlık değerden geliyor. Kullanıcı input'a yazmaya başladığında `updateLessonDate` çağrısı `lessonDates`'i güncelliyor ama bir sonraki render'da `effectiveDate` yine override'dan yeniden hesaplanıyor. Bu iki değer arasında çakışma oluşuyor ve kullanıcı yarım tarih yazarken input beklenmedik değerlere atlıyor.
+### Değişiklik 3: `overflow-x: hidden` ile tutarlılık
 
-### Düzeltme
-Input'un `value` prop'u doğrudan `lessonDates[lesson.lessonNumber.toString()] || ""` olarak değiştirilecek — override görsel gösterimi için ayrı `Label` zaten mevcut. Bu sayede input her zaman state'i doğrudan gösterip güncelleyecek, override date'den bağımsız davranacak.
+`html`'de `overflow-x: hidden` zaten var. `body`'de de bulunduğundan emin ol — bu, scrollbar'ın yarattığı genişlik farkını minimize eder.
 
----
+## Etkilenen Dosya
 
-## Değiştirilecek Dosya
+**`src/index.css`** — satır 215-232 arası:
 
-**`src/components/EditStudentDialog.tsx`** — 2 noktada değişiklik:
+- `body { background: ... background-attachment: fixed; }` bloğu kaldırılır (ikinci `body` bloğu, satır 226-232)
+- `html` bloğunda `background-size: auto` açıkça eklenir
+- `body`'ye `background: transparent` eklenerek üst üste binme tamamen engellenir
 
-### Değişiklik 1: `recalculateRemainingDates` fonksiyonu (satır 183-228)
-- Geriye dönük hesaplama bloğu tamamen kaldırılır
-- Sadece ileri yönlü hesaplama bırakılır
+## Özet
 
-### Değişiklik 2: Ders tarih input'unun `value` prop'u (satır 936)
-- `lesson.effectiveDate || lessonDates[...]` yerine doğrudan `lessonDates[lesson.lessonNumber.toString()] || ""`
+| Adım | Değişiklik |
+|---|---|
+| `body` background kaldır | Çift katmanlı tile üst üste binmesi ortadan kalkar |
+| `background-size: auto` ekle | Tile hizalaması viewport genişliğinde tutarlı kalır |
+| `body { background: transparent }` | `html` arka planı temiz görünür, iki kaynak çakışmaz |
 
----
-
-## Özet Tablo
-
-| Sorun | Nerede | Düzeltme |
-|---|---|---|
-| Önceki derslerin tarihleri değişiyor | `recalculateRemainingDates` (183-228) | Geriye dönük döngü kaldırılır |
-| Tarih yazarken input atlıyor | Input `value` prop (936) | `effectiveDate` yerine `lessonDates[key]` |
-
-Etkilenen dosya sayısı: 1, toplam değişen satır: ~20
+Etkilenen dosya sayısı: 1 — `src/index.css`, ~5 satır değişiklik.
