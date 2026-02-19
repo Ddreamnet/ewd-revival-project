@@ -92,7 +92,7 @@ export function LandingHeader() {
           <img
             src="/uploads/logo.webp"
             alt="English with Dilara"
-            className="h-20 sm:h-28 md:h-40 w-auto hover:scale-105 transition-transform duration-100 ease-out cursor-pointer"
+            className="h-20 sm:h-28 md:h-32 lg:h-40 w-auto hover:scale-105 transition-transform duration-100 ease-out cursor-pointer"
             style={{ transform: `rotate(${logoRotation}deg)` }} />
 
         </button>

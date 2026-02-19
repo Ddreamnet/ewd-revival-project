@@ -120,7 +120,7 @@ const ContactBubble = ({ onClick }: { onClick: () => void }) => (
     <img
       src="/uploads/stickycontact.png"
       alt="Contact"
-      className="w-[clamp(170px,25vw,280px)] h-auto drop-shadow-xl"
+      className="w-[clamp(140px,22vw,240px)] h-auto drop-shadow-xl"
     />
   </button>
 );

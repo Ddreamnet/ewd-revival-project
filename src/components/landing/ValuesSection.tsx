@@ -64,7 +64,15 @@ export function ValuesSection() {
   const [dragging, setDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [animating, setAnimating] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Track mobile/tablet breakpoint
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize, { passive: true });
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const go = useCallback(
     (dir: 1 | -1) => {
@@ -126,13 +134,13 @@ export function ValuesSection() {
       zIndex = 20;
       blur = "blur(0px)";
     } else if (isAdjacent) {
-      translateX = offset > 0 ? "70%" : "-70%";
+      translateX = offset > 0 ? (isMobile ? "58%" : "70%") : (isMobile ? "-58%" : "-70%");
       scale = 0.84;
       opacity = 0.5;
       zIndex = 10;
       blur = "blur(1px)";
     } else if (isFar) {
-      translateX = offset > 0 ? "130%" : "-130%";
+      translateX = offset > 0 ? (isMobile ? "110%" : "130%") : (isMobile ? "-110%" : "-130%");
       scale = 0.7;
       opacity = 0.25;
       zIndex = 5;
@@ -165,7 +173,7 @@ export function ValuesSection() {
         </div>
 
         {/* Carousel stage */}
-        <div className="relative" style={{ height: "clamp(420px, 60vw, 640px)" }}>
+        <div className="relative" style={{ height: "clamp(380px, 90vw, 640px)" }}>
           {/* Cards */}
           <div
             ref={containerRef}
@@ -196,7 +204,7 @@ export function ValuesSection() {
                     transition: animating
                       ? "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease"
                       : "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease",
-                    width: "clamp(260px, 38vw, 420px)",
+                    width: "clamp(220px, 75vw, 420px)",
                     maxWidth: "420px",
                     cursor: isCenter ? "grab" : "pointer",
                   }}

@@ -33,7 +33,7 @@ export function Footer() {
           </div>
 
           {/* Center – Links */}
-          <div className="items-center gap-16 flex-row flex md:items-center justify-center self-center">
+          <div className="items-center gap-6 md:gap-16 flex-row flex md:items-center justify-center self-center">
             <Link
               to="/bizimle-calisin"
               className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
@@ -74,8 +74,8 @@ export function Footer() {
               </div>
             </TooltipProvider>
 
-            {/* Store buttons */}
-            <div className="flex-wrap items-center gap-2 flex flex-col">
+            {/* Store buttons – hidden until app is published */}
+            <div className="hidden flex-wrap items-center gap-2 flex-col">
               {/* Google Play */}
               <div className="flex flex-col items-center">
                 <button

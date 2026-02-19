@@ -465,6 +465,13 @@ All colors MUST be HSL.
   filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.14));
 }
 
+/* Tablet: kitabı biraz küçült, yan yana sığsın */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero-book {
+    width: min(280px, 50vw);
+  }
+}
+
 .hero-book__spine {
   position: absolute;
   left: -14px;
