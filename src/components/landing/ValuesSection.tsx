@@ -138,9 +138,9 @@ export function ValuesSection() {
 
   return (
     <section id="values" className="scroll-section py-16 md:py-24 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-12 md:mb-16">
+        <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">
             Değerlerimiz
           </h2>
