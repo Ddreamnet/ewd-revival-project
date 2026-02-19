@@ -221,7 +221,7 @@ All colors MUST be HSL.
     min-height: 100%;
     margin: 0;
     scroll-behavior: smooth;
-    overflow-x: hidden;
+    /* overflow-x: hidden kaldırıldı — html::before'u kırpıyordu */
   }
 
   html::before {
@@ -229,8 +229,8 @@ All colors MUST be HSL.
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
+    right: 0;      /* 100vw yerine — scrollbar genişliğini içermez */
+    bottom: 0;     /* 100vh yerine */
     background: url("/uploads/pinkgingham.png") repeat;
     background-size: auto;
     z-index: -1;
