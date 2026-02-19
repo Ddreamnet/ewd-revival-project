@@ -212,13 +212,14 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  /* Scrollbar arka planı için html ve body aynı background */
+  /* Pinkgingham arka plan sadece html'de — body'de tekrar tanımlanırsa
+     scrollbar genişliği (8px) yüzünden tile hizalaması bozulur */
   html {
     min-height: 100%;
     margin: 0;
     background: url("/uploads/pinkgingham.png") repeat;
     background-attachment: fixed;
-    background-color: transparent;
+    background-size: auto;
     scroll-behavior: smooth;
     overflow-x: hidden;
   }
@@ -226,9 +227,8 @@ All colors MUST be HSL.
   body {
     min-height: 100%;
     margin: 0;
-    background: url("/uploads/pinkgingham.png") repeat;
-    background-attachment: fixed;
-    background-color: transparent;
+    background: transparent;
+    overflow-x: hidden;
   }
 
   body {
