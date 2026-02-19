@@ -111,7 +111,7 @@ export function ContactSection() {
           </div>
 
           {/* Center - Form */}
-          <div className="w-full max-w-[340px] mx-auto lg:mx-0">
+          <div className="w-full max-w-[min(340px,calc(100%-2rem))] mx-auto lg:mx-0">
             {/* Dış Pembe Çerçeve */}
             <div className="bg-pink-300/80 rounded-[20px] p-3 shadow-lg">
               {/* İç Panel - Lila/Beyaz */}
