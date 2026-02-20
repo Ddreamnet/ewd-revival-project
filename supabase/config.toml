@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.lesson-reminder-cron]
 verify_jwt = false
+
+[functions.notifications-push]
+verify_jwt = false
