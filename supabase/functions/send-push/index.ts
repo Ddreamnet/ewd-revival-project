@@ -78,6 +78,8 @@ Deno.serve(async (req) => {
       }
 
       for (const tokenRow of tokens) {
+        console.log(`[SEND-PUSH] FCM payload: title=${recipient.title}, channel_id=${recipient.channel_id || 'default'}, token=${tokenRow.token.substring(0, 10)}...`);
+
         const fcmPayload = {
           message: {
             token: tokenRow.token,
@@ -89,7 +91,7 @@ Deno.serve(async (req) => {
               priority: "HIGH" as const,
               notification: {
                 ...(recipient.channel_id
-                  ? { channel_id: recipient.channel_id }
+                  ? { channel_id: recipient.channel_id, sound: recipient.channel_id }
                   : { default_sound: true }),
                 default_vibrate_timings: true,
               },
