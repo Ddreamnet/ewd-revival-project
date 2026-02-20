@@ -1,81 +1,74 @@
 
 
-# Oturum Dusme Sorunu — Duzeltme Plani
+# Oturum Dusme Sorunu — Gercek Kok Neden ve Cozum
 
-## Tespit Edilen Sorun
+## Debug Checklist Sonuclari
 
-Kod mimarisi (tek client, initializing guard, appStateChange) dogru kurulmus. Ancak Supabase JS v2'de bilinen bir sorun var:
+| Kontrol | Sonuc |
+|---|---|
+| Tek Supabase client | TAMAM — tek `createClient` (`src/integrations/supabase/client.ts`) |
+| Storage adapter native mi | TAMAM — `capacitorStorage` (Preferences) aktif, config dogru |
+| INITIAL_SESSION race condition | TAMAM — onceki fix uygulanmis, `getSession()` authoritative |
+| Kazara signOut/clear var mi | TAMAM — sadece kullanici logout'unda cagiriliyor |
+| AppState auto refresh | TAMAM — `startAutoRefresh`/`stopAutoRefresh` dogru |
 
-**Custom async storage (Capacitor Preferences) kullanildiginda, `onAuthStateChange` listener'i `INITIAL_SESSION` event'ini session henuz async storage'dan okunmadan once `null` ile fire edebilir.** Bu durumda:
+**Tum auth altyapisi dogru calisiyor. Session persist ediliyor. Bug auth'da degil.**
 
-1. App aciliyor, `onAuthStateChange` subscribe ediliyor
-2. Supabase JS dahili olarak `INITIAL_SESSION` event'ini fire ediyor — AMA Preferences.get() henuz tamamlanmadi, session `null` geliyor
-3. `initDoneRef.current = true` set ediliyor, `initializing = false` oluyor
-4. `user = null` oldugu icin `AuthForm` (login) gosteriliyor
-5. Ardindan `getSession()` gercek session'i donduruyor ama `initDoneRef.current` zaten `true` oldugu icin bu sonuc ignore ediliyor
+## Gercek Sorun: Routing
+
+```text
+Route "/"        -->  LandingPage (public pazarlama sayfasi)
+Route "/login"   -->  AuthForm
+Route "/dashboard" --> DashboardRoutes (session kontrol + role-based dashboard)
+```
+
+Android uygulamasi her acilista `/` adresini yukler. Bu adres `LandingPage` gosteriyor — login/session kontrolu yapmiyor. Kullanici oturum acik olsa bile landing page'i goruyor ve "cikis yapilmis" saniyor.
+
+**Sorun: Session kaybolmuyor, sadece kullaniciya dashboard gosterilmiyor.**
 
 ## Cozum
 
-`onAuthStateChange`'den gelen ilk `INITIAL_SESSION` event'ine HEMEN guvenmek yerine, `getSession()` sonucunu birincil kaynak olarak kullanmak ve race condition'i ortadan kaldirmak.
+### Degisiklik 1: `LandingPage.tsx` — otomatik redirect
 
-### Degisiklik: `src/contexts/AuthContext.tsx`
+LandingPage component'ine session kontrolu eklenir. Eger kullanici login durumundaysa otomatik olarak `/dashboard`'a yonlendirilir:
 
-**Mevcut akis:**
-```
-onAuthStateChange (ilk event) -> initDone = true, initializing = false
-getSession() -> initDone zaten true, sonuc ignore edilir
-```
+```typescript
+const { user, initializing } = useAuthContext();
+const navigate = useNavigate();
 
-**Yeni akis:**
-```
-onAuthStateChange -> INITIAL_SESSION event'inde initDone'u set ETME, sadece session'i kaydet
-getSession() -> HER ZAMAN calis, initDone = true yap, initializing = false yap
-onAuthStateChange -> sonraki event'ler (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT) normal islensin
+useEffect(() => {
+  if (!initializing && user) {
+    navigate('/dashboard', { replace: true });
+  }
+}, [initializing, user, navigate]);
 ```
 
-Somut degisiklikler:
+Bu sayede:
+- Native app acilista `/` yukler -> session varsa aninda `/dashboard`'a gider
+- Session yoksa landing page normal gosterilir
+- Web'de de ayni davranis (login olan kullanici landing page'de takilmaz)
 
-1. `onAuthStateChange` callback'inde `event === 'INITIAL_SESSION'` ise `initDoneRef` set edilMEyecek — sadece session state guncellenecek ama `initializing` false yapilmayacak.
+### Degisiklik 2: Splash/loading gosterimi
 
-2. `getSession()` blogu `initDoneRef` kontrolu olmadan HER ZAMAN calisacak ve `initializing = false` yapacak. Bu, async storage'in tamamen okunmasini bekledikten sonra karari veriyor.
-
-3. Ek guvenlik: `getSession()` promise'ine bir timeout (5 saniye) eklenerek, storage tamamen bozulsa bile uygulamanin sonsuza kadar spinner'da kalmamasi saglanacak.
-
-4. Debug loglari eklenerek native platform'da Preferences'tan okunan token key'inin varligini dogrulama.
+`initializing` true iken landing page icerigi yerine kisa bir loading spinner gosterilir (native'de splash screen zaten bunu kapatiyor, ama web'de de tutarli olur).
 
 ## Degistirilecek Dosyalar
 
 | Dosya | Islem |
 |---|---|
-| `src/contexts/AuthContext.tsx` | INITIAL_SESSION race condition fix + timeout + debug log |
+| `src/pages/LandingPage.tsx` | Session kontrolu + auto redirect to /dashboard |
 
-## Teknik Detay
+## Neden Auth'da Degil
 
-```text
-BOOT AKISI (duzeltme sonrasi):
-
-1. AuthProvider mount
-2. initializing = true, loading = true
-3. onAuthStateChange subscribe
-4. INITIAL_SESSION event gelir:
-   - event === 'INITIAL_SESSION' -> session/user state guncelle
-   - AMA initDoneRef set ETME, initializing = true kalsin
-5. getSession() async tamamlanir (Preferences.get bitmis olur):
-   - Session varsa -> user/session set et, profile fetch et
-   - Session yoksa -> loading = false
-   - HER DURUMDA: initDoneRef = true, initializing = false
-6. Sonraki auth event'leri (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT) normal islensin
-
-TIMEOUT KORUMASI:
-- getSession() 5 saniye icinde donmezse -> initializing = false, loading = false
-- Kullanici login ekranini gorur (session gercekten yokmus gibi)
-```
+- `getSession()` dogru calisiyor (Preferences'tan token okunuyor)
+- `onAuthStateChange` event'leri dogru isleniyor
+- `DashboardRoutes` component'i zaten session varsa dashboard gosteriyor
+- Ama kullanici `/dashboard`'a hic ulasmiyor cunku app `/` aciliyor ve orada session kontrolu yok
 
 ## Test Senaryolari
 
-Duzeltme sonrasi asagidaki senaryolar test edilmeli:
-- Login -> swipe away -> tekrar ac: direkt dashboard
-- Login -> 2-3 dk bekle -> tekrar ac: direkt dashboard
-- Manuel logout -> login ekrani
-- Ilk kurulum (hic login yok) -> login ekrani
+Duzeltme sonrasi:
+- Login -> swipe away -> tekrar ac -> OTOMATIK dashboard (landing page degil)
+- Logout -> tekrar ac -> landing page gosterilir
+- Web'de login olan kullanici `/` adresine giderse -> otomatik `/dashboard`
 
