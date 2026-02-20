@@ -1,74 +1,88 @@
 
 
-# Oturum Dusme Sorunu — Gercek Kok Neden ve Cozum
+# Android Custom Notification Sounds — Bug Fix
 
-## Debug Checklist Sonuclari
+## Tespit Edilen Sorunlar
 
-| Kontrol | Sonuc |
-|---|---|
-| Tek Supabase client | TAMAM — tek `createClient` (`src/integrations/supabase/client.ts`) |
-| Storage adapter native mi | TAMAM — `capacitorStorage` (Preferences) aktif, config dogru |
-| INITIAL_SESSION race condition | TAMAM — onceki fix uygulanmis, `getSession()` authoritative |
-| Kazara signOut/clear var mi | TAMAM — sadece kullanici logout'unda cagiriliyor |
-| AppState auto refresh | TAMAM — `startAutoRefresh`/`stopAutoRefresh` dogru |
+### Sorun 1: `sound` parametresi uzanti icermemeli
 
-**Tum auth altyapisi dogru calisiyor. Session persist ediliyor. Bug auth'da degil.**
+`LocalNotifications.createChannel()` cagrisinda `sound: 'lesson.wav'` kullaniliyor. Android `res/raw` kaynaklarina uzantisiz referans verir. Capacitor dokumantasyonuna gore `sound` alani dosya uzantisi OLMADAN verilmeli:
 
-## Gercek Sorun: Routing
-
-```text
-Route "/"        -->  LandingPage (public pazarlama sayfasi)
-Route "/login"   -->  AuthForm
-Route "/dashboard" --> DashboardRoutes (session kontrol + role-based dashboard)
+```
+YANLIS:  sound: 'lesson.wav'
+DOGRU:   sound: 'lesson'
 ```
 
-Android uygulamasi her acilista `/` adresini yukler. Bu adres `LandingPage` gosteriyor — login/session kontrolu yapmiyor. Kullanici oturum acik olsa bile landing page'i goruyor ve "cikis yapilmis" saniyor.
+Bu, kanalin varsayilan ses ile olusturulmasina neden oluyor. Android kanal sesi ilk olusturulma aninda sabitlendigindan, uygulama uninstall/reinstall yapilsa bile yanlis ses kaydedilmis oluyor.
 
-**Sorun: Session kaybolmuyor, sadece kullaniciya dashboard gosterilmiyor.**
+### Sorun 2: FCM payload'inda `sound` alani eksik
+
+FCM HTTP v1 payload'inda `android.notification.channel_id` gonderiliyor ama `android.notification.sound` alani yok. Bazi cihaz/OS kombinasyonlarinda channel_id tek basina yeterli olmuyor — `sound` alaninin da eklenmesi gerekiyor.
 
 ## Cozum
 
-### Degisiklik 1: `LandingPage.tsx` — otomatik redirect
+### Degisiklik 1: `src/lib/pushNotifications.ts`
 
-LandingPage component'ine session kontrolu eklenir. Eger kullanici login durumundaysa otomatik olarak `/dashboard`'a yonlendirilir:
+Sound degerlerinden `.wav` uzantisini kaldir:
 
 ```typescript
-const { user, initializing } = useAuthContext();
-const navigate = useNavigate();
-
-useEffect(() => {
-  if (!initializing && user) {
-    navigate('/dashboard', { replace: true });
-  }
-}, [initializing, user, navigate]);
+const channels = [
+  { id: 'lesson', name: 'Ders Hatırlatma', description: 'Derse 10 dk kala bildirim', importance: 5, sound: 'lesson' },
+  { id: 'homework', name: 'Ödev Bildirimi', description: 'Ödev yüklendiğinde bildirim', importance: 5, sound: 'homework' },
+  { id: 'last_lesson', name: 'Son Ders Uyarısı', description: 'Admin son ders uyarısı', importance: 5, sound: 'last_lesson' },
+];
 ```
 
-Bu sayede:
-- Native app acilista `/` yukler -> session varsa aninda `/dashboard`'a gider
-- Session yoksa landing page normal gosterilir
-- Web'de de ayni davranis (login olan kullanici landing page'de takilmaz)
+Debug loglar ekle:
 
-### Degisiklik 2: Splash/loading gosterimi
+```typescript
+console.log('[PUSH] Creating Android notification channels...');
+// ... her kanal icin:
+console.log(`[PUSH] Channel created: ${ch.id}, sound: ${ch.sound}`);
+```
 
-`initializing` true iken landing page icerigi yerine kisa bir loading spinner gosterilir (native'de splash screen zaten bunu kapatiyor, ama web'de de tutarli olur).
+### Degisiklik 2: `supabase/functions/send-push/index.ts`
+
+FCM payload'ina `sound` alani ekle:
+
+```typescript
+android: {
+  priority: "HIGH",
+  notification: {
+    ...(recipient.channel_id
+      ? { channel_id: recipient.channel_id, sound: recipient.channel_id }
+      : { default_sound: true }),
+    default_vibrate_timings: true,
+  },
+},
+```
+
+Ayrica FCM payload loglamasi ekle:
+
+```typescript
+console.log(`[SEND-PUSH] FCM payload: title=${recipient.title}, channel_id=${recipient.channel_id || 'default'}`);
+```
 
 ## Degistirilecek Dosyalar
 
-| Dosya | Islem |
+| Dosya | Degisiklik |
 |---|---|
-| `src/pages/LandingPage.tsx` | Session kontrolu + auto redirect to /dashboard |
+| `src/lib/pushNotifications.ts` | `sound` degerlerinden `.wav` uzantisini kaldir + debug log ekle |
+| `supabase/functions/send-push/index.ts` | FCM payload'ina `sound` alani ekle + loglama |
 
-## Neden Auth'da Degil
+## Onemli Not
 
-- `getSession()` dogru calisiyor (Preferences'tan token okunuyor)
-- `onAuthStateChange` event'leri dogru isleniyor
-- `DashboardRoutes` component'i zaten session varsa dashboard gosteriyor
-- Ama kullanici `/dashboard`'a hic ulasmiyor cunku app `/` aciliyor ve orada session kontrolu yok
+Android'de notification channel sesi ilk olusturulmada sabitlenir. Bu fix'ten sonra kullanicilarin **uygulamayi uninstall edip reinstall etmesi** gerekir — boylece kanallar dogru ses ile yeniden olusturulur.
 
-## Test Senaryolari
+## Checklist Cevaplari
 
-Duzeltme sonrasi:
-- Login -> swipe away -> tekrar ac -> OTOMATIK dashboard (landing page degil)
-- Logout -> tekrar ac -> landing page gosterilir
-- Web'de login olan kullanici `/` adresine giderse -> otomatik `/dashboard`
+| Madde | Durum |
+|---|---|
+| A) Ses dosyalari repo'da | TAMAM — `res/raw/` altinda 3 wav dosyasi mevcut |
+| B) Channel olusturma | BUG — `sound: 'lesson.wav'` yerine `sound: 'lesson'` olmali |
+| C) FCM channel_id | TAMAM — 3 fonksiyon dogru channel_id gonderiyor |
+| D) notification vs data-only | TAMAM — notification payload kullaniliyor |
+| E) Eski kanal ID | TAMAM — `lesson_reminders` artik hicbir yerde yok |
+| F) Android 13+ permission | TAMAM — `POST_NOTIFICATIONS` izni isteniyor |
+| G) FCM sound alani | EKSIK — payload'a `sound` alani eklenmeli |
 
