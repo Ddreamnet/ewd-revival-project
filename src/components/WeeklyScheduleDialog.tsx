@@ -25,6 +25,7 @@ interface TrialLesson {
   start_time: string;
   end_time: string;
   is_completed: boolean;
+  lesson_date: string;
 }
 interface WeeklyScheduleDialogProps {
   open: boolean;
@@ -97,7 +98,7 @@ export function WeeklyScheduleDialog({
       const {
         data: trialLessonsData,
         error: trialLessonsError
-      } = await supabase.from("trial_lessons").select("id, day_of_week, start_time, end_time, is_completed").eq("teacher_id", teacherId).order("start_time", {
+      } = await supabase.from("trial_lessons").select("id, day_of_week, start_time, end_time, is_completed, lesson_date").eq("teacher_id", teacherId).order("start_time", {
         ascending: true
       });
       if (trialLessonsError) throw trialLessonsError;
@@ -246,7 +247,9 @@ export function WeeklyScheduleDialog({
   
   const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
     const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
-    return trialLessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
+    const dateForDay = getDateForDayIndex(dayIndex);
+    const dateStr = format(dateForDay, "yyyy-MM-dd");
+    return trialLessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot && l.lesson_date === dateStr);
   };
   const handleTrialLessonClick = (lesson: TrialLesson) => {
     setSelectedTrialLesson(lesson);
