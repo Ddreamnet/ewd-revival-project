@@ -167,9 +167,9 @@ export function ContactSection() {
                   </Select>
 
                   {/* Telefon - +90 prefix birleşik */}
-                  <div className="flex">
+                  <div className="flex min-w-0">
                     <div
-                      className="flex items-center px-3 bg-purple-300/70 rounded-l-xl 
+                      className="flex-shrink-0 flex items-center px-3 bg-purple-300/70 rounded-l-xl 
                                     text-sm font-medium text-purple-800 border-r border-purple-300/60 h-9"
                     >
                       +90
@@ -184,7 +184,7 @@ export function ContactSection() {
                           phone: e.target.value,
                         })
                       }
-                      className="flex-1 h-9 px-3 bg-purple-200/70 border-0 rounded-r-xl 
+                      className="min-w-0 flex-1 h-9 px-3 bg-purple-200/70 border-0 rounded-r-xl 
                                  placeholder:text-purple-500 text-sm text-foreground
                                  focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
