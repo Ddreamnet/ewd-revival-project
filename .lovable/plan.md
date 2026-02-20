@@ -1,88 +1,58 @@
 
-
-# Android Custom Notification Sounds — Bug Fix
+# Deneme Dersleri Hafta Filtreleme Duzeltmesi
 
 ## Tespit Edilen Sorunlar
 
-### Sorun 1: `sound` parametresi uzanti icermemeli
+1. **Gelecek haftanin deneme dersleri su an gorunuyor**: `getTrialLessonForDayAndTime` fonksiyonu sadece `day_of_week` ve `start_time` ile eslesiyor, `lesson_date`'i kontrol etmiyor. Yani gelecek Pazartesi'ye eklenen bir deneme dersi bu hafta da gorunuyor.
 
-`LocalNotifications.createChannel()` cagrisinda `sound: 'lesson.wav'` kullaniliyor. Android `res/raw` kaynaklarina uzantisiz referans verir. Capacitor dokumantasyonuna gore `sound` alani dosya uzantisi OLMADAN verilmeli:
-
-```
-YANLIS:  sound: 'lesson.wav'
-DOGRU:   sound: 'lesson'
-```
-
-Bu, kanalin varsayilan ses ile olusturulmasina neden oluyor. Android kanal sesi ilk olusturulma aninda sabitlendigindan, uygulama uninstall/reinstall yapilsa bile yanlis ses kaydedilmis oluyor.
-
-### Sorun 2: FCM payload'inda `sound` alani eksik
-
-FCM HTTP v1 payload'inda `android.notification.channel_id` gonderiliyor ama `android.notification.sound` alani yok. Bazi cihaz/OS kombinasyonlarinda channel_id tek basina yeterli olmuyor — `sound` alaninin da eklenmesi gerekiyor.
+2. **Gecmis haftanin dersleri hafta bitene kadar gorunuyor**: Cron fonksiyonu `lesson_date < today` ile siliyor (yani ertesi gun). Ama hafta icerisinde gecmis gunlerin dersleri hala gorunuyor — bu dogru davranis. Asil sorun: hafta bittikten sonra cron zaten siliyor, ama goruntuleme zaten hafta bazli filtrelenmeli.
 
 ## Cozum
 
-### Degisiklik 1: `src/lib/pushNotifications.ts`
+Her iki schedule component'inde (`AdminWeeklySchedule.tsx` ve `WeeklyScheduleDialog.tsx`) deneme derslerini sadece **icinde bulunulan haftaya ait olanlari** gosterecek sekilde filtrelemek.
 
-Sound degerlerinden `.wav` uzantisini kaldir:
+### Degisiklik 1: `TrialLesson` interface'ine `lesson_date` ekle
 
-```typescript
-const channels = [
-  { id: 'lesson', name: 'Ders Hatırlatma', description: 'Derse 10 dk kala bildirim', importance: 5, sound: 'lesson' },
-  { id: 'homework', name: 'Ödev Bildirimi', description: 'Ödev yüklendiğinde bildirim', importance: 5, sound: 'homework' },
-  { id: 'last_lesson', name: 'Son Ders Uyarısı', description: 'Admin son ders uyarısı', importance: 5, sound: 'last_lesson' },
-];
-```
+Her iki dosyada da `TrialLesson` interface'ine `lesson_date: string` alani eklenir.
 
-Debug loglar ekle:
+### Degisiklik 2: Fetch sorgularinda `lesson_date`'i dahil et
 
-```typescript
-console.log('[PUSH] Creating Android notification channels...');
-// ... her kanal icin:
-console.log(`[PUSH] Channel created: ${ch.id}, sound: ${ch.sound}`);
-```
+`select("*")` veya `select("id, day_of_week, ...")` sorgularina `lesson_date` eklenir (AdminWeeklySchedule zaten `select("*")` kullaniyor).
 
-### Degisiklik 2: `supabase/functions/send-push/index.ts`
+### Degisiklik 3: `getTrialLessonForDayAndTime` fonksiyonuna hafta filtresi ekle
 
-FCM payload'ina `sound` alani ekle:
+Mevcut hafta baslangicinı (Pazartesi) ve bitisini (Pazar) hesapla. Trial lesson'in `lesson_date`'inin bu aralikta olup olmadigini kontrol et:
 
 ```typescript
-android: {
-  priority: "HIGH",
-  notification: {
-    ...(recipient.channel_id
-      ? { channel_id: recipient.channel_id, sound: recipient.channel_id }
-      : { default_sound: true }),
-    default_vibrate_timings: true,
-  },
-},
+const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
+  const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+  const dateForDay = getDateForDayIndex(dayIndex);
+  const dateStr = format(dateForDay, "yyyy-MM-dd");
+  
+  return trialLessons.find(
+    (l) => l.day_of_week === dbDayOfWeek 
+        && l.start_time === timeSlot 
+        && l.lesson_date === dateStr
+  );
+};
 ```
 
-Ayrica FCM payload loglamasi ekle:
+Bu sayede:
+- Deneme dersi sadece `lesson_date`'inin dustugu haftada gorunur
+- Gelecek haftaya eklenen ders bu hafta gorunmez
+- Gecmis haftanin dersi (cron henuz silmediyse bile) bu hafta gorunmez
 
-```typescript
-console.log(`[SEND-PUSH] FCM payload: title=${recipient.title}, channel_id=${recipient.channel_id || 'default'}`);
-```
+### Degisiklik 4: Cleanup cron — mevcut hali yeterli
+
+Cron fonksiyonu `lesson_date < today` ile siliyor. Bu dogru calisıyor: dersin gunu gectikten sonra ertesi gun silinir. Frontend zaten hafta bazli filtrelediginden, haftanin bitmesini beklemeye gerek yok — cron daha erken temizliyor, frontend de zaten dogru haftayi gosteriyor.
 
 ## Degistirilecek Dosyalar
 
 | Dosya | Degisiklik |
 |---|---|
-| `src/lib/pushNotifications.ts` | `sound` degerlerinden `.wav` uzantisini kaldir + debug log ekle |
-| `supabase/functions/send-push/index.ts` | FCM payload'ina `sound` alani ekle + loglama |
+| `src/components/AdminWeeklySchedule.tsx` | TrialLesson interface'ine `lesson_date` ekle, `getTrialLessonForDayAndTime`'a tarih filtresi ekle |
+| `src/components/WeeklyScheduleDialog.tsx` | Ayni degisiklikler (ogretmen paneli) |
 
-## Onemli Not
+## Bakiye Etkisi
 
-Android'de notification channel sesi ilk olusturulmada sabitlenir. Bu fix'ten sonra kullanicilarin **uygulamayi uninstall edip reinstall etmesi** gerekir — boylece kanallar dogru ses ile yeniden olusturulur.
-
-## Checklist Cevaplari
-
-| Madde | Durum |
-|---|---|
-| A) Ses dosyalari repo'da | TAMAM — `res/raw/` altinda 3 wav dosyasi mevcut |
-| B) Channel olusturma | BUG — `sound: 'lesson.wav'` yerine `sound: 'lesson'` olmali |
-| C) FCM channel_id | TAMAM — 3 fonksiyon dogru channel_id gonderiyor |
-| D) notification vs data-only | TAMAM — notification payload kullaniliyor |
-| E) Eski kanal ID | TAMAM — `lesson_reminders` artik hicbir yerde yok |
-| F) Android 13+ permission | TAMAM — `POST_NOTIFICATIONS` izni isteniyor |
-| G) FCM sound alani | EKSIK — payload'a `sound` alani eklenmeli |
-
+Bakiyede hicbir degisiklik olmayacak. Bu degisiklik sadece goruntulemeyi etkiler — deneme dersi veritabanindan silindiginde veya "islendi" olarak isaretlendiginde bakiye zaten ayri yonetiliyor.
