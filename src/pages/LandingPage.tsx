@@ -12,11 +12,21 @@ import { ContactSection } from '@/components/landing/ContactSection';
 import { Footer } from '@/components/landing/Footer';
 import { StickyBubble } from '@/components/landing/StickyBubble';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 function LandingContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const scrollHandled = useRef(false);
+  const { user, initializing } = useAuthContext();
+
+  // Auto-redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!initializing && user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [initializing, user, navigate]);
 
   useEffect(() => {
     const scrollTo = (location.state as { scrollTo?: string })?.scrollTo;
@@ -29,6 +39,15 @@ function LandingContent() {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, navigate, location.pathname]);
+
+  // Show loading while checking auth state
+  if (initializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="landing-body min-h-screen overflow-x-hidden">
