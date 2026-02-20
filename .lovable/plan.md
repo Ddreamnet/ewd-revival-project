@@ -1,108 +1,81 @@
 
 
-# Android Custom Notification Sounds — Duzeltilmis Plan
+# Oturum Dusme Sorunu — Duzeltme Plani
 
-## Ozet
+## Tespit Edilen Sorun
 
-3 katman degistirilecek: ses dosyalari repo'ya commit edilecek, kanal olusturma TypeScript'ten yapilacak (native koda dokunulmayacak), ve FCM payload'ina `channel_id` eklenecek.
+Kod mimarisi (tek client, initializing guard, appStateChange) dogru kurulmus. Ancak Supabase JS v2'de bilinen bir sorun var:
 
----
+**Custom async storage (Capacitor Preferences) kullanildiginda, `onAuthStateChange` listener'i `INITIAL_SESSION` event'ini session henuz async storage'dan okunmadan once `null` ile fire edebilir.** Bu durumda:
 
-## ADIM 1 — Ses Dosyalarini Repo'ya Ekleme
+1. App aciliyor, `onAuthStateChange` subscribe ediliyor
+2. Supabase JS dahili olarak `INITIAL_SESSION` event'ini fire ediyor — AMA Preferences.get() henuz tamamlanmadi, session `null` geliyor
+3. `initDoneRef.current = true` set ediliyor, `initializing = false` oluyor
+4. `user = null` oldugu icin `AuthForm` (login) gosteriliyor
+5. Ardindan `getSession()` gercek session'i donduruyor ama `initDoneRef.current` zaten `true` oldugu icin bu sonuc ignore ediliyor
 
-Kullanicinin yukledigim zip'ten cikarilan 3 `.wav` dosyasi asagidaki konumlara yazilacak:
+## Cozum
 
+`onAuthStateChange`'den gelen ilk `INITIAL_SESSION` event'ine HEMEN guvenmek yerine, `getSession()` sonucunu birincil kaynak olarak kullanmak ve race condition'i ortadan kaldirmak.
+
+### Degisiklik: `src/contexts/AuthContext.tsx`
+
+**Mevcut akis:**
 ```
-android/app/src/main/res/raw/lesson.wav
-android/app/src/main/res/raw/homework.wav
-android/app/src/main/res/raw/last_lesson.wav
-```
-
-Bu dosyalar repo'da kalacak. Kullanici `git pull` yaptiginda native projede hazir olacak.
-
----
-
-## ADIM 2 — Notification Channel Olusturma (TypeScript, native kod degil)
-
-`@capacitor/local-notifications` paketinin `createChannel()` API'si kullanilarak kanallar TypeScript tarafinda olusturulacak. Boylece `MainActivity.java` veya `.kt` dosyasina dokunmaya gerek kalmaz.
-
-**Yeni bagimlilik:** `@capacitor/local-notifications`
-
-**Degisiklik:** `src/lib/pushNotifications.ts` icinde `initPushNotifications` fonksiyonunun basinda, sadece Android platformunda 3 kanal olusturulacak:
-
-```typescript
-import { LocalNotifications } from '@capacitor/local-notifications';
-
-async function createAndroidChannels() {
-  if (Capacitor.getPlatform() !== 'android') return;
-  
-  const channels = [
-    { id: 'lesson', name: 'Ders Hatirlatma', description: 'Derse 10 dk kala bildirim', importance: 5, sound: 'lesson.wav' },
-    { id: 'homework', name: 'Odev Bildirimi', description: 'Odev yuklendiginde bildirim', importance: 5, sound: 'homework.wav' },
-    { id: 'last_lesson', name: 'Son Ders Uyarisi', description: 'Admin son ders uyarisi', importance: 5, sound: 'last_lesson.wav' },
-  ];
-
-  for (const ch of channels) {
-    await LocalNotifications.createChannel(ch);
-  }
-}
+onAuthStateChange (ilk event) -> initDone = true, initializing = false
+getSession() -> initDone zaten true, sonuc ignore edilir
 ```
 
-`importance: 5` = HIGH (Android NotificationManager.IMPORTANCE_HIGH).
-
-`sound` alani `res/raw/` altindaki dosya adini referans eder (uzanti dahil).
-
-Mevcut `lesson_reminders` kanali artik kullanilmayacak — yeni 3 kanal onun yerini alacak. Kullanicinin uygulamayi uninstall/reinstall etmesi gerekebilir (Android kanal sesi ilk olusturulmada sabitlenir).
-
----
-
-## ADIM 3 — `send-push/index.ts`: channel_id Destegi
-
-`Recipient` interface'ine `channel_id?: string` eklenir.
-
-FCM payload'inda:
-
-```typescript
-android: {
-  priority: "HIGH",
-  notification: {
-    channel_id: recipient.channel_id || undefined,
-    // channel_id varsa default_sound kaldirilir (kanal sesi kullanilacak)
-    ...(recipient.channel_id ? {} : { default_sound: true }),
-    default_vibrate_timings: true,
-  },
-},
+**Yeni akis:**
+```
+onAuthStateChange -> INITIAL_SESSION event'inde initDone'u set ETME, sadece session'i kaydet
+getSession() -> HER ZAMAN calis, initDone = true yap, initializing = false yap
+onAuthStateChange -> sonraki event'ler (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT) normal islensin
 ```
 
----
+Somut degisiklikler:
 
-## ADIM 4 — Caller Fonksiyonlari Guncelleme
+1. `onAuthStateChange` callback'inde `event === 'INITIAL_SESSION'` ise `initDoneRef` set edilMEyecek — sadece session state guncellenecek ama `initializing` false yapilmayacak.
 
-| Fonksiyon | channel_id degeri |
-|---|---|
-| `lesson-reminder-cron/index.ts` | `"lesson"` — her recipient'a `channel_id: "lesson"` eklenir (data objesi degil, recipients dizisindeki her elemana) |
-| `notifications-push/index.ts` | `"homework"` — pushPayload'a `channel_id: "homework"` eklenir |
-| `admin-notifications-push/index.ts` | `"last_lesson"` — pushPayload'a `channel_id: "last_lesson"` eklenir |
+2. `getSession()` blogu `initDoneRef` kontrolu olmadan HER ZAMAN calisacak ve `initializing = false` yapacak. Bu, async storage'in tamamen okunmasini bekledikten sonra karari veriyor.
 
-`send-push` tek recipient modunda da `channel_id`'yi kabul ettiginden, hem batch (lesson-reminder-cron) hem tekli (notifications-push, admin-notifications-push) cagrilar desteklenir.
+3. Ek guvenlik: `getSession()` promise'ine bir timeout (5 saniye) eklenerek, storage tamamen bozulsa bile uygulamanin sonsuza kadar spinner'da kalmamasi saglanacak.
 
----
+4. Debug loglari eklenerek native platform'da Preferences'tan okunan token key'inin varligini dogrulama.
 
-## Degistirilecek / Olusturulacak Dosyalar
+## Degistirilecek Dosyalar
 
 | Dosya | Islem |
 |---|---|
-| `android/app/src/main/res/raw/lesson.wav` | YENI (zip'ten) |
-| `android/app/src/main/res/raw/homework.wav` | YENI (zip'ten) |
-| `android/app/src/main/res/raw/last_lesson.wav` | YENI (zip'ten) |
-| `package.json` | `@capacitor/local-notifications` ekleme |
-| `src/lib/pushNotifications.ts` | Channel olusturma + import |
-| `supabase/functions/send-push/index.ts` | `channel_id` destegi |
-| `supabase/functions/lesson-reminder-cron/index.ts` | `channel_id: "lesson"` |
-| `supabase/functions/notifications-push/index.ts` | `channel_id: "homework"` |
-| `supabase/functions/admin-notifications-push/index.ts` | `channel_id: "last_lesson"` |
+| `src/contexts/AuthContext.tsx` | INITIAL_SESSION race condition fix + timeout + debug log |
 
-## Onemli Not
+## Teknik Detay
 
-Android'de notification channel sesi ilk olusturulmada belirlenir ve sonradan degistirilemez. Bu yuzden ilk kurulumda dogru olmasini sagliyoruz. Mevcut `lesson_reminders` kanali zaten kurulu kullanicilarda eski ses calacaktir — temiz kurulum (uninstall/reinstall) gerekir.
+```text
+BOOT AKISI (duzeltme sonrasi):
+
+1. AuthProvider mount
+2. initializing = true, loading = true
+3. onAuthStateChange subscribe
+4. INITIAL_SESSION event gelir:
+   - event === 'INITIAL_SESSION' -> session/user state guncelle
+   - AMA initDoneRef set ETME, initializing = true kalsin
+5. getSession() async tamamlanir (Preferences.get bitmis olur):
+   - Session varsa -> user/session set et, profile fetch et
+   - Session yoksa -> loading = false
+   - HER DURUMDA: initDoneRef = true, initializing = false
+6. Sonraki auth event'leri (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT) normal islensin
+
+TIMEOUT KORUMASI:
+- getSession() 5 saniye icinde donmezse -> initializing = false, loading = false
+- Kullanici login ekranini gorur (session gercekten yokmus gibi)
+```
+
+## Test Senaryolari
+
+Duzeltme sonrasi asagidaki senaryolar test edilmeli:
+- Login -> swipe away -> tekrar ac: direkt dashboard
+- Login -> 2-3 dk bekle -> tekrar ac: direkt dashboard
+- Manuel logout -> login ekrani
+- Ilk kurulum (hic login yok) -> login ekrani
 
