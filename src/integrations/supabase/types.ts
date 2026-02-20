@@ -21,6 +21,8 @@ export type Database = {
           is_read: boolean
           message: string
           notification_type: string
+          push_processing_at: string | null
+          push_sent_at: string | null
           student_id: string
           teacher_id: string
         }
@@ -30,6 +32,8 @@ export type Database = {
           is_read?: boolean
           message: string
           notification_type?: string
+          push_processing_at?: string | null
+          push_sent_at?: string | null
           student_id: string
           teacher_id: string
         }
@@ -39,6 +43,8 @@ export type Database = {
           is_read?: boolean
           message?: string
           notification_type?: string
+          push_processing_at?: string | null
+          push_sent_at?: string | null
           student_id?: string
           teacher_id?: string
         }
