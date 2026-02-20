@@ -83,10 +83,16 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
     // The notification will show in the system tray automatically on Android
   });
 
-  // User tapped on notification
+  // User tapped on notification — navigate via deep link
   await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
     console.log('Push action performed:', action);
-    // Navigate to relevant page if needed
+    const data = action.notification.data ?? {};
+    const deepLink: string = data.deep_link ?? '/notifications';
+    // Safely navigate using history API so React Router picks it up
+    if (deepLink && deepLink.startsWith('/')) {
+      window.history.pushState({}, '', deepLink);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
   });
 
   // Register with FCM/APNs
