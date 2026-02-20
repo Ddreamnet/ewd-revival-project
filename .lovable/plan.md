@@ -1,79 +1,108 @@
 
 
-# Admin Bildirimleri icin Push Ekleme Plani
+# Android Custom Notification Sounds — Duzeltilmis Plan
 
-## Mevcut Durum
+## Ozet
 
-- `admin_notifications` tablosu: `id, notification_type, teacher_id, student_id, message, is_read, created_at`
-- Tabloda `recipient_id` yok — bildirimler tum admin kullanicilara gider
-- Simdi sadece uygulama icinde Realtime ile gosteriliyor
-- Push altyapisi (`notifications-push`, `send-push`, `push_tokens`) hazir
+3 katman degistirilecek: ses dosyalari repo'ya commit edilecek, kanal olusturma TypeScript'ten yapilacak (native koda dokunulmayacak), ve FCM payload'ina `channel_id` eklenecek.
 
-## Yapilacak Islemler
+---
 
-### ADIM 1 — DB Migration: admin_notifications icin idempotency kolonlari
+## ADIM 1 — Ses Dosyalarini Repo'ya Ekleme
 
-```sql
-ALTER TABLE public.admin_notifications
-  ADD COLUMN IF NOT EXISTS push_processing_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS push_sent_at TIMESTAMPTZ;
+Kullanicinin yukledigim zip'ten cikarilan 3 `.wav` dosyasi asagidaki konumlara yazilacak:
 
-CREATE INDEX IF NOT EXISTS idx_admin_notifications_push_unprocessed
-  ON public.admin_notifications (id)
-  WHERE push_sent_at IS NULL AND push_processing_at IS NULL;
+```
+android/app/src/main/res/raw/lesson.wav
+android/app/src/main/res/raw/homework.wav
+android/app/src/main/res/raw/last_lesson.wav
 ```
 
-### ADIM 2 — Yeni Edge Function: `admin-notifications-push`
+Bu dosyalar repo'da kalacak. Kullanici `git pull` yaptiginda native projede hazir olacak.
 
-**Dosya:** `supabase/functions/admin-notifications-push/index.ts`
+---
 
-Neden ayri fonksiyon: `admin_notifications` tablosunun yapisinin `notifications` tablosundan farkli olmasi (recipient_id yok, tum adminlere gitmesi gerekiyor).
+## ADIM 2 — Notification Channel Olusturma (TypeScript, native kod degil)
 
-**Akis:**
+`@capacitor/local-notifications` paketinin `createChannel()` API'si kullanilarak kanallar TypeScript tarafinda olusturulacak. Boylece `MainActivity.java` veya `.kt` dosyasina dokunmaya gerek kalmaz.
 
-```text
-1. x-ewd-webhook-secret header dogrula (ayni NOTIFICATIONS_WEBHOOK_SECRET)
-2. payload.type === "INSERT" kontrolu
-3. Idempotency: push_processing_at ile claim et
-4. user_roles tablosundan role='admin' olan tum kullanicilari bul
-5. Her admin icin send-push cagir:
-   title: "Son Ders Uyarisi"
-   body: record.message (zaten "X ogretmenin Y ogrencisinin son bir dersi kaldi!")
-   data: { admin_notification_id: "<uuid>", deep_link: "/admin" }
-6. Basari: push_sent_at = now()
-7. Hata: push_processing_at = NULL (retry icin)
+**Yeni bagimlilik:** `@capacitor/local-notifications`
+
+**Degisiklik:** `src/lib/pushNotifications.ts` icinde `initPushNotifications` fonksiyonunun basinda, sadece Android platformunda 3 kanal olusturulacak:
+
+```typescript
+import { LocalNotifications } from '@capacitor/local-notifications';
+
+async function createAndroidChannels() {
+  if (Capacitor.getPlatform() !== 'android') return;
+  
+  const channels = [
+    { id: 'lesson', name: 'Ders Hatirlatma', description: 'Derse 10 dk kala bildirim', importance: 5, sound: 'lesson.wav' },
+    { id: 'homework', name: 'Odev Bildirimi', description: 'Odev yuklendiginde bildirim', importance: 5, sound: 'homework.wav' },
+    { id: 'last_lesson', name: 'Son Ders Uyarisi', description: 'Admin son ders uyarisi', importance: 5, sound: 'last_lesson.wav' },
+  ];
+
+  for (const ch of channels) {
+    await LocalNotifications.createChannel(ch);
+  }
+}
 ```
 
-**Guvenlik:** Ayni `NOTIFICATIONS_WEBHOOK_SECRET` kullanilir. `send-push` cagrisi `x-cron-secret` ile yapilir.
+`importance: 5` = HIGH (Android NotificationManager.IMPORTANCE_HIGH).
 
-### ADIM 3 — config.toml guncelleme
+`sound` alani `res/raw/` altindaki dosya adini referans eder (uzanti dahil).
 
-```toml
-[functions.admin-notifications-push]
-verify_jwt = false
+Mevcut `lesson_reminders` kanali artik kullanilmayacak — yeni 3 kanal onun yerini alacak. Kullanicinin uygulamayi uninstall/reinstall etmesi gerekebilir (Android kanal sesi ilk olusturulmada sabitlenir).
+
+---
+
+## ADIM 3 — `send-push/index.ts`: channel_id Destegi
+
+`Recipient` interface'ine `channel_id?: string` eklenir.
+
+FCM payload'inda:
+
+```typescript
+android: {
+  priority: "HIGH",
+  notification: {
+    channel_id: recipient.channel_id || undefined,
+    // channel_id varsa default_sound kaldirilir (kanal sesi kullanilacak)
+    ...(recipient.channel_id ? {} : { default_sound: true }),
+    default_vibrate_timings: true,
+  },
+},
 ```
 
-### ADIM 4 — Webhook Kurulumu (Manuel)
+---
 
-Supabase Dashboard'ta ikinci bir webhook olusturulacak:
-- Name: `admin_notifications_push`
-- Table: `public.admin_notifications`
-- Event: `INSERT`
-- Edge Function: `admin-notifications-push`
-- Header: `x-ewd-webhook-secret: <NOTIFICATIONS_WEBHOOK_SECRET>`
+## ADIM 4 — Caller Fonksiyonlari Guncelleme
+
+| Fonksiyon | channel_id degeri |
+|---|---|
+| `lesson-reminder-cron/index.ts` | `"lesson"` — her recipient'a `channel_id: "lesson"` eklenir (data objesi degil, recipients dizisindeki her elemana) |
+| `notifications-push/index.ts` | `"homework"` — pushPayload'a `channel_id: "homework"` eklenir |
+| `admin-notifications-push/index.ts` | `"last_lesson"` — pushPayload'a `channel_id: "last_lesson"` eklenir |
+
+`send-push` tek recipient modunda da `channel_id`'yi kabul ettiginden, hem batch (lesson-reminder-cron) hem tekli (notifications-push, admin-notifications-push) cagrilar desteklenir.
+
+---
 
 ## Degistirilecek / Olusturulacak Dosyalar
 
 | Dosya | Islem |
 |---|---|
-| DB Migration | `push_processing_at` + `push_sent_at` kolonlari (admin_notifications) |
-| `supabase/functions/admin-notifications-push/index.ts` | YENI |
-| `supabase/config.toml` | `[functions.admin-notifications-push]` ekleme |
+| `android/app/src/main/res/raw/lesson.wav` | YENI (zip'ten) |
+| `android/app/src/main/res/raw/homework.wav` | YENI (zip'ten) |
+| `android/app/src/main/res/raw/last_lesson.wav` | YENI (zip'ten) |
+| `package.json` | `@capacitor/local-notifications` ekleme |
+| `src/lib/pushNotifications.ts` | Channel olusturma + import |
+| `supabase/functions/send-push/index.ts` | `channel_id` destegi |
+| `supabase/functions/lesson-reminder-cron/index.ts` | `channel_id: "lesson"` |
+| `supabase/functions/notifications-push/index.ts` | `channel_id: "homework"` |
+| `supabase/functions/admin-notifications-push/index.ts` | `channel_id: "last_lesson"` |
 
-## Teknik Notlar
+## Onemli Not
 
-- Admin kullanicilari `user_roles` tablosundan `role = 'admin'` ile bulunur
-- Birden fazla admin varsa her birine ayri push gider
-- Ayni `NOTIFICATIONS_WEBHOOK_SECRET` kullanildigi icin ek secret gerekmez
-- `pushNotifications.ts` guncellenmesine gerek yok — deep link zaten calisiyor
+Android'de notification channel sesi ilk olusturulmada belirlenir ve sonradan degistirilemez. Bu yuzden ilk kurulumda dogru olmasini sagliyoruz. Mevcut `lesson_reminders` kanali zaten kurulu kullanicilarda eski ses calacaktir — temiz kurulum (uninstall/reinstall) gerekir.
 
