@@ -13,16 +13,18 @@ async function createAndroidChannels(): Promise<void> {
   if (Capacitor.getPlatform() !== 'android') return;
 
   const channels = [
-    { id: 'lesson', name: 'Ders Hatırlatma', description: 'Derse 10 dk kala bildirim', importance: 5 as const, sound: 'lesson.wav' },
-    { id: 'homework', name: 'Ödev Bildirimi', description: 'Ödev yüklendiğinde bildirim', importance: 5 as const, sound: 'homework.wav' },
-    { id: 'last_lesson', name: 'Son Ders Uyarısı', description: 'Admin son ders uyarısı', importance: 5 as const, sound: 'last_lesson.wav' },
+    { id: 'lesson', name: 'Ders Hatırlatma', description: 'Derse 10 dk kala bildirim', importance: 5 as const, sound: 'lesson' },
+    { id: 'homework', name: 'Ödev Bildirimi', description: 'Ödev yüklendiğinde bildirim', importance: 5 as const, sound: 'homework' },
+    { id: 'last_lesson', name: 'Son Ders Uyarısı', description: 'Admin son ders uyarısı', importance: 5 as const, sound: 'last_lesson' },
   ];
 
+  console.log('[PUSH] Creating Android notification channels...');
   for (const ch of channels) {
     try {
       await LocalNotifications.createChannel(ch);
+      console.log(`[PUSH] Channel created: ${ch.id}, sound: ${ch.sound}`);
     } catch (err) {
-      console.warn(`Failed to create channel ${ch.id}:`, err);
+      console.warn(`[PUSH] Failed to create channel ${ch.id}:`, err);
     }
   }
 }
