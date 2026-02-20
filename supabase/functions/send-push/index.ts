@@ -11,6 +11,7 @@ interface Recipient {
   title: string;
   body: string;
   data?: Record<string, string>;
+  channel_id?: string;
 }
 
 Deno.serve(async (req) => {
@@ -87,7 +88,9 @@ Deno.serve(async (req) => {
             android: {
               priority: "HIGH" as const,
               notification: {
-                default_sound: true,
+                ...(recipient.channel_id
+                  ? { channel_id: recipient.channel_id }
+                  : { default_sound: true }),
                 default_vibrate_timings: true,
               },
             },

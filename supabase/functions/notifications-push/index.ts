@@ -112,6 +112,7 @@ Deno.serve(async (req) => {
       user_id: record.recipient_id,
       title,
       body,
+      channel_id: "homework",
       data: {
         notification_id: String(record.id),
         homework_id: String(record.homework_id),

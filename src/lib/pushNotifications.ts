@@ -1,8 +1,31 @@
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { supabase } from '@/integrations/supabase/client';
 
 const PUSH_DISMISSED_KEY = 'push_permission_dismissed';
+
+/**
+ * Create Android notification channels with custom sounds.
+ * Must be called before any push arrives so the OS registers them.
+ */
+async function createAndroidChannels(): Promise<void> {
+  if (Capacitor.getPlatform() !== 'android') return;
+
+  const channels = [
+    { id: 'lesson', name: 'Ders Hatırlatma', description: 'Derse 10 dk kala bildirim', importance: 5 as const, sound: 'lesson.wav' },
+    { id: 'homework', name: 'Ödev Bildirimi', description: 'Ödev yüklendiğinde bildirim', importance: 5 as const, sound: 'homework.wav' },
+    { id: 'last_lesson', name: 'Son Ders Uyarısı', description: 'Admin son ders uyarısı', importance: 5 as const, sound: 'last_lesson.wav' },
+  ];
+
+  for (const ch of channels) {
+    try {
+      await LocalNotifications.createChannel(ch);
+    } catch (err) {
+      console.warn(`Failed to create channel ${ch.id}:`, err);
+    }
+  }
+}
 
 /**
  * Initialize push notifications on native platforms.
@@ -14,6 +37,9 @@ export async function initPushNotifications(
 ): Promise<void> {
   // Only run on native (Android/iOS)
   if (!Capacitor.isNativePlatform()) return;
+
+  // Create Android notification channels before anything else
+  await createAndroidChannels();
 
   try {
     const permStatus = await PushNotifications.checkPermissions();
