@@ -33,6 +33,7 @@ interface TrialLesson {
   start_time: string;
   end_time: string;
   is_completed: boolean;
+  lesson_date: string;
 }
 
 interface AdminWeeklyScheduleProps {
@@ -277,10 +278,12 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    // dayIndex: 0=Pazartesi, 6=Pazar
-    // day_of_week in DB: 1=Pazartesi, 0=Pazar
     const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
-    return trialLessons.find((l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
+    const dateForDay = getDateForDayIndex(dayIndex);
+    const dateStr = format(dateForDay, "yyyy-MM-dd");
+    return trialLessons.find(
+      (l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot && l.lesson_date === dateStr
+    );
   };
 
   const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date; _override?: LessonOverride }) => {
