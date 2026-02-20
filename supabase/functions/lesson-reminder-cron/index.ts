@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
       user_id: string;
       title: string;
       body: string;
+      channel_id?: string;
     }
 
     const pushRecipients: PushRecipient[] = [];
@@ -180,6 +181,7 @@ Deno.serve(async (req) => {
           user_id: lesson.studentId,
           title: "Ders Hatırlatma 📚",
           body: "Dersiniz 10 dakika sonra başlıyor!",
+          channel_id: "lesson",
         });
       }
 
@@ -192,6 +194,7 @@ Deno.serve(async (req) => {
           user_id: lesson.teacherId,
           title: "Ders Hatırlatma 📚",
           body: `${studentName} ile dersiniz 10 dakika sonra!`,
+          channel_id: "lesson",
         });
       }
     }

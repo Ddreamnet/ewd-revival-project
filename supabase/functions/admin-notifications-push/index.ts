@@ -111,6 +111,7 @@ Deno.serve(async (req) => {
         user_id: admin.user_id,
         title,
         body,
+        channel_id: "last_lesson",
         data: {
           admin_notification_id: String(record.id),
           deep_link: "/admin",
