@@ -1,173 +1,79 @@
 
-# notifications-push Edge Function — Güvenli Uygulama Planı
 
-## Özet
+# Admin Bildirimleri icin Push Ekleme Plani
 
-Kullanıcının belirttiği 5 düzeltme gereksinimi karşılanarak `notifications-push` Edge Function oluşturulacak, DB migration ile iki idempotency kolonu eklenecek, `NOTIFICATIONS_WEBHOOK_SECRET` sırrı kaydedilecek ve `pushNotifications.ts` deep link navigasyonu güncellenecek.
+## Mevcut Durum
 
----
+- `admin_notifications` tablosu: `id, notification_type, teacher_id, student_id, message, is_read, created_at`
+- Tabloda `recipient_id` yok — bildirimler tum admin kullanicilara gider
+- Simdi sadece uygulama icinde Realtime ile gosteriliyor
+- Push altyapisi (`notifications-push`, `send-push`, `push_tokens`) hazir
 
-## Yapılacak İşlemler (Sırayla)
+## Yapilacak Islemler
 
-### ADIM 1 — DB Migration: İki Yeni Kolon
-
-`public.notifications` tablosuna iki kolon eklenir:
+### ADIM 1 — DB Migration: admin_notifications icin idempotency kolonlari
 
 ```sql
-ALTER TABLE public.notifications
+ALTER TABLE public.admin_notifications
   ADD COLUMN IF NOT EXISTS push_processing_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS push_sent_at TIMESTAMPTZ;
 
-CREATE INDEX IF NOT EXISTS idx_notifications_push_unprocessed
-  ON public.notifications (id)
+CREATE INDEX IF NOT EXISTS idx_admin_notifications_push_unprocessed
+  ON public.admin_notifications (id)
   WHERE push_sent_at IS NULL AND push_processing_at IS NULL;
 ```
 
-**Neden iki kolon?**
-- `push_processing_at`: Fonksiyon bu satırı "aldım, işliyorum" diye işaretler. Webhook yeniden denerse bu satırı atlar.
-- `push_sent_at`: Push başarıyla gönderildikten sonra set edilir.
-- Hata olursa `push_processing_at` sıfırlanır, retry mümkün olur.
+### ADIM 2 — Yeni Edge Function: `admin-notifications-push`
 
----
+**Dosya:** `supabase/functions/admin-notifications-push/index.ts`
 
-### ADIM 2 — Supabase Secret: `NOTIFICATIONS_WEBHOOK_SECRET`
+Neden ayri fonksiyon: `admin_notifications` tablosunun yapisinin `notifications` tablosundan farkli olmasi (recipient_id yok, tum adminlere gitmesi gerekiyor).
 
-Mevcut secretlar arasında `NOTIFICATIONS_WEBHOOK_SECRET` yok. Yeni bir rastgele değer ile eklenecek. Bu secret, Supabase Webhook'undan fonksiyona gelen isteğin doğruluğunu kanıtlar.
+**Akis:**
 
----
-
-### ADIM 3 — Yeni Edge Function: `supabase/functions/notifications-push/index.ts`
-
-**Güvenlik katmanı:**
-- `verify_jwt = false` (Supabase webhook JWT'siz POST atar)
-- Fonksiyon, `x-ewd-webhook-secret` header'ını `NOTIFICATIONS_WEBHOOK_SECRET` ile karşılaştırır.
-- Uyuşmazlık → 401 döner.
-
-**İdempotency akışı (2 kolonlu):**
-
-```
-1. CLAIM:
-   UPDATE notifications
-   SET push_processing_at = now()
-   WHERE id = record.id
-     AND push_sent_at IS NULL
-     AND push_processing_at IS NULL
-   RETURNING id;
-   
-   → Satır dönmezse: zaten işleniyor veya gönderildi. 200 ile çık.
-
-2. SEND PUSH:
-   fetch /functions/v1/send-push
-   header: x-cron-secret: <CRON_SECRET>   ← send-push bunu zaten kabul ediyor
-   body: { user_id, title, body, data: {...} }
-
-3a. BAŞARI:
-   UPDATE notifications
-   SET push_sent_at = now(), push_processing_at = NULL
-   WHERE id = record.id;
-
-3b. HATA:
-   UPDATE notifications
-   SET push_processing_at = NULL
-   WHERE id = record.id;
-   → 500 döner, webhook retry edebilir.
+```text
+1. x-ewd-webhook-secret header dogrula (ayni NOTIFICATIONS_WEBHOOK_SECRET)
+2. payload.type === "INSERT" kontrolu
+3. Idempotency: push_processing_at ile claim et
+4. user_roles tablosundan role='admin' olan tum kullanicilari bul
+5. Her admin icin send-push cagir:
+   title: "Son Ders Uyarisi"
+   body: record.message (zaten "X ogretmenin Y ogrencisinin son bir dersi kaldi!")
+   data: { admin_notification_id: "<uuid>", deep_link: "/admin" }
+6. Basari: push_sent_at = now()
+7. Hata: push_processing_at = NULL (retry icin)
 ```
 
-**send-push çağrısının güvenliği:**
-`send-push/index.ts` zaten `x-cron-secret` header'ını kabul ediyor (memory'den ve kaynak koddan doğrulandı). `notifications-push` bu header'ı `CRON_SECRET` değeriyle gönderecek. Hiçbir anonim erişime izin verilmeyecek.
+**Guvenlik:** Ayni `NOTIFICATIONS_WEBHOOK_SECRET` kullanilir. `send-push` cagrisi `x-cron-secret` ile yapilir.
 
-**Profil isimleri ve mesaj kişiselleştirme:**
-Service role client ile `profiles` tablosundan `teacher_id` ve `student_id` için `full_name` çekilir:
-
-```
-recipient_id === teacher_id:
-  title = "Yeni Ödev Teslimi 📝"
-  body  = "{student_name} yeni ödev yükledi."
-
-recipient_id === student_id:
-  title = "Yeni Ödev 📝"
-  body  = "Öğretmeniniz {teacher_name} yeni ödev paylaştı."
-
-diğer:
-  title = "Yeni Bildirim"
-  body  = "Bildirimlerinizi kontrol edin."
-```
-
-**Data payload (tüm değerler string):**
-```json
-{
-  "notification_id": "<uuid>",
-  "homework_id": "<uuid>",
-  "deep_link": "/notifications"
-}
-```
-
----
-
-### ADIM 4 — `supabase/config.toml` Güncelleme
+### ADIM 3 — config.toml guncelleme
 
 ```toml
-[functions.notifications-push]
+[functions.admin-notifications-push]
 verify_jwt = false
 ```
 
----
+### ADIM 4 — Webhook Kurulumu (Manuel)
 
-### ADIM 5 — `src/lib/pushNotifications.ts` Deep Link Güncelleme
+Supabase Dashboard'ta ikinci bir webhook olusturulacak:
+- Name: `admin_notifications_push`
+- Table: `public.admin_notifications`
+- Event: `INSERT`
+- Edge Function: `admin-notifications-push`
+- Header: `x-ewd-webhook-secret: <NOTIFICATIONS_WEBHOOK_SECRET>`
 
-`pushNotificationActionPerformed` listener'ı `window.location.hash` kullanmak yerine React Router ile uyumlu çalışacak şekilde güncellenir:
+## Degistirilecek / Olusturulacak Dosyalar
 
-```typescript
-await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-  const data = action.notification.data ?? {};
-  const deepLink: string = data.deep_link ?? '/notifications';
-  // Safely navigate — use history API so React Router picks it up
-  if (deepLink && deepLink.startsWith('/')) {
-    window.history.pushState({}, '', deepLink);
-    window.dispatchEvent(new PopStateEvent('popstate'));
-  }
-});
-```
-
-Bu yaklaşım: `BrowserRouter` `popstate` olayını dinlediğinden, `window.history.pushState` + `PopStateEvent` dispatch etmek React Router'ı tetikler.
-
----
-
-## Değiştirilecek / Oluşturulacak Dosyalar
-
-| Dosya | İşlem |
+| Dosya | Islem |
 |---|---|
-| DB Migration | `push_processing_at` + `push_sent_at` kolonları |
-| Supabase Secret | `NOTIFICATIONS_WEBHOOK_SECRET` ekleme |
-| `supabase/functions/notifications-push/index.ts` | YENİ |
-| `supabase/config.toml` | `[functions.notifications-push]` |
-| `src/lib/pushNotifications.ts` | Deep link navigasyon güncelleme |
+| DB Migration | `push_processing_at` + `push_sent_at` kolonlari (admin_notifications) |
+| `supabase/functions/admin-notifications-push/index.ts` | YENI |
+| `supabase/config.toml` | `[functions.admin-notifications-push]` ekleme |
 
-`send-push/index.ts` — **değiştirilmeyecek**, zaten `x-cron-secret` doğrulaması var.
+## Teknik Notlar
 
----
-
-## Webhook Kurulumu (Manuel Adım — Kullanıcı Yapacak)
-
-Edge Function dağıtıldıktan sonra kullanıcıya adımlar gösterilecek:
-
-1. Supabase Dashboard → **Database → Webhooks → Create a new webhook**
-2. Name: `notifications_push`
-3. Table: `public.notifications` / Event: `INSERT`
-4. Type: Supabase Edge Functions → `notifications-push`
-5. HTTP Header ekle:
-   - Key: `x-ewd-webhook-secret`
-   - Value: `<NOTIFICATIONS_WEBHOOK_SECRET değeri>`
-6. Kaydet
-
----
-
-## Güvenlik Özeti
-
-| Katman | Yöntem |
-|---|---|
-| Webhook → notifications-push | `x-ewd-webhook-secret` header (dedicated secret) |
-| notifications-push → send-push | `x-cron-secret: <CRON_SECRET>` header |
-| send-push → FCM | Google OAuth2 service account JWT |
-| Anon erişim | Her iki fonksiyon da 401 döner |
+- Admin kullanicilari `user_roles` tablosundan `role = 'admin'` ile bulunur
+- Birden fazla admin varsa her birine ayri push gider
+- Ayni `NOTIFICATIONS_WEBHOOK_SECRET` kullanildigi icin ek secret gerekmez
+- `pushNotifications.ts` guncellenmesine gerek yok — deep link zaten calisiyor
 
