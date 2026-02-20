@@ -120,10 +120,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // For INITIAL_SESSION: update state but do NOT mark init done.
+      // getSession() will be the authoritative source (waits for async storage).
+      if (event === "INITIAL_SESSION") {
+        if (DEV) console.log("[Auth] INITIAL_SESSION received — deferring to getSession()");
+        // Optimistically set session/user if present, but keep initializing=true
+        if (newSession?.user) {
+          setSession(newSession);
+          setUser(newSession.user);
+        }
+        return; // ← do NOT set initDoneRef, do NOT set initializing=false
+      }
+
+      // For all other events (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT, etc.)
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
-      // Mark initializing complete on the first event
+      // Mark initializing complete on the first non-INITIAL_SESSION event
       if (!initDoneRef.current) {
         initDoneRef.current = true;
         setInitializing(false);
@@ -131,7 +144,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (newSession?.user && !isSigningOutRef.current) {
         setLoading(true);
-        // Defer profile fetch to avoid internal Supabase deadlock
         setTimeout(() => {
           if (!isSigningOutRef.current) {
             fetchProfile(newSession.user.id);
@@ -143,19 +155,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // ── STEP 2: getSession() as fallback guarantor ─────────────────────────
-    // In case INITIAL_SESSION fires before the listener was set up,
-    // or native storage takes too long for the event to arrive.
+    // ── STEP 2: getSession() as PRIMARY source of truth ───────────────────
+    // This properly waits for Capacitor Preferences async read to finish.
+    const sessionTimeout = setTimeout(() => {
+      if (!initDoneRef.current) {
+        console.warn("[Auth] getSession() timeout (5s) — forcing init complete");
+        initDoneRef.current = true;
+        setInitializing(false);
+        setLoading(false);
+      }
+    }, 5000);
+
     supabase.auth
       .getSession()
       .then(({ data: { session: existingSession } }) => {
+        clearTimeout(sessionTimeout);
+
         if (DEV)
           console.log(
             "[Auth] boot getSession ->",
             existingSession ? `user: ${existingSession.user.id}` : "no session"
           );
 
-        // Only act if onAuthStateChange hasn't resolved things yet
+        // Debug: log Preferences keys on native platform
+        if (Capacitor.isNativePlatform()) {
+          import("@capacitor/preferences").then(({ Preferences }) => {
+            Preferences.keys().then(({ keys }) => {
+              console.log("[Auth][Native] Preferences keys:", keys);
+              const authKey = keys.find((k) => k.startsWith("sb-"));
+              console.log("[Auth][Native] Auth token key present:", !!authKey);
+            });
+          });
+        }
+
+        // getSession() is the authoritative init — ALWAYS apply
         if (!initDoneRef.current) {
           initDoneRef.current = true;
           setInitializing(false);
@@ -168,9 +201,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             setLoading(false);
           }
+        } else if (existingSession && !isSigningOutRef.current) {
+          // initDone was already set by a non-INITIAL_SESSION event,
+          // but ensure session is up-to-date
+          setSession(existingSession);
+          setUser(existingSession.user);
         }
       })
       .catch((error) => {
+        clearTimeout(sessionTimeout);
         console.error("[Auth] getSession error:", error);
         if (!initDoneRef.current) {
           initDoneRef.current = true;
