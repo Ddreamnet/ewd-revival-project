@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     if (body.recipients) {
       recipients = body.recipients;
     } else {
-      recipients = [{ user_id: body.user_id, title: body.title, body: body.body, data: body.data }];
+      recipients = [{ user_id: body.user_id, title: body.title, body: body.body, data: body.data, channel_id: body.channel_id }];
     }
 
     const serviceAccount = JSON.parse(fcmServiceAccountJson);
