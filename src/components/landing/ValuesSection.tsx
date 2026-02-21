@@ -9,52 +9,52 @@ import signatureImg from "@/assets/ataturk-signature.png";
 import { useTranslation } from "@/contexts/LanguageContext";
 
 const CARDS = [
-  {
-    id: 1,
-    image: img1,
-    quote: {
-      tr: "Eğitimdir ki bir milleti ya hür, bağımsız, şanlı, yüksek bir topluluk halinde yaşatır; ya da esaret ve sefalete terk eder.",
-      en: "It is education that either enables a nation to live as a free, independent, honoured and elevated community, or abandons it to bondage and misery.",
-    },
-  },
-  {
-    id: 2,
-    image: img2,
-    quote: {
-      tr: "Küçük hanımlar, küçük beyler! Sizler hepiniz geleceğin bir gülü, yıldızı ve ikbal ışığısınız. Memleketi asıl ışığa boğacak olan sizsiniz. Kendinizin ne kadar önemli, değerli olduğunuzu düşünerek ona göre çalışınız. Sizlerden çok şey bekliyoruz.",
-      en: "Little ladies, little gentlemen! You are all the roses, the stars, and the bright promise of the future. It is you who will bathe our country in true light. Be mindful of how important and valuable you are, and work accordingly. We expect great things from you.",
-    },
-  },
-  {
-    id: 3,
-    image: img3,
-    quote: {
-      tr: "Çocuklar geleceğimizin güvencesi, yaşama sevincimizdir. Bugünün çocuğunu, yarının büyüğü olarak yetiştirmek hepimizin insanlık görevidir.",
-      en: "Children are the guarantee of our future and the joy of our lives. To raise today's child as tomorrow's adult is a duty of humanity that belongs to us all.",
-    },
-  },
-  {
-    id: 4,
-    image: img4,
-    quote: {
-      tr: "Bugünün küçükleri yarının büyükleridir.",
-      en: "Today's little ones are tomorrow's great ones.",
-    },
-  },
-  {
-    id: 5,
-    image: img5,
-    quote: {
-      tr: "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
-      en: "Teachers, the Republic asks of you generations who are free in thought, free in conscience, and free in learning.",
-    },
-  },
-];
+{
+  id: 1,
+  image: img1,
+  quote: {
+    tr: "Eğitimdir ki bir milleti ya hür, bağımsız, şanlı, yüksek bir topluluk halinde yaşatır; ya da esaret ve sefalete terk eder.",
+    en: "It is education that either enables a nation to live as a free, independent, honoured and elevated community, or abandons it to bondage and misery."
+  }
+},
+{
+  id: 2,
+  image: img2,
+  quote: {
+    tr: "Küçük hanımlar, küçük beyler! Sizler hepiniz geleceğin bir gülü, yıldızı ve ikbal ışığısınız. Memleketi asıl ışığa boğacak olan sizsiniz. Kendinizin ne kadar önemli, değerli olduğunuzu düşünerek ona göre çalışınız. Sizlerden çok şey bekliyoruz.",
+    en: "Little ladies, little gentlemen! You are all the roses, the stars, and the bright promise of the future. It is you who will bathe our country in true light. Be mindful of how important and valuable you are, and work accordingly. We expect great things from you."
+  }
+},
+{
+  id: 3,
+  image: img3,
+  quote: {
+    tr: "Çocuklar geleceğimizin güvencesi, yaşama sevincimizdir. Bugünün çocuğunu, yarının büyüğü olarak yetiştirmek hepimizin insanlık görevidir.",
+    en: "Children are the guarantee of our future and the joy of our lives. To raise today's child as tomorrow's adult is a duty of humanity that belongs to us all."
+  }
+},
+{
+  id: 4,
+  image: img4,
+  quote: {
+    tr: "Bugünün küçükleri yarının büyükleridir.",
+    en: "Today's little ones are tomorrow's great ones."
+  }
+},
+{
+  id: 5,
+  image: img5,
+  quote: {
+    tr: "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
+    en: "Teachers, the Republic asks of you generations who are free in thought, free in conscience, and free in learning."
+  }
+}];
+
 
 const TOTAL = CARDS.length;
 
 function mod(n: number, m: number) {
-  return ((n % m) + m) % m;
+  return (n % m + m) % m;
 }
 
 export function ValuesSection() {
@@ -81,7 +81,7 @@ export function ValuesSection() {
       setActiveIndex((prev) => mod(prev + dir, TOTAL));
       setTimeout(() => setAnimating(false), 400);
     },
-    [animating],
+    [animating]
   );
 
   // Pointer drag for swipe
@@ -134,13 +134,13 @@ export function ValuesSection() {
       zIndex = 20;
       blur = "blur(0px)";
     } else if (isAdjacent) {
-      translateX = offset > 0 ? (isMobile ? "58%" : "70%") : (isMobile ? "-58%" : "-70%");
+      translateX = offset > 0 ? isMobile ? "58%" : "70%" : isMobile ? "-58%" : "-70%";
       scale = 0.84;
       opacity = 0.5;
       zIndex = 10;
       blur = "blur(1px)";
     } else if (isFar) {
-      translateX = offset > 0 ? (isMobile ? "110%" : "130%") : (isMobile ? "-110%" : "-130%");
+      translateX = offset > 0 ? isMobile ? "110%" : "130%" : isMobile ? "-110%" : "-130%";
       scale = 0.7;
       opacity = 0.25;
       zIndex = 5;
@@ -165,11 +165,11 @@ export function ValuesSection() {
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">
             {language === "tr" ? "Değerlerimiz" : "Our Values"}
           </h2>
-          <p className="text-muted-foreground mt-3 max-w-lg mx-auto text-sm md:text-base">
-            {language === "tr"
-              ? "Eğitime ve geleceğe duyduğumuz inancın temelleri"
-              : "The foundations of our belief in education and the future"}
-          </p>
+          
+
+
+
+
         </div>
 
         {/* Carousel stage */}
@@ -180,8 +180,8 @@ export function ValuesSection() {
             className="absolute inset-0 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
             onPointerDown={onPointerDown}
             onPointerUp={onPointerUp}
-            onPointerCancel={() => setDragging(false)}
-          >
+            onPointerCancel={() => setDragging(false)}>
+
             {CARDS.map((card, cardIndex) => {
               const { translateX, scale, opacity, zIndex, blur, isCenter } = getCardProps(cardIndex);
 
@@ -191,7 +191,7 @@ export function ValuesSection() {
                   onClick={() => {
                     if (!isCenter && !animating) {
                       const offset =
-                        mod(cardIndex - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
+                      mod(cardIndex - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
                       if (offset !== 0) go(offset > 0 ? 1 : -1);
                     }
                   }}
@@ -201,23 +201,23 @@ export function ValuesSection() {
                     opacity,
                     zIndex,
                     filter: blur,
-                    transition: animating
-                      ? "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease"
-                      : "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease",
+                    transition: animating ?
+                    "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease" :
+                    "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease",
                     width: "clamp(220px, 75vw, 420px)",
                     maxWidth: "420px",
-                    cursor: isCenter ? "grab" : "pointer",
-                  }}
-                >
+                    cursor: isCenter ? "grab" : "pointer"
+                  }}>
+
                   {/* Outer card frame */}
                   <div
                     className="rounded-3xl bg-white/90 shadow-xl overflow-hidden"
                     style={{
-                      boxShadow: isCenter
-                        ? "0 20px 60px -10px rgba(180,100,160,0.25), 0 8px 24px -4px rgba(180,100,160,0.15)"
-                        : "0 8px 24px -8px rgba(0,0,0,0.12)",
-                    }}
-                  >
+                      boxShadow: isCenter ?
+                      "0 20px 60px -10px rgba(180,100,160,0.25), 0 8px 24px -4px rgba(180,100,160,0.15)" :
+                      "0 8px 24px -8px rgba(0,0,0,0.12)"
+                    }}>
+
                     {/* Inner dashed border (dikiş hissi) */}
                     <div className="m-[5px] rounded-[18px] border border-dashed border-landing-purple/30 overflow-hidden">
                       {/* Image area */}
@@ -229,8 +229,8 @@ export function ValuesSection() {
                           width={420}
                           height={315}
                           className="w-full h-full object-cover grayscale"
-                          draggable={false}
-                        />
+                          draggable={false} />
+
                       </div>
 
                       {/* Quote area */}
@@ -239,8 +239,8 @@ export function ValuesSection() {
                         <span
                           className="text-landing-purple-dark/30 font-serif leading-none select-none"
                           style={{ fontSize: "3rem", lineHeight: 1 }}
-                          aria-hidden
-                        >
+                          aria-hidden>
+
                           "
                         </span>
                          <p className="text-foreground/80 text-sm leading-relaxed -mt-2 italic font-medium">
@@ -254,14 +254,14 @@ export function ValuesSection() {
                             loading="lazy"
                             width={160}
                             height={52}
-                            className="h-10 w-auto object-contain opacity-75"
-                          />
+                            className="h-10 w-auto object-contain opacity-75" />
+
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
+                </div>);
+
             })}
           </div>
 
@@ -269,41 +269,41 @@ export function ValuesSection() {
           <button
             onClick={() => go(-1)}
             aria-label="Önceki"
-            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/80 shadow-md items-center justify-center hover:bg-white hover:shadow-lg transition-all border border-landing-purple/20"
-          >
+            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/80 shadow-md items-center justify-center hover:bg-white hover:shadow-lg transition-all border border-landing-purple/20">
+
             <ChevronLeft className="h-5 w-5 text-landing-purple-dark" />
           </button>
           <button
             onClick={() => go(1)}
             aria-label="Sonraki"
-            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/80 shadow-md items-center justify-center hover:bg-white hover:shadow-lg transition-all border border-landing-purple/20"
-          >
+            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/80 shadow-md items-center justify-center hover:bg-white hover:shadow-lg transition-all border border-landing-purple/20">
+
             <ChevronRight className="h-5 w-5 text-landing-purple-dark" />
           </button>
         </div>
 
         {/* Dot indicators */}
         <div className="flex justify-center gap-2 mt-6">
-          {CARDS.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                if (animating) return;
-                const diff = mod(i - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
-                if (diff !== 0) {
-                  setAnimating(true);
-                  setActiveIndex(i);
-                  setTimeout(() => setAnimating(false), 400);
-                }
-              }}
-              aria-label={`Kart ${i + 1}`}
-              className={`transition-all duration-300 rounded-full h-2 ${
-                i === activeIndex ? "w-6 bg-landing-purple-dark" : "w-2 bg-landing-purple/35"
-              }`}
-            />
-          ))}
+          {CARDS.map((_, i) =>
+          <button
+            key={i}
+            onClick={() => {
+              if (animating) return;
+              const diff = mod(i - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
+              if (diff !== 0) {
+                setAnimating(true);
+                setActiveIndex(i);
+                setTimeout(() => setAnimating(false), 400);
+              }
+            }}
+            aria-label={`Kart ${i + 1}`}
+            className={`transition-all duration-300 rounded-full h-2 ${
+            i === activeIndex ? "w-6 bg-landing-purple-dark" : "w-2 bg-landing-purple/35"}`
+            } />
+
+          )}
         </div>
       </div>
-    </section>
-  );
+    </section>);
+
 }
