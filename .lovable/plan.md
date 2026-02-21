@@ -1,58 +1,65 @@
 
-# Deneme Dersleri Hafta Filtreleme Duzeltmesi
 
-## Tespit Edilen Sorunlar
+# send-push Single Mode channel_id Bug Fix
 
-1. **Gelecek haftanin deneme dersleri su an gorunuyor**: `getTrialLessonForDayAndTime` fonksiyonu sadece `day_of_week` ve `start_time` ile eslesiyor, `lesson_date`'i kontrol etmiyor. Yani gelecek Pazartesi'ye eklenen bir deneme dersi bu hafta da gorunuyor.
+## Tespit
 
-2. **Gecmis haftanin dersleri hafta bitene kadar gorunuyor**: Cron fonksiyonu `lesson_date < today` ile siliyor (yani ertesi gun). Ama hafta icerisinde gecmis gunlerin dersleri hala gorunuyor — bu dogru davranis. Asil sorun: hafta bittikten sonra cron zaten siliyor, ama goruntuleme zaten hafta bazli filtrelenmeli.
+`send-push` edge function'da iki mod var:
+
+1. **Batch mode** (`body.recipients` array) — channel_id DOGRU geciliyor
+2. **Single mode** (body'den tek recipient) — channel_id KAYBOLUYOR
+
+```text
+notifications-push --> { user_id, title, body, channel_id: "homework", data }
+                                                    |
+                               send-push single mode'da bunu ALIYOR:
+                               { user_id, title, body, data }
+                                    channel_id YOK!
+                                         |
+                               recipient.channel_id = undefined
+                                         |
+                               { default_sound: true }  --> Default kanal
+```
+
+Hangi fonksiyon hangi modu kullaniyor:
+
+| Kaynak | Mod | channel_id |
+|---|---|---|
+| lesson-reminder-cron | batch (recipients array) | DOGRU geciyor |
+| notifications-push | single | KAYIP — homework |
+| admin-notifications-push | single | KAYIP — last_lesson |
 
 ## Cozum
 
-Her iki schedule component'inde (`AdminWeeklySchedule.tsx` ve `WeeklyScheduleDialog.tsx`) deneme derslerini sadece **icinde bulunulan haftaya ait olanlari** gosterecek sekilde filtrelemek.
-
-### Degisiklik 1: `TrialLesson` interface'ine `lesson_date` ekle
-
-Her iki dosyada da `TrialLesson` interface'ine `lesson_date: string` alani eklenir.
-
-### Degisiklik 2: Fetch sorgularinda `lesson_date`'i dahil et
-
-`select("*")` veya `select("id, day_of_week, ...")` sorgularina `lesson_date` eklenir (AdminWeeklySchedule zaten `select("*")` kullaniyor).
-
-### Degisiklik 3: `getTrialLessonForDayAndTime` fonksiyonuna hafta filtresi ekle
-
-Mevcut hafta baslangicinı (Pazartesi) ve bitisini (Pazar) hesapla. Trial lesson'in `lesson_date`'inin bu aralikta olup olmadigini kontrol et:
+`send-push/index.ts` satir 57'de `channel_id`'yi de dahil et:
 
 ```typescript
-const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-  const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
-  const dateForDay = getDateForDayIndex(dayIndex);
-  const dateStr = format(dateForDay, "yyyy-MM-dd");
-  
-  return trialLessons.find(
-    (l) => l.day_of_week === dbDayOfWeek 
-        && l.start_time === timeSlot 
-        && l.lesson_date === dateStr
-  );
-};
+// ONCE (BUG):
+recipients = [{ user_id: body.user_id, title: body.title, body: body.body, data: body.data }];
+
+// SONRA (FIX):
+recipients = [{ 
+  user_id: body.user_id, 
+  title: body.title, 
+  body: body.body, 
+  data: body.data, 
+  channel_id: body.channel_id 
+}];
 ```
 
-Bu sayede:
-- Deneme dersi sadece `lesson_date`'inin dustugu haftada gorunur
-- Gelecek haftaya eklenen ders bu hafta gorunmez
-- Gecmis haftanin dersi (cron henuz silmediyse bile) bu hafta gorunmez
-
-### Degisiklik 4: Cleanup cron — mevcut hali yeterli
-
-Cron fonksiyonu `lesson_date < today` ile siliyor. Bu dogru calisıyor: dersin gunu gectikten sonra ertesi gun silinir. Frontend zaten hafta bazli filtrelediginden, haftanin bitmesini beklemeye gerek yok — cron daha erken temizliyor, frontend de zaten dogru haftayi gosteriyor.
-
-## Degistirilecek Dosyalar
+## Degistirilecek Dosya
 
 | Dosya | Degisiklik |
 |---|---|
-| `src/components/AdminWeeklySchedule.tsx` | TrialLesson interface'ine `lesson_date` ekle, `getTrialLessonForDayAndTime`'a tarih filtresi ekle |
-| `src/components/WeeklyScheduleDialog.tsx` | Ayni degisiklikler (ogretmen paneli) |
+| `supabase/functions/send-push/index.ts` | Satir 57: single mode'da `channel_id: body.channel_id` ekle |
 
-## Bakiye Etkisi
+Tek satirlik degisiklik. Baska dosyada degisiklik gerekmiyor — `notifications-push` ve `admin-notifications-push` zaten `channel_id`'yi dogru gonderiyor, sadece `send-push` onu okumuyor.
 
-Bakiyede hicbir degisiklik olmayacak. Bu degisiklik sadece goruntulemeyi etkiler — deneme dersi veritabanindan silindiginde veya "islendi" olarak isaretlendiginde bakiye zaten ayri yonetiliyor.
+## Test
+
+Fix sonrasi `send-push` loglarinda su gorulmeli:
+
+- Odev bildirimi: `channel_id=homework`
+- Son ders uyarisi: `channel_id=last_lesson`
+- Ders hatirlatma: `channel_id=lesson` (zaten calisiyor)
+
