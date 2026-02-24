@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isSigningOutRef = useRef(false);
   const profileFetchAbortRef = useRef<AbortController | null>(null);
+  const profileRef = useRef<Profile | null>(null);
   // Guard: mark true once the first auth event / getSession resolves
   const initDoneRef = useRef(false);
 
@@ -69,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profileError) {
         if (DEV) console.log("[Auth] profile fetch error:", profileError.code);
         if (profileError.code === "PGRST116") {
+          profileRef.current = null;
           setProfile(null);
         } else {
           throw profileError;
@@ -90,11 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           : "student";
 
         if (DEV) console.log("[Auth] profile loaded, roles:", roles);
-        setProfile({ ...profileData, roles, role: primaryRole });
+        const merged: Profile = { ...profileData, roles, role: primaryRole as Profile["role"] };
+        profileRef.current = merged;
+        setProfile(merged);
       }
     } catch (error) {
       if (!isSigningOutRef.current) {
         console.error("[Auth] error fetching profile:", error);
+        profileRef.current = null;
         setProfile(null);
       }
     } finally {
@@ -143,13 +148,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (newSession?.user && !isSigningOutRef.current) {
-        setLoading(true);
+        // Only show loading spinner if profile hasn't been loaded yet.
+        // During TOKEN_REFRESHED events, skip setLoading(true) so the
+        // dashboard stays mounted and doesn't flash a spinner.
+        if (!profileRef.current) {
+          setLoading(true);
+        }
         setTimeout(() => {
           if (!isSigningOutRef.current) {
             fetchProfile(newSession.user.id);
           }
         }, 0);
       } else {
+        profileRef.current = null;
         setProfile(null);
         setLoading(false);
       }
@@ -296,6 +307,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Clear React state first → instant UI redirect
     setUser(null);
     setSession(null);
+    profileRef.current = null;
     setProfile(null);
 
     // Clear native / localStorage
