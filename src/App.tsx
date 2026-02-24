@@ -21,7 +21,9 @@ function DashboardRoutes() {
   const { user, profile, loading, initializing } = useAuthContext();
 
   // Session is still being restored from native storage — never redirect yet
-  if (initializing || loading) {
+  // Show spinner only during initial boot or first profile load.
+  // Token refresh with existing profile → no spinner, dashboard stays mounted.
+  if (initializing || (loading && !profile)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
