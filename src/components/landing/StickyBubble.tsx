@@ -31,7 +31,7 @@ const BurstParticles = ({ isActive }: { isActive: boolean }) => {
   ];
 
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-visible z-50">
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">
       {particles.map((particle, i) => (
         <span
           key={i}

@@ -203,7 +203,7 @@ export function ValuesSection() {
           {/* Cards */}
           <div
             ref={containerRef}
-            className="absolute inset-0 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
+            className="absolute inset-0 flex items-center justify-center select-none cursor-grab active:cursor-grabbing overflow-hidden"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
