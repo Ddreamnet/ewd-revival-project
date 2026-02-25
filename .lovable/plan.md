@@ -1,54 +1,44 @@
 
+# Android Cihazlarda Yatay Tasma (Overflow) Sorununun Koekten Cozumu
 
-# Blog Sayfasi ve Sayfa Gecisleri Iyilestirmesi
+## Sorunun Analizi
 
-## Istekler Listesi
+Tarayici gelistirici araclarinda "mobil gorunum" secildiginde sorun gorulmuyor, ancak gercek Android cihazlarda (ozellikle Capacitor WebView icinde) iletisim formu saga kayiyor veya sayfanin disina cikiyor.
 
-1. **Sayfalar arasi scroll-to-top**: Herhangi bir sayfadan baska bir sayfaya gecildiginde, yeni sayfa en ustten baslamali
-2. **Blog sayfasina LandingHeader eklenmesi**: Ana sayfa, Gizlilik Politikasi ve Bizimle Calisin sayfalarindaki ayni header kullanilmali
-3. **Blog sayfasina Footer eklenmesi**: Diger sayfalardaki ayni footer kullanilmali
-4. **Blog basliginin ortada ve mor renkte olmasi**: Gizlilik Politikasi sayfasindaki gibi `text-landing-purple-dark text-center`
-5. **Blog basliginin fontu**: Gizlilik Politikasi sayfasiyla ayni font (mevcut `font-aprilia` kaldirilacak, diger sayfalarla eslesen `font-bold` kalacak)
-6. **"Ana Sayfa" geri butonunun kaldirilmasi**: Blog sayfasindaki custom header ve geri butonu tamamen kaldirilacak
-7. **BlogPostPage icin ayni degisiklikler**: Blog yazi detay sayfasi da ayni LandingHeader + Footer yapisina kavusacak, custom header ve geri butonlari kaldirilacak
-8. **Hizli sayfa gecisi**: Sayfalar arasi gecis aninda gecikme olmamali
+**Kok Neden:** Android WebView ve bazi mobil tarayicilar, `body` uzerindeki `overflow-x: hidden` ozelligini her zaman dogru sekilde uygulamiyor. Sayfanin icindeki cesitli elementler gorunur alani astiginda, yatay kaydirma olusabiliyor. Bu durum, bilgisayar tarayicisinin "mobil gorunum" modunda fark edilmiyor cunku orada viewport davranisi farkli.
 
----
+**Tasma yaratan elemanlar:**
+1. **ValuesSection karuseli** — Kartlar `translateX(120%)`, `translateX(-120%)` gibi degerlerle gorunmez konumlara tasiniyor ama hala DOM'da yer kapliyor
+2. **HeroBook** — Spine (`left: -14px`) ve pages (`right: -10px`) elemanlarinin negatif konumlanmasi
+3. **StickyBubble** — `overflow-visible` ile burst partikullerinin ekran disina tasmasi
+4. **BlogSection** — Embla carousel elemanlarinin `flex-[0_0_85%]` genislikleri
+5. **ContactSection form** — `lg:mx-0` buyuk ekranda ortalama kaldirildiktan sonra grid icindeki konumlanma
 
-## Teknik Plan
+## Cozum Plani
 
-### Degisiklik 1: Scroll-to-top — `src/App.tsx`
+### 1. Global Overflow Korumasi — `index.html` ve `src/index.css`
 
-BrowserRouter icine bir `ScrollToTop` componenti eklenecek. Bu component `useLocation` ile her route degisiminde `window.scrollTo(0, 0)` calistiracak.
+`html` ve `#root` elementlerine `overflow-x: hidden` eklenerek tum sayfa genelinde yatay tasma engellenir. Bu, Android WebView'in `body` uzerindeki overflow'u yok saymasina karsi ikinci ve ucuncu savunma hatti olusturur.
 
-```typescript
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-  return null;
-}
-```
+- `index.html`: `<html>` etiketine `style="overflow-x:hidden"` eklenecek
+- `src/index.css`: `#root` icin `overflow-x: hidden` kurali eklenecek
+- `html` kuralina da acik `overflow-x: hidden` eklenecek (suan yorumla kaldirilmis durumda, geri getirilecek)
 
-Not: LandingPage'deki `scrollTo` state mekanizmasi zaten ayri calisiyor ve bu degisiklikle catismaz — o sayfa mount sonrasi belirli bir bolume kaydirir.
+### 2. ContactSection Formu — `src/components/landing/ContactSection.tsx`
 
-### Degisiklik 2: `src/pages/BlogPage.tsx` — Tam yeniden yapilandirma
+Form container'ina `lg:mx-auto` eklenerek tum ekran boyutlarinda ortalanmasi saglanacak. Grid icindeki konumlanma duzeltilecek.
 
-- Custom header (logo + geri butonu) tamamen kaldirilacak
-- `LanguageProvider` + `LandingHeader` + `Footer` eklenecek
-- `landing-body` class'i eklenecek (pinkgingham arka plan)
-- Baslik: `text-3xl md:text-4xl font-bold text-landing-purple-dark text-center mb-8`
-- Alt yazi kaldirilacak veya ayni stilde tutulacak
-- `pt-28 md:pt-32` padding (fixed header icin bosluk — diger sayfalarla ayni)
+### 3. ValuesSection Karuseli — `src/components/landing/ValuesSection.tsx`
 
-### Degisiklik 3: `src/pages/BlogPostPage.tsx` — Ayni yapilandirma
+Dis section'daki `overflow-hidden` zaten var. Karuselin kartlari icin ek `overflow-hidden` sinifi eklenecek — stage container'a clip yapisi uygulanacak.
 
-- Custom header (logo + "Blog'a don" linki) kaldirilacak
-- `LanguageProvider` + `LandingHeader` + `Footer` eklenecek
-- `landing-body` class'i eklenecek
-- Icerik alani ayni kalacak, sadece wrapper degisecek
-- Alt kisimda "Blog'a don" linki kalabilir (icerik ici navigasyon olarak)
+### 4. StickyBubble — `src/components/landing/StickyBubble.tsx`
+
+Burst partikullerinin dis container'ina `overflow-hidden` eklenecek, boylece animasyon parcaciklari ekran disina tasmayacak.
+
+### 5. HeroBook CSS — `src/index.css`
+
+`.hero-book-wrap` elementine `overflow: hidden` eklenecek, boylece spine ve pages'in negatif konumlanmasi disari tasmayacak.
 
 ---
 
@@ -56,7 +46,10 @@ Not: LandingPage'deki `scrollTo` state mekanizmasi zaten ayri calisiyor ve bu de
 
 | Dosya | Degisiklik |
 |---|---|
-| `src/App.tsx` | `ScrollToTop` componenti ekle, `useLocation` ve `useEffect` import'lari |
-| `src/pages/BlogPage.tsx` | Custom header kaldir, LandingHeader + Footer + LanguageProvider ekle, baslik stilini guncelle |
-| `src/pages/BlogPostPage.tsx` | Custom header kaldir, LandingHeader + Footer + LanguageProvider ekle |
+| `index.html` | `<html>` etiketine `style="overflow-x:hidden"` |
+| `src/index.css` | `html` ve `#root` icin `overflow-x: hidden`, `.hero-book-wrap` icin `overflow: hidden` |
+| `src/components/landing/ContactSection.tsx` | Form container'a `lg:mx-auto` eklenmesi |
+| `src/components/landing/ValuesSection.tsx` | Stage container'a ek `overflow-hidden` korumalik |
+| `src/components/landing/StickyBubble.tsx` | Burst particles container'a `overflow-hidden` |
 
+Bu degisiklikler topluca uygulandiginda, hem mevcut iletisim formu sorunu hem de diger potansiyel tasma sorunlari site genelinde cozulecek.
