@@ -221,7 +221,13 @@ All colors MUST be HSL.
     min-height: 100%;
     margin: 0;
     scroll-behavior: smooth;
-    /* overflow-x: hidden kaldırıldı — html::before'u kırpıyordu */
+    overflow-x: hidden;
+  }
+
+  #root {
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
   }
 
   html::before {
@@ -454,6 +460,7 @@ All colors MUST be HSL.
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .hero-book {
