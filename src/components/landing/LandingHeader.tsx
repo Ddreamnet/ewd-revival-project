@@ -85,9 +85,15 @@ export function LandingHeader() {
       {/* Logo - Absolute positioned, independent from header flow */}
       <div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
         <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          onClick={() => {
+            if (window.location.pathname === '/') {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              navigate('/');
+            }
+          }}
           className="focus:outline-none"
-          aria-label="Sayfanın başına git">
+          aria-label="Ana sayfaya git">
 
           <img
             src="/uploads/logo.webp"
