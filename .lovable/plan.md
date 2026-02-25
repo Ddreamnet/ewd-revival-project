@@ -1,104 +1,62 @@
 
-# Dashboard "Refresh" Sorunu - Kok Neden Analizi ve Cozum
 
-## Tespit
+# Blog Sayfasi ve Sayfa Gecisleri Iyilestirmesi
 
-Sorun gercek bir sayfa yenilemesi (browser refresh) degil. React component'in unmount ve remount olmasi — yani dashboard'un tamamen kaldirilip yeniden yuklenmesi.
+## Istekler Listesi
 
-### Kok Neden: `DashboardRoutes` ve AuthContext `loading` state'i
+1. **Sayfalar arasi scroll-to-top**: Herhangi bir sayfadan baska bir sayfaya gecildiginde, yeni sayfa en ustten baslamali
+2. **Blog sayfasina LandingHeader eklenmesi**: Ana sayfa, Gizlilik Politikasi ve Bizimle Calisin sayfalarindaki ayni header kullanilmali
+3. **Blog sayfasina Footer eklenmesi**: Diger sayfalardaki ayni footer kullanilmali
+4. **Blog basliginin ortada ve mor renkte olmasi**: Gizlilik Politikasi sayfasindaki gibi `text-landing-purple-dark text-center`
+5. **Blog basliginin fontu**: Gizlilik Politikasi sayfasiyla ayni font (mevcut `font-aprilia` kaldirilacak, diger sayfalarla eslesen `font-bold` kalacak)
+6. **"Ana Sayfa" geri butonunun kaldirilmasi**: Blog sayfasindaki custom header ve geri butonu tamamen kaldirilacak
+7. **BlogPostPage icin ayni degisiklikler**: Blog yazi detay sayfasi da ayni LandingHeader + Footer yapisina kavusacak, custom header ve geri butonlari kaldirilacak
+8. **Hizli sayfa gecisi**: Sayfalar arasi gecis aninda gecikme olmamali
 
-`App.tsx` icindeki `DashboardRoutes` componenti:
+---
 
-```text
-if (initializing || loading) {
-   return <spinner />;     <-- Dashboard unmount olur
-}
-```
+## Teknik Plan
 
-`AuthContext.tsx` icindeki `onAuthStateChange` handler'i:
+### Degisiklik 1: Scroll-to-top — `src/App.tsx`
 
-```text
-TOKEN_REFRESHED eventi geldiginde:
-  setLoading(true)           <-- loading = true
-  fetchProfile(user.id)      <-- profil tekrar yukle
-```
-
-Olay akisi:
-
-```text
-1. Supabase token refresh olur (her ~60 dk veya realtime baglanti yenilendiginde)
-2. onAuthStateChange TOKEN_REFRESHED event'i tetiklenir
-3. AuthContext loading = true yapar
-4. DashboardRoutes loading=true gorur --> spinner gosterir
-5. AdminDashboard / TeacherDashboard / StudentDashboard UNMOUNT olur
-6. Profile fetch tamamlanir --> loading = false
-7. Dashboard REMOUNT olur --> fetchTeachers/fetchStudents bastan calisir
-8. Kullanici icin sayfa "refresh" olmus gibi gorunur
-```
-
-Bu durum her token yenilenmesinde tekrarlanir. Realtime subscription'lar (admin-trial-lessons-changes, admin-notifications vb.) token yenilenmesini tetikleyebilir.
-
-## Cozum
-
-`DashboardRoutes`'da `loading` kontrolunu degistir: eger zaten bir `profile` varsa (yani ilk yuklemeden sonra), `loading=true` oldugunda spinner gosterme. Profili sessizce arka planda yenilesin.
-
-### Degisiklik: `src/App.tsx`
-
-Mevcut kod:
-```typescript
-if (initializing || loading) {
-  return <spinner />;
-}
-```
-
-Yeni kod:
-```typescript
-// Sadece ilk yuklemede spinner goster.
-// Token refresh sirasinda (profile zaten var) spinner gosterme
-// boylece dashboard unmount olmaz.
-if (initializing) {
-  return <spinner />;
-}
-
-// Ilk yuklemede henuz profil yoksa bekle
-if (loading && !profile) {
-  return <spinner />;
-}
-```
-
-Bu sayede:
-- Ilk giris: `initializing=true` --> spinner (dogru)
-- Profil henuz yuklenmedi: `loading=true, profile=null` --> spinner (dogru)
-- Token refresh: `loading=true, profile={...}` --> spinner YOK, dashboard kalir (dogru!)
-
-Ek olarak, AuthContext'teki `loading` mekanizmasini da iyilestirmek faydali olacaktir: token refresh sirasinda profile zaten varsa `setLoading(true)` cagirmamak.
-
-### Degisiklik: `src/contexts/AuthContext.tsx`
-
-`onAuthStateChange` handler'inda, `TOKEN_REFRESHED` event'inde profile zaten yukluyse `loading` state'ini degistirme:
+BrowserRouter icine bir `ScrollToTop` componenti eklenecek. Bu component `useLocation` ile her route degisiminde `window.scrollTo(0, 0)` calistiracak.
 
 ```typescript
-if (newSession?.user && !isSigningOutRef.current) {
-  // Sadece profil henuz yoksa loading goster
-  // Token refresh'te gereksiz spinner'i onle
-  if (!profile) {
-    setLoading(true);
-  }
-  setTimeout(() => {
-    if (!isSigningOutRef.current) {
-      fetchProfile(newSession.user.id);
-    }
-  }, 0);
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
 }
 ```
+
+Not: LandingPage'deki `scrollTo` state mekanizmasi zaten ayri calisiyor ve bu degisiklikle catismaz — o sayfa mount sonrasi belirli bir bolume kaydirir.
+
+### Degisiklik 2: `src/pages/BlogPage.tsx` — Tam yeniden yapilandirma
+
+- Custom header (logo + geri butonu) tamamen kaldirilacak
+- `LanguageProvider` + `LandingHeader` + `Footer` eklenecek
+- `landing-body` class'i eklenecek (pinkgingham arka plan)
+- Baslik: `text-3xl md:text-4xl font-bold text-landing-purple-dark text-center mb-8`
+- Alt yazi kaldirilacak veya ayni stilde tutulacak
+- `pt-28 md:pt-32` padding (fixed header icin bosluk — diger sayfalarla ayni)
+
+### Degisiklik 3: `src/pages/BlogPostPage.tsx` — Ayni yapilandirma
+
+- Custom header (logo + "Blog'a don" linki) kaldirilacak
+- `LanguageProvider` + `LandingHeader` + `Footer` eklenecek
+- `landing-body` class'i eklenecek
+- Icerik alani ayni kalacak, sadece wrapper degisecek
+- Alt kisimda "Blog'a don" linki kalabilir (icerik ici navigasyon olarak)
+
+---
 
 ## Degistirilecek Dosyalar
 
 | Dosya | Degisiklik |
 |---|---|
-| `src/App.tsx` | `DashboardRoutes`'da loading kontrolunu guncelle — profile varsa spinner gosterme |
-| `src/contexts/AuthContext.tsx` | Token refresh sirasinda profile zaten varsa `setLoading(true)` cagirma |
+| `src/App.tsx` | `ScrollToTop` componenti ekle, `useLocation` ve `useEffect` import'lari |
+| `src/pages/BlogPage.tsx` | Custom header kaldir, LandingHeader + Footer + LanguageProvider ekle, baslik stilini guncelle |
+| `src/pages/BlogPostPage.tsx` | Custom header kaldir, LandingHeader + Footer + LanguageProvider ekle |
 
-## Neden Simdi Fark Edildi?
-
-Bu sorun aslinda basından beri vardi ama token refresh suresi, realtime subscription yenilenmesi ve kullanicinin aktif kullanim zamanlamasiyla bagli olarak bazen daha sik gorunebilir. Son degisikliklerdeki ek Supabase sorguları (trial lesson date filtering) realtime aktivitesini artirmis olabilir.
