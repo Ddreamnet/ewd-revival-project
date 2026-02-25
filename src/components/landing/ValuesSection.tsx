@@ -58,16 +58,14 @@ function mod(n: number, m: number) {
 }
 
 export function ValuesSection() {
-  const { language, t } = useTranslation();
-  // activeIndex = index of the card displayed in the CENTER
+  const { language } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef(0);
+  const touchDelta = useRef(0);
 
-  // Track mobile/tablet breakpoint
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize, { passive: true });
@@ -84,20 +82,43 @@ export function ValuesSection() {
     [animating]
   );
 
-  // Pointer drag for swipe
-  const onPointerDown = (e: React.PointerEvent) => {
-    setDragging(true);
-    setDragStartX(e.clientX);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  // Touch events for mobile app compatibility (works in Capacitor)
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDelta.current = 0;
   };
 
-  const onPointerUp = (e: React.PointerEvent) => {
-    if (!dragging) return;
-    setDragging(false);
-    const diff = e.clientX - dragStartX;
+  const onTouchMove = (e: React.TouchEvent) => {
+    touchDelta.current = e.touches[0].clientX - touchStartX.current;
+  };
+
+  const onTouchEnd = () => {
+    if (Math.abs(touchDelta.current) > 40) {
+      go(touchDelta.current < 0 ? 1 : -1);
+    }
+    touchDelta.current = 0;
+  };
+
+  // Mouse drag for desktop
+  const mouseDown = useRef(false);
+  const mouseStartX = useRef(0);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    mouseDown.current = true;
+    mouseStartX.current = e.clientX;
+  };
+
+  const onMouseUp = (e: React.MouseEvent) => {
+    if (!mouseDown.current) return;
+    mouseDown.current = false;
+    const diff = e.clientX - mouseStartX.current;
     if (Math.abs(diff) > 40) {
       go(diff < 0 ? 1 : -1);
     }
+  };
+
+  const onMouseLeave = () => {
+    mouseDown.current = false;
   };
 
   // Keyboard support
@@ -110,12 +131,9 @@ export function ValuesSection() {
     return () => window.removeEventListener("keydown", handler);
   }, [go]);
 
-  // Compute position class and styles for each card slot
-  // slots: -2, -1, 0 (center), +1, +2
+  // Desktop: 3D carousel positions
   const getCardProps = (cardIndex: number) => {
     const offset = mod(cardIndex - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
-    // For 5 cards: offsets cycle through -2, -1, 0, 1, 2
-
     const abs = Math.abs(offset);
     const isCenter = offset === 0;
     const isAdjacent = abs === 1;
@@ -127,35 +145,48 @@ export function ValuesSection() {
     let zIndex = 10;
     let blur = "blur(0px)";
 
-    if (isCenter) {
-      translateX = "0px";
-      scale = 1;
-      opacity = 1;
-      zIndex = 20;
-      blur = "blur(0px)";
-    } else if (isAdjacent) {
-      translateX = offset > 0 ? isMobile ? "58%" : "70%" : isMobile ? "-58%" : "-70%";
-      scale = 0.84;
-      opacity = 0.5;
-      zIndex = 10;
-      blur = "blur(1px)";
-    } else if (isFar) {
-      translateX = offset > 0 ? isMobile ? "110%" : "130%" : isMobile ? "-110%" : "-130%";
-      scale = 0.7;
-      opacity = 0.25;
-      zIndex = 5;
-      blur = "blur(2px)";
+    if (isMobile) {
+      // Mobile: only show center card
+      if (isCenter) {
+        translateX = "0px"; scale = 1; opacity = 1; zIndex = 20; blur = "blur(0px)";
+      } else {
+        // Hide all non-center cards off-screen
+        translateX = offset > 0 ? "120%" : "-120%";
+        scale = 0.85; opacity = 0; zIndex = 1; blur = "blur(0px)";
+      }
     } else {
-      // Hidden (for TOTAL > 5)
-      translateX = offset > 0 ? "200%" : "-200%";
-      scale = 0.6;
-      opacity = 0;
-      zIndex = 1;
-      blur = "blur(3px)";
+      // Desktop: keep 3D carousel
+      if (isCenter) {
+        translateX = "0px"; scale = 1; opacity = 1; zIndex = 20; blur = "blur(0px)";
+      } else if (isAdjacent) {
+        translateX = offset > 0 ? "70%" : "-70%";
+        scale = 0.84; opacity = 0.5; zIndex = 10; blur = "blur(1px)";
+      } else if (isFar) {
+        translateX = offset > 0 ? "130%" : "-130%";
+        scale = 0.7; opacity = 0.25; zIndex = 5; blur = "blur(2px)";
+      } else {
+        translateX = offset > 0 ? "200%" : "-200%";
+        scale = 0.6; opacity = 0; zIndex = 1; blur = "blur(3px)";
+      }
     }
 
     return { translateX, scale, opacity, zIndex, blur, isCenter };
   };
+
+  // Shared arrow button component
+  const ArrowButton = ({ direction, className: extraClass }: { direction: -1 | 1; className?: string }) => (
+    <button
+      onClick={() => go(direction)}
+      aria-label={direction === -1 ? "Önceki" : "Sonraki"}
+      className={`z-30 w-11 h-11 rounded-full bg-landing-purple shadow-lg flex items-center justify-center hover:bg-landing-purple-dark hover:shadow-xl transition-all active:scale-95 ${extraClass ?? ""}`}
+    >
+      {direction === -1 ? (
+        <ChevronLeft className="h-6 w-6 text-white" />
+      ) : (
+        <ChevronRight className="h-6 w-6 text-white" />
+      )}
+    </button>
+  );
 
   return (
     <section id="values" className="scroll-section py-16 md:py-24 overflow-hidden">
@@ -165,11 +196,6 @@ export function ValuesSection() {
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">
             {language === "tr" ? "Değerlerimiz" : "Our Values"}
           </h2>
-          
-
-
-
-
         </div>
 
         {/* Carousel stage */}
@@ -178,10 +204,13 @@ export function ValuesSection() {
           <div
             ref={containerRef}
             className="absolute inset-0 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
-            onPointerDown={onPointerDown}
-            onPointerUp={onPointerUp}
-            onPointerCancel={() => setDragging(false)}>
-
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onMouseDown={onMouseDown}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseLeave}
+          >
             {CARDS.map((card, cardIndex) => {
               const { translateX, scale, opacity, zIndex, blur, isCenter } = getCardProps(cardIndex);
 
@@ -191,7 +220,7 @@ export function ValuesSection() {
                   onClick={() => {
                     if (!isCenter && !animating) {
                       const offset =
-                      mod(cardIndex - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
+                        mod(cardIndex - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
                       if (offset !== 0) go(offset > 0 ? 1 : -1);
                     }
                   }}
@@ -201,24 +230,23 @@ export function ValuesSection() {
                     opacity,
                     zIndex,
                     filter: blur,
-                    transition: animating ?
-                    "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease" :
-                    "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease",
+                    transition: "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease",
                     width: "clamp(220px, 75vw, 420px)",
                     maxWidth: "420px",
-                    cursor: isCenter ? "grab" : "pointer"
-                  }}>
-
+                    cursor: isCenter ? "grab" : "pointer",
+                    pointerEvents: isMobile && !isCenter ? "none" : "auto",
+                  }}
+                >
                   {/* Outer card frame */}
                   <div
                     className="rounded-3xl bg-white/90 shadow-xl overflow-hidden"
                     style={{
-                      boxShadow: isCenter ?
-                      "0 20px 60px -10px rgba(180,100,160,0.25), 0 8px 24px -4px rgba(180,100,160,0.15)" :
-                      "0 8px 24px -8px rgba(0,0,0,0.12)"
-                    }}>
-
-                    {/* Inner dashed border (dikiş hissi) */}
+                      boxShadow: isCenter
+                        ? "0 20px 60px -10px rgba(180,100,160,0.25), 0 8px 24px -4px rgba(180,100,160,0.15)"
+                        : "0 8px 24px -8px rgba(0,0,0,0.12)",
+                    }}
+                  >
+                    {/* Inner dashed border */}
                     <div className="m-[5px] rounded-[18px] border border-dashed border-landing-purple/30 overflow-hidden">
                       {/* Image area */}
                       <div className="w-full overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
@@ -229,24 +257,22 @@ export function ValuesSection() {
                           width={420}
                           height={315}
                           className="w-full h-full object-cover grayscale"
-                          draggable={false} />
-
+                          draggable={false}
+                        />
                       </div>
 
                       {/* Quote area */}
                       <div className="px-5 pt-4 pb-5 bg-gradient-to-b from-white/80 to-landing-pink/20">
-                        {/* Open-quote icon */}
                         <span
                           className="text-landing-purple-dark/30 font-serif leading-none select-none"
                           style={{ fontSize: "3rem", lineHeight: 1 }}
-                          aria-hidden>
-
+                          aria-hidden
+                        >
                           "
                         </span>
-                         <p className="text-foreground/80 text-sm leading-relaxed -mt-2 italic font-medium">
-                           {card.quote[language]}"
+                        <p className="text-foreground/80 text-sm leading-relaxed -mt-2 italic font-medium">
+                          {card.quote[language]}"
                         </p>
-                        {/* Signature area */}
                         <div className="mt-4 flex justify-end items-center">
                           <img
                             src={signatureImg}
@@ -254,56 +280,44 @@ export function ValuesSection() {
                             loading="lazy"
                             width={160}
                             height={52}
-                            className="h-10 w-auto object-contain opacity-75" />
-
+                            className="h-10 w-auto object-contain opacity-75"
+                          />
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>);
-
+                </div>
+              );
             })}
           </div>
 
-          {/* Arrow buttons – desktop only */}
-          <button
-            onClick={() => go(-1)}
-            aria-label="Önceki"
-            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/80 shadow-md items-center justify-center hover:bg-white hover:shadow-lg transition-all border border-landing-purple/20">
-
-            <ChevronLeft className="h-5 w-5 text-landing-purple-dark" />
-          </button>
-          <button
-            onClick={() => go(1)}
-            aria-label="Sonraki"
-            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/80 shadow-md items-center justify-center hover:bg-white hover:shadow-lg transition-all border border-landing-purple/20">
-
-            <ChevronRight className="h-5 w-5 text-landing-purple-dark" />
-          </button>
+          {/* Arrow buttons – both mobile and desktop */}
+          <ArrowButton direction={-1} className="absolute left-2 md:left-0 top-1/2 -translate-y-1/2" />
+          <ArrowButton direction={1} className="absolute right-2 md:right-0 top-1/2 -translate-y-1/2" />
         </div>
 
         {/* Dot indicators */}
         <div className="flex justify-center gap-2 mt-6">
-          {CARDS.map((_, i) =>
-          <button
-            key={i}
-            onClick={() => {
-              if (animating) return;
-              const diff = mod(i - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
-              if (diff !== 0) {
-                setAnimating(true);
-                setActiveIndex(i);
-                setTimeout(() => setAnimating(false), 400);
-              }
-            }}
-            aria-label={`Kart ${i + 1}`}
-            className={`transition-all duration-300 rounded-full h-2 ${
-            i === activeIndex ? "w-6 bg-landing-purple-dark" : "w-2 bg-landing-purple/35"}`
-            } />
-
-          )}
+          {CARDS.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => {
+                if (animating) return;
+                const diff = mod(i - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
+                if (diff !== 0) {
+                  setAnimating(true);
+                  setActiveIndex(i);
+                  setTimeout(() => setAnimating(false), 400);
+                }
+              }}
+              aria-label={`Kart ${i + 1}`}
+              className={`transition-all duration-300 rounded-full h-2 ${
+                i === activeIndex ? "w-6 bg-landing-purple-dark" : "w-2 bg-landing-purple/35"
+              }`}
+            />
+          ))}
         </div>
       </div>
-    </section>);
-
+    </section>
+  );
 }
