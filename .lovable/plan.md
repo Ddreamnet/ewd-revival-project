@@ -310,9 +310,9 @@ Update `LessonTracker` and `StudentLessonTracker`:
 | 12 | Add back-to-back grouping UI to both grids | Medium | ✅ DONE |
 | 13 | Update `LessonTracker` and `StudentLessonTracker` to read from instances | Medium | ✅ DONE |
 | 14 | Update `lessonSorting.ts` for time-aware sorting | Low | ✅ DONE |
-| 15 | Balance safety verification (manual + automated checks) | Low | 🔲 TODO |
+| 15 | Balance safety verification (manual + automated checks) | Low | ✅ DONE |
 
-All steps 1-14 are complete. Only balance safety verification (Step 15) remains.
+All 15 steps are complete. The scheduling upgrade is fully implemented.
 
 ---
 
