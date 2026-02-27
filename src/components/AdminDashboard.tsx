@@ -23,53 +23,9 @@ import { AdminWeeklySchedule } from "./AdminWeeklySchedule";
 import { AdminBalanceManager } from "./AdminBalanceManager";
 import { StudentAboutDialog } from "./StudentAboutDialog";
 import { AdminBlogManager } from "./AdminBlogManager";
-
-interface Teacher {
-  user_id: string;
-  full_name: string;
-  email: string;
-  students: Student[];
-}
-
-interface Student {
-  id: string;
-  student_id: string;
-  lessons: StudentLesson[];
-  is_archived: boolean;
-  about_text: string | null;
-  profiles: {
-    full_name: string;
-    email: string;
-  };
-}
-
-interface StudentLesson {
-  id?: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  note?: string;
-}
-
-interface Topic {
-  id: string;
-  title: string;
-  description: string | null;
-  is_completed: boolean;
-  order_index: number;
-  resources: Resource[];
-  isGlobal?: boolean;
-}
-
-interface Resource {
-  id: string;
-  title: string;
-  description: string | null;
-  resource_type: string;
-  resource_url: string;
-  order_index: number;
-  is_completed?: boolean;
-}
+import { getDayName, formatTime } from "@/lib/lessonTypes";
+import { getResourceIcon } from "@/lib/resourceUtils";
+import type { Teacher, Student, Topic, Resource } from "@/lib/types";
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -300,15 +256,7 @@ export function AdminDashboard() {
     }
   };
 
-  const getDayName = (dayOfWeek?: number) => {
-    const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
-    return dayOfWeek !== undefined ? days[dayOfWeek] : "";
-  };
-
-  const formatTime = (time?: string) => {
-    if (!time) return "";
-    return new Date(`2000-01-01T${time}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  };
+  // getDayName, formatTime, and getResourceIcon are now imported from shared modules
 
   const openStudentSettings = (student: Student) => {
     setEditingStudent(student);
@@ -320,21 +268,6 @@ export function AdminDashboard() {
     setShowEditTeacher(true);
   };
 
-  const getResourceIcon = (type: string) => {
-    switch (type) {
-      case "video":
-        return <Video className="h-4 w-4" />;
-      case "pdf":
-      case "document":
-        return <FileText className="h-4 w-4" />;
-      case "link":
-        return <LinkIcon className="h-4 w-4" />;
-      case "image":
-        return <Image className="h-4 w-4" />;
-      default:
-        return <ExternalLink className="h-4 w-4" />;
-    }
-  };
 
   const handleAddTopic = async (title: string, description: string) => {
     if (!selectedStudentForTopic) return;

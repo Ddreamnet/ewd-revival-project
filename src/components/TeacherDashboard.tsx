@@ -16,23 +16,8 @@ import { TeacherBalanceDialog } from "./TeacherBalanceDialog";
 import { StudentAboutDialog } from "./StudentAboutDialog";
 import { initPushNotifications } from "@/lib/pushNotifications";
 import { HomeworkListDialog } from "./HomeworkListDialog";
-interface StudentLesson {
-  id?: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  isCompleted?: boolean;
-}
-interface Student {
-  id: string;
-  student_id: string;
-  lessons: StudentLesson[];
-  about_text: string | null;
-  profiles: {
-    full_name: string;
-    email: string;
-  };
-}
+import { getDayName, formatTime } from "@/lib/lessonTypes";
+import type { Student, StudentLessonBase } from "@/lib/types";
 export function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -103,7 +88,7 @@ export function TeacherDashboard() {
 
       // Sort students by closest upcoming lesson time
       const sortedStudents = studentsWithLessons.sort((a, b) => {
-        const getNextLessonTime = (lessons: StudentLesson[]) => {
+        const getNextLessonTime = (lessons: StudentLessonBase[]) => {
           if (lessons.length === 0) return Number.MAX_SAFE_INTEGER;
           const now = new Date();
           const currentDay = now.getDay();
@@ -138,17 +123,7 @@ export function TeacherDashboard() {
       setLoading(false);
     }
   };
-  const getDayName = (dayOfWeek?: number) => {
-    const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
-    return dayOfWeek !== undefined ? days[dayOfWeek] : "";
-  };
-  const formatTime = (time?: string) => {
-    if (!time) return "";
-    return new Date(`2000-01-01T${time}`).toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit"
-    });
-  };
+  // getDayName and formatTime are now imported from @/lib/lessonTypes
   const getLessonStatus = (dayOfWeek: number, startTime: string) => {
     const now = new Date();
     const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.

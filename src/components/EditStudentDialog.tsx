@@ -24,14 +24,8 @@ import { LessonDates, LessonOverrideInfo } from "@/lib/lessonTypes";
 import { getSortedLessons } from "@/lib/lessonSorting";
 import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
 import { addRegularLessonBalance, subtractRegularLessonBalance } from "@/lib/teacherBalance";
-
-interface StudentLesson {
-  id?: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  note?: string;
-}
+import type { StudentLessonBase } from "@/lib/types";
+import { DAYS_OF_WEEK } from "@/lib/types";
 
 interface EditStudentDialogProps {
   open: boolean;
@@ -39,18 +33,10 @@ interface EditStudentDialogProps {
   onStudentUpdated: () => void;
   studentId: string;
   currentName: string;
-  currentLessons: StudentLesson[];
+  currentLessons: StudentLessonBase[];
 }
 
-const daysOfWeek = [
-  { value: 1, label: "Pazartesi" },
-  { value: 2, label: "Salı" },
-  { value: 3, label: "Çarşamba" },
-  { value: 4, label: "Perşembe" },
-  { value: 5, label: "Cuma" },
-  { value: 6, label: "Cumartesi" },
-  { value: 0, label: "Pazar" },
-];
+const daysOfWeek = DAYS_OF_WEEK;
 
 export function EditStudentDialog({
   open,
@@ -62,7 +48,7 @@ export function EditStudentDialog({
 }: EditStudentDialogProps) {
   const [name, setName] = useState("");
   const [lessonsPerWeek, setLessonsPerWeek] = useState(1);
-  const [lessons, setLessons] = useState<StudentLesson[]>([{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]);
+  const [lessons, setLessons] = useState<StudentLessonBase[]>([{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]);
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
@@ -158,7 +144,7 @@ export function EditStudentDialog({
     }
   }, [lessonsPerWeek]);
 
-  const updateLesson = (index: number, field: keyof StudentLesson, value: string | number) => {
+  const updateLesson = (index: number, field: keyof StudentLessonBase, value: string | number) => {
     const updatedLessons = [...lessons];
     updatedLessons[index] = { ...updatedLessons[index], [field]: value };
     setLessons(updatedLessons);

@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, Plus, Trash2, ExternalLink, FileText, Video, Link as LinkIcon, Pencil, GripVertical } from "lucide-react";
+import { getResourceIcon } from "@/lib/resourceUtils";
 import { AddTopicDialog } from "./AddTopicDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { EditTopicDialog } from "./EditTopicDialog";
@@ -422,20 +423,7 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
     }
   };
 
-  // ============= HELPER FUNCTIONS =============
-  const getResourceIcon = (type: string) => {
-    switch (type) {
-      case "video":
-        return <Video className="h-4 w-4" />;
-      case "pdf":
-      case "document":
-        return <FileText className="h-4 w-4" />;
-      case "link":
-        return <LinkIcon className="h-4 w-4" />;
-      default:
-        return <ExternalLink className="h-4 w-4" />;
-    }
-  };
+  // getResourceIcon is now imported from @/lib/resourceUtils
 
   // ============= RENDER =============
   return (
