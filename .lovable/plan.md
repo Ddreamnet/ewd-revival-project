@@ -1,157 +1,185 @@
 
-# Refactoring Plan: Lesson Tracking, Schedule, and Rescheduling Flows
+# Codebase Architecture Audit Report
 
-## Current State Analysis
+## Executive Summary
 
-### Files in Scope
-
-| File | Lines | Role |
-|---|---|---|
-| `src/components/LessonTracker.tsx` | 493 | Teacher panel: marks lessons complete, shows dates with overrides |
-| `src/components/StudentLessonTracker.tsx` | 270 | Student panel: read-only view of completed lessons with overrides |
-| `src/components/EditStudentDialog.tsx` | 1076 | Admin panel: edit student, mark/undo lessons, reset, date editing |
-| `src/components/LessonOverrideDialog.tsx` | 564 | Admin: one-time reschedule + postpone-to-next-lesson |
-| `src/components/AdminWeeklySchedule.tsx` | 795 | Admin: weekly grid with override awareness, trial lessons |
-| `src/components/WeeklyScheduleDialog.tsx` | 485 | Teacher: weekly grid with override awareness, trial lessons |
-| `src/hooks/useLessonOverrides.ts` | 120 | Shared hook for override queries (used by schedule components) |
-
-### Identified Duplication (High-Impact)
-
-**1. `getSortedLessons` logic** -- identical in `LessonTracker.tsx` (lines 354-385) and `StudentLessonTracker.tsx` (lines 139-169). Also `getDisplayLessonData` is duplicated.
-
-**2. `getRowConfig` logic** -- identical layout calculation in both tracker components.
-
-**3. `updateTeacherBalance` / `subtractFromTeacherBalance`** -- duplicated across 4 files:
-- `LessonTracker.tsx` (lines 292-340)
-- `EditStudentDialog.tsx` (lines 335-423) -- both add and subtract
-- `AdminWeeklySchedule.tsx` (lines 440-510) -- trial lesson variant
-- `WeeklyScheduleDialog.tsx` (lines 318-371) -- trial lesson variant
-
-**4. `fetchTracking` pattern** (get most recent record by `updated_at DESC LIMIT 1`) -- duplicated in `LessonTracker.tsx`, `StudentLessonTracker.tsx`, `EditStudentDialog.tsx`, and `LessonOverrideDialog.tsx`.
-
-**5. `fetchLessonOverrides` query** -- duplicated in `LessonTracker.tsx`, `StudentLessonTracker.tsx`, `EditStudentDialog.tsx`.
-
-**6. `calculateLessonDates` / `recalculateRemainingDates`** -- similar date-walking logic in `LessonTracker.tsx` and `EditStudentDialog.tsx`, plus `calculateNextLessonDate` in `LessonOverrideDialog.tsx`.
-
-**7. `LessonDates` and `LessonOverride` interfaces** -- redefined identically in 4 files.
-
-**8. Schedule grid logic** (`getLessonForDayAndTime`, `getAllTimeSlots`, `getTrialLessonForDayAndTime`, `getDateForDayIndex`) -- nearly identical in `AdminWeeklySchedule.tsx` and `WeeklyScheduleDialog.tsx`.
-
-**9. `formatTime` utility** -- duplicated across 4+ components.
+The project is a multi-role education platform (Admin, Teacher, Student dashboards + public landing page) built with React, Supabase, and Capacitor. A recent refactoring extracted lesson-related logic into shared modules, which was a significant improvement. However, several structural issues remain that impact maintainability.
 
 ---
 
-## Refactoring Plan
+## Issue 1: Massive Dashboard Components (CRITICAL)
 
-### Phase 1: Extract Shared Types and Utilities
+**Problem:** `AdminDashboard.tsx` is 1,128 lines with 25+ state variables, inline CRUD handlers for topics/resources, and deeply nested JSX (8+ levels). `TeacherDashboard.tsx` (349 lines) and `StudentDashboard.tsx` (519 lines) are more manageable but still contain inline data-fetching logic and duplicated utilities.
 
-**New file: `src/lib/lessonTypes.ts`**
-- Move `LessonDates`, `LessonOverride` (the local interface, not the hook's), and `LessonTrackingRecord` interfaces here.
-- Export `formatTime` utility (currently duplicated everywhere).
-- Export `getRowConfig(lessonsPerWeek)` function.
+**Impact:** Difficult to read, test, or modify any single feature without risking the whole dashboard.
 
-**Why:** Eliminates 4 duplicate interface definitions and scattered utility functions.
+**Recommendation:**
+- Extract `AdminDashboard` into sub-components:
+  - `AdminTeacherList` -- teacher sidebar with selection
+  - `AdminStudentList` -- student cards with expand/collapse, archived section
+  - `AdminStudentTopicsSection` -- the "Islenen Konular" + "Ogrenciye Ozel Konular" inline sections (lines 776-968)
+- Move topic/resource CRUD handlers (`handleAddTopic`, `handleEditTopic`, `handleDeleteTopic`, `handleAddResource`, `handleEditResource`, `handleDeleteResource`) into a custom hook `useAdminTopicsCrud(teacherId)`.
+- Move `fetchStudentTopics` into a shared hook since it does the same global+student topic merging that `StudentDashboard.fetchTopics` and `StudentTopics.fetchTopics` also do.
 
-### Phase 2: Extract Teacher Balance Service
-
-**New file: `src/lib/teacherBalance.ts`**
-- `updateTeacherBalance(teacherId, studentId, lessonType: 'regular' | 'trial', startTime, endTime)`
-- `subtractFromTeacherBalance(teacherId, studentId, lessonType, startTime, endTime)`
-- Internally calculates duration, checks/creates balance record.
-
-**Why:** This is the single highest-duplication function (4 nearly identical copies). Centralizing it prevents future drift and bugs.
-
-### Phase 3: Extract Lesson Tracking Data Hook
-
-**New file: `src/hooks/useLessonTracking.ts`**
-- `useLessonTracking(studentId, teacherId)` returns `{ completedLessons, lessonDates, lessonOverrides, trackingRecordId, loading, refetch }`
-- Encapsulates the "fetch most recent record" pattern, override fetching, and optional real-time subscription.
-- Replaces duplicate fetch logic in `LessonTracker`, `StudentLessonTracker`, and parts of `EditStudentDialog`.
-
-**Why:** The same fetch-tracking + fetch-overrides + state pattern is repeated 3 times.
-
-### Phase 4: Extract Lesson Sorting Logic
-
-**New file: `src/lib/lessonSorting.ts`**
-- `getSortedLessons(lessonDates, lessonOverrides, totalLessons)` -- pure function.
-- `getDisplayLessonData(sortedLessons, lessonDates, displayPosition)` -- pure function.
-
-**Why:** Identical logic in `LessonTracker` and `StudentLessonTracker`.
-
-### Phase 5: Extract Lesson Date Calculation
-
-**New file: `src/lib/lessonDateCalculation.ts`**
-- `calculateLessonDates(markedLessonNumber, markedDate, studentLessonDays)` -- pure function (from `LessonTracker`).
-- `recalculateRemainingDates(fromLessonNumber, startDate, currentDates, lessonDays, totalLessons)` -- pure function (from `EditStudentDialog`).
-- `calculateNextLessonDate(currentDate, lessonDays)` -- pure function (from `LessonOverrideDialog`).
-
-**Why:** Date-walking logic is the most error-prone area; centralizing makes it testable and consistent.
-
-### Phase 6: Extract Schedule Grid Logic
-
-**New file: `src/hooks/useScheduleGrid.ts`**
-- `useScheduleGrid(lessons, trialLessons, overrides)` returns `{ timeSlots, getLessonForDayAndTime, getTrialLessonForDayAndTime, getDateForDayIndex }`
-- Used by both `AdminWeeklySchedule` and `WeeklyScheduleDialog`.
-
-**Why:** ~100 lines of near-identical grid positioning logic in two components.
-
-### Phase 7: Refactor Consumers
-
-Update existing components to use the extracted modules:
-
-| Component | Changes |
-|---|---|
-| `LessonTracker.tsx` | Use `useLessonTracking`, import `getSortedLessons`, `getDisplayLessonData`, `calculateLessonDates`, `updateTeacherBalance`, `getRowConfig` from shared modules. Estimated reduction: ~150 lines. |
-| `StudentLessonTracker.tsx` | Use `useLessonTracking`, import sorting/display functions. Estimated reduction: ~80 lines. |
-| `EditStudentDialog.tsx` | Import `updateTeacherBalance`, `subtractFromTeacherBalance`, `recalculateRemainingDates`, types. Estimated reduction: ~100 lines. |
-| `LessonOverrideDialog.tsx` | Import `calculateNextLessonDate` from shared module. Minor reduction. |
-| `AdminWeeklySchedule.tsx` | Use `useScheduleGrid`, import balance functions. Estimated reduction: ~80 lines. |
-| `WeeklyScheduleDialog.tsx` | Use `useScheduleGrid`, import balance functions. Estimated reduction: ~80 lines. |
-
-### Phase 8: Add Tests
-
-**New test files:**
-- `src/lib/lessonDateCalculation.test.ts` -- unit tests for date walking, edge cases (Sunday wrap, single lesson day)
-- `src/lib/lessonSorting.test.ts` -- unit tests for sorting with cancellations, overrides
-- `src/lib/teacherBalance.test.ts` -- unit tests for duration calculation logic (mocking Supabase)
-
-**Why:** The extracted pure functions are now independently testable. These are the highest-risk areas for regressions.
+**Priority:** High -- this is the single largest maintenance risk.
 
 ---
 
-## Implementation Order
+## Issue 2: Duplicated Interface Definitions (HIGH)
 
-1. **Phase 1** (types/utilities) -- no risk, additive only
-2. **Phase 2** (teacher balance) -- extract, then swap one consumer at a time
-3. **Phase 3** (tracking hook) -- extract, swap `StudentLessonTracker` first (simplest), then `LessonTracker`
-4. **Phase 4** (sorting) -- extract, swap both trackers
-5. **Phase 5** (date calculation) -- extract, swap `LessonTracker` and `EditStudentDialog`
-6. **Phase 6** (schedule grid) -- extract, swap both schedule components
-7. **Phase 7** (final cleanup of all consumers)
-8. **Phase 8** (tests)
+**Problem:** `StudentLesson` interface is defined independently in 8 files with slight variations (some have `id?`, some have `isCompleted?`, some have `note?`). `Student` interface is defined in 4 files. `Topic` and `Resource` interfaces are defined in 3 files.
 
-Each phase is independently deployable. After each swap, all existing behavior remains identical -- only internal imports change.
+**Files affected:**
+- `StudentLesson`: AdminDashboard, TeacherDashboard, EditStudentDialog, AddStudentDialog, CreateStudentDialog, EditStudentLessonsDialog, WeeklyScheduleDialog, AdminWeeklySchedule, ScheduleExportCanvas
+- `Student`: AdminDashboard, TeacherDashboard, StudentTopics
+- `Topic`/`Resource`: AdminDashboard, StudentDashboard, StudentTopics
 
-## Files Created (New)
+**Recommendation:**
+- Add `StudentLesson`, `Student`, `Teacher`, `Topic`, `Resource` interfaces to `src/lib/lessonTypes.ts` (or create a new `src/lib/types.ts` for non-lesson types).
+- Use a union or optional fields approach: `StudentLesson` with all optional fields, and each consumer picks what it needs.
 
-| File | Purpose |
+**Priority:** High -- prevents drift between components.
+
+---
+
+## Issue 3: Duplicated Utility Functions (MEDIUM)
+
+**Problem:** Several small utility functions are copy-pasted across components:
+
+| Function | Duplicated in |
 |---|---|
-| `src/lib/lessonTypes.ts` | Shared interfaces and small utilities |
-| `src/lib/teacherBalance.ts` | Balance add/subtract operations |
-| `src/lib/lessonSorting.ts` | Sorted lesson display logic |
-| `src/lib/lessonDateCalculation.ts` | Date walking algorithms |
-| `src/hooks/useLessonTracking.ts` | Tracking data fetch + state hook |
-| `src/hooks/useScheduleGrid.ts` | Schedule grid positioning logic |
+| `getDayName(dayOfWeek)` | AdminDashboard, TeacherDashboard |
+| `formatTime(time)` | AdminDashboard, TeacherDashboard (local versions differ from `lessonTypes.formatTime`) |
+| `getResourceIcon(type)` | AdminDashboard, StudentDashboard, StudentTopics, GlobalTopicsManager (4 identical copies) |
+| `getLessonStatus(day, time)` | TeacherDashboard (only 1 copy, but could be shared) |
 
-## Files Modified (Existing)
+**Recommendation:**
+- Move `getDayName` to `src/lib/lessonTypes.ts` alongside existing `formatTime`.
+- Create `src/lib/resourceUtils.tsx` exporting `getResourceIcon` as a shared React component.
+- Ensure AdminDashboard and TeacherDashboard use the centralized `formatTime` from `lessonTypes.ts` instead of local copies.
 
-| File | Nature of Change |
-|---|---|
-| `src/components/LessonTracker.tsx` | Replace inline logic with shared imports |
-| `src/components/StudentLessonTracker.tsx` | Replace inline logic with shared imports |
-| `src/components/EditStudentDialog.tsx` | Replace balance/date logic with shared imports |
-| `src/components/LessonOverrideDialog.tsx` | Replace date calc with shared import |
-| `src/components/AdminWeeklySchedule.tsx` | Replace grid/balance logic with shared imports |
-| `src/components/WeeklyScheduleDialog.tsx` | Replace grid/balance logic with shared imports |
+**Priority:** Medium.
 
-No changes to: dashboards, routing, authentication, landing page, or any unrelated components.
+---
+
+## Issue 4: Topic Fetching Logic Triplicated (MEDIUM)
+
+**Problem:** The pattern of "fetch student topics + global topics + completion status + merge" appears in three places:
+1. `AdminDashboard.fetchStudentTopics` (lines 196-301)
+2. `StudentDashboard.fetchTopics` (lines 102-226)
+3. `StudentTopics.fetchTopics` (lines 104-240)
+
+All three do essentially the same thing: query `topics`, `global_topics`, `student_resource_completion`, build a completion map, merge, and sort.
+
+**Recommendation:**
+- Create `src/hooks/useStudentTopics.ts` that encapsulates this fetch-merge-sort pattern.
+- Parameters: `studentUserId`, `options: { includeGlobal: boolean, onlyCompleted: boolean }`
+- Returns: `{ topics, loading, refetch }`
+
+**Priority:** Medium -- reduces ~350 lines of duplicated data-fetching logic.
+
+---
+
+## Issue 5: Flat Component Directory (MEDIUM)
+
+**Problem:** `src/components/` has 40+ files at the top level with no subdirectory organization beyond `landing/` and `ui/`. Admin-specific dialogs, teacher components, student components, and shared components are all mixed together.
+
+**Recommendation:** Organize into role-based subdirectories:
+
+```text
+src/components/
+  admin/
+    AdminDashboard.tsx
+    AdminWeeklySchedule.tsx
+    AdminBalanceManager.tsx
+    AdminBlogManager.tsx
+    AdminNotificationBell.tsx
+    CreateStudentDialog.tsx
+    CreateTeacherDialog.tsx
+    EditStudentDialog.tsx
+    EditTeacherDialog.tsx
+    LessonOverrideDialog.tsx
+    ...
+  teacher/
+    TeacherDashboard.tsx
+    TeacherBalanceDialog.tsx
+    WeeklyScheduleDialog.tsx
+    StudentTopics.tsx
+    ...
+  student/
+    StudentDashboard.tsx
+    StudentLessonTracker.tsx
+    UploadHomeworkDialog.tsx
+    ...
+  shared/
+    Header.tsx
+    Logo.tsx
+    AuthForm.tsx
+    ContactDialog.tsx
+    NotificationBell.tsx
+    HomeworkListDialog.tsx
+    ...
+  landing/  (already organized)
+  ui/  (already organized)
+```
+
+**Priority:** Medium -- improves discoverability, no functional change.
+
+---
+
+## Issue 6: Dead/Unused Code (LOW)
+
+**Problem:**
+- `src/pages/Index.tsx` contains a placeholder page ("BOS EWD") that is routed but serves no purpose since `/` goes to `LandingPage`.
+- `src/hooks/useAuth.ts` is a 3-line re-export wrapper that could be replaced by direct imports of `useAuthContext`.
+
+**Recommendation:**
+- Remove `Index.tsx` or redirect its route.
+- Consider removing `useAuth.ts` wrapper if the indirection is not providing value (though it does provide a stable import path, so this is optional).
+
+**Priority:** Low.
+
+---
+
+## Issue 7: Inline Supabase Queries in Components (MEDIUM)
+
+**Problem:** Most dashboard components make direct `supabase.from(...)` calls inline. There is no data-access layer. This means:
+- Query logic is not reusable.
+- Error handling patterns are repeated (`try/catch + toast`).
+- Testing requires mocking the Supabase client everywhere.
+
+**Recommendation:** For the most-duplicated queries, extract into service functions or hooks:
+- `useTeachers()` -- fetches teachers with students and lessons (used by AdminDashboard)
+- `useStudentTopics(studentId)` -- as described in Issue 4
+- `useStudentData(teacherId)` -- fetches students with lessons (used by TeacherDashboard)
+
+This is a larger architectural shift. Start with the most-duplicated patterns (topic fetching) and expand gradually.
+
+**Priority:** Medium -- do incrementally alongside other refactors.
+
+---
+
+## Recommended Implementation Order
+
+| Step | Change | Files | Risk |
+|---|---|---|---|
+| 1 | Centralize shared interfaces (`StudentLesson`, `Student`, `Topic`, `Resource`) | `src/lib/types.ts` (new), all consumers | Low -- additive |
+| 2 | Move `getDayName`, `getResourceIcon` to shared modules | `src/lib/lessonTypes.ts`, `src/lib/resourceUtils.tsx` (new) | Low |
+| 3 | Create `useStudentTopics` hook | `src/hooks/useStudentTopics.ts` (new) | Low -- additive |
+| 4 | Refactor `StudentTopics` and `StudentDashboard` to use `useStudentTopics` | 2 files | Medium |
+| 5 | Extract `AdminDashboard` sub-components | 3-4 new files, 1 modified | Medium |
+| 6 | Extract admin topic CRUD into `useAdminTopicsCrud` hook | 1 new file, AdminDashboard modified | Medium |
+| 7 | Reorganize component directory structure | Move files, update imports | Low (but many files touched) |
+| 8 | Remove dead code (`Index.tsx`) | 1-2 files | Low |
+
+Each step is independently deployable and testable. Steps 1-3 are purely additive (new files only). Steps 4-6 modify existing components. Step 7 is a bulk rename that should be done in one commit.
+
+---
+
+## What Is Already Well Done
+
+- **Recent lesson refactoring**: `lessonTypes.ts`, `teacherBalance.ts`, `lessonSorting.ts`, `lessonDateCalculation.ts`, `useScheduleGrid.ts` are clean, well-documented shared modules.
+- **Auth architecture**: `AuthContext` with `useAuth` wrapper is clean and handles Capacitor-specific session persistence well.
+- **Landing page organization**: `src/components/landing/` is well-structured with individual section components.
+- **Language system**: `LanguageContext` + `translations.ts` is a good i18n approach.
+- **Lazy loading**: Secondary pages are code-split with prefetching -- good performance practice.
