@@ -112,26 +112,46 @@ export async function subtractFromTeacherBalance({
 }
 
 /**
- * Convenience: fetches lesson times from student_lessons, then adds to balance.
- * Used when only studentId/teacherId are known (no start/end time available directly).
+ * Convenience: adds regular lesson balance.
+ * If instanceId is provided, reads times from lesson_instances (variable duration support).
+ * Otherwise falls back to student_lessons template (backward compat).
  */
-export async function addRegularLessonBalance(teacherId: string, studentId: string): Promise<void> {
+export async function addRegularLessonBalance(
+  teacherId: string,
+  studentId: string,
+  instanceId?: string
+): Promise<void> {
   try {
-    const { data: lessonData } = await supabase
-      .from("student_lessons")
-      .select("start_time, end_time")
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId)
-      .limit(1)
-      .single();
+    let startTime: string;
+    let endTime: string;
 
-    if (!lessonData) return;
+    if (instanceId) {
+      const { data } = await supabase
+        .from("lesson_instances")
+        .select("start_time, end_time")
+        .eq("id", instanceId)
+        .single();
+      if (!data) return;
+      startTime = data.start_time;
+      endTime = data.end_time;
+    } else {
+      const { data } = await supabase
+        .from("student_lessons")
+        .select("start_time, end_time")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .limit(1)
+        .single();
+      if (!data) return;
+      startTime = data.start_time;
+      endTime = data.end_time;
+    }
 
     await addToTeacherBalance({
       teacherId,
       lessonType: "regular",
-      startTime: lessonData.start_time,
-      endTime: lessonData.end_time,
+      startTime,
+      endTime,
     });
   } catch (error) {
     console.error("Error adding regular lesson balance:", error);
@@ -139,25 +159,46 @@ export async function addRegularLessonBalance(teacherId: string, studentId: stri
 }
 
 /**
- * Convenience: fetches lesson times from student_lessons, then subtracts from balance.
+ * Convenience: subtracts regular lesson balance.
+ * If instanceId is provided, reads times from lesson_instances.
+ * Otherwise falls back to student_lessons template.
  */
-export async function subtractRegularLessonBalance(teacherId: string, studentId: string): Promise<void> {
+export async function subtractRegularLessonBalance(
+  teacherId: string,
+  studentId: string,
+  instanceId?: string
+): Promise<void> {
   try {
-    const { data: lessonData } = await supabase
-      .from("student_lessons")
-      .select("start_time, end_time")
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId)
-      .limit(1)
-      .single();
+    let startTime: string;
+    let endTime: string;
 
-    if (!lessonData) return;
+    if (instanceId) {
+      const { data } = await supabase
+        .from("lesson_instances")
+        .select("start_time, end_time")
+        .eq("id", instanceId)
+        .single();
+      if (!data) return;
+      startTime = data.start_time;
+      endTime = data.end_time;
+    } else {
+      const { data } = await supabase
+        .from("student_lessons")
+        .select("start_time, end_time")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .limit(1)
+        .single();
+      if (!data) return;
+      startTime = data.start_time;
+      endTime = data.end_time;
+    }
 
     await subtractFromTeacherBalance({
       teacherId,
       lessonType: "regular",
-      startTime: lessonData.start_time,
-      endTime: lessonData.end_time,
+      startTime,
+      endTime,
     });
   } catch (error) {
     console.error("Error subtracting regular lesson balance:", error);

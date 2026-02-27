@@ -34,6 +34,24 @@ export interface DisplayLessonData {
   isOverridden: boolean;
 }
 
+/** Full lesson instance row from the lesson_instances table */
+export interface LessonInstance {
+  id: string;
+  student_id: string;
+  teacher_id: string;
+  lesson_number: number;
+  lesson_date: string;
+  start_time: string;
+  end_time: string;
+  status: string; // 'planned' | 'completed' | 'cancelled'
+  original_date: string | null;
+  original_start_time: string | null;
+  original_end_time: string | null;
+  rescheduled_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 /**
  * Calculates tracker grid row configuration based on lessons per week.
  * Used by both LessonTracker (teacher) and StudentLessonTracker (student).

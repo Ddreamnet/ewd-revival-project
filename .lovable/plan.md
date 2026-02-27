@@ -293,25 +293,26 @@ Update `LessonTracker` and `StudentLessonTracker`:
 
 ## Implementation Order
 
-| Step | Description | Risk | Files |
+| Step | Description | Risk | Status |
 |---|---|---|---|
-| 1 | Create `lesson_instances` table + RLS + indexes | Low | SQL migration |
-| 2 | Data migration: populate instances from existing JSON + overrides | Medium | SQL migration |
-| 3 | Create `conflictDetection.ts` | Low (additive) | New file |
-| 4 | Create `instanceGeneration.ts` | Low (additive) | New file |
-| 5 | Update `teacherBalance.ts` with instance-aware overloads | Low | 1 file |
-| 6 | Update `AddTrialLessonDialog` with conflict check | Low | 1 file |
-| 7 | Update `LessonOverrideDialog` to use instances + conflicts | Medium | 1 file |
-| 8 | Update `EditStudentDialog` lessons list (show times, use instances, conflict checks) | Medium | 1 file |
-| 9 | Update `EditStudentDialog` template editor (sync + conflict check) | Medium | 1 file |
-| 10 | Add Template/Actual toggle to `AdminWeeklySchedule` | Medium | 1 file |
-| 11 | Add Template/Actual toggle to `WeeklyScheduleDialog` | Medium | 1 file |
-| 12 | Add back-to-back grouping UI to both grids | Medium | 2 files |
-| 13 | Update `LessonTracker` and `StudentLessonTracker` to read from instances | Medium | 2 files |
-| 14 | Update `lessonSorting.ts` for time-aware sorting | Low | 1 file |
-| 15 | Balance safety verification (manual + automated checks) | Low | Verification only |
+| 1 | Create `lesson_instances` table + RLS + indexes | Low | ✅ DONE |
+| 2 | Data migration: populate instances from existing JSON + overrides | Medium | ✅ DONE (261 completed + 115 planned) |
+| 3 | Create `conflictDetection.ts` | Low (additive) | ✅ DONE |
+| 4 | Create `instanceGeneration.ts` | Low (additive) | ✅ DONE |
+| 5 | Update `teacherBalance.ts` with instance-aware overloads | Low | ✅ DONE |
+| 5b | Add `LessonInstance` interface to `lessonTypes.ts` | Low | ✅ DONE |
+| 6 | Update `AddTrialLessonDialog` with conflict check | Low | 🔲 TODO |
+| 7 | Update `LessonOverrideDialog` to use instances + conflicts | Medium | 🔲 TODO |
+| 8 | Update `EditStudentDialog` lessons list (show times, use instances, conflict checks) | Medium | 🔲 TODO |
+| 9 | Update `EditStudentDialog` template editor (sync + conflict check) | Medium | 🔲 TODO |
+| 10 | Add Template/Actual toggle to `AdminWeeklySchedule` | Medium | 🔲 TODO |
+| 11 | Add Template/Actual toggle to `WeeklyScheduleDialog` | Medium | 🔲 TODO |
+| 12 | Add back-to-back grouping UI to both grids | Medium | 🔲 TODO |
+| 13 | Update `LessonTracker` and `StudentLessonTracker` to read from instances | Medium | 🔲 TODO |
+| 14 | Update `lessonSorting.ts` for time-aware sorting | Low | 🔲 TODO |
+| 15 | Balance safety verification (manual + automated checks) | Low | 🔲 TODO |
 
-Each step is independently testable. Steps 1-5 are additive and don't break existing functionality.
+Each step is independently testable. Steps 1-5 are complete.
 
 ---
 
