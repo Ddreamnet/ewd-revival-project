@@ -8,6 +8,9 @@ import { Download, Calendar } from "lucide-react";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
 import { format, startOfWeek, addDays } from "date-fns";
+import { formatTime } from "@/lib/lessonTypes";
+import { addToTeacherBalance, subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -146,61 +149,12 @@ export function WeeklyScheduleDialog({
       setLoading(false);
     }
   };
-  const formatTime = (time: string) => {
-    try {
-      return new Date(`2000-01-01T${time}`).toLocaleTimeString("tr-TR", {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-    } catch {
-      return time;
-    }
-  };
-  // Get the date for a specific day in the current week
-  const getDateForDayIndex = (dayIndex: number): Date => {
-    const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
-    return addDays(weekStart, dayIndex);
-  };
+  const computedTimeSlots = getAllTimeSlots(lessons, trialLessons, overrides);
 
-  const getAllTimeSlots = () => {
-    const times = new Set<string>();
-    
-    // Add regular lesson times, considering overrides
-    lessons.forEach(lesson => {
-      const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
-      const override = getLessonOverride(lesson.student_id, lessonDate);
-      
-      if (!isLessonCancelled(lesson.student_id, lessonDate)) {
-        if (override && override.new_start_time) {
-          times.add(override.new_start_time);
-        } else {
-          times.add(lesson.start_time);
-        }
-      }
-    });
-    
-    trialLessons.forEach(lesson => {
-      times.add(lesson.start_time);
-    });
-    
-    // Add moved lessons that might have different times
-    overrides.forEach((o) => {
-      if (!o.is_cancelled && o.new_start_time) {
-        times.add(o.new_start_time);
-      }
-    });
-    
-    return Array.from(times).sort();
-  };
-  
   const getLessonForDayAndTime = (dayIndex: number, timeSlot: string): (StudentLesson & { _isOverride?: boolean; _override?: LessonOverride }) | null => {
-    // dayIndex: 0=Pazartesi, 6=Pazar
-    // day_of_week in DB: 1=Pazartesi, 0=Pazar
-    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+    const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
     const dateForDay = getDateForDayIndex(dayIndex);
     
-    // First check if there's a moved lesson that should appear here
     const movedLesson = overrides.find((o) => {
       if (o.is_cancelled || !o.new_date) return false;
       const newDate = new Date(o.new_date);
@@ -209,7 +163,6 @@ export function WeeklyScheduleDialog({
     });
     
     if (movedLesson) {
-      // Find the original lesson
       const originalLesson = lessons.find((l) => l.student_id === movedLesson.student_id);
       if (originalLesson) {
         return {
@@ -222,20 +175,17 @@ export function WeeklyScheduleDialog({
       }
     }
     
-    // Check for regular lessons on this day
     const lesson = lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
     
     if (lesson) {
       const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
       
-      // Check if this lesson is cancelled or moved
       if (isLessonCancelled(lesson.student_id, lessonDate)) {
         return null;
       }
       
       const override = getLessonOverride(lesson.student_id, lessonDate);
       if (override && override.new_date) {
-        // This lesson is moved, don't show it here
         return null;
       }
       
@@ -246,11 +196,9 @@ export function WeeklyScheduleDialog({
   };
   
   const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
-    const dateForDay = getDateForDayIndex(dayIndex);
-    const dateStr = format(dateForDay, "yyyy-MM-dd");
-    return trialLessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot && l.lesson_date === dateStr);
+    return findTrialLesson(trialLessons, dayIndex, timeSlot);
   };
+
   const handleTrialLessonClick = (lesson: TrialLesson) => {
     setSelectedTrialLesson(lesson);
     setConfirmAction(lesson.is_completed ? "incomplete" : "complete");
@@ -259,26 +207,19 @@ export function WeeklyScheduleDialog({
     if (!selectedTrialLesson || processing) return;
     setProcessing(true);
     try {
-      const {
-        error
-      } = await supabase.from("trial_lessons").update({
-        is_completed: true
-      }).eq("id", selectedTrialLesson.id);
+      const { error } = await supabase.from("trial_lessons").update({ is_completed: true }).eq("id", selectedTrialLesson.id);
       if (error) throw error;
 
-      // Update teacher balance
-      await updateTeacherBalance(selectedTrialLesson);
-      toast({
-        title: "Başarılı",
-        description: "Deneme dersi işlendi olarak işaretlendi"
+      await addToTeacherBalance({
+        teacherId,
+        lessonType: "trial",
+        startTime: selectedTrialLesson.start_time,
+        endTime: selectedTrialLesson.end_time,
       });
+      toast({ title: "Başarılı", description: "Deneme dersi işlendi olarak işaretlendi" });
       await fetchSchedule();
     } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: "İşlem başarısız oldu",
-        variant: "destructive"
-      });
+      toast({ title: "Hata", description: "İşlem başarısız oldu", variant: "destructive" });
     } finally {
       setSelectedTrialLesson(null);
       setConfirmAction(null);
@@ -289,26 +230,19 @@ export function WeeklyScheduleDialog({
     if (!selectedTrialLesson || processing) return;
     setProcessing(true);
     try {
-      const {
-        error
-      } = await supabase.from("trial_lessons").update({
-        is_completed: false
-      }).eq("id", selectedTrialLesson.id);
+      const { error } = await supabase.from("trial_lessons").update({ is_completed: false }).eq("id", selectedTrialLesson.id);
       if (error) throw error;
 
-      // Subtract from teacher balance
-      await subtractFromTeacherBalance(selectedTrialLesson);
-      toast({
-        title: "Başarılı",
-        description: "Deneme dersi işlenmedi olarak işaretlendi"
+      await subtractBalanceFn({
+        teacherId,
+        lessonType: "trial",
+        startTime: selectedTrialLesson.start_time,
+        endTime: selectedTrialLesson.end_time,
       });
+      toast({ title: "Başarılı", description: "Deneme dersi işlenmedi olarak işaretlendi" });
       await fetchSchedule();
     } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: "İşlem başarısız oldu",
-        variant: "destructive"
-      });
+      toast({ title: "Hata", description: "İşlem başarısız oldu", variant: "destructive" });
     } finally {
       setSelectedTrialLesson(null);
       setConfirmAction(null);
@@ -369,7 +303,7 @@ export function WeeklyScheduleDialog({
       console.error("Error updating teacher balance:", error);
     }
   };
-  const timeSlots = getAllTimeSlots();
+  const timeSlots = computedTimeSlots;
   const handleExportPNG = async () => {
     try {
       await exportScheduleAsPNG({

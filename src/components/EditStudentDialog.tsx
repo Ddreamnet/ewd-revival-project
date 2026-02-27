@@ -19,7 +19,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash2, Archive } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays, parse } from "date-fns";
+import { format } from "date-fns";
+import { LessonDates, LessonOverrideInfo } from "@/lib/lessonTypes";
+import { getSortedLessons } from "@/lib/lessonSorting";
+import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
+import { addRegularLessonBalance, subtractRegularLessonBalance } from "@/lib/teacherBalance";
 
 interface StudentLesson {
   id?: string;
@@ -27,17 +31,6 @@ interface StudentLesson {
   startTime: string;
   endTime: string;
   note?: string;
-}
-
-interface LessonDates {
-  [key: string]: string;
-}
-
-interface LessonOverride {
-  id: string;
-  original_date: string;
-  new_date: string | null;
-  is_cancelled: boolean;
 }
 
 interface EditStudentDialogProps {
@@ -73,7 +66,7 @@ export function EditStudentDialog({
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
-  const [lessonOverrides, setLessonOverrides] = useState<LessonOverride[]>([]);
+  const [lessonOverrides, setLessonOverrides] = useState<LessonOverrideInfo[]>([]);
   const [trackingRecordId, setTrackingRecordId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -105,8 +98,6 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
-      // CRITICAL: Get the MOST RECENT tracking record by ordering by updated_at DESC
-      // This ensures consistent results when multiple records exist
       const { data: records, error } = await supabase
         .from("student_lesson_tracking")
         .select("*")
@@ -180,37 +171,7 @@ export function EditStudentDialog({
     });
   };
 
-  const recalculateRemainingDates = (fromLessonNumber: number, startDate: string): LessonDates => {
-    const newDates = { ...lessonDates };
-    const lessonDays = lessons.map((l) => l.dayOfWeek).sort((a, b) => a - b);
-    const totalLessons = lessonsPerWeek * 4;
-    
-    // Set the changed lesson's date
-    newDates[fromLessonNumber.toString()] = startDate;
-    
-    // Recalculate FUTURE lessons only (going forwards) — previous lessons are never touched
-    let currentDate = parse(startDate, "yyyy-MM-dd", new Date());
-    currentDate.setHours(0, 0, 0, 0);
-    
-    for (let i = fromLessonNumber + 1; i <= totalLessons; i++) {
-      // Find the next lesson day
-      let daysToAdd = 1;
-      let nextDate = addDays(currentDate, daysToAdd);
-      
-      while (!lessonDays.includes(nextDate.getDay())) {
-        daysToAdd++;
-        nextDate = addDays(currentDate, daysToAdd);
-      }
-      
-      currentDate = nextDate;
-      newDates[i.toString()] = format(currentDate, "yyyy-MM-dd");
-    }
-    
-    return newDates;
-  };
-
   const handleDateSubmit = () => {
-    // Check if dates have changed
     const hasChanges = Object.keys(lessonDates).some(
       (key) => lessonDates[key] !== originalLessonDates[key]
     );
@@ -238,11 +199,9 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
-      // Get the next lesson to mark (last completed + 1, or 1 if none completed)
       const nextLesson = completedLessons.length === 0 ? 1 : Math.max(...completedLessons) + 1;
       const newCompletedLessons = [...completedLessons, nextLesson].sort((a, b) => a - b);
 
-      // CRITICAL: Get the most recent tracking record ID and update by ID
       const { data: existingRecords } = await supabase
         .from("student_lesson_tracking")
         .select("id")
@@ -262,8 +221,7 @@ export function EditStudentDialog({
 
       if (error) throw error;
 
-      // Update teacher balance
-      await updateTeacherBalance(studentData.teacher_id, studentData.student_id);
+      await addRegularLessonBalance(studentData.teacher_id, studentData.student_id);
 
       setCompletedLessons(newCompletedLessons);
       toast({
@@ -291,11 +249,9 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
-      // Get the last completed lesson
       const lastLesson = Math.max(...completedLessons);
       const newCompletedLessons = completedLessons.filter(l => l !== lastLesson);
 
-      // CRITICAL: Get the most recent tracking record ID and update by ID
       const { data: existingRecords } = await supabase
         .from("student_lesson_tracking")
         .select("id")
@@ -315,8 +271,7 @@ export function EditStudentDialog({
 
       if (error) throw error;
 
-      // Subtract from teacher balance
-      await subtractFromTeacherBalance(studentData.teacher_id, studentData.student_id);
+      await subtractRegularLessonBalance(studentData.teacher_id, studentData.student_id);
 
       setCompletedLessons(newCompletedLessons);
       toast({
@@ -332,96 +287,6 @@ export function EditStudentDialog({
     }
   };
 
-  const updateTeacherBalance = async (teacherId: string, studentId: string) => {
-    try {
-      // Get lesson duration
-      const { data: lessonData } = await supabase
-        .from("student_lessons")
-        .select("start_time, end_time")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .limit(1)
-        .single();
-
-      if (!lessonData) return;
-
-      const startTime = new Date(`2000-01-01T${lessonData.start_time}`);
-      const endTime = new Date(`2000-01-01T${lessonData.end_time}`);
-      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-
-      // Check if teacher balance exists
-      const { data: existingBalance } = await supabase
-        .from("teacher_balance")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .maybeSingle();
-
-      if (existingBalance) {
-        // Update existing balance
-        await supabase
-          .from("teacher_balance")
-          .update({
-            total_minutes: existingBalance.total_minutes + durationMinutes,
-            completed_regular_lessons: existingBalance.completed_regular_lessons + 1,
-            regular_lessons_minutes: existingBalance.regular_lessons_minutes + durationMinutes,
-          })
-          .eq("teacher_id", teacherId);
-      } else {
-        // Create new balance
-        await supabase.from("teacher_balance").insert({
-          teacher_id: teacherId,
-          total_minutes: durationMinutes,
-          completed_regular_lessons: 1,
-          completed_trial_lessons: 0,
-          regular_lessons_minutes: durationMinutes,
-          trial_lessons_minutes: 0,
-        });
-      }
-    } catch (error) {
-      console.error("Error updating teacher balance:", error);
-    }
-  };
-
-  const subtractFromTeacherBalance = async (teacherId: string, studentId: string) => {
-    try {
-      // Get lesson duration
-      const { data: lessonData } = await supabase
-        .from("student_lessons")
-        .select("start_time, end_time")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .limit(1)
-        .single();
-
-      if (!lessonData) return;
-
-      const startTime = new Date(`2000-01-01T${lessonData.start_time}`);
-      const endTime = new Date(`2000-01-01T${lessonData.end_time}`);
-      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-
-      // Get current balance
-      const { data: existingBalance } = await supabase
-        .from("teacher_balance")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .maybeSingle();
-
-      if (existingBalance) {
-        // Subtract from existing balance
-        await supabase
-          .from("teacher_balance")
-          .update({
-            total_minutes: Math.max(0, existingBalance.total_minutes - durationMinutes),
-            completed_regular_lessons: Math.max(0, existingBalance.completed_regular_lessons - 1),
-            regular_lessons_minutes: Math.max(0, existingBalance.regular_lessons_minutes - durationMinutes),
-          })
-          .eq("teacher_id", teacherId);
-      }
-    } catch (error) {
-      console.error("Error subtracting from teacher balance:", error);
-    }
-  };
-
   const handleResetAllLessons = async () => {
     try {
       const { data: studentData, error: studentError } = await supabase
@@ -432,7 +297,6 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
-      // CRITICAL: Get the most recent tracking record ID and update by ID
       const { data: existingRecords } = await supabase
         .from("student_lesson_tracking")
         .select("id")
@@ -445,8 +309,7 @@ export function EditStudentDialog({
         throw new Error("Ders takip kaydı bulunamadı");
       }
 
-      // IMPORTANT: Bu fonksiyon sadece öğrencinin ders takibini sıfırlar (yeni ay için).
-      // Öğretmen bu dersleri zaten işlemiş olduğundan, öğretmen bakiyesinden eksilme YAPILMAMALIDIR.
+      // IMPORTANT: Only resets student tracking, NOT teacher balance
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({ 
@@ -488,18 +351,24 @@ export function EditStudentDialog({
       let finalDates = lessonDates;
 
       if (updateRemainingDays) {
-        // Find the first changed date
         const changedKeys = Object.keys(lessonDates).filter(
           (key) => lessonDates[key] !== originalLessonDates[key]
         );
 
         if (changedKeys.length > 0) {
           const firstChangedLesson = Math.min(...changedKeys.map(Number));
-          finalDates = recalculateRemainingDates(firstChangedLesson, lessonDates[firstChangedLesson.toString()]);
+          const lessonDays = lessons.map((l) => l.dayOfWeek).sort((a, b) => a - b);
+          const totalLessons = lessonsPerWeek * 4;
+          finalDates = recalculateRemainingDates(
+            firstChangedLesson,
+            lessonDates[firstChangedLesson.toString()],
+            lessonDates,
+            lessonDays,
+            totalLessons
+          );
         }
       }
 
-      // CRITICAL: Get the most recent tracking record ID and update by ID
       const { data: existingRecords } = await supabase
         .from("student_lesson_tracking")
         .select("id")
@@ -561,7 +430,6 @@ export function EditStudentDialog({
     setLoading(true);
 
     try {
-      // Get student's user_id and teacher_id from the students table
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("student_id, teacher_id")
@@ -570,7 +438,6 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
-      // Update student name in profiles
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ full_name: name.trim() })
@@ -578,7 +445,6 @@ export function EditStudentDialog({
 
       if (profileError) throw profileError;
 
-      // Delete existing lessons
       const { error: deleteError } = await supabase
         .from("student_lessons")
         .delete()
@@ -587,7 +453,6 @@ export function EditStudentDialog({
 
       if (deleteError) throw deleteError;
 
-      // Insert new lessons
       const lessonsToInsert = lessons.map((lesson) => ({
         student_id: studentData.student_id,
         teacher_id: studentData.teacher_id,
@@ -630,8 +495,6 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
-      // Delete all related data
-      // 1. Delete student topics and resources
       const { data: topics } = await supabase
         .from("topics")
         .select("id")
@@ -644,37 +507,30 @@ export function EditStudentDialog({
         await supabase.from("topics").delete().in("id", topicIds);
       }
 
-      // 2. Delete student resource completion
       await supabase
         .from("student_resource_completion")
         .delete()
         .eq("student_id", studentData.student_id);
 
-      // 3. Delete student lesson tracking
       await supabase
         .from("student_lesson_tracking")
         .delete()
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id);
 
-      // 4. Delete student lessons
       await supabase
         .from("student_lessons")
         .delete()
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id);
 
-      // 5. Delete homework submissions (both from and to student)
       await supabase
         .from("homework_submissions")
         .delete()
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id);
 
-      // 6. Delete student-teacher relationship
       await supabase.from("students").delete().eq("id", studentId);
-
-      // 7. Delete profile (user account)
       await supabase.from("profiles").delete().eq("user_id", studentData.student_id);
 
       toast({
@@ -694,6 +550,50 @@ export function EditStudentDialog({
       setLoading(false);
     }
   };
+
+  // Build sorted lessons for the date display section
+  const totalLessons = lessonsPerWeek * 4;
+  const sortedLessonsForDisplay = (() => {
+    const lessonsWithDates: { lessonNumber: number; originalDate: string; effectiveDate: string; isCancelled: boolean; isOverridden: boolean }[] = [];
+    
+    for (let i = 1; i <= totalLessons; i++) {
+      const originalDate = lessonDates[i.toString()];
+      if (!originalDate) {
+        lessonsWithDates.push({
+          lessonNumber: i,
+          originalDate: "",
+          effectiveDate: "",
+          isCancelled: false,
+          isOverridden: false,
+        });
+        continue;
+      }
+      
+      const override = lessonOverrides.find((o) => o.original_date === originalDate);
+      const isCancelled = override?.is_cancelled || false;
+      const effectiveDate = override && override.new_date && !isCancelled 
+        ? override.new_date 
+        : originalDate;
+      
+      lessonsWithDates.push({
+        lessonNumber: i,
+        originalDate,
+        effectiveDate,
+        isCancelled,
+        isOverridden: effectiveDate !== originalDate,
+      });
+    }
+    
+    const sorted = [...lessonsWithDates].filter(l => l.originalDate).sort((a, b) => {
+      if (a.isCancelled && b.isCancelled) return a.originalDate.localeCompare(b.originalDate);
+      if (a.isCancelled) return a.originalDate.localeCompare(b.effectiveDate);
+      if (b.isCancelled) return a.effectiveDate.localeCompare(b.originalDate);
+      return a.effectiveDate.localeCompare(b.effectiveDate);
+    });
+    
+    const lessonsWithoutDates = lessonsWithDates.filter(l => !l.originalDate);
+    return [...sorted, ...lessonsWithoutDates];
+  })();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -838,92 +738,45 @@ export function EditStudentDialog({
               </div>
             </div>
             <div className="space-y-2">
-              {(() => {
-                const totalLessons = lessonsPerWeek * 4;
-                
-                // Build sorted lesson data with overrides applied
-                const lessonsWithDates: { lessonNumber: number; originalDate: string; effectiveDate: string; isCancelled: boolean; isOverridden: boolean }[] = [];
-                
-                for (let i = 1; i <= totalLessons; i++) {
-                  const originalDate = lessonDates[i.toString()];
-                  if (!originalDate) {
-                    lessonsWithDates.push({
-                      lessonNumber: i,
-                      originalDate: "",
-                      effectiveDate: "",
-                      isCancelled: false,
-                      isOverridden: false,
-                    });
-                    continue;
-                  }
-                  
-                  const override = lessonOverrides.find((o) => o.original_date === originalDate);
-                  const isCancelled = override?.is_cancelled || false;
-                  const effectiveDate = override && override.new_date && !isCancelled 
-                    ? override.new_date 
-                    : originalDate;
-                  
-                  lessonsWithDates.push({
-                    lessonNumber: i,
-                    originalDate,
-                    effectiveDate,
-                    isCancelled,
-                    isOverridden: effectiveDate !== originalDate,
-                  });
-                }
-                
-                // Sort by effective date (chronological order)
-                const sortedLessons = [...lessonsWithDates].filter(l => l.originalDate).sort((a, b) => {
-                  if (a.isCancelled && b.isCancelled) return a.originalDate.localeCompare(b.originalDate);
-                  if (a.isCancelled) return a.originalDate.localeCompare(b.effectiveDate);
-                  if (b.isCancelled) return a.effectiveDate.localeCompare(b.originalDate);
-                  return a.effectiveDate.localeCompare(b.effectiveDate);
-                });
-                
-                // Add lessons without dates at the end
-                const lessonsWithoutDates = lessonsWithDates.filter(l => !l.originalDate);
-                const allLessons = [...sortedLessons, ...lessonsWithoutDates];
-                
-                return allLessons.map((lesson, displayIndex) => (
-                  <div key={lesson.lessonNumber} className={`flex items-center gap-3 p-3 border rounded-lg ${
-                    lesson.isCancelled ? "opacity-50 bg-muted" : ""
-                  } ${lesson.isOverridden ? "border-amber-500" : ""}`}>
-                    <div className="flex items-center gap-2 flex-1">
-                      <div 
-                        className={`h-4 w-4 rounded-full ${
-                          lesson.isCancelled 
-                            ? "bg-muted-foreground" 
-                            : completedLessons.includes(lesson.lessonNumber) 
-                              ? "bg-primary" 
-                              : "bg-muted"
-                        }`} 
-                      />
-                      <span className={`font-medium ${
+              {sortedLessonsForDisplay.map((lesson, displayIndex) => (
+                <div key={lesson.lessonNumber} className={`flex items-center gap-3 p-3 border rounded-lg ${
+                  lesson.isCancelled ? "opacity-50 bg-muted" : ""
+                } ${lesson.isOverridden ? "border-amber-500" : ""}`}>
+                  <div className="flex items-center gap-2 flex-1">
+                    <div 
+                      className={`h-4 w-4 rounded-full ${
                         lesson.isCancelled 
-                          ? "text-muted-foreground line-through" 
+                          ? "bg-muted-foreground" 
                           : completedLessons.includes(lesson.lessonNumber) 
-                            ? "text-foreground" 
-                            : "text-muted-foreground"
-                      }`}>
-                        Ders {displayIndex + 1}
-                        {lesson.isCancelled && " (İptal)"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className={`text-sm ${lesson.isOverridden ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                        {lesson.isOverridden ? "Yeni Tarih:" : "Tarih:"}
-                      </Label>
-                      <Input
-                        type="date"
-                        value={lessonDates[lesson.lessonNumber.toString()] || ""}
-                        onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
-                        className={`w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
-                        disabled={lesson.isCancelled}
-                      />
-                    </div>
+                            ? "bg-primary" 
+                            : "bg-muted"
+                      }`} 
+                    />
+                    <span className={`font-medium ${
+                      lesson.isCancelled 
+                        ? "text-muted-foreground line-through" 
+                        : completedLessons.includes(lesson.lessonNumber) 
+                          ? "text-foreground" 
+                          : "text-muted-foreground"
+                    }`}>
+                      Ders {displayIndex + 1}
+                      {lesson.isCancelled && " (İptal)"}
+                    </span>
                   </div>
-                ));
-              })()}
+                  <div className="flex items-center gap-2">
+                    <Label className={`text-sm ${lesson.isOverridden ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                      {lesson.isOverridden ? "Yeni Tarih:" : "Tarih:"}
+                    </Label>
+                    <Input
+                      type="date"
+                      value={lessonDates[lesson.lessonNumber.toString()] || ""}
+                      onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
+                      className={`w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
+                      disabled={lesson.isCancelled}
+                    />
+                  </div>
+                </div>
+              ))}
               <Button
                 type="button"
                 variant="default"
@@ -978,7 +831,7 @@ export function EditStudentDialog({
                     } catch (error: any) {
                       toast({
                         title: "Hata",
-                        description: error.message || "Öğrenci arşivlenemedi",
+                        description: error.message,
                         variant: "destructive",
                       });
                     } finally {
@@ -986,10 +839,9 @@ export function EditStudentDialog({
                     }
                   }
                 }}
-                disabled={loading}
-                className="w-full"
+                className="flex items-center gap-2"
               >
-                <Archive className="h-4 w-4 mr-2" />
+                <Archive className="h-4 w-4" />
                 Arşivle
               </Button>
               <Button
@@ -997,80 +849,84 @@ export function EditStudentDialog({
                 variant="destructive"
                 onClick={() => {
                   const confirmed = window.confirm(
-                    `${currentName} adlı öğrenciyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve öğrencinin tüm verileri (dersler, ödevler, konular, kaynaklar) silinecektir.`
+                    `${currentName} adlı öğrenciyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm verileri silinecektir.`
                   );
                   if (confirmed) {
                     handleDeleteStudent();
                   }
                 }}
-                disabled={loading}
-                className="w-full"
+                className="flex items-center gap-2"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Sil
+                <Trash2 className="h-4 w-4" />
+                Kalıcı Sil
               </Button>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-              İptal
-            </Button>
-            <Button type="submit" disabled={loading}>
+          <Separator className="my-4" />
+
+          <div className="flex gap-3">
+            <Button type="submit" disabled={loading} className="flex-1">
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Kaydet
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              İptal
+            </Button>
           </div>
         </form>
+
+        {/* Tarih onaylama dialogu */}
+        <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Ders Tarihlerini Güncelle</AlertDialogTitle>
+              <AlertDialogDescription>
+                Ders tarihlerini güncellemek istediğinize emin misiniz?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex items-center space-x-2 py-4">
+              <Checkbox
+                id="updateRemaining"
+                checked={updateRemainingDays}
+                onCheckedChange={(checked) => setUpdateRemainingDays(!!checked)}
+              />
+              <label
+                htmlFor="updateRemaining"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Kalan günleri de güncelle
+              </label>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>İptal</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDateUpdate}>Onayla</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Sıfırlama onaylama dialogu */}
+        <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Tüm Dersleri Sıfırla</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tüm işlenen dersleri ve tarihleri sıfırlamak istediğinize emin misiniz? 
+                Bu işlem öğretmen bakiyesini etkilemez.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>İptal</AlertDialogCancel>
+              <AlertDialogAction onClick={handleResetAllLessons}>Sıfırla</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
-
-      {/* Tarih Güncelleme Onay Dialog */}
-      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Ders Tarihlerini Güncelle</AlertDialogTitle>
-            <AlertDialogDescription>
-              Ders tarihlerini güncellemek istediğinize emin misiniz?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="flex items-center space-x-2 py-4">
-            <Checkbox
-              id="update-remaining"
-              checked={updateRemainingDays}
-              onCheckedChange={(checked) => setUpdateRemainingDays(checked as boolean)}
-            />
-            <Label htmlFor="update-remaining" className="cursor-pointer font-normal">
-              Kalan günleri de güncelle
-            </Label>
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setUpdateRemainingDays(false)}>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDateUpdate}>Onayla</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Ders Sıfırlama Onay Dialog */}
-      <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tüm Dersleri Sıfırla</AlertDialogTitle>
-            <AlertDialogDescription>
-              Öğrencinin bu aydaki tüm ders kayıtları sıfırlanacaktır (yeni ay için). 
-              Öğretmen bu dersleri işlediği için öğretmen bakiyesi KORUNACAKTIR ve etkilenmeyecektir.
-              Bu işlem geri alınamaz. Devam etmek istiyor musunuz?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleResetAllLessons} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Sıfırla
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Dialog>
   );
 }

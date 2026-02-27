@@ -4,27 +4,18 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { BookCheck, Ban } from "lucide-react";
 import { format } from "date-fns";
+import { LessonDates, LessonOverrideInfo, getRowConfig } from "@/lib/lessonTypes";
+import { getSortedLessons, getDisplayLessonData } from "@/lib/lessonSorting";
 
 interface StudentLessonTrackerProps {
   studentId: string;
-}
-
-interface LessonDates {
-  [key: string]: string;
-}
-
-interface LessonOverride {
-  id: string;
-  original_date: string;
-  new_date: string | null;
-  is_cancelled: boolean;
 }
 
 export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
   const [lessonsPerWeek, setLessonsPerWeek] = useState<number>(1);
   const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
-  const [lessonOverrides, setLessonOverrides] = useState<LessonOverride[]>([]);
+  const [lessonOverrides, setLessonOverrides] = useState<LessonOverrideInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -32,7 +23,6 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
     fetchTracking();
     fetchLessonOverrides();
 
-    // Set up real-time subscription
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
@@ -65,7 +55,6 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
   const fetchLessonOverrides = async () => {
     try {
-      // Get student's teacher first
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("teacher_id")
@@ -89,7 +78,6 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
   const fetchTracking = async () => {
     try {
-      // Get student's teacher first
       const { data: studentData, error: studentError } = await supabase
         .from("students")
         .select("teacher_id")
@@ -98,8 +86,6 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
       if (studentError) throw studentError;
 
-      // CRITICAL: Get the MOST RECENT tracking record by ordering by updated_at DESC
-      // This ensures consistent results when multiple records exist
       const { data: records, error } = await supabase
         .from("student_lesson_tracking")
         .select("*")
@@ -124,80 +110,9 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
   };
 
   const totalLessonsPerMonth = lessonsPerWeek * 4;
-
-  // Satır yapılandırması
-  const getRowConfig = () => {
-    if (lessonsPerWeek === 1) return { rows: 1, buttonsPerRow: 4 };
-    if (lessonsPerWeek === 2) return { rows: 2, buttonsPerRow: 4 };
-    return { rows: 2, buttonsPerRow: 6 }; // 3 ders için 2 satır, 6-6
-  };
-
-  const rowConfig = getRowConfig();
+  const rowConfig = getRowConfig(lessonsPerWeek);
   const remainingLessons = totalLessonsPerMonth - completedLessons.length;
-
-  // Build sorted lesson data with overrides applied
-  const getSortedLessons = () => {
-    const lessonsWithDates: { lessonNumber: number; originalDate: string; effectiveDate: string; isCancelled: boolean }[] = [];
-    
-    for (let i = 1; i <= totalLessonsPerMonth; i++) {
-      const originalDate = lessonDates[i.toString()];
-      if (!originalDate) continue;
-      
-      const override = lessonOverrides.find((o) => o.original_date === originalDate);
-      const isCancelled = override?.is_cancelled || false;
-      const effectiveDate = override && override.new_date && !isCancelled 
-        ? override.new_date 
-        : originalDate;
-      
-      lessonsWithDates.push({
-        lessonNumber: i,
-        originalDate,
-        effectiveDate,
-        isCancelled,
-      });
-    }
-    
-    // Sort by effective date (chronological order)
-    lessonsWithDates.sort((a, b) => {
-      if (a.isCancelled && b.isCancelled) return a.originalDate.localeCompare(b.originalDate);
-      if (a.isCancelled) return a.originalDate.localeCompare(b.effectiveDate);
-      if (b.isCancelled) return a.effectiveDate.localeCompare(b.originalDate);
-      return a.effectiveDate.localeCompare(b.effectiveDate);
-    });
-    
-    return lessonsWithDates;
-  };
-
-  const sortedLessons = getSortedLessons();
-
-  // Create a map from display position to lesson data
-  const getDisplayLessonData = (displayPosition: number) => {
-    if (Object.keys(lessonDates).length === 0) {
-      return {
-        lessonNumber: displayPosition,
-        displayDate: null,
-        isCancelled: false,
-        isOverridden: false,
-      };
-    }
-    
-    const lessonData = sortedLessons[displayPosition - 1];
-    if (!lessonData) {
-      return {
-        lessonNumber: displayPosition,
-        displayDate: null,
-        isCancelled: false,
-        isOverridden: false,
-      };
-    }
-    
-    return {
-      lessonNumber: lessonData.lessonNumber,
-      displayDate: lessonData.effectiveDate,
-      isCancelled: lessonData.isCancelled,
-      isOverridden: lessonData.effectiveDate !== lessonData.originalDate,
-    };
-  };
+  const sortedLessons = getSortedLessons(lessonDates, lessonOverrides, totalLessonsPerMonth);
 
   if (loading) {
     return (
@@ -229,7 +144,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
                   const displayPosition = rowIndex * rowConfig.buttonsPerRow + colIndex + 1;
                   if (displayPosition > totalLessonsPerMonth) return null;
 
-                  const lessonData = getDisplayLessonData(displayPosition);
+                  const lessonData = getDisplayLessonData(sortedLessons, lessonDates, displayPosition);
                   const { lessonNumber, displayDate, isCancelled, isOverridden } = lessonData;
                   const isCompleted = completedLessons.includes(lessonNumber);
 
