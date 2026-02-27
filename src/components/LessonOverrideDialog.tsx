@@ -21,6 +21,7 @@ import { calculateNextLessonDate as calcNextDate } from "@/lib/lessonDateCalcula
 import { useToast } from "@/hooks/use-toast";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { shiftLessonsForward, TemplateSlot } from "@/lib/instanceGeneration";
+import { rebuildLegacyLessonDatesFromInstances, checkNonTemplateWeekday } from "@/lib/lessonSync";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -162,8 +163,8 @@ export function LessonOverrideDialog({
           return;
         }
 
-        // Also update legacy lesson_dates JSON for backward compat
-        await updateLegacyLessonDates();
+        // Rebuild legacy JSON from instances (canonical sync)
+        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
 
         toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
         onSuccess();
@@ -260,34 +261,6 @@ export function LessonOverrideDialog({
     onOpenChange(false);
   };
 
-  // Helper to sync legacy JSON after instance-based changes
-  const updateLegacyLessonDates = async () => {
-    try {
-      const { data: instances } = await supabase
-        .from("lesson_instances")
-        .select("lesson_number, lesson_date")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .in("status", ["planned", "completed"])
-        .order("lesson_number", { ascending: true });
-
-      if (!instances) return;
-
-      const lessonDates: Record<string, string> = {};
-      instances.forEach((inst) => {
-        lessonDates[inst.lesson_number.toString()] = inst.lesson_date;
-      });
-
-      await supabase
-        .from("student_lesson_tracking")
-        .update({ lesson_dates: lessonDates })
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId);
-    } catch (err) {
-      console.error("Error syncing legacy lesson_dates:", err);
-    }
-  };
-
   // "1 Seferlik Değiştir" with conflict check + instance update
   const handleOneTimeChange = async () => {
     if (!newDate) {
@@ -343,7 +316,16 @@ export function LessonOverrideDialog({
             })
             .eq("id", instanceId);
 
-          await updateLegacyLessonDates();
+          await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+          // Non-template weekday warning
+          const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
+          if (check.isNonTemplate) {
+            toast({
+              title: "Bilgi",
+              description: `Seçilen tarih (${format(newDate, "d MMM", { locale: tr })}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
+            });
+          }
         }
       }
 
@@ -438,7 +420,7 @@ export function LessonOverrideDialog({
             })
             .eq("id", instanceId);
 
-          await updateLegacyLessonDates();
+          await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
         }
       }
 

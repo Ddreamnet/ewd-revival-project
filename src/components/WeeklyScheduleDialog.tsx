@@ -54,8 +54,8 @@ export function WeeklyScheduleDialog({
   const [confirmAction, setConfirmAction] = useState<"complete" | "incomplete" | null>(null);
   const [processing, setProcessing] = useState(false);
   
-  // Template/Actual toggle
-  const [showActual, setShowActual] = useState(false);
+  // Güncel (default OFF) vs Kalıcı (ON) toggle
+  const [showTemplate, setShowTemplate] = useState(false);
   const [actualLessons, setActualLessons] = useState<ActualLesson[]>([]);
 
   const { toast } = useToast();
@@ -70,10 +70,10 @@ export function WeeklyScheduleDialog({
   }, [open, teacherId]);
 
   useEffect(() => {
-    if (open && showActual && teacherId) {
+    if (open && !showTemplate && teacherId) {
       fetchActualSchedule();
     }
-  }, [open, showActual, teacherId]);
+  }, [open, showTemplate, teacherId]);
 
   // Real-time listener for trial lesson updates
   useEffect(() => {
@@ -85,12 +85,12 @@ export function WeeklyScheduleDialog({
       filter: `teacher_id=eq.${teacherId}`
     }, () => {
       fetchSchedule();
-      if (showActual) fetchActualSchedule();
+      if (!showTemplate) fetchActualSchedule();
     }).subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [open, teacherId, showActual]);
+  }, [open, teacherId, showTemplate]);
 
   const fetchActualSchedule = async () => {
     const lessons = await fetchActualLessonsForWeek(teacherId);
@@ -154,9 +154,9 @@ export function WeeklyScheduleDialog({
     }
   };
 
-  const computedTimeSlots = showActual
-    ? getAllTimeSlotsActual(actualLessons, trialLessons)
-    : getAllTimeSlots(lessons, trialLessons, overrides);
+  const computedTimeSlots = showTemplate
+    ? getAllTimeSlots(lessons, [], [])  // Kalıcı: template only, no trials, no overrides
+    : getAllTimeSlotsActual(actualLessons, trialLessons); // Güncel: actual + trials
 
   const getLessonForDayAndTime = (dayIndex: number, timeSlot: string): (StudentLesson & { _isOverride?: boolean; _override?: LessonOverride }) | null => {
     const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
@@ -278,13 +278,13 @@ export function WeeklyScheduleDialog({
             <DialogTitle className="text-base sm:text-lg">Haftalık Ders Programı</DialogTitle>
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <Label htmlFor="schedule-mode-teacher" className="text-xs text-muted-foreground">Şablon</Label>
+                <Label htmlFor="schedule-mode-teacher" className="text-xs text-muted-foreground">Güncel</Label>
                 <Switch
                   id="schedule-mode-teacher"
-                  checked={showActual}
-                  onCheckedChange={setShowActual}
+                  checked={showTemplate}
+                  onCheckedChange={setShowTemplate}
                 />
-                <Label htmlFor="schedule-mode-teacher" className="text-xs text-muted-foreground">Gerçek</Label>
+                <Label htmlFor="schedule-mode-teacher" className="text-xs text-muted-foreground">Kalıcı</Label>
               </div>
               {lessons.length > 0 && <Button onClick={handleExportPNG} size="sm" variant="outline" className="text-xs sm:text-sm mx-0 sm:mr-[15px]">
                   <Download className="h-4 w-4 mr-1 sm:mr-2" />
@@ -314,7 +314,7 @@ export function WeeklyScheduleDialog({
                       {formatTime(timeSlot)}
                     </td>
                     {DAYS.map((day, dayIndex) => {
-                      if (showActual) {
+                      if (!showTemplate) {
                         // ACTUAL MODE
                         const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot);
                         const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
@@ -371,25 +371,16 @@ export function WeeklyScheduleDialog({
                           ) : null}
                         </td>;
                       } else {
-                        // TEMPLATE MODE (existing)
-                        const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
-                        const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
-                        const isOverride = lesson && '_isOverride' in lesson && lesson._isOverride;
+                        // KALICI MODE: template only, no trials, no overrides, display-only
+                        const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
+                        const lesson = lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
                         return <td key={day} className="border p-2">
-                          {lesson ? <div className={`p-2 rounded border-2 transition-opacity ${lesson.is_completed ? "opacity-40" : "opacity-100"} ${isOverride ? "ring-2 ring-yellow-400" : ""} ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}>
-                              <div className="font-medium text-xs mb-1 flex items-center gap-1">
-                                {isOverride && <Calendar className="h-3 w-3 text-yellow-600" />}
+                          {lesson ? <div className={`p-2 rounded border-2 ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}>
+                              <div className="font-medium text-xs mb-1">
                                 {lesson.note ? `${lesson.student_name} - ${lesson.note}` : lesson.student_name}
                               </div>
                               <div className="text-[10px] font-mono">
                                 {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
-                              </div>
-                            </div> : trialLesson ? <div onClick={() => !processing && handleTrialLessonClick(trialLesson)} className={`p-2 rounded border-2 transition-all ${processing ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:opacity-80"} ${trialLesson.is_completed ? "bg-red-100/30 border-red-200/50 opacity-30" : "bg-red-200 border-red-400"}`}>
-                              <div className={`font-medium text-xs mb-1 ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
-                                Deneme Dersi
-                              </div>
-                              <div className={`text-[10px] font-mono ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
-                                {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
                               </div>
                             </div> : null}
                         </td>;
