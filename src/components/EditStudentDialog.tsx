@@ -17,13 +17,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2, Archive } from "lucide-react";
+import { Loader2, Trash2, Archive, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { LessonDates, LessonOverrideInfo } from "@/lib/lessonTypes";
-import { getSortedLessons } from "@/lib/lessonSorting";
+import { LessonDates, LessonOverrideInfo, LessonInstance, formatTime } from "@/lib/lessonTypes";
 import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
 import { addRegularLessonBalance, subtractRegularLessonBalance } from "@/lib/teacherBalance";
+import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
+import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import type { StudentLessonBase } from "@/lib/types";
 import { DAYS_OF_WEEK } from "@/lib/types";
 
@@ -53,12 +54,18 @@ export function EditStudentDialog({
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
   const [lessonOverrides, setLessonOverrides] = useState<LessonOverrideInfo[]>([]);
+  const [instances, setInstances] = useState<LessonInstance[]>([]);
   const [trackingRecordId, setTrackingRecordId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
+  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
   const { toast } = useToast();
+
+  // Student's user_id and teacher_id for DB queries
+  const [studentUserId, setStudentUserId] = useState<string>("");
+  const [teacherUserId, setTeacherUserId] = useState<string>("");
 
   useEffect(() => {
     if (open) {
@@ -69,10 +76,26 @@ export function EditStudentDialog({
           ? currentLessons
           : [{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]
       );
-      fetchLessonTracking();
-      fetchLessonOverrides();
+      setConflicts([]);
+      fetchStudentIds().then(() => {
+        fetchLessonTracking();
+        fetchLessonOverrides();
+        fetchInstances();
+      });
     }
   }, [open, currentName, currentLessons]);
+
+  const fetchStudentIds = async () => {
+    const { data, error } = await supabase
+      .from("students")
+      .select("student_id, teacher_id")
+      .eq("id", studentId)
+      .single();
+    if (!error && data) {
+      setStudentUserId(data.student_id);
+      setTeacherUserId(data.teacher_id);
+    }
+  };
 
   const fetchLessonTracking = async () => {
     try {
@@ -132,6 +155,32 @@ export function EditStudentDialog({
     }
   };
 
+  const fetchInstances = async () => {
+    try {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("student_id, teacher_id")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError) throw studentError;
+
+      const { data, error } = await supabase
+        .from("lesson_instances")
+        .select("*")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .in("status", ["planned", "completed"])
+        .order("lesson_date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      if (error) throw error;
+      setInstances((data as LessonInstance[]) || []);
+    } catch (error: any) {
+      console.error("Failed to fetch lesson instances:", error);
+    }
+  };
+
   useEffect(() => {
     if (lessonsPerWeek > lessons.length) {
       const newLessons = [...lessons];
@@ -172,18 +221,15 @@ export function EditStudentDialog({
     }
   };
 
+  // Find the instance for a given lesson number (for balance operations)
+  const findInstanceForLesson = (lessonNumber: number): LessonInstance | undefined => {
+    return instances.find((inst) => inst.lesson_number === lessonNumber);
+  };
+
   const handleMarkLastLesson = async () => {
     try {
       const totalLessons = lessonsPerWeek * 4;
       if (completedLessons.length >= totalLessons) return;
-
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
 
       const nextLesson = completedLessons.length === 0 ? 1 : Math.max(...completedLessons) + 1;
       const newCompletedLessons = [...completedLessons, nextLesson].sort((a, b) => a - b);
@@ -191,8 +237,8 @@ export function EditStudentDialog({
       const { data: existingRecords } = await supabase
         .from("student_lesson_tracking")
         .select("id")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId)
         .order("updated_at", { ascending: false })
         .limit(1);
 
@@ -207,9 +253,21 @@ export function EditStudentDialog({
 
       if (error) throw error;
 
-      await addRegularLessonBalance(studentData.teacher_id, studentData.student_id);
+      // Update instance status + use instance-aware balance
+      const inst = findInstanceForLesson(nextLesson);
+      if (inst) {
+        await supabase
+          .from("lesson_instances")
+          .update({ status: "completed" })
+          .eq("id", inst.id);
+        await addRegularLessonBalance(teacherUserId, studentUserId, inst.id);
+      } else {
+        await addRegularLessonBalance(teacherUserId, studentUserId);
+      }
 
       setCompletedLessons(newCompletedLessons);
+      // Refresh instances to get updated status
+      fetchInstances();
       toast({
         title: "Başarılı",
         description: `${nextLesson}. ders işaretlendi`,
@@ -227,22 +285,14 @@ export function EditStudentDialog({
     try {
       if (completedLessons.length === 0) return;
 
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
       const lastLesson = Math.max(...completedLessons);
       const newCompletedLessons = completedLessons.filter(l => l !== lastLesson);
 
       const { data: existingRecords } = await supabase
         .from("student_lesson_tracking")
         .select("id")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId)
         .order("updated_at", { ascending: false })
         .limit(1);
 
@@ -257,9 +307,20 @@ export function EditStudentDialog({
 
       if (error) throw error;
 
-      await subtractRegularLessonBalance(studentData.teacher_id, studentData.student_id);
+      // Revert instance status + use instance-aware balance
+      const inst = findInstanceForLesson(lastLesson);
+      if (inst) {
+        await supabase
+          .from("lesson_instances")
+          .update({ status: "planned" })
+          .eq("id", inst.id);
+        await subtractRegularLessonBalance(teacherUserId, studentUserId, inst.id);
+      } else {
+        await subtractRegularLessonBalance(teacherUserId, studentUserId);
+      }
 
       setCompletedLessons(newCompletedLessons);
+      fetchInstances();
       toast({
         title: "Başarılı",
         description: `${lastLesson}. ders geri alındı`,
@@ -275,19 +336,11 @@ export function EditStudentDialog({
 
   const handleResetAllLessons = async () => {
     try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
       const { data: existingRecords } = await supabase
         .from("student_lesson_tracking")
         .select("id")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId)
         .order("updated_at", { ascending: false })
         .limit(1);
 
@@ -306,10 +359,18 @@ export function EditStudentDialog({
 
       if (error) throw error;
 
+      // Reset all instance statuses to planned (don't touch balance)
+      await supabase
+        .from("lesson_instances")
+        .update({ status: "planned" })
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId);
+
       setCompletedLessons([]);
       setLessonDates({});
       setOriginalLessonDates({});
       setShowResetConfirm(false);
+      fetchInstances();
       
       toast({
         title: "Başarılı",
@@ -326,14 +387,6 @@ export function EditStudentDialog({
 
   const confirmDateUpdate = async () => {
     try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
       let finalDates = lessonDates;
 
       if (updateRemainingDays) {
@@ -343,23 +396,117 @@ export function EditStudentDialog({
 
         if (changedKeys.length > 0) {
           const firstChangedLesson = Math.min(...changedKeys.map(Number));
-          const lessonDays = lessons.map((l) => l.dayOfWeek).sort((a, b) => a - b);
-          const totalLessons = lessonsPerWeek * 4;
-          finalDates = recalculateRemainingDates(
-            firstChangedLesson,
-            lessonDates[firstChangedLesson.toString()],
-            lessonDates,
-            lessonDays,
-            totalLessons
-          );
+
+          // Instance-based: regenerate from template slots
+          if (instances.length > 0) {
+            const templateSlots: TemplateSlot[] = lessons.map((l) => ({
+              dayOfWeek: l.dayOfWeek,
+              startTime: l.startTime,
+              endTime: l.endTime,
+            }));
+
+            // Get planned instances from firstChangedLesson onward
+            const plannedFromChanged = instances.filter(
+              (inst) => inst.lesson_number >= firstChangedLesson && inst.status === "planned"
+            );
+
+            const newStartDate = new Date(lessonDates[firstChangedLesson.toString()]);
+            const futureDates = generateFutureInstanceDates(
+              templateSlots,
+              plannedFromChanged.length,
+              newStartDate
+            );
+
+            // Check conflicts for new dates
+            const allConflicts: ConflictInfo[] = [];
+            for (let i = 0; i < futureDates.length; i++) {
+              const c = await checkTeacherConflicts(
+                teacherUserId,
+                futureDates[i].lessonDate,
+                futureDates[i].startTime,
+                futureDates[i].endTime,
+                plannedFromChanged[i]?.id
+              );
+              allConflicts.push(...c);
+            }
+
+            if (allConflicts.length > 0) {
+              setConflicts(allConflicts);
+              return;
+            }
+
+            // Apply to instances
+            for (let i = 0; i < plannedFromChanged.length && i < futureDates.length; i++) {
+              await supabase
+                .from("lesson_instances")
+                .update({
+                  lesson_date: futureDates[i].lessonDate,
+                  start_time: futureDates[i].startTime,
+                  end_time: futureDates[i].endTime,
+                })
+                .eq("id", plannedFromChanged[i].id);
+            }
+
+            // Update finalDates from instances
+            for (let i = 0; i < plannedFromChanged.length && i < futureDates.length; i++) {
+              finalDates = {
+                ...finalDates,
+                [plannedFromChanged[i].lesson_number.toString()]: futureDates[i].lessonDate,
+              };
+            }
+          } else {
+            // Legacy fallback
+            const lessonDays = lessons.map((l) => l.dayOfWeek).sort((a, b) => a - b);
+            const totalLessons = lessonsPerWeek * 4;
+            finalDates = recalculateRemainingDates(
+              firstChangedLesson,
+              lessonDates[firstChangedLesson.toString()],
+              lessonDates,
+              lessonDays,
+              totalLessons
+            );
+          }
+        }
+      } else {
+        // OFF: only date changes, time stays the same
+        // Update individual instance dates without changing times
+        const changedKeys = Object.keys(lessonDates).filter(
+          (key) => lessonDates[key] !== originalLessonDates[key]
+        );
+
+        for (const key of changedKeys) {
+          const inst = findInstanceForLesson(parseInt(key));
+          if (inst) {
+            // Conflict check
+            const c = await checkTeacherConflicts(
+              teacherUserId,
+              lessonDates[key],
+              inst.start_time,
+              inst.end_time,
+              inst.id
+            );
+            if (c.length > 0) {
+              setConflicts(c);
+              return;
+            }
+
+            await supabase
+              .from("lesson_instances")
+              .update({
+                lesson_date: lessonDates[key],
+                original_date: inst.original_date || inst.lesson_date,
+                rescheduled_count: inst.rescheduled_count + 1,
+              })
+              .eq("id", inst.id);
+          }
         }
       }
 
       const { data: existingRecords } = await supabase
         .from("student_lesson_tracking")
         .select("id")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId)
         .order("updated_at", { ascending: false })
         .limit(1);
 
@@ -383,6 +530,8 @@ export function EditStudentDialog({
       setLessonDates(finalDates);
       setShowConfirm(false);
       setUpdateRemainingDays(false);
+      setConflicts([]);
+      fetchInstances();
     } catch (error: any) {
       toast({
         title: "Hata",
@@ -414,34 +563,27 @@ export function EditStudentDialog({
     }
 
     setLoading(true);
+    setConflicts([]);
 
     try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ full_name: name.trim() })
-        .eq("user_id", studentData.student_id);
+        .eq("user_id", studentUserId);
 
       if (profileError) throw profileError;
 
       const { error: deleteError } = await supabase
         .from("student_lessons")
         .delete()
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId);
 
       if (deleteError) throw deleteError;
 
       const lessonsToInsert = lessons.map((lesson) => ({
-        student_id: studentData.student_id,
-        teacher_id: studentData.teacher_id,
+        student_id: studentUserId,
+        teacher_id: teacherUserId,
         day_of_week: lesson.dayOfWeek,
         start_time: lesson.startTime,
         end_time: lesson.endTime,
@@ -451,6 +593,23 @@ export function EditStudentDialog({
       const { error: insertError } = await supabase.from("student_lessons").insert(lessonsToInsert);
 
       if (insertError) throw insertError;
+
+      // Sync template change to instances (regenerate planned)
+      if (instances.length > 0) {
+        const newSlots: TemplateSlot[] = lessons.map((l) => ({
+          dayOfWeek: l.dayOfWeek,
+          startTime: l.startTime,
+          endTime: l.endTime,
+        }));
+        const totalLessons = lessonsPerWeek * 4;
+        const result = await syncTemplateChange(studentUserId, teacherUserId, newSlots, totalLessons);
+
+        if (result.conflicts.length > 0) {
+          setConflicts(result.conflicts);
+          setLoading(false);
+          return;
+        }
+      }
 
       toast({
         title: "Başarılı",
@@ -473,19 +632,11 @@ export function EditStudentDialog({
   const handleDeleteStudent = async () => {
     setLoading(true);
     try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
       const { data: topics } = await supabase
         .from("topics")
         .select("id")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId);
 
       if (topics && topics.length > 0) {
         const topicIds = topics.map((t) => t.id);
@@ -496,28 +647,34 @@ export function EditStudentDialog({
       await supabase
         .from("student_resource_completion")
         .delete()
-        .eq("student_id", studentData.student_id);
+        .eq("student_id", studentUserId);
 
       await supabase
         .from("student_lesson_tracking")
         .delete()
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId);
 
       await supabase
         .from("student_lessons")
         .delete()
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId);
 
       await supabase
         .from("homework_submissions")
         .delete()
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId);
+
+      await supabase
+        .from("lesson_instances")
+        .delete()
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId);
 
       await supabase.from("students").delete().eq("id", studentId);
-      await supabase.from("profiles").delete().eq("user_id", studentData.student_id);
+      await supabase.from("profiles").delete().eq("user_id", studentUserId);
 
       toast({
         title: "Başarılı",
@@ -538,47 +695,84 @@ export function EditStudentDialog({
   };
 
   // Build sorted lessons for the date display section
+  // Uses instances if available, sorted chronologically by (lesson_date, start_time)
   const totalLessons = lessonsPerWeek * 4;
+
   const sortedLessonsForDisplay = (() => {
-    const lessonsWithDates: { lessonNumber: number; originalDate: string; effectiveDate: string; isCancelled: boolean; isOverridden: boolean }[] = [];
-    
+    // Instance-based display
+    if (instances.length > 0) {
+      // Sort instances by date+time for chronological "Ders N" labels
+      const sorted = [...instances].sort((a, b) => {
+        const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.start_time.localeCompare(b.start_time);
+      });
+
+      return sorted.map((inst, idx) => ({
+        displayIndex: idx + 1,
+        lessonNumber: inst.lesson_number,
+        effectiveDate: inst.lesson_date,
+        startTime: inst.start_time,
+        endTime: inst.end_time,
+        isCompleted: inst.status === "completed",
+        isCancelled: inst.status === "cancelled",
+        isOverridden: inst.original_date !== null,
+        instanceId: inst.id,
+      }));
+    }
+
+    // Legacy fallback: use lessonDates JSON
+    const lessonsWithDates: {
+      displayIndex: number;
+      lessonNumber: number;
+      effectiveDate: string;
+      startTime: string;
+      endTime: string;
+      isCompleted: boolean;
+      isCancelled: boolean;
+      isOverridden: boolean;
+      instanceId?: string;
+    }[] = [];
+
     for (let i = 1; i <= totalLessons; i++) {
       const originalDate = lessonDates[i.toString()];
       if (!originalDate) {
         lessonsWithDates.push({
+          displayIndex: i,
           lessonNumber: i,
-          originalDate: "",
           effectiveDate: "",
+          startTime: "",
+          endTime: "",
+          isCompleted: completedLessons.includes(i),
           isCancelled: false,
           isOverridden: false,
         });
         continue;
       }
-      
+
       const override = lessonOverrides.find((o) => o.original_date === originalDate);
       const isCancelled = override?.is_cancelled || false;
-      const effectiveDate = override && override.new_date && !isCancelled 
-        ? override.new_date 
+      const effectiveDate = override && override.new_date && !isCancelled
+        ? override.new_date
         : originalDate;
-      
+
       lessonsWithDates.push({
+        displayIndex: i,
         lessonNumber: i,
-        originalDate,
         effectiveDate,
+        startTime: "",
+        endTime: "",
+        isCompleted: completedLessons.includes(i),
         isCancelled,
         isOverridden: effectiveDate !== originalDate,
       });
     }
-    
-    const sorted = [...lessonsWithDates].filter(l => l.originalDate).sort((a, b) => {
-      if (a.isCancelled && b.isCancelled) return a.originalDate.localeCompare(b.originalDate);
-      if (a.isCancelled) return a.originalDate.localeCompare(b.effectiveDate);
-      if (b.isCancelled) return a.effectiveDate.localeCompare(b.originalDate);
-      return a.effectiveDate.localeCompare(b.effectiveDate);
-    });
-    
-    const lessonsWithoutDates = lessonsWithDates.filter(l => !l.originalDate);
-    return [...sorted, ...lessonsWithoutDates];
+
+    // Sort by effective date
+    const withDates = lessonsWithDates.filter(l => l.effectiveDate);
+    const withoutDates = lessonsWithDates.filter(l => !l.effectiveDate);
+    withDates.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+    return [...withDates, ...withoutDates].map((l, idx) => ({ ...l, displayIndex: idx + 1 }));
   })();
 
   return (
@@ -676,6 +870,21 @@ export function EditStudentDialog({
             ))}
           </div>
 
+          {/* Conflict warnings */}
+          {conflicts.length > 0 && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1.5">
+              <div className="flex items-center gap-2 text-destructive font-medium text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Çakışma Tespit Edildi
+              </div>
+              {conflicts.map((c, i) => (
+                <div key={i} className="text-xs text-destructive/80">
+                  {c.studentName} — {c.date} {c.timeRange} ({c.type === "trial" ? "Deneme" : "Ders"})
+                </div>
+              ))}
+            </div>
+          )}
+
           <Separator className="my-4" />
 
           {/* İşlenen Dersler Bölümü */}
@@ -724,38 +933,44 @@ export function EditStudentDialog({
               </div>
             </div>
             <div className="space-y-2">
-              {sortedLessonsForDisplay.map((lesson, displayIndex) => (
-                <div key={lesson.lessonNumber} className={`flex items-center gap-3 p-3 border rounded-lg ${
+              {sortedLessonsForDisplay.map((lesson) => (
+                <div key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`} className={`flex items-center gap-3 p-3 border rounded-lg ${
                   lesson.isCancelled ? "opacity-50 bg-muted" : ""
                 } ${lesson.isOverridden ? "border-amber-500" : ""}`}>
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
                     <div 
-                      className={`h-4 w-4 rounded-full ${
+                      className={`h-4 w-4 rounded-full shrink-0 ${
                         lesson.isCancelled 
                           ? "bg-muted-foreground" 
-                          : completedLessons.includes(lesson.lessonNumber) 
+                          : lesson.isCompleted
                             ? "bg-primary" 
                             : "bg-muted"
                       }`} 
                     />
-                    <span className={`font-medium ${
+                    <span className={`font-medium text-sm ${
                       lesson.isCancelled 
                         ? "text-muted-foreground line-through" 
-                        : completedLessons.includes(lesson.lessonNumber) 
+                        : lesson.isCompleted
                           ? "text-foreground" 
                           : "text-muted-foreground"
                     }`}>
-                      Ders {displayIndex + 1}
+                      Ders {lesson.displayIndex}
                       {lesson.isCancelled && " (İptal)"}
                     </span>
+                    {/* Time range display */}
+                    {lesson.startTime && lesson.endTime && (
+                      <span className="text-xs text-muted-foreground ml-1 shrink-0">
+                        {formatTime(lesson.startTime)} - {formatTime(lesson.endTime)}
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Label className={`text-sm ${lesson.isOverridden ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                      {lesson.isOverridden ? "Yeni Tarih:" : "Tarih:"}
+                      {lesson.isOverridden ? "Yeni:" : "Tarih:"}
                     </Label>
                     <Input
                       type="date"
-                      value={lessonDates[lesson.lessonNumber.toString()] || ""}
+                      value={lessonDates[lesson.lessonNumber.toString()] || lesson.effectiveDate || ""}
                       onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
                       className={`w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
                       disabled={lesson.isCancelled}
@@ -852,7 +1067,7 @@ export function EditStudentDialog({
           <Separator className="my-4" />
 
           <div className="flex gap-3">
-            <Button type="submit" disabled={loading} className="flex-1">
+            <Button type="submit" disabled={loading || conflicts.length > 0} className="flex-1">
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Kaydet
             </Button>
