@@ -214,6 +214,57 @@ export type Database = {
         }
         Relationships: []
       }
+      lesson_instances: {
+        Row: {
+          created_at: string | null
+          end_time: string
+          id: string
+          lesson_date: string
+          lesson_number: number
+          original_date: string | null
+          original_end_time: string | null
+          original_start_time: string | null
+          rescheduled_count: number
+          start_time: string
+          status: string
+          student_id: string
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: string
+          id?: string
+          lesson_date: string
+          lesson_number: number
+          original_date?: string | null
+          original_end_time?: string | null
+          original_start_time?: string | null
+          rescheduled_count?: number
+          start_time: string
+          status?: string
+          student_id: string
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          lesson_date?: string
+          lesson_number?: number
+          original_date?: string | null
+          original_end_time?: string | null
+          original_start_time?: string | null
+          rescheduled_count?: number
+          start_time?: string
+          status?: string
+          student_id?: string
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       lesson_overrides: {
         Row: {
           created_at: string

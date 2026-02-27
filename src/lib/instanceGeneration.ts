@@ -1,0 +1,256 @@
+/**
+ * Generate/regenerate lesson instances from template slots.
+ * Handles template changes, future instance regeneration, and
+ * "move to next lesson" cascading shift logic.
+ */
+
+import { addDays, format, startOfDay, isBefore, isEqual } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { checkTeacherConflicts, ConflictInfo } from "./conflictDetection";
+
+export interface TemplateSlot {
+  dayOfWeek: number; // 0=Sun, 1=Mon, ..., 6=Sat
+  startTime: string;
+  endTime: string;
+}
+
+export interface LessonInstanceRow {
+  id: string;
+  student_id: string;
+  teacher_id: string;
+  lesson_number: number;
+  lesson_date: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  original_date: string | null;
+  original_start_time: string | null;
+  original_end_time: string | null;
+  rescheduled_count: number;
+}
+
+/**
+ * Convert JS Date.getDay() (0=Sun) to match student_lessons.day_of_week convention.
+ */
+function getNextDateForSlots(
+  slots: TemplateSlot[],
+  afterDate: Date
+): { date: Date; slot: TemplateSlot } | null {
+  // Sort slots by day of week for predictable iteration
+  const sortedSlots = [...slots].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+
+  // Try up to 14 days ahead to find next matching slot
+  for (let offset = 0; offset <= 13; offset++) {
+    const candidate = addDays(afterDate, offset);
+    const dow = candidate.getDay();
+    const matchingSlot = sortedSlots.find((s) => s.dayOfWeek === dow);
+    if (matchingSlot) {
+      return { date: candidate, slot: matchingSlot };
+    }
+  }
+  return null;
+}
+
+/**
+ * Generate future instances starting from a given date, using template slots.
+ * Returns instance data ready for upsert (no DB call).
+ */
+export function generateFutureInstanceDates(
+  templateSlots: TemplateSlot[],
+  count: number,
+  startFromDate: Date
+): { lessonDate: string; startTime: string; endTime: string }[] {
+  const results: { lessonDate: string; startTime: string; endTime: string }[] = [];
+  let currentDate = startOfDay(startFromDate);
+
+  for (let i = 0; i < count; i++) {
+    const next = getNextDateForSlots(templateSlots, currentDate);
+    if (!next) break;
+    results.push({
+      lessonDate: format(next.date, "yyyy-MM-dd"),
+      startTime: next.slot.startTime,
+      endTime: next.slot.endTime,
+    });
+    currentDate = addDays(next.date, 1);
+  }
+
+  return results;
+}
+
+/**
+ * Sync template changes: keep completed instances, regenerate planned ones.
+ * Returns conflicts if any would be created.
+ */
+export async function syncTemplateChange(
+  studentId: string,
+  teacherId: string,
+  newSlots: TemplateSlot[],
+  totalLessons: number
+): Promise<{ conflicts: ConflictInfo[]; success: boolean }> {
+  // Fetch existing instances
+  const { data: existing } = await supabase
+    .from("lesson_instances")
+    .select("*")
+    .eq("student_id", studentId)
+    .eq("teacher_id", teacherId)
+    .order("lesson_number", { ascending: true });
+
+  if (!existing) return { conflicts: [], success: false };
+
+  const completed = existing.filter((i) => i.status === "completed");
+  const planned = existing.filter((i) => i.status === "planned");
+
+  // Determine start date for regeneration: day after last completed, or today
+  const today = startOfDay(new Date());
+  let startFrom = today;
+  if (completed.length > 0) {
+    const lastCompleted = completed[completed.length - 1];
+    const lastDate = new Date(lastCompleted.lesson_date);
+    startFrom = addDays(lastDate, 1);
+    if (isBefore(startFrom, today)) startFrom = today;
+  }
+
+  // Generate new dates for remaining planned lessons
+  const plannedCount = totalLessons - completed.length;
+  const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom);
+
+  // Check conflicts for each new date
+  const allConflicts: ConflictInfo[] = [];
+  for (const nd of newDates) {
+    const conflicts = await checkTeacherConflicts(
+      teacherId,
+      nd.lessonDate,
+      nd.startTime,
+      nd.endTime
+    );
+    // Filter out self-conflicts (same student)
+    const externalConflicts = conflicts.filter(
+      (c) => c.type === "trial" || !existing.some(
+        (e) => e.lesson_date === nd.lessonDate && e.start_time === nd.startTime
+      )
+    );
+    allConflicts.push(...externalConflicts);
+  }
+
+  if (allConflicts.length > 0) {
+    return { conflicts: allConflicts, success: false };
+  }
+
+  // Update planned instances with new dates/times
+  for (let i = 0; i < planned.length && i < newDates.length; i++) {
+    await supabase
+      .from("lesson_instances")
+      .update({
+        lesson_date: newDates[i].lessonDate,
+        start_time: newDates[i].startTime,
+        end_time: newDates[i].endTime,
+      })
+      .eq("id", planned[i].id);
+  }
+
+  // If more planned lessons than before, insert new ones
+  if (newDates.length > planned.length) {
+    const nextLessonNumber = Math.max(...existing.map((e) => e.lesson_number), 0) + 1;
+    for (let i = planned.length; i < newDates.length; i++) {
+      await supabase.from("lesson_instances").insert({
+        student_id: studentId,
+        teacher_id: teacherId,
+        lesson_number: nextLessonNumber + (i - planned.length),
+        lesson_date: newDates[i].lessonDate,
+        start_time: newDates[i].startTime,
+        end_time: newDates[i].endTime,
+        status: "planned",
+      });
+    }
+  }
+
+  // If fewer planned lessons, delete excess
+  if (newDates.length < planned.length) {
+    const excessIds = planned.slice(newDates.length).map((p) => p.id);
+    for (const id of excessIds) {
+      await supabase.from("lesson_instances").delete().eq("id", id);
+    }
+  }
+
+  return { conflicts: [], success: true };
+}
+
+/**
+ * Shift a lesson and all subsequent planned instances forward by one template slot.
+ * Used by "Sonraki Derse Aktar" (Move to Next Lesson).
+ */
+export async function shiftLessonsForward(
+  studentId: string,
+  teacherId: string,
+  fromInstanceId: string,
+  templateSlots: TemplateSlot[]
+): Promise<{ conflicts: ConflictInfo[]; success: boolean }> {
+  // Fetch all instances
+  const { data: allInstances } = await supabase
+    .from("lesson_instances")
+    .select("*")
+    .eq("student_id", studentId)
+    .eq("teacher_id", teacherId)
+    .order("lesson_date", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  if (!allInstances) return { conflicts: [], success: false };
+
+  // Find the target instance index
+  const targetIdx = allInstances.findIndex((i) => i.id === fromInstanceId);
+  if (targetIdx === -1) return { conflicts: [], success: false };
+
+  // Collect planned instances from target onward
+  const toShift = allInstances
+    .slice(targetIdx)
+    .filter((i) => i.status === "planned");
+
+  if (toShift.length === 0) return { conflicts: [], success: false };
+
+  // Generate new dates starting from the day after the target's current date
+  const startDate = addDays(new Date(toShift[0].lesson_date), 1);
+  const newDates = generateFutureInstanceDates(templateSlots, toShift.length, startDate);
+
+  // Check conflicts
+  const conflictChecks = newDates.map((nd, i) => ({
+    id: toShift[i].id,
+    date: nd.lessonDate,
+    startTime: nd.startTime,
+    endTime: nd.endTime,
+  }));
+
+  const allConflicts: ConflictInfo[] = [];
+  for (const check of conflictChecks) {
+    const c = await checkTeacherConflicts(
+      teacherId,
+      check.date,
+      check.startTime,
+      check.endTime,
+      check.id
+    );
+    allConflicts.push(...c);
+  }
+
+  if (allConflicts.length > 0) {
+    return { conflicts: allConflicts, success: false };
+  }
+
+  // Apply shifts
+  for (let i = 0; i < toShift.length && i < newDates.length; i++) {
+    const inst = toShift[i];
+    await supabase
+      .from("lesson_instances")
+      .update({
+        original_date: inst.original_date || inst.lesson_date,
+        original_start_time: inst.original_start_time || inst.start_time,
+        original_end_time: inst.original_end_time || inst.end_time,
+        lesson_date: newDates[i].lessonDate,
+        start_time: newDates[i].startTime,
+        end_time: newDates[i].endTime,
+        rescheduled_count: inst.rescheduled_count + 1,
+      })
+      .eq("id", inst.id);
+  }
+
+  return { conflicts: [], success: true };
+}
