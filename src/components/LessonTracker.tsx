@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Ban } from "lucide-react";
-import { LessonDates, LessonOverrideInfo, getRowConfig } from "@/lib/lessonTypes";
+import { LessonDates, LessonOverrideInfo, LessonInstance, getRowConfig } from "@/lib/lessonTypes";
 import { getSortedLessons, getDisplayLessonData } from "@/lib/lessonSorting";
 import { calculateLessonDates } from "@/lib/lessonDateCalculation";
 import { addRegularLessonBalance } from "@/lib/teacherBalance";
@@ -31,6 +31,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [studentLessonDays, setStudentLessonDays] = useState<number[]>([]);
   const [lessonOverrides, setLessonOverrides] = useState<LessonOverrideInfo[]>([]);
+  const [instances, setInstances] = useState<LessonInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingLesson, setPendingLesson] = useState<number | null>(null);
@@ -43,9 +44,12 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     }
     
     const loadData = async () => {
-      await fetchStudentSchedule();
-      await fetchLessonOverrides();
-      await fetchTracking();
+      await Promise.all([
+        fetchStudentSchedule(),
+        fetchLessonOverrides(),
+        fetchTracking(),
+        fetchInstances(),
+      ]);
     };
     loadData();
   }, [studentId, teacherId]);
@@ -78,6 +82,22 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
       setLessonOverrides(data || []);
     } catch (error: any) {
       console.error("Failed to fetch lesson overrides:", error);
+    }
+  };
+
+  const fetchInstances = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("lesson_instances")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .order("lesson_number", { ascending: true });
+
+      if (error) throw error;
+      setInstances(data || []);
+    } catch (error: any) {
+      console.error("Failed to fetch lesson instances:", error);
     }
   };
 
@@ -199,10 +219,27 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
       if (error) throw error;
 
-      await addRegularLessonBalance(teacherId, studentId);
+      // Find matching instance for balance calculation
+      const matchingInstance = instances.find(i => i.lesson_number === pendingLesson);
+      
+      if (matchingInstance) {
+        // Update instance status
+        await supabase
+          .from("lesson_instances")
+          .update({ status: "completed" })
+          .eq("id", matchingInstance.id);
+        
+        // Use instance-aware balance (with actual start/end times)
+        await addRegularLessonBalance(teacherId, studentId, matchingInstance.id);
+      } else {
+        // Fallback to template-based balance
+        await addRegularLessonBalance(teacherId, studentId);
+      }
 
       setCompletedLessons(newCompletedLessons);
       setLessonDates(newLessonDates);
+      // Refresh instances
+      fetchInstances();
       toast({
         title: "Başarılı",
         description: `${pendingLesson}. ders işlendi olarak işaretlendi`,
@@ -221,7 +258,14 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   const totalLessonsPerMonth = studentLessonDays.length * 4;
   const rowConfig = getRowConfig(studentLessonDays.length);
-  const sortedLessons = getSortedLessons(lessonDates, lessonOverrides, totalLessonsPerMonth);
+  
+  // Build instanceStartTimes map for time-aware sorting
+  const instanceStartTimes: Record<string, string> = {};
+  instances.forEach(inst => {
+    instanceStartTimes[inst.lesson_number.toString()] = inst.start_time;
+  });
+  
+  const sortedLessons = getSortedLessons(lessonDates, lessonOverrides, totalLessonsPerMonth, instanceStartTimes);
 
   if (loading) {
     return <div className="animate-pulse h-40 bg-muted rounded-lg"></div>;
@@ -241,6 +285,10 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
                   const lessonData = getDisplayLessonData(sortedLessons, lessonDates, displayPosition);
                   const { lessonNumber, displayDate, isCancelled, isOverridden } = lessonData;
                   const isCompleted = completedLessons.includes(lessonNumber);
+                  
+                  // Get instance time for tooltip
+                  const inst = instances.find(i => i.lesson_number === lessonNumber);
+                  const timeInfo = inst ? `${inst.start_time.slice(0,5)} - ${inst.end_time.slice(0,5)}` : "";
 
                   return (
                     <div key={displayPosition} className="flex flex-col items-center gap-0.5">
@@ -258,7 +306,13 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
                                 : "bg-background border-primary/30 hover:bg-primary/10 hover:scale-105 hover:shadow-md cursor-pointer hover:border-primary"
                           }
                         `}
-                        title={isCancelled ? `Ders ${displayPosition} - İptal Edildi` : `Ders ${displayPosition}`}
+                        title={
+                          isCancelled 
+                            ? `Ders ${displayPosition} - İptal Edildi` 
+                            : timeInfo 
+                              ? `Ders ${displayPosition} - ${timeInfo}` 
+                              : `Ders ${displayPosition}`
+                        }
                       >
                         {isCancelled ? <Ban className="h-4 w-4" /> : displayPosition}
                       </button>
