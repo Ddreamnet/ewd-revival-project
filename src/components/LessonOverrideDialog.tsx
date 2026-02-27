@@ -17,6 +17,8 @@ import { format, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { formatTime as sharedFormatTime } from "@/lib/lessonTypes";
+import { calculateNextLessonDate as calcNextDate } from "@/lib/lessonDateCalculation";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -92,16 +94,7 @@ export function LessonOverrideDialog({
     }
   }, [open, originalDate, originalStartTime, originalEndTime, currentDate, currentStartTime, currentEndTime]);
 
-  const formatTime = (time: string) => {
-    try {
-      return new Date(`2000-01-01T${time}`).toLocaleTimeString("tr-TR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return time;
-    }
-  };
+  const formatTime = sharedFormatTime;
 
   // Check if date/time has been changed from the display values
   const hasDateTimeChanges = (): boolean => {
@@ -117,7 +110,6 @@ export function LessonOverrideDialog({
   // Calculate next lesson date based on student's lesson days
   const calculateNextLessonDate = async (currentDate: Date): Promise<Date | null> => {
     try {
-      // Get student's lesson days
       const { data: lessonDays, error } = await supabase
         .from("student_lessons")
         .select("day_of_week")
@@ -130,27 +122,7 @@ export function LessonOverrideDialog({
       }
 
       const days = lessonDays.map((l: any) => l.day_of_week);
-      
-      // Find the next lesson day after current date
-      let nextDate = new Date(currentDate);
-      nextDate.setHours(0, 0, 0, 0);
-      
-      // Start from next day
-      nextDate = addDays(nextDate, 1);
-      
-      // Find the next day that matches a lesson day
-      let attempts = 0;
-      while (!days.includes(nextDate.getDay()) && attempts < 14) {
-        nextDate = addDays(nextDate, 1);
-        attempts++;
-      }
-      
-      if (attempts >= 14) {
-        console.error("Could not find next lesson day");
-        return null;
-      }
-      
-      return nextDate;
+      return calcNextDate(currentDate, days);
     } catch (error) {
       console.error("Error calculating next lesson date:", error);
       return null;

@@ -13,6 +13,9 @@ import { LessonOverrideDialog } from "./LessonOverrideDialog";
 import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
 import { format, startOfWeek, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
+import { formatTime } from "@/lib/lessonTypes";
+import { addToTeacherBalance, subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -177,44 +180,8 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     }
   };
 
-  const formatTime = (time: string) => {
-    return new Date(`2000-01-01T${time}`).toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  };
+  const computedTimeSlots = getAllTimeSlots(lessons, trialLessons, overrides);
 
-  const getAllTimeSlots = () => {
-    const allTimes = new Set<string>();
-    
-    // Add regular lesson times (including cancelled ones for admin view)
-    lessons.forEach((l) => {
-      allTimes.add(l.start_time);
-    });
-    
-    // Add trial lesson times
-    trialLessons.forEach((l) => {
-      allTimes.add(l.start_time);
-    });
-    
-    // Add moved lessons that might have different times
-    overrides.forEach((o) => {
-      if (!o.is_cancelled && o.new_start_time) {
-        allTimes.add(o.new_start_time);
-      }
-    });
-    
-    return Array.from(allTimes).sort();
-  };
-
-  // Get the date for a specific day in the current week
-  const getDateForDayIndex = (dayIndex: number): Date => {
-    const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
-    return addDays(weekStart, dayIndex);
-  };
-
-  // Check if a lesson has any override (postponed or cancelled)
   const getLessonOverrideForAdmin = (studentId: string, date: Date): LessonOverride | null => {
     const dateStr = format(date, "yyyy-MM-dd");
     return overrides.find((o) => {
@@ -224,9 +191,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const getLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    // dayIndex: 0=Pazartesi, 6=Pazar
-    // day_of_week in DB: 1=Pazartesi, 0=Pazar
-    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+    const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
     const dateForDay = getDateForDayIndex(dayIndex);
     
     // First check if there's a moved lesson that should appear here
@@ -238,7 +203,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     });
     
     if (movedLesson) {
-      // Find the original lesson
       const originalLesson = lessons.find((l) => l.student_id === movedLesson.student_id);
       if (originalLesson) {
         return {
@@ -252,17 +216,12 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       }
     }
     
-    // Check for regular lessons on this day
     const lesson = lessons.find((l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
     
     if (lesson) {
       const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
-      
-      // Check if this lesson has any override (cancelled or postponed)
-      // Admin should see ALL lessons including cancelled/postponed ones (but dimmed)
       const override = getLessonOverrideForAdmin(lesson.student_id, lessonDate);
       if (override) {
-        // Show the lesson as postponed/cancelled with dimmed style
         return { 
           ...lesson, 
           _originalDate: lessonDate,
@@ -270,20 +229,14 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           _override: override,
         };
       }
-      
       return { ...lesson, _originalDate: lessonDate };
     }
     
     return null;
   };
 
-  const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
-    const dateForDay = getDateForDayIndex(dayIndex);
-    const dateStr = format(dateForDay, "yyyy-MM-dd");
-    return trialLessons.find(
-      (l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot && l.lesson_date === dateStr
-    );
+  const findTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
+    return getTrialLessonForDayAndTime(trialLessons, dayIndex, timeSlot);
   };
 
   const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date; _override?: LessonOverride }) => {
@@ -417,7 +370,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       if (error) throw error;
 
       // Subtract from teacher balance
-      await subtractFromTeacherBalance(selectedTrialLesson);
+      await subtractFromTeacherBalanceFn(selectedTrialLesson);
 
       toast({
         title: "Başarılı",
@@ -438,74 +391,24 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const updateTeacherBalance = async (lesson: TrialLesson) => {
-    try {
-      const startTime = new Date(`2000-01-01T${lesson.start_time}`);
-      const endTime = new Date(`2000-01-01T${lesson.end_time}`);
-      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-
-      // Check if teacher balance exists
-      const { data: existingBalance } = await supabase
-        .from("teacher_balance")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .maybeSingle();
-
-      if (existingBalance) {
-        // Update existing balance
-        await supabase
-          .from("teacher_balance")
-          .update({
-            total_minutes: existingBalance.total_minutes + durationMinutes,
-            completed_trial_lessons: existingBalance.completed_trial_lessons + 1,
-            trial_lessons_minutes: existingBalance.trial_lessons_minutes + durationMinutes,
-          })
-          .eq("teacher_id", teacherId);
-      } else {
-        // Create new balance
-        await supabase.from("teacher_balance").insert({
-          teacher_id: teacherId,
-          total_minutes: durationMinutes,
-          completed_regular_lessons: 0,
-          completed_trial_lessons: 1,
-          regular_lessons_minutes: 0,
-          trial_lessons_minutes: durationMinutes,
-        });
-      }
-    } catch (error) {
-      console.error("Error updating teacher balance:", error);
-    }
+    await addToTeacherBalance({
+      teacherId,
+      lessonType: "trial",
+      startTime: lesson.start_time,
+      endTime: lesson.end_time,
+    });
   };
 
-  const subtractFromTeacherBalance = async (lesson: TrialLesson) => {
-    try {
-      const startTime = new Date(`2000-01-01T${lesson.start_time}`);
-      const endTime = new Date(`2000-01-01T${lesson.end_time}`);
-      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-
-      // Get current balance
-      const { data: existingBalance } = await supabase
-        .from("teacher_balance")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .maybeSingle();
-
-      if (existingBalance) {
-        // Subtract from existing balance
-        await supabase
-          .from("teacher_balance")
-          .update({
-            total_minutes: Math.max(0, existingBalance.total_minutes - durationMinutes),
-            completed_trial_lessons: Math.max(0, existingBalance.completed_trial_lessons - 1),
-            trial_lessons_minutes: Math.max(0, existingBalance.trial_lessons_minutes - durationMinutes),
-          })
-          .eq("teacher_id", teacherId);
-      }
-    } catch (error) {
-      console.error("Error subtracting from teacher balance:", error);
-    }
+  const subtractFromTeacherBalanceFn = async (lesson: TrialLesson) => {
+    await subtractBalance({
+      teacherId,
+      lessonType: "trial",
+      startTime: lesson.start_time,
+      endTime: lesson.end_time,
+    });
   };
 
-  const timeSlots = getAllTimeSlots();
+  const timeSlots = computedTimeSlots;
 
   const handleExportPNG = async () => {
     try {
@@ -610,7 +513,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                     </td>
                     {DAYS.map((_, dayIndex) => {
                       const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
-                      const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
+                      const trialLesson = findTrialLessonForDayAndTime(dayIndex, timeSlot);
 
                       return (
                         <td key={dayIndex} className="border border-border p-2">
