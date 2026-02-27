@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +18,7 @@ import { format, startOfWeek, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
 import { addToTeacherBalance, subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime } from "@/hooks/useScheduleGrid";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -65,6 +68,13 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [showUnmarkAlert, setShowUnmarkAlert] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   
+  // Template/Actual toggle
+  const [showActual, setShowActual] = useState(false);
+  const [actualLessons, setActualLessons] = useState<ActualLesson[]>([]);
+  
+  // Back-to-back popover
+  const [backToBackPopover, setBackToBackPopover] = useState<{ group: ActualLesson[]; dayIndex: number } | null>(null);
+  
   // Lesson override state
   const [selectedLesson, setSelectedLesson] = useState<StudentLesson | null>(null);
   const [selectedLessonDate, setSelectedLessonDate] = useState<Date | null>(null);
@@ -73,12 +83,21 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [selectedLessonCurrentEndTime, setSelectedLessonCurrentEndTime] = useState<string | null>(null);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   
+  // For actual-mode override
+  const [selectedActualLesson, setSelectedActualLesson] = useState<ActualLesson | null>(null);
+  
   const { toast } = useToast();
   const { overrides, isLessonCancelled, getLessonOverride, getMovedLessonForDate, refetch: refetchOverrides } = useLessonOverrides(teacherId);
 
   useEffect(() => {
     fetchSchedule();
   }, [teacherId]);
+
+  useEffect(() => {
+    if (showActual) {
+      fetchActualSchedule();
+    }
+  }, [showActual, teacherId]);
 
   // Real-time listener for trial lesson updates
   useEffect(() => {
@@ -95,8 +114,8 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           filter: `teacher_id=eq.${teacherId}`,
         },
         () => {
-          // Refetch schedule when trial lesson is updated
           fetchSchedule();
+          if (showActual) fetchActualSchedule();
         }
       )
       .subscribe();
@@ -104,7 +123,23 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [teacherId]);
+  }, [teacherId, showActual]);
+
+  const fetchActualSchedule = async () => {
+    const lessons = await fetchActualLessonsForWeek(teacherId);
+    setActualLessons(lessons);
+    // Assign colors for actual lessons
+    const studentIds = [...new Set(lessons.map(l => l.student_id))];
+    const colorMap = new Map<string, string>();
+    studentIds.forEach((id, index) => {
+      colorMap.set(id, STUDENT_COLORS[index % STUDENT_COLORS.length]);
+    });
+    // Merge with existing colors
+    studentColors.forEach((color, id) => {
+      if (!colorMap.has(id)) colorMap.set(id, color);
+    });
+    setStudentColors(colorMap);
+  };
 
   const fetchSchedule = async () => {
     try {
@@ -180,7 +215,9 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     }
   };
 
-  const computedTimeSlots = getAllTimeSlots(lessons, trialLessons, overrides);
+  const computedTimeSlots = showActual
+    ? getAllTimeSlotsActual(actualLessons, trialLessons)
+    : getAllTimeSlots(lessons, trialLessons, overrides);
 
   const getLessonOverrideForAdmin = (studentId: string, date: Date): LessonOverride | null => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -240,8 +277,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date; _override?: LessonOverride }) => {
-    // If this lesson has an override, use the ORIGINAL date from the override
-    // This is the date we need to use to identify and update the override record
     const override = lesson._override;
     let originalDateForOverride: Date;
     let currentDisplayDate: Date;
@@ -251,17 +286,13 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     let originalEndTimeForDialog: string;
     
     if (override) {
-      // This is a moved lesson - use the original_date from the override record
       originalDateForOverride = new Date(override.original_date);
-      // The current display is the NEW date/time from override
       currentDisplayDate = override.new_date ? new Date(override.new_date) : originalDateForOverride;
       currentStartTime = override.new_start_time || override.original_start_time;
       currentEndTime = override.new_end_time || override.original_end_time;
-      // Original times from override record (for dialog title display)
       originalStartTimeForDialog = override.original_start_time;
       originalEndTimeForDialog = override.original_end_time;
     } else {
-      // Normal lesson - calculate from day_of_week
       originalDateForOverride = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
       currentDisplayDate = originalDateForOverride;
       currentStartTime = lesson.start_time;
@@ -270,7 +301,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       originalEndTimeForDialog = lesson.end_time;
     }
     
-    // Store the original times and override status in the lesson object for the dialog
     const lessonWithOriginalTimes = {
       ...lesson,
       _originalStartTime: originalStartTimeForDialog,
@@ -286,9 +316,37 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     setShowOverrideDialog(true);
   };
 
+  const handleActualLessonClick = (lesson: ActualLesson) => {
+    // Convert actual lesson to the format expected by override dialog
+    const syntheticLesson: StudentLesson = {
+      id: lesson.id,
+      student_id: lesson.student_id,
+      student_name: lesson.student_name,
+      day_of_week: new Date(lesson.lesson_date).getDay(),
+      start_time: lesson.original_start_time || lesson.start_time,
+      end_time: lesson.original_end_time || lesson.end_time,
+      _originalStartTime: lesson.original_start_time || lesson.start_time,
+      _originalEndTime: lesson.original_end_time || lesson.end_time,
+      _hasOverride: lesson.rescheduled_count > 0,
+    };
+    
+    const originalDate = lesson.original_date
+      ? new Date(lesson.original_date)
+      : new Date(lesson.lesson_date);
+    
+    setSelectedLesson(syntheticLesson);
+    setSelectedActualLesson(lesson);
+    setSelectedLessonDate(originalDate);
+    setSelectedLessonCurrentDate(new Date(lesson.lesson_date));
+    setSelectedLessonCurrentStartTime(lesson.start_time);
+    setSelectedLessonCurrentEndTime(lesson.end_time);
+    setShowOverrideDialog(true);
+  };
+
   const handleOverrideSuccess = () => {
     refetchOverrides();
     fetchSchedule();
+    if (showActual) fetchActualSchedule();
   };
 
   const handleTrialLessonClick = (trial: TrialLesson) => {
@@ -337,7 +395,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
 
       if (error) throw error;
 
-      // Update teacher balance
       await updateTeacherBalance(selectedTrialLesson);
 
       toast({
@@ -369,7 +426,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
 
       if (error) throw error;
 
-      // Subtract from teacher balance
       await subtractFromTeacherBalanceFn(selectedTrialLesson);
 
       toast({
@@ -412,7 +468,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
 
   const handleExportPNG = async () => {
     try {
-      // Map student colors from Map to Record
       const colorRecord: Record<string, string> = {};
       studentColors.forEach((color, studentId) => {
         colorRecord[studentId] = color;
@@ -421,7 +476,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       await exportScheduleAsPNG({
         lessons: lessons.map(l => ({
           ...l,
-          is_completed: false, // Admin panel doesn't track completion
+          is_completed: false,
         })),
         trialLessons,
         studentColors: colorRecord,
@@ -449,7 +504,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     );
   }
 
-  if (lessons.length === 0 && trialLessons.length === 0) {
+  if (lessons.length === 0 && trialLessons.length === 0 && actualLessons.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -486,10 +541,21 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <CardTitle className="text-base sm:text-lg">Haftalık Ders Programı</CardTitle>
-            <Button onClick={() => setShowAddTrial(true)} size="sm" className="text-xs sm:text-sm">
-              <Plus className="h-4 w-4 mr-1 sm:mr-2" />
-              Deneme Ekle
-            </Button>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="schedule-mode-admin" className="text-xs text-muted-foreground">Şablon</Label>
+                <Switch
+                  id="schedule-mode-admin"
+                  checked={showActual}
+                  onCheckedChange={setShowActual}
+                />
+                <Label htmlFor="schedule-mode-admin" className="text-xs text-muted-foreground">Gerçek</Label>
+              </div>
+              <Button onClick={() => setShowAddTrial(true)} size="sm" className="text-xs sm:text-sm">
+                <Plus className="h-4 w-4 mr-1 sm:mr-2" />
+                Deneme Ekle
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -512,55 +578,158 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                       {formatTime(timeSlot)}
                     </td>
                     {DAYS.map((_, dayIndex) => {
-                      const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
-                      const trialLesson = findTrialLessonForDayAndTime(dayIndex, timeSlot);
+                      if (showActual) {
+                        // ACTUAL MODE: render from lesson_instances
+                        const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot);
+                        const trialLesson = findTrialLessonForDayAndTime(dayIndex, timeSlot);
+                        
+                        // Skip if this lesson is secondary in a back-to-back group
+                        if (actualLesson && isSecondaryInBackToBack(actualLessons, dayIndex, actualLesson.id)) {
+                          return <td key={dayIndex} className="border border-border p-2"></td>;
+                        }
+                        
+                        // Check for back-to-back group
+                        const b2bGroup = actualLesson
+                          ? getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id)
+                          : null;
+                        
+                        return (
+                          <td key={dayIndex} className="border border-border p-2">
+                            {actualLesson && b2bGroup ? (
+                              // Back-to-back grouped card
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className={`w-full justify-center py-2 cursor-pointer relative ${
+                                      actualLesson.status === "completed" ? "opacity-40" : ""
+                                    } ${actualLesson.rescheduled_count > 0 ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
+                                      studentColors.get(actualLesson.student_id) || "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    <div className="text-center">
+                                      <div className="font-medium flex items-center justify-center gap-1">
+                                        {actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-amber-600" />}
+                                        {actualLesson.student_name}
+                                        <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">{b2bGroup.length} ders</Badge>
+                                      </div>
+                                      {b2bGroup.map((l, idx) => (
+                                        <div key={l.id} className="text-xs mt-0.5 font-mono">
+                                          {formatTime(l.start_time)} - {formatTime(l.end_time)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-2">
+                                  <div className="flex flex-col gap-1">
+                                    {b2bGroup.map((l) => (
+                                      <Button
+                                        key={l.id}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="justify-start text-xs"
+                                        onClick={() => handleActualLessonClick(l)}
+                                      >
+                                        {formatTime(l.start_time)} - {formatTime(l.end_time)}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            ) : actualLesson ? (
+                              // Single actual lesson
+                              <Button
+                                variant="outline"
+                                className={`w-full justify-center py-2 cursor-pointer relative ${
+                                  actualLesson.status === "completed" ? "opacity-40" : ""
+                                } ${actualLesson.rescheduled_count > 0 ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
+                                  studentColors.get(actualLesson.student_id) || "bg-gray-100 text-gray-800"
+                                }`}
+                                onClick={() => handleActualLessonClick(actualLesson)}
+                              >
+                                <div className="text-center">
+                                  <div className="font-medium flex items-center justify-center gap-1">
+                                    {actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-amber-600" />}
+                                    {actualLesson.student_name}
+                                  </div>
+                                  <div className="text-xs mt-1">
+                                    {formatTime(actualLesson.start_time)} - {formatTime(actualLesson.end_time)}
+                                  </div>
+                                </div>
+                              </Button>
+                            ) : trialLesson ? (
+                              <Button
+                                variant="outline"
+                                className={`w-full py-2 border-2 transition-all ${
+                                  trialLesson.is_completed
+                                    ? "bg-red-50/30 text-red-300 border-red-100 hover:bg-red-50/50 opacity-40"
+                                    : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
+                                }`}
+                                onClick={() => handleTrialLessonClick(trialLesson)}
+                              >
+                                <div className="text-center w-full">
+                                  <div className="font-medium">Deneme Dersi</div>
+                                  <div className="text-xs mt-1">
+                                    {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
+                                  </div>
+                                </div>
+                              </Button>
+                            ) : null}
+                          </td>
+                        );
+                      } else {
+                        // TEMPLATE MODE: existing behavior
+                        const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
+                        const trialLesson = findTrialLessonForDayAndTime(dayIndex, timeSlot);
 
-                      return (
-                        <td key={dayIndex} className="border border-border p-2">
-                          {lesson && (
-                            <Button
-                              variant="outline"
-                              className={`w-full justify-center py-2 cursor-pointer relative ${
-                                (lesson as any)._isPostponed 
-                                  ? "opacity-40 bg-gray-100 text-gray-500 border-gray-300 hover:opacity-60" 
-                                  : studentColors.get(lesson.student_id) || "bg-gray-100 text-gray-800"
-                              } ${(lesson as any)._isOverride ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
-                              onClick={() => handleLessonClick(lesson as any)}
-                            >
-                              {(lesson as any)._isPostponed && (
-                                <X className="absolute top-1 right-1 h-4 w-4 text-red-500" />
-                              )}
-                              <div className="text-center">
-                                <div className="font-medium flex items-center justify-center gap-1">
-                                  {(lesson as any)._isOverride && <Calendar className="h-3 w-3 text-amber-600" />}
-                                  {lesson.note ? `${lesson.student_name} - ${lesson.note}` : lesson.student_name}
+                        return (
+                          <td key={dayIndex} className="border border-border p-2">
+                            {lesson && (
+                              <Button
+                                variant="outline"
+                                className={`w-full justify-center py-2 cursor-pointer relative ${
+                                  (lesson as any)._isPostponed 
+                                    ? "opacity-40 bg-gray-100 text-gray-500 border-gray-300 hover:opacity-60" 
+                                    : studentColors.get(lesson.student_id) || "bg-gray-100 text-gray-800"
+                                } ${(lesson as any)._isOverride ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
+                                onClick={() => handleLessonClick(lesson as any)}
+                              >
+                                {(lesson as any)._isPostponed && (
+                                  <X className="absolute top-1 right-1 h-4 w-4 text-red-500" />
+                                )}
+                                <div className="text-center">
+                                  <div className="font-medium flex items-center justify-center gap-1">
+                                    {(lesson as any)._isOverride && <Calendar className="h-3 w-3 text-amber-600" />}
+                                    {lesson.note ? `${lesson.student_name} - ${lesson.note}` : lesson.student_name}
+                                  </div>
+                                  <div className="text-xs mt-1">
+                                    {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
+                                  </div>
                                 </div>
-                                <div className="text-xs mt-1">
-                                  {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
+                              </Button>
+                            )}
+                            {trialLesson && (
+                              <Button
+                                variant="outline"
+                                className={`w-full py-2 border-2 transition-all ${
+                                  trialLesson.is_completed
+                                    ? "bg-red-50/30 text-red-300 border-red-100 hover:bg-red-50/50 opacity-40"
+                                    : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
+                                }`}
+                                onClick={() => handleTrialLessonClick(trialLesson)}
+                              >
+                                <div className="text-center w-full">
+                                  <div className="font-medium">Deneme Dersi</div>
+                                  <div className="text-xs mt-1">
+                                    {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
+                                  </div>
                                 </div>
-                              </div>
-                            </Button>
-                          )}
-                          {trialLesson && (
-                            <Button
-                              variant="outline"
-                              className={`w-full py-2 border-2 transition-all ${
-                                trialLesson.is_completed
-                                  ? "bg-red-50/30 text-red-300 border-red-100 hover:bg-red-50/50 opacity-40"
-                                  : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
-                              }`}
-                              onClick={() => handleTrialLessonClick(trialLesson)}
-                            >
-                              <div className="text-center w-full">
-                                <div className="font-medium">Deneme Dersi</div>
-                                <div className="text-xs mt-1">
-                                  {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
-                                </div>
-                              </div>
-                            </Button>
-                          )}
-                        </td>
-                      );
+                              </Button>
+                            )}
+                          </td>
+                        );
+                      }
                     })}
                   </tr>
                 ))}
@@ -574,7 +743,10 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         open={showAddTrial}
         onOpenChange={setShowAddTrial}
         teacherId={teacherId}
-        onSuccess={fetchSchedule}
+        onSuccess={() => {
+          fetchSchedule();
+          if (showActual) fetchActualSchedule();
+        }}
       />
 
       {/* Trial Lesson Action Dialog */}
@@ -690,6 +862,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           currentStartTime={selectedLessonCurrentStartTime || undefined}
           currentEndTime={selectedLessonCurrentEndTime || undefined}
           hasExistingOverride={selectedLesson._hasOverride || false}
+          instanceId={selectedActualLesson?.id}
           onSuccess={handleOverrideSuccess}
         />
       )}
