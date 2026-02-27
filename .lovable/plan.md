@@ -303,16 +303,16 @@ Update `LessonTracker` and `StudentLessonTracker`:
 | 5b | Add `LessonInstance` interface to `lessonTypes.ts` | Low | ✅ DONE |
 | 6 | Update `AddTrialLessonDialog` with conflict check | Low | ✅ DONE |
 | 7 | Update `LessonOverrideDialog` to use instances + conflicts | Medium | ✅ DONE |
-| 8 | Update `EditStudentDialog` lessons list (show times, use instances, conflict checks) | Medium | 🔲 TODO |
-| 9 | Update `EditStudentDialog` template editor (sync + conflict check) | Medium | 🔲 TODO |
+| 8 | Update `EditStudentDialog` lessons list (show times, use instances, conflict checks) | Medium | ✅ DONE |
+| 9 | Update `EditStudentDialog` template editor (sync + conflict check) | Medium | ✅ DONE |
 | 10 | Add Template/Actual toggle to `AdminWeeklySchedule` | Medium | 🔲 TODO |
 | 11 | Add Template/Actual toggle to `WeeklyScheduleDialog` | Medium | 🔲 TODO |
 | 12 | Add back-to-back grouping UI to both grids | Medium | 🔲 TODO |
 | 13 | Update `LessonTracker` and `StudentLessonTracker` to read from instances | Medium | 🔲 TODO |
-| 14 | Update `lessonSorting.ts` for time-aware sorting | Low | 🔲 TODO |
+| 14 | Update `lessonSorting.ts` for time-aware sorting | Low | ✅ DONE |
 | 15 | Balance safety verification (manual + automated checks) | Low | 🔲 TODO |
 
-Each step is independently testable. Steps 1-7 are complete.
+Each step is independently testable. Steps 1-9 and 14 are complete.
 
 ---
 

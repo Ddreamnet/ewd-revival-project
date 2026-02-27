@@ -15,7 +15,8 @@ import { LessonDates, LessonOverrideInfo, SortedLesson, DisplayLessonData } from
 export function getSortedLessons(
   lessonDates: LessonDates,
   lessonOverrides: LessonOverrideInfo[],
-  totalLessons: number
+  totalLessons: number,
+  instanceStartTimes?: Record<string, string> // lessonNumber -> start_time for time-aware sort
 ): SortedLesson[] {
   const lessonsWithDates: SortedLesson[] = [];
 
@@ -37,12 +38,19 @@ export function getSortedLessons(
     });
   }
 
-  // Sort by effective date (chronological order)
+  // Sort by effective date + start_time (chronological order)
   lessonsWithDates.sort((a, b) => {
-    if (a.isCancelled && b.isCancelled) return a.originalDate.localeCompare(b.originalDate);
-    if (a.isCancelled) return a.originalDate.localeCompare(b.effectiveDate);
-    if (b.isCancelled) return a.effectiveDate.localeCompare(b.originalDate);
-    return a.effectiveDate.localeCompare(b.effectiveDate);
+    const dateA = a.isCancelled ? a.originalDate : a.effectiveDate;
+    const dateB = b.isCancelled ? b.originalDate : b.effectiveDate;
+    const dateCompare = dateA.localeCompare(dateB);
+    if (dateCompare !== 0) return dateCompare;
+    // Time-aware tiebreak for same-date lessons
+    if (instanceStartTimes) {
+      const timeA = instanceStartTimes[a.lessonNumber.toString()] || "";
+      const timeB = instanceStartTimes[b.lessonNumber.toString()] || "";
+      return timeA.localeCompare(timeB);
+    }
+    return 0;
   });
 
   return lessonsWithDates;
