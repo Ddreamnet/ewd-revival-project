@@ -25,6 +25,7 @@ import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
 import { addRegularLessonBalance, subtractRegularLessonBalance } from "@/lib/teacherBalance";
 import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
+import { rebuildLegacyLessonDatesFromInstances, checkNonTemplateWeekday } from "@/lib/lessonSync";
 import type { StudentLessonBase } from "@/lib/types";
 import { DAYS_OF_WEEK } from "@/lib/types";
 
@@ -502,32 +503,43 @@ export function EditStudentDialog({
         }
       }
 
-      const { data: existingRecords } = await supabase
+      // Rebuild legacy JSON from instances (canonical sync)
+      await rebuildLegacyLessonDatesFromInstances(studentUserId, teacherUserId);
+
+      // Re-fetch synced dates
+      const { data: syncedTracking } = await supabase
         .from("student_lesson_tracking")
-        .select("id")
+        .select("lesson_dates")
         .eq("student_id", studentUserId)
         .eq("teacher_id", teacherUserId)
         .order("updated_at", { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
-      if (!existingRecords || existingRecords.length === 0) {
-        throw new Error("Ders takip kaydı bulunamadı");
-      }
-
-      const { error } = await supabase
-        .from("student_lesson_tracking")
-        .update({ lesson_dates: finalDates })
-        .eq("id", existingRecords[0].id);
-
-      if (error) throw error;
+      const syncedDates = (syncedTracking as any)?.lesson_dates || finalDates;
 
       toast({
         title: "Başarılı",
         description: "Ders tarihleri güncellendi",
       });
 
-      setOriginalLessonDates(finalDates);
-      setLessonDates(finalDates);
+      // Non-template weekday warning
+      const changedKeysForWarning = Object.keys(lessonDates).filter(
+        (key) => lessonDates[key] !== originalLessonDates[key]
+      );
+      for (const key of changedKeysForWarning) {
+        const check = await checkNonTemplateWeekday(studentUserId, teacherUserId, lessonDates[key]);
+        if (check.isNonTemplate) {
+          toast({
+            title: "Bilgi",
+            description: `Seçilen tarih (${lessonDates[key]}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
+          });
+          break;
+        }
+      }
+
+      setOriginalLessonDates(syncedDates);
+      setLessonDates(syncedDates);
       setShowConfirm(false);
       setUpdateRemainingDays(false);
       setConflicts([]);
@@ -609,6 +621,9 @@ export function EditStudentDialog({
           setLoading(false);
           return;
         }
+
+        // Rebuild legacy JSON after template sync
+        await rebuildLegacyLessonDatesFromInstances(studentUserId, teacherUserId);
       }
 
       toast({

@@ -68,8 +68,8 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [showUnmarkAlert, setShowUnmarkAlert] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   
-  // Template/Actual toggle
-  const [showActual, setShowActual] = useState(false);
+  // Güncel (default OFF) vs Kalıcı (ON) toggle
+  const [showTemplate, setShowTemplate] = useState(false);
   const [actualLessons, setActualLessons] = useState<ActualLesson[]>([]);
   
   // Back-to-back popover
@@ -94,10 +94,10 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   }, [teacherId]);
 
   useEffect(() => {
-    if (showActual) {
+    if (!showTemplate) {
       fetchActualSchedule();
     }
-  }, [showActual, teacherId]);
+  }, [showTemplate, teacherId]);
 
   // Real-time listener for trial lesson updates
   useEffect(() => {
@@ -115,7 +115,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         },
         () => {
           fetchSchedule();
-          if (showActual) fetchActualSchedule();
+          if (!showTemplate) fetchActualSchedule();
         }
       )
       .subscribe();
@@ -123,7 +123,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [teacherId, showActual]);
+  }, [teacherId, showTemplate]);
 
   const fetchActualSchedule = async () => {
     const lessons = await fetchActualLessonsForWeek(teacherId);
@@ -215,9 +215,9 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     }
   };
 
-  const computedTimeSlots = showActual
-    ? getAllTimeSlotsActual(actualLessons, trialLessons)
-    : getAllTimeSlots(lessons, trialLessons, overrides);
+  const computedTimeSlots = showTemplate
+    ? getAllTimeSlots(lessons, [], [])  // Kalıcı: template only, no trials, no overrides
+    : getAllTimeSlotsActual(actualLessons, trialLessons); // Güncel: actual + trials
 
   const getLessonOverrideForAdmin = (studentId: string, date: Date): LessonOverride | null => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -346,7 +346,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const handleOverrideSuccess = () => {
     refetchOverrides();
     fetchSchedule();
-    if (showActual) fetchActualSchedule();
+    if (!showTemplate) fetchActualSchedule();
   };
 
   const handleTrialLessonClick = (trial: TrialLesson) => {
@@ -543,13 +543,13 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
             <CardTitle className="text-base sm:text-lg">Haftalık Ders Programı</CardTitle>
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <Label htmlFor="schedule-mode-admin" className="text-xs text-muted-foreground">Şablon</Label>
+                <Label htmlFor="schedule-mode-admin" className="text-xs text-muted-foreground">Güncel</Label>
                 <Switch
                   id="schedule-mode-admin"
-                  checked={showActual}
-                  onCheckedChange={setShowActual}
+                  checked={showTemplate}
+                  onCheckedChange={setShowTemplate}
                 />
-                <Label htmlFor="schedule-mode-admin" className="text-xs text-muted-foreground">Gerçek</Label>
+                <Label htmlFor="schedule-mode-admin" className="text-xs text-muted-foreground">Kalıcı</Label>
               </div>
               <Button onClick={() => setShowAddTrial(true)} size="sm" className="text-xs sm:text-sm">
                 <Plus className="h-4 w-4 mr-1 sm:mr-2" />
@@ -578,8 +578,8 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                       {formatTime(timeSlot)}
                     </td>
                     {DAYS.map((_, dayIndex) => {
-                      if (showActual) {
-                        // ACTUAL MODE: render from lesson_instances
+                      if (!showTemplate) {
+                        // GÜNCEL MODE: render from lesson_instances + trials
                         const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot);
                         const trialLesson = findTrialLessonForDayAndTime(dayIndex, timeSlot);
                         
@@ -679,53 +679,26 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                           </td>
                         );
                       } else {
-                        // TEMPLATE MODE: existing behavior
-                        const lesson = getLessonForDayAndTime(dayIndex, timeSlot);
-                        const trialLesson = findTrialLessonForDayAndTime(dayIndex, timeSlot);
+                        // KALICI MODE: template only, no trials, no overrides
+                        const lesson = lessons.find((l) => l.day_of_week === dayIndexToDbDayOfWeek(dayIndex) && l.start_time === timeSlot);
 
                         return (
                           <td key={dayIndex} className="border border-border p-2">
                             {lesson && (
-                              <Button
-                                variant="outline"
-                                className={`w-full justify-center py-2 cursor-pointer relative ${
-                                  (lesson as any)._isPostponed 
-                                    ? "opacity-40 bg-gray-100 text-gray-500 border-gray-300 hover:opacity-60" 
-                                    : studentColors.get(lesson.student_id) || "bg-gray-100 text-gray-800"
-                                } ${(lesson as any)._isOverride ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
-                                onClick={() => handleLessonClick(lesson as any)}
+                              <div
+                                className={`w-full py-2 px-3 rounded border-2 ${
+                                  studentColors.get(lesson.student_id) || "bg-gray-100 text-gray-800 border-gray-300"
+                                }`}
                               >
-                                {(lesson as any)._isPostponed && (
-                                  <X className="absolute top-1 right-1 h-4 w-4 text-red-500" />
-                                )}
                                 <div className="text-center">
-                                  <div className="font-medium flex items-center justify-center gap-1">
-                                    {(lesson as any)._isOverride && <Calendar className="h-3 w-3 text-amber-600" />}
+                                  <div className="font-medium text-xs">
                                     {lesson.note ? `${lesson.student_name} - ${lesson.note}` : lesson.student_name}
                                   </div>
-                                  <div className="text-xs mt-1">
+                                  <div className="text-[10px] mt-1 font-mono">
                                     {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
                                   </div>
                                 </div>
-                              </Button>
-                            )}
-                            {trialLesson && (
-                              <Button
-                                variant="outline"
-                                className={`w-full py-2 border-2 transition-all ${
-                                  trialLesson.is_completed
-                                    ? "bg-red-50/30 text-red-300 border-red-100 hover:bg-red-50/50 opacity-40"
-                                    : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
-                                }`}
-                                onClick={() => handleTrialLessonClick(trialLesson)}
-                              >
-                                <div className="text-center w-full">
-                                  <div className="font-medium">Deneme Dersi</div>
-                                  <div className="text-xs mt-1">
-                                    {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
-                                  </div>
-                                </div>
-                              </Button>
+                              </div>
                             )}
                           </td>
                         );
@@ -745,7 +718,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         teacherId={teacherId}
         onSuccess={() => {
           fetchSchedule();
-          if (showActual) fetchActualSchedule();
+          if (!showTemplate) fetchActualSchedule();
         }}
       />
 

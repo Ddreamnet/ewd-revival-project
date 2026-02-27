@@ -35,6 +35,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const [loading, setLoading] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingLesson, setPendingLesson] = useState<number | null>(null);
+  const [pendingInstanceId, setPendingInstanceId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -155,9 +156,10 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     }
   };
 
-  const handleLessonClick = (lessonNumber: number) => {
+  const handleLessonClick = (lessonNumber: number, instanceId?: string) => {
     if (completedLessons.includes(lessonNumber)) return;
     setPendingLesson(lessonNumber);
+    setPendingInstanceId(instanceId || null);
     setShowConfirm(true);
   };
 
@@ -219,20 +221,19 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
       if (error) throw error;
 
-      // Find matching instance for balance calculation
-      const matchingInstance = instances.find(i => i.lesson_number === pendingLesson);
+      // Find matching instance — prefer pendingInstanceId, fallback to lesson_number
+      const matchingInstance = pendingInstanceId
+        ? instances.find(i => i.id === pendingInstanceId)
+        : instances.find(i => i.lesson_number === pendingLesson);
       
       if (matchingInstance) {
-        // Update instance status
         await supabase
           .from("lesson_instances")
           .update({ status: "completed" })
           .eq("id", matchingInstance.id);
         
-        // Use instance-aware balance (with actual start/end times)
         await addRegularLessonBalance(teacherId, studentId, matchingInstance.id);
       } else {
-        // Fallback to template-based balance
         await addRegularLessonBalance(teacherId, studentId);
       }
 
@@ -253,6 +254,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     } finally {
       setShowConfirm(false);
       setPendingLesson(null);
+      setPendingInstanceId(null);
     }
   };
 
@@ -293,7 +295,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
                   return (
                     <div key={displayPosition} className="flex flex-col items-center gap-0.5">
                       <button
-                        onClick={() => handleLessonClick(lessonNumber)}
+                        onClick={() => handleLessonClick(lessonNumber, inst?.id)}
                         disabled={isCompleted || isCancelled}
                         className={`
                           h-8 w-8 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
@@ -341,7 +343,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingLesson(null)}>İptal</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setPendingLesson(null); setPendingInstanceId(null); }}>İptal</AlertDialogCancel>
             <AlertDialogAction onClick={confirmLessonComplete}>Onayla</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
