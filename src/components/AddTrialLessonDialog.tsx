@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
+import { AlertTriangle } from "lucide-react";
 
 interface AddTrialLessonDialogProps {
   open: boolean;
@@ -19,6 +21,7 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [loading, setLoading] = useState(false);
+  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
   const { toast } = useToast();
 
   const days = [
@@ -34,20 +37,13 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
   // Calculate the next occurrence of a specific day of week
   const getNextDayOfWeek = (targetDay: number): string => {
     const today = new Date();
-    const currentDay = today.getDay(); // 0=Sunday, 1=Monday, etc.
-    
-    // Calculate days until target day
+    const currentDay = today.getDay();
     let daysUntilTarget = targetDay - currentDay;
-    
-    // If target day is today or already passed this week, use this week's day
-    // (if today, use today; if passed, still use this week for immediate display)
     if (daysUntilTarget < 0) {
-      daysUntilTarget += 7; // Move to next week
+      daysUntilTarget += 7;
     }
-    
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + daysUntilTarget);
-    
     return targetDate.toISOString().split("T")[0];
   };
 
@@ -62,10 +58,24 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
     }
 
     setLoading(true);
+    setConflicts([]);
     try {
-      // Calculate the actual lesson date based on day_of_week
       const lessonDate = getNextDayOfWeek(parseInt(dayOfWeek));
-      
+
+      // Check for conflicts against ACTUAL schedule
+      const foundConflicts = await checkTeacherConflicts(
+        teacherId,
+        lessonDate,
+        startTime + ":00",
+        endTime + ":00"
+      );
+
+      if (foundConflicts.length > 0) {
+        setConflicts(foundConflicts);
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.from("trial_lessons").insert({
         teacher_id: teacherId,
         day_of_week: parseInt(dayOfWeek),
@@ -84,6 +94,7 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
       setDayOfWeek("");
       setStartTime("");
       setEndTime("");
+      setConflicts([]);
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -130,11 +141,26 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
             <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
           </div>
 
+          {/* Conflict warnings */}
+          {conflicts.length > 0 && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1.5">
+              <div className="flex items-center gap-2 text-destructive font-medium text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Çakışma Tespit Edildi
+              </div>
+              {conflicts.map((c, i) => (
+                <div key={i} className="text-xs text-destructive/80">
+                  {c.studentName} — {c.timeRange} ({c.type === "trial" ? "Deneme" : "Ders"})
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => { setConflicts([]); onOpenChange(false); }}>
               İptal
             </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button onClick={handleSubmit} disabled={loading || conflicts.length > 0}>
               {loading ? "Ekleniyor..." : "Onayla"}
             </Button>
           </div>
