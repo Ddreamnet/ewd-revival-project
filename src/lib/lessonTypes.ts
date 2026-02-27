@@ -67,3 +67,12 @@ export function calculateDurationMinutes(startTime: string, endTime: string): nu
   const end = new Date(`2000-01-01T${endTime}`);
   return Math.round((end.getTime() - start.getTime()) / 60000);
 }
+
+/**
+ * Returns the Turkish name for a day of week (0=Pazar, 1=Pazartesi, ..., 6=Cumartesi).
+ * Previously duplicated in AdminDashboard and TeacherDashboard.
+ */
+export function getDayName(dayOfWeek?: number): string {
+  const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+  return dayOfWeek !== undefined ? days[dayOfWeek] : "";
+}

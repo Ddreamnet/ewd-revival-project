@@ -14,19 +14,13 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-
-interface StudentLesson {
-  id?: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  isCompleted?: boolean;
-}
+import type { StudentLessonBase } from "@/lib/types";
+import { DAYS_OF_WEEK } from "@/lib/types";
 
 interface StudentData {
   name: string;
   email: string;
-  lessons: StudentLesson[];
+  lessons: StudentLessonBase[];
 }
 
 interface EditStudentLessonsDialogProps {
@@ -34,24 +28,16 @@ interface EditStudentLessonsDialogProps {
   onOpenChange: (open: boolean) => void;
   studentId: string;
   currentData: StudentData | null;
-  onSaveChanges: (studentId: string, name: string, lessons: StudentLesson[]) => Promise<void>;
+  onSaveChanges: (studentId: string, name: string, lessons: StudentLessonBase[]) => Promise<void>;
   onRemoveStudent: (studentId: string) => Promise<void>;
 }
 
-const daysOfWeek = [
-  { value: 1, label: "Pazartesi" },
-  { value: 2, label: "Salı" },
-  { value: 3, label: "Çarşamba" },
-  { value: 4, label: "Perşembe" },
-  { value: 5, label: "Cuma" },
-  { value: 6, label: "Cumartesi" },
-  { value: 0, label: "Pazar" },
-];
+const daysOfWeek = DAYS_OF_WEEK;
 
 interface SortableLessonItemProps {
-  lesson: StudentLesson;
+  lesson: StudentLessonBase;
   index: number;
-  updateLesson: (index: number, field: keyof StudentLesson, value: string | number) => void;
+  updateLesson: (index: number, field: keyof StudentLessonBase, value: string | number) => void;
   removeLesson: (index: number) => void;
   canRemove: boolean;
 }
@@ -133,7 +119,7 @@ export function EditStudentLessonsDialog({
   onRemoveStudent,
 }: EditStudentLessonsDialogProps) {
   const [name, setName] = useState("");
-  const [lessons, setLessons] = useState<StudentLesson[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
+  const [lessons, setLessons] = useState<StudentLessonBase[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
 
@@ -170,7 +156,7 @@ export function EditStudentLessonsDialog({
     }
   };
 
-  const updateLesson = (index: number, field: keyof StudentLesson, value: string | number) => {
+  const updateLesson = (index: number, field: keyof StudentLessonBase, value: string | number) => {
     const updatedLessons = [...lessons];
     updatedLessons[index] = { ...updatedLessons[index], [field]: value };
     setLessons(updatedLessons);

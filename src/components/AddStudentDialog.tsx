@@ -5,32 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-
-interface StudentLesson {
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-}
+import type { StudentLessonBase } from "@/lib/types";
+import { DAYS_OF_WEEK } from "@/lib/types";
 
 interface AddStudentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddStudent: (studentEmail: string, lessons: StudentLesson[]) => Promise<void>;
+  onAddStudent: (studentEmail: string, lessons: StudentLessonBase[]) => Promise<void>;
 }
 
-const daysOfWeek = [
-  { value: 1, label: "Pazartesi" },
-  { value: 2, label: "Salı" },
-  { value: 3, label: "Çarşamba" },
-  { value: 4, label: "Perşembe" },
-  { value: 5, label: "Cuma" },
-  { value: 6, label: "Cumartesi" },
-  { value: 0, label: "Pazar" },
-];
+const daysOfWeek = DAYS_OF_WEEK;
 
 export function AddStudentDialog({ open, onOpenChange, onAddStudent }: AddStudentDialogProps) {
   const [email, setEmail] = useState("");
-  const [lessons, setLessons] = useState<StudentLesson[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
+  const [lessons, setLessons] = useState<StudentLessonBase[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
   const [isLoading, setIsLoading] = useState(false);
 
   const addLesson = () => {
@@ -45,7 +33,7 @@ export function AddStudentDialog({ open, onOpenChange, onAddStudent }: AddStuden
     }
   };
 
-  const updateLesson = (index: number, field: keyof StudentLesson, value: string | number) => {
+  const updateLesson = (index: number, field: keyof StudentLessonBase, value: string | number) => {
     const updatedLessons = [...lessons];
     updatedLessons[index] = { ...updatedLessons[index], [field]: value };
     setLessons(updatedLessons);

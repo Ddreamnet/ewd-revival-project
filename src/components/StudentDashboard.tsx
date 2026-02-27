@@ -33,29 +33,9 @@ import { HomeworkListDialog } from "./HomeworkListDialog";
 import { ContactDialog } from "./ContactDialog";
 import { NotificationBell } from "./NotificationBell";
 import { initPushNotifications } from "@/lib/pushNotifications";
-
-// ============================================================================
-// TİPLER
-// ============================================================================
-
-interface Topic {
-  id: string;
-  title: string;
-  description: string;
-  is_completed: boolean;
-  completed_at: string | null;
-  order_index: number;
-  resources: Resource[];
-}
-
-interface Resource {
-  id: string;
-  title: string;
-  description: string;
-  resource_type: string;
-  resource_url: string;
-  order_index: number;
-}
+import { getResourceIcon } from "@/lib/resourceUtils";
+import { useStudentTopics } from "@/hooks/useStudentTopics";
+import type { Topic, Resource } from "@/lib/types";
 
 // ============================================================================
 // ANA BİLEŞEN
@@ -66,8 +46,6 @@ export function StudentDashboard() {
   // STATE YÖNETİMİ
   // ============================================================================
 
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [listDialogOpen, setListDialogOpen] = useState(false);
@@ -76,14 +54,18 @@ export function StudentDashboard() {
   const { toast } = useToast();
   const pushInitRef = useRef(false);
 
+  // Use shared topic fetching hook
+  const { allTopics: topics, loading, refetch: refetchTopics } = useStudentTopics(profile?.user_id);
+
   // ============================================================================
   // EFFECTS
   // ============================================================================
 
-  // Profil yüklendiğinde konuları getir
+  // Fetch teacher relationship and topics when profile loads
   useEffect(() => {
     if (profile?.user_id) {
-      fetchTopics();
+      refetchTopics();
+      fetchTeacherRelation();
       if (!pushInitRef.current) {
         pushInitRef.current = true;
         initPushNotifications(profile.user_id, 'student');
@@ -91,137 +73,17 @@ export function StudentDashboard() {
     }
   }, [profile]);
 
-  // ============================================================================
-  // VERİ ÇEKME FONKSİYONLARI
-  // ============================================================================
-
-  /**
-   * Öğrenciye ait tüm konuları ve global konuları getirir
-   * Her kaynağın tamamlanma durumunu kontrol eder
-   */
-  const fetchTopics = async () => {
+  const fetchTeacherRelation = async () => {
     try {
-      // 1) Önce öğrencinin öğretmenini bul
       const { data: studentRelation, error: relationError } = await supabase
         .from("students")
         .select("teacher_id")
         .eq("student_id", profile?.user_id)
         .single();
-
       if (relationError) throw relationError;
-      
-      // Store teacher_id for homework submissions
       setTeacherId(studentRelation.teacher_id);
-
-      // 2) Öğrenciye özel konuları getir
-      const studentTopicsResponse = await supabase
-        .from("topics")
-        .select("*, resources (*)")
-        .eq("student_id", profile?.user_id)
-        .order("order_index");
-
-      if (studentTopicsResponse.error) throw studentTopicsResponse.error;
-
-      // 3) Tüm global konuları getir (admin sahipliğinde, tüm öğretmenler kullanabilir)
-      const globalTopicsResponse = await supabase
-        .from("global_topics")
-        .select(
-          `
-    *,
-    global_topic_resources (*)
-  `,
-        )
-        .order("order_index");
-
-      if (globalTopicsResponse.error) throw globalTopicsResponse.error;
-
-      // 4) Kaynak ID'lerini topla
-      const studentTopics = studentTopicsResponse.data || [];
-      const globalTopics = globalTopicsResponse.data || [];
-
-      const studentResourceIds = studentTopics.flatMap((topic) => topic.resources.map((resource: any) => resource.id));
-      const globalResourceIds = globalTopics.flatMap((topic) =>
-        topic.global_topic_resources.map((resource: any) => resource.id),
-      );
-      const allResourceIds = [...studentResourceIds, ...globalResourceIds];
-
-      // 5) Tüm tamamlanma verilerini getir (filtresiz)
-      let completionData: any[] = [];
-      const { data: completionResponse, error: completionError } = await supabase
-        .from("student_resource_completion")
-        .select("resource_id, is_completed, completed_at")
-        .eq("student_id", profile?.user_id);
-
-      if (completionError) {
-        console.error("Completion data error:", completionError);
-        throw completionError;
-      }
-      completionData = completionResponse || [];
-
-      // Tamamlanma map'ini oluştur
-      const completionMap = new Map();
-      completionData.forEach((completion) => {
-        completionMap.set(completion.resource_id, completion);
-      });
-
-      // 6) Öğrenciye özel konuları işle
-      const processedStudentTopics = studentTopics.map((topic) => ({
-        ...topic,
-        resources: topic.resources
-          .map((resource: any) => {
-            const completion = completionMap.get(resource.id);
-            return {
-              ...resource,
-              is_completed: completion?.is_completed || false,
-              completed_at: completion?.completed_at,
-            };
-          })
-          .sort((a: Resource, b: Resource) => a.order_index - b.order_index),
-      }));
-
-      // 7) Global konuları işle - tüm konuları göster, tamamlanma durumunu işaretle
-      const processedGlobalTopics = globalTopics.map((topic) => {
-        const globalResources = (topic.global_topic_resources || [])
-          .map((res: any) => {
-            const completion = completionMap.get(res.id);
-            return {
-              id: res.id,
-              title: res.title,
-              description: res.description,
-              resource_type: res.resource_type,
-              resource_url: res.resource_url,
-              order_index: res.order_index,
-              is_completed: completion?.is_completed || false,
-              completed_at: completion?.completed_at,
-            };
-          })
-          .sort((a: Resource, b: Resource) => a.order_index - b.order_index);
-
-        // Tüm kaynaklar tamamlanmışsa konu da tamamlanmış sayılır
-        const allResourcesCompleted =
-          globalResources.length > 0 && globalResources.every((resource) => resource.is_completed);
-
-        return {
-          id: `global-${topic.id}`,
-          title: topic.title,
-          description: topic.description,
-          is_completed: allResourcesCompleted,
-          completed_at: allResourcesCompleted ? new Date().toISOString() : null,
-          order_index: topic.order_index + 1000,
-          resources: globalResources,
-        };
-      });
-
-      const allTopics = [...processedStudentTopics, ...processedGlobalTopics];
-      setTopics(allTopics);
     } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: "Konular getirilemedi",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      // teacher_id is optional for display purposes; topic loading handles its own errors
     }
   };
 
@@ -242,22 +104,7 @@ export function StudentDashboard() {
     setExpandedTopics(newExpanded);
   };
 
-  /**
-   * Kaynak tipine göre ikon döndür
-   */
-  const getResourceIcon = (type: string) => {
-    switch (type) {
-      case "video":
-        return <Video className="h-4 w-4" />;
-      case "pdf":
-      case "document":
-        return <FileText className="h-4 w-4" />;
-      case "link":
-        return <LinkIcon className="h-4 w-4" />;
-      default:
-        return <ExternalLink className="h-4 w-4" />;
-    }
-  };
+  // getResourceIcon is now imported from @/lib/resourceUtils
 
   /**
    * Öğrenciler sadece tamamlanmış kaynakları görebilir

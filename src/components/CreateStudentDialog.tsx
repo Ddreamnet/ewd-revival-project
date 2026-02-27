@@ -7,22 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { StudentLessonBase } from "@/lib/types";
+import { DAYS_OF_WEEK } from "@/lib/types";
 
-interface StudentLesson {
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-}
-
-const daysOfWeek = [
-  { value: 1, label: "Pazartesi" },
-  { value: 2, label: "Salı" },
-  { value: 3, label: "Çarşamba" },
-  { value: 4, label: "Perşembe" },
-  { value: 5, label: "Cuma" },
-  { value: 6, label: "Cumartesi" },
-  { value: 0, label: "Pazar" },
-];
+const daysOfWeek = DAYS_OF_WEEK;
 
 interface CreateStudentDialogProps {
   open: boolean;
@@ -36,7 +24,7 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
   const [name, setName] = useState("");
   const [tempPassword, setTempPassword] = useState("");
   const [lessonsPerWeek, setLessonsPerWeek] = useState(1);
-  const [lessons, setLessons] = useState<StudentLesson[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
+  const [lessons, setLessons] = useState<StudentLessonBase[]>([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -52,7 +40,7 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
     }
   }, [lessonsPerWeek]);
 
-  const updateLesson = (index: number, field: keyof StudentLesson, value: string | number) => {
+  const updateLesson = (index: number, field: keyof StudentLessonBase, value: string | number) => {
     const updatedLessons = [...lessons];
     updatedLessons[index] = { ...updatedLessons[index], [field]: value };
     setLessons(updatedLessons);

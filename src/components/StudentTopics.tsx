@@ -26,44 +26,16 @@ import {
 import { LessonTracker } from "./LessonTracker";
 import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
 import { HomeworkListDialog } from "./HomeworkListDialog";
+import { getResourceIcon } from "@/lib/resourceUtils";
+import { useStudentTopics } from "@/hooks/useStudentTopics";
+import type { Topic, Resource, Student } from "@/lib/types";
 
 // ============================================================================
 // TİPLER
 // ============================================================================
 
-interface Topic {
-  id: string;
-  title: string;
-  description: string;
-  is_completed: boolean;
-  completed_at: string | null;
-  order_index: number;
-  resources: Resource[];
-  isGlobal?: boolean; // Global konuları ayırt etmek için
-}
-
-interface Resource {
-  id: string;
-  title: string;
-  description: string;
-  resource_type: string;
-  resource_url: string;
-  order_index: number;
-  is_completed?: boolean;
-  completed_at?: string | null;
-}
-
-interface Student {
-  id: string;
-  student_id: string;
-  profiles: {
-    full_name: string;
-    email: string;
-  };
-}
-
 interface StudentTopicsProps {
-  student: Student;
+  student: Pick<Student, "id" | "student_id" | "profiles">;
   teacherId: string;
 }
 
@@ -72,138 +44,18 @@ interface StudentTopicsProps {
 // ============================================================================
 
 export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
-  // ============================================================================
-  // STATE YÖNETİMİ
-  // ============================================================================
-
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [listDialogOpen, setListDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  // ============================================================================
-  // EFFECTS
-  // ============================================================================
+  // Use shared topic fetching hook
+  const { allTopics: topics, loading, refetch: fetchTopics } = useStudentTopics(student.student_id);
 
   // Öğrenci değiştiğinde konuları yeniden getir
   useEffect(() => {
     fetchTopics();
   }, [student.student_id]);
-
-  // ============================================================================
-  // VERİ ÇEKME FONKSİYONLARI
-  // ============================================================================
-
-  /**
-   * Öğrenciye özel konuları ve global konuları getirir
-   * Ayrıca tamamlanma durumlarını da işler
-   * Optimize edilmiş: Paralel veri çekme için Promise.all kullanır
-   */
-  const fetchTopics = async () => {
-    try {
-      // Tüm veri çekme işlemlerini paralel olarak yap (Safari için optimize edilmiş)
-      const [studentTopicsResponse, globalTopicsResponse, completionResponse] = await Promise.all([
-        // 1) Öğrenciye özel konuları getir
-        supabase
-          .from("topics")
-          .select("*, resources (*)")
-          .eq("student_id", student.student_id)
-          .order("order_index"),
-        
-        // 2) Tüm global konuları getir
-        supabase
-          .from("global_topics")
-          .select("*, global_topic_resources(*)")
-          .order("order_index"),
-        
-        // 3) Tüm tamamlanma verilerini getir
-        supabase
-          .from("student_resource_completion")
-          .select("*")
-          .eq("student_id", student.student_id)
-      ]);
-
-      if (studentTopicsResponse.error) throw studentTopicsResponse.error;
-      if (globalTopicsResponse.error) throw globalTopicsResponse.error;
-      if (completionResponse.error) throw completionResponse.error;
-
-      const studentTopics = studentTopicsResponse.data || [];
-      const globalTopics = globalTopicsResponse.data || [];
-      const completionData = completionResponse.data || [];
-
-      // Tamamlanma durumunu map olarak hazırla
-      const completionMap = new Map();
-      completionData.forEach((completion) => {
-        completionMap.set(completion.resource_id, completion);
-      });
-
-      // 4) Öğrenciye özel konuları işle
-      const processedStudentTopics = studentTopics.map((topic) => ({
-        ...topic,
-        resources: topic.resources
-          .map((resource: any) => {
-            const completion = completionMap.get(resource.id);
-            return {
-              ...resource,
-              is_completed: completion?.is_completed || false,
-              completed_at: completion?.completed_at,
-            };
-          })
-          .sort((a: Resource, b: Resource) => a.order_index - b.order_index),
-        isGlobal: false,
-      }));
-
-      // 5) Global konuları işle (öğrenciye özel versiyonu olanları filtrele)
-      const studentTopicTitles = new Set(processedStudentTopics.map((t) => t.title));
-
-      const processedGlobalTopics = (globalTopics || [])
-        .filter((topic) => !studentTopicTitles.has(topic.title))
-        .map((topic) => {
-          const globalResources = (topic.global_topic_resources || [])
-            .map((res: any) => {
-              const completion = completionMap.get(res.id);
-              return {
-                id: res.id,
-                title: res.title,
-                description: res.description,
-                resource_type: res.resource_type,
-                resource_url: res.resource_url,
-                order_index: res.order_index,
-                is_completed: completion?.is_completed || false,
-                completed_at: completion?.completed_at,
-              };
-            })
-            .sort((a: Resource, b: Resource) => a.order_index - b.order_index);
-
-          // Tüm kaynaklar tamamlanmışsa konu tamamlanmış sayılır
-          const allResourcesCompleted =
-            globalResources.length > 0 && globalResources.every((resource) => resource.is_completed);
-
-          return {
-            id: topic.id,
-            title: topic.title,
-            description: topic.description,
-            is_completed: allResourcesCompleted,
-            completed_at: allResourcesCompleted ? new Date().toISOString() : null,
-            order_index: topic.order_index + 1000, // Global konular sona eklenir
-            resources: globalResources,
-            isGlobal: true,
-          };
-        });
-
-      setTopics([...processedStudentTopics, ...processedGlobalTopics]);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: "Konular getirilemedi",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ============================================================================
   // KONU YÖNETİMİ FONKSİYONLARI
@@ -323,25 +175,7 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
   const getVisibleResources = (topic: Topic) => {
     return topic.resources;
   };
-
-  /**
-   * Kaynak tipine göre ikon döndür
-   */
-  const getResourceIcon = (type: string) => {
-    switch (type) {
-      case "video":
-        return <Video className="h-4 w-4" />;
-      case "pdf":
-      case "document":
-        return <FileText className="h-4 w-4" />;
-      case "link":
-        return <LinkIcon className="h-4 w-4" />;
-      case "image":
-        return <Image className="h-4 w-4" />;
-      default:
-        return <ExternalLink className="h-4 w-4" />;
-    }
-  };
+  // getResourceIcon is now imported from @/lib/resourceUtils
 
   // ============================================================================
   // RENDER - LOADING STATE
