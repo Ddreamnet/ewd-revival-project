@@ -369,7 +369,7 @@ export function EditStudentDialog({
         .eq("student_id", studentUserId)
         .eq("teacher_id", teacherUserId);
 
-      // Generate fresh instances from template slots starting from today
+      // Generate fresh instances WITHOUT dates — dates will come when teacher marks first lesson
       const templateSlots: TemplateSlot[] = lessons.map((l) => ({
         dayOfWeek: l.dayOfWeek,
         startTime: l.startTime,
@@ -379,7 +379,7 @@ export function EditStudentDialog({
       const today = new Date();
       const futureDates = generateFutureInstanceDates(templateSlots, totalLessonsCount, today);
 
-      const newLessonDates: Record<string, string> = {};
+      // Insert instances with placeholder dates (needed for structure) but clear lesson_dates
       for (let i = 0; i < futureDates.length; i++) {
         await supabase.from("lesson_instances").insert({
           student_id: studentUserId,
@@ -390,29 +390,28 @@ export function EditStudentDialog({
           end_time: futureDates[i].endTime,
           status: "planned",
         });
-        newLessonDates[(i + 1).toString()] = futureDates[i].lessonDate;
       }
 
-      // Update tracking record with fresh data
+      // Update tracking record — clear dates so they get assigned on first mark
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({ 
           completed_lessons: [],
-          lesson_dates: newLessonDates
+          lesson_dates: {}
         })
         .eq("id", existingRecords[0].id);
 
       if (error) throw error;
 
       setCompletedLessons([]);
-      setLessonDates(newLessonDates);
-      setOriginalLessonDates(newLessonDates);
+      setLessonDates({});
+      setOriginalLessonDates({});
       setShowResetConfirm(false);
       fetchInstances();
       
       toast({
         title: "Başarılı",
-        description: "Tüm dersler sıfırlandı ve yeniden oluşturuldu (Öğretmen bakiyesi korundu)",
+        description: "Tüm dersler sıfırlandı. Tarihler ilk ders işaretlendiğinde atanacak.",
       });
     } catch (error: any) {
       toast({
