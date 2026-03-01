@@ -1,62 +1,52 @@
 
 
-# Fix: Sıfırla Sonrası Ders Tarihlerinin Görünmeye Devam Etmesi
+# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
 
 ## Problem
 
-"Sıfırla" butonuna basıldığında:
-- `lesson_dates` tracking tablosunda `{}` olarak temizleniyor (dogru)
-- `completed_lessons` temizleniyor (dogru)
-- Ama yeni `lesson_instances` gercek tarihlerle olusturuluyor (zorunlu -- `lesson_date` kolonu NOT NULL)
-- UI `sortedLessonsForDisplay` instance'lardan tarihleri okuyor, bu yuzden tarihler hala gorunuyor
+The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
 
-## Cozum
+**Affected students (Fatih's):**
+- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
+- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
 
-### Yaklasim: `lesson_dates` bos oldugunda tarihleri gizle
+## Root Cause
 
-`lesson_dates = {}` durumu "tarihler henuz atanmadi" anlamina gelir. Bu durumu UI'da kullanarak, instance'lardaki placeholder tarihleri gizleyebiliriz.
+The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
 
-### Degisiklik 1: `EditStudentDialog.tsx` -- `sortedLessonsForDisplay`
+## Solution
 
-`sortedLessonsForDisplay` hesaplanirken, `lessonDates` bos ise (`Object.keys(lessonDates).length === 0`), instance'lardan gelen tarihleri gosterme -- bos satir olarak goster:
+**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
 
-```text
-// Eger lesson_dates bos ise (sifirlanmis durum), 
-// instance'lar varsa bile tarihleri bos goster
-const datesUnassigned = Object.keys(lessonDates).length === 0;
+### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
 
-if (instances.length > 0) {
-  const sorted = [...instances].sort(...);
-  const capped = sorted.slice(0, totalLessons);
-  
-  const result = capped.map((inst, idx) => ({
-    displayIndex: idx + 1,
-    lessonNumber: inst.lesson_number,
-    effectiveDate: datesUnassigned ? "" : inst.lesson_date,  // <-- key change
-    startTime: inst.start_time,
-    endTime: inst.end_time,
-    isCompleted: inst.status === "completed",
-    ...
-  }));
-}
-```
+1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
 
-Bu sekilde:
-- Sifirlamadan sonra "Islenen Dersler" listesinde tum tarihler bos gorunur
-- Ogretmen ilk dersi isaretlediginde `lesson_dates` dolar, tarihler tekrar gorunur
-- Instance'lardaki placeholder tarihler haftalik grid icin korunur (programin bozulmamasi icin)
+2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
 
-### Haftalik Ders Programina Etkisi
+3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
 
-Bu degisiklik haftalik ders programini **etkilemez** cunku:
-- Haftalik grid `lesson_instances` tablosundaki `lesson_date` degerlerini dogrudan okur
-- `sortedLessonsForDisplay` sadece EditStudentDialog icindeki "Islenen Dersler" listesini etkiler
-- Instance'lardaki tarihler degismiyor, sadece UI'da gizleniyor
+### What stays the same
 
-### Dosya Degisiklikleri
+- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
+- The `datesUnassigned` logic for reset stays
+- The self-conflict fix stays
+- Template-based generation logic stays (only generates for template day slots)
 
-| Dosya | Degisiklik |
+### Technical Detail
+
+The simplified `ensureInstancesForWeek` will:
+1. Get templates for teacher
+2. Get active students
+3. Check which students already have instances for this specific week
+4. For students missing instances this week, generate from templates (no cap check)
+5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
+
+This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
+
+### Files Changed
+
+| File | Change |
 |---|---|
-| `src/components/EditStudentDialog.tsx` | `sortedLessonsForDisplay` icinde `datesUnassigned` kontrolu ekle, bos ise `effectiveDate: ""` yap |
+| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
 
-Tek dosyada tek satirlik bir degisiklik. Mevcut reset ve first-mark-sync mantigi zaten dogru calisiyor.
