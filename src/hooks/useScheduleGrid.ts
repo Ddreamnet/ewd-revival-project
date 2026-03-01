@@ -164,31 +164,6 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
   const missingStudents = [...activeStudentIds].filter((id) => !studentsWithInstances.has(id));
   if (missingStudents.length === 0) return;
 
-  // Fetch lessons_per_week for each missing student to enforce cap
-  const { data: trackingRecords } = await supabase
-    .from("student_lesson_tracking")
-    .select("student_id, lessons_per_week")
-    .eq("teacher_id", teacherId)
-    .in("student_id", missingStudents);
-
-  const lpwMap = new Map<string, number>();
-  (trackingRecords || []).forEach((r) => {
-    lpwMap.set(r.student_id, r.lessons_per_week);
-  });
-
-  // Count total existing instances per missing student (all statuses)
-  const { data: allInstanceCounts } = await supabase
-    .from("lesson_instances")
-    .select("student_id, id")
-    .eq("teacher_id", teacherId)
-    .in("student_id", missingStudents)
-    .in("status", ["planned", "completed"]);
-
-  const existingCountMap = new Map<string, number>();
-  (allInstanceCounts || []).forEach((row) => {
-    existingCountMap.set(row.student_id, (existingCountMap.get(row.student_id) || 0) + 1);
-  });
-
   // Get max lesson_number per missing student (batch)
   const { data: maxLessons } = await supabase
     .from("lesson_instances")
@@ -204,7 +179,7 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
     }
   });
 
-  // Generate instances from templates, respecting the lpw*4 cap
+  // Generate instances from templates (no cap — cap is enforced at display level)
   const instancesToInsert: Array<{
     student_id: string;
     teacher_id: string;
@@ -217,21 +192,11 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
 
   for (const studentId of missingStudents) {
     const studentTemplates = templates.filter((t) => t.student_id === studentId);
-    const lpw = lpwMap.get(studentId) || studentTemplates.length;
-    const cap = lpw * 4;
-    const currentCount = existingCountMap.get(studentId) || 0;
-    const remaining = cap - currentCount;
-
-    if (remaining <= 0) continue; // Already at or over cap
-
     let nextNum = (maxLessonMap.get(studentId) || 0) + 1;
-    let added = 0;
 
     for (const tmpl of studentTemplates) {
-      if (added >= remaining) break;
       const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
       const lessonDate = addDays(ws, dayIndex);
-
       const dateStr = format(lessonDate, "yyyy-MM-dd");
       instancesToInsert.push({
         student_id: studentId,
@@ -242,37 +207,11 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
         end_time: tmpl.end_time,
         status: "planned",
       });
-      added++;
     }
   }
 
   if (instancesToInsert.length > 0) {
     await supabase.from("lesson_instances").insert(instancesToInsert);
-  }
-
-  // Clean up excess planned instances for students over cap
-  for (const studentId of [...activeStudentIds]) {
-    const lpw = lpwMap.get(studentId);
-    if (!lpw) continue;
-    const cap = lpw * 4;
-
-    const { data: allInst } = await supabase
-      .from("lesson_instances")
-      .select("id, status, lesson_date, start_time")
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId)
-      .in("status", ["planned", "completed"])
-      .order("lesson_date", { ascending: true })
-      .order("start_time", { ascending: true });
-
-    if (!allInst || allInst.length <= cap) continue;
-
-    // Keep first `cap` instances, delete excess planned ones from the end
-    const excess = allInst.slice(cap).filter((i) => i.status === "planned");
-    if (excess.length > 0) {
-      const excessIds = excess.map((e) => e.id);
-      await supabase.from("lesson_instances").delete().in("id", excessIds);
-    }
   }
 }
 
