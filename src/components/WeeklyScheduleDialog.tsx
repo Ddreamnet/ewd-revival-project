@@ -8,13 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, Calendar } from "lucide-react";
+import { Download, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
 import { format, startOfWeek, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
 import { addToTeacherBalance, subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, ActualLesson } from "@/hooks/useScheduleGrid";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -57,6 +57,12 @@ export function WeeklyScheduleDialog({
   // Güncel (default OFF) vs Kalıcı (ON) toggle
   const [showTemplate, setShowTemplate] = useState(false);
   const [actualLessons, setActualLessons] = useState<ActualLesson[]>([]);
+  
+  // Week navigation
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekStart = getWeekStartForOffset(weekOffset);
+  const weekEnd = addDays(weekStart, 6);
+  const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
 
   const { toast } = useToast();
   const { overrides, isLessonCancelled, getLessonOverride, refetch: refetchOverrides } = useLessonOverrides(teacherId);
@@ -73,7 +79,7 @@ export function WeeklyScheduleDialog({
     if (open && !showTemplate && teacherId) {
       fetchActualSchedule();
     }
-  }, [open, showTemplate, teacherId]);
+  }, [open, showTemplate, teacherId, weekOffset]);
 
   // Real-time listener for trial lesson updates
   useEffect(() => {
@@ -93,7 +99,7 @@ export function WeeklyScheduleDialog({
   }, [open, teacherId, showTemplate]);
 
   const fetchActualSchedule = async () => {
-    const lessons = await fetchActualLessonsForWeek(teacherId);
+    const lessons = await fetchActualLessonsForWeek(teacherId, weekStart);
     setActualLessons(lessons);
     // Assign colors for actual lessons too
     const uniqueStudents = [...new Set(lessons.map(l => l.student_id))];
@@ -203,7 +209,7 @@ export function WeeklyScheduleDialog({
   };
   
   const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    return findTrialLesson(trialLessons, dayIndex, timeSlot);
+    return findTrialLesson(trialLessons, dayIndex, timeSlot, weekStart);
   };
 
   const handleTrialLessonClick = (lesson: TrialLesson) => {
@@ -292,6 +298,23 @@ export function WeeklyScheduleDialog({
                 </Button>}
             </div>
           </div>
+          {/* Week Navigation */}
+          {!showTemplate && (
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setWeekOffset((o) => o - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {weekOffset !== 0 && (
+                <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={() => setWeekOffset(0)}>
+                  Bu Hafta
+                </Button>
+              )}
+              <span className="text-sm font-medium text-muted-foreground min-w-[140px] text-center">{weekLabel}</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setWeekOffset((o) => o + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </DialogHeader>
 
         {loading ? <div className="flex items-center justify-center py-8">
@@ -316,15 +339,15 @@ export function WeeklyScheduleDialog({
                     {DAYS.map((day, dayIndex) => {
                       if (!showTemplate) {
                         // ACTUAL MODE
-                        const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot);
+                        const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
                         const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
                         
-                        if (actualLesson && isSecondaryInBackToBack(actualLessons, dayIndex, actualLesson.id)) {
+                        if (actualLesson && isSecondaryInBackToBack(actualLessons, dayIndex, actualLesson.id, weekStart)) {
                           return <td key={day} className="border p-2"></td>;
                         }
                         
                         const b2bGroup = actualLesson
-                          ? getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id)
+                          ? getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id, weekStart)
                           : null;
 
                         return <td key={day} className="border p-2">

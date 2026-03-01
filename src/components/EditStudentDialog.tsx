@@ -200,6 +200,19 @@ export function EditStudentDialog({
     setLessons(updatedLessons);
   };
 
+  // Map from display key (lessonNumber string) to instanceId for direct DB updates
+  const instanceIdMap: Record<string, string> = {};
+  if (instances.length > 0) {
+    const sorted = [...instances].sort((a, b) => {
+      const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.start_time.localeCompare(b.start_time);
+    });
+    sorted.forEach((inst) => {
+      instanceIdMap[inst.lesson_number.toString()] = inst.id;
+    });
+  }
+
   const updateLessonDate = (lessonNumber: number, dateStr: string) => {
     setLessonDates({
       ...lessonDates,
@@ -406,54 +419,106 @@ export function EditStudentDialog({
               endTime: l.endTime,
             }));
 
-            // Get planned instances from firstChangedLesson onward
-            const plannedFromChanged = instances.filter(
-              (inst) => inst.lesson_number >= firstChangedLesson && inst.status === "planned"
-            );
+            // First, update the directly-changed instances (including completed ones)
+            for (const key of changedKeys) {
+              const instId = instanceIdMap[key];
+              const inst = instId ? instances.find((i) => i.id === instId) : findInstanceForLesson(parseInt(key));
+              if (inst) {
+                const c = await checkTeacherConflicts(
+                  teacherUserId,
+                  lessonDates[key],
+                  inst.start_time,
+                  inst.end_time,
+                  inst.id
+                );
+                if (c.length > 0) {
+                  setConflicts(c);
+                  return;
+                }
+                await supabase
+                  .from("lesson_instances")
+                  .update({
+                    lesson_date: lessonDates[key],
+                    original_date: inst.original_date || inst.lesson_date,
+                    rescheduled_count: inst.rescheduled_count + 1,
+                  })
+                  .eq("id", inst.id);
+              }
+            }
 
-            const newStartDate = new Date(lessonDates[firstChangedLesson.toString()]);
-            const futureDates = generateFutureInstanceDates(
-              templateSlots,
-              plannedFromChanged.length,
-              newStartDate
-            );
+            // Then regenerate planned instances AFTER the last changed one
+            // Sort all instances chronologically to find the right starting point
+            const allSorted = [...instances].sort((a, b) => {
+              const dc = a.lesson_date.localeCompare(b.lesson_date);
+              return dc !== 0 ? dc : a.start_time.localeCompare(b.start_time);
+            });
 
-            // Check conflicts for new dates
-            const allConflicts: ConflictInfo[] = [];
-            for (let i = 0; i < futureDates.length; i++) {
-              const c = await checkTeacherConflicts(
-                teacherUserId,
-                futureDates[i].lessonDate,
-                futureDates[i].startTime,
-                futureDates[i].endTime,
-                plannedFromChanged[i]?.id
+            // Find the last changed instance's position
+            const changedInstanceIds = new Set(
+              changedKeys.map((k) => instanceIdMap[k]).filter(Boolean)
+            );
+            let lastChangedIdx = -1;
+            allSorted.forEach((inst, idx) => {
+              if (changedInstanceIds.has(inst.id)) lastChangedIdx = idx;
+            });
+
+            // Get planned instances after the last changed one
+            const plannedAfterChanged = allSorted
+              .slice(lastChangedIdx + 1)
+              .filter((inst) => inst.status === "planned");
+
+            if (plannedAfterChanged.length > 0) {
+              // Start from the day after the last changed instance's new date
+              const lastChangedKey = changedKeys.reduce((a, b) => 
+                Number(a) > Number(b) ? a : b
               );
-              allConflicts.push(...c);
-            }
+              const lastChangedDate = new Date(lessonDates[lastChangedKey]);
+              const startDate = new Date(lastChangedDate);
+              startDate.setDate(startDate.getDate() + 1);
 
-            if (allConflicts.length > 0) {
-              setConflicts(allConflicts);
-              return;
-            }
+              const futureDates = generateFutureInstanceDates(
+                templateSlots,
+                plannedAfterChanged.length,
+                startDate
+              );
 
-            // Apply to instances
-            for (let i = 0; i < plannedFromChanged.length && i < futureDates.length; i++) {
-              await supabase
-                .from("lesson_instances")
-                .update({
-                  lesson_date: futureDates[i].lessonDate,
-                  start_time: futureDates[i].startTime,
-                  end_time: futureDates[i].endTime,
-                })
-                .eq("id", plannedFromChanged[i].id);
-            }
+              // Check conflicts for new dates
+              const allConflicts: ConflictInfo[] = [];
+              for (let i = 0; i < futureDates.length; i++) {
+                const c = await checkTeacherConflicts(
+                  teacherUserId,
+                  futureDates[i].lessonDate,
+                  futureDates[i].startTime,
+                  futureDates[i].endTime,
+                  plannedAfterChanged[i]?.id
+                );
+                allConflicts.push(...c);
+              }
 
-            // Update finalDates from instances
-            for (let i = 0; i < plannedFromChanged.length && i < futureDates.length; i++) {
-              finalDates = {
-                ...finalDates,
-                [plannedFromChanged[i].lesson_number.toString()]: futureDates[i].lessonDate,
-              };
+              if (allConflicts.length > 0) {
+                setConflicts(allConflicts);
+                return;
+              }
+
+              // Apply to instances
+              for (let i = 0; i < plannedAfterChanged.length && i < futureDates.length; i++) {
+                await supabase
+                  .from("lesson_instances")
+                  .update({
+                    lesson_date: futureDates[i].lessonDate,
+                    start_time: futureDates[i].startTime,
+                    end_time: futureDates[i].endTime,
+                  })
+                  .eq("id", plannedAfterChanged[i].id);
+              }
+
+              // Update finalDates from instances
+              for (let i = 0; i < plannedAfterChanged.length && i < futureDates.length; i++) {
+                finalDates = {
+                  ...finalDates,
+                  [plannedAfterChanged[i].lesson_number.toString()]: futureDates[i].lessonDate,
+                };
+              }
             }
           } else {
             // Legacy fallback
@@ -476,7 +541,9 @@ export function EditStudentDialog({
         );
 
         for (const key of changedKeys) {
-          const inst = findInstanceForLesson(parseInt(key));
+          // Use instanceIdMap for direct matching instead of lesson_number lookup
+          const instId = instanceIdMap[key];
+          const inst = instId ? instances.find((i) => i.id === instId) : findInstanceForLesson(parseInt(key));
           if (inst) {
             // Conflict check
             const c = await checkTeacherConflicts(
@@ -607,14 +674,15 @@ export function EditStudentDialog({
       if (insertError) throw insertError;
 
       // Sync template change to instances (regenerate planned)
+      const newSlots: TemplateSlot[] = lessons.map((l) => ({
+        dayOfWeek: l.dayOfWeek,
+        startTime: l.startTime,
+        endTime: l.endTime,
+      }));
+      const totalLessonsCount = lessonsPerWeek * 4;
+
       if (instances.length > 0) {
-        const newSlots: TemplateSlot[] = lessons.map((l) => ({
-          dayOfWeek: l.dayOfWeek,
-          startTime: l.startTime,
-          endTime: l.endTime,
-        }));
-        const totalLessons = lessonsPerWeek * 4;
-        const result = await syncTemplateChange(studentUserId, teacherUserId, newSlots, totalLessons);
+        const result = await syncTemplateChange(studentUserId, teacherUserId, newSlots, totalLessonsCount);
 
         if (result.conflicts.length > 0) {
           setConflicts(result.conflicts);
@@ -624,6 +692,52 @@ export function EditStudentDialog({
 
         // Rebuild legacy JSON after template sync
         await rebuildLegacyLessonDatesFromInstances(studentUserId, teacherUserId);
+      } else {
+        // Bug #1 fix: No instances exist yet — generate fresh instances
+        const today = new Date();
+        const futureDates = generateFutureInstanceDates(newSlots, totalLessonsCount, today);
+
+        if (futureDates.length > 0) {
+          for (let i = 0; i < futureDates.length; i++) {
+            await supabase.from("lesson_instances").insert({
+              student_id: studentUserId,
+              teacher_id: teacherUserId,
+              lesson_number: i + 1,
+              lesson_date: futureDates[i].lessonDate,
+              start_time: futureDates[i].startTime,
+              end_time: futureDates[i].endTime,
+              status: "planned",
+            });
+          }
+
+          // Create or update tracking record
+          const lessonDatesJson: Record<string, string> = {};
+          futureDates.forEach((d, idx) => {
+            lessonDatesJson[(idx + 1).toString()] = d.lessonDate;
+          });
+
+          const { data: existingTracking } = await supabase
+            .from("student_lesson_tracking")
+            .select("id")
+            .eq("student_id", studentUserId)
+            .eq("teacher_id", teacherUserId)
+            .limit(1);
+
+          if (existingTracking && existingTracking.length > 0) {
+            await supabase
+              .from("student_lesson_tracking")
+              .update({ lessons_per_week: lessonsPerWeek, lesson_dates: lessonDatesJson })
+              .eq("id", existingTracking[0].id);
+          } else {
+            await supabase.from("student_lesson_tracking").insert({
+              student_id: studentUserId,
+              teacher_id: teacherUserId,
+              lessons_per_week: lessonsPerWeek,
+              lesson_dates: lessonDatesJson,
+              completed_lessons: [],
+            });
+          }
+        }
       }
 
       toast({
