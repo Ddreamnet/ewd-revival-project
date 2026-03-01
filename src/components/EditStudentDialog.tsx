@@ -866,10 +866,13 @@ export function EditStudentDialog({
       // Take only first totalLessons entries
       const capped = sorted.slice(0, totalLessons);
 
+      // If lesson_dates is empty (reset state), hide placeholder dates from instances
+      const datesUnassigned = Object.keys(lessonDates).length === 0;
+
       const result = capped.map((inst, idx) => ({
         displayIndex: idx + 1,
         lessonNumber: inst.lesson_number,
-        effectiveDate: inst.lesson_date,
+        effectiveDate: datesUnassigned ? "" : inst.lesson_date,
         startTime: inst.start_time,
         endTime: inst.end_time,
         isCompleted: inst.status === "completed",
