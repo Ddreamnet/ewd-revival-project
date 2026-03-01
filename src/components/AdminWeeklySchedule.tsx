@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban, X } from "lucide-react";
+import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
@@ -18,7 +18,7 @@ import { format, startOfWeek, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
 import { addToTeacherBalance, subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, ActualLesson } from "@/hooks/useScheduleGrid";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -72,6 +72,10 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [showTemplate, setShowTemplate] = useState(false);
   const [actualLessons, setActualLessons] = useState<ActualLesson[]>([]);
   
+  // Week navigation
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekStart = getWeekStartForOffset(weekOffset);
+  
   // Back-to-back popover
   const [backToBackPopover, setBackToBackPopover] = useState<{ group: ActualLesson[]; dayIndex: number } | null>(null);
   
@@ -97,7 +101,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     if (!showTemplate) {
       fetchActualSchedule();
     }
-  }, [showTemplate, teacherId]);
+  }, [showTemplate, teacherId, weekOffset]);
 
   // Real-time listener for trial lesson updates
   useEffect(() => {
@@ -126,7 +130,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   }, [teacherId, showTemplate]);
 
   const fetchActualSchedule = async () => {
-    const lessons = await fetchActualLessonsForWeek(teacherId);
+    const lessons = await fetchActualLessonsForWeek(teacherId, weekStart);
     setActualLessons(lessons);
     // Assign colors for actual lessons
     const studentIds = [...new Set(lessons.map(l => l.student_id))];
@@ -216,8 +220,12 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const computedTimeSlots = showTemplate
-    ? getAllTimeSlots(lessons, [], [])  // Kalıcı: template only, no trials, no overrides
-    : getAllTimeSlotsActual(actualLessons, trialLessons); // Güncel: actual + trials
+    ? getAllTimeSlots(lessons, [], [])
+    : getAllTimeSlotsActual(actualLessons, trialLessons);
+
+  // Week navigation label
+  const weekEnd = addDays(weekStart, 6);
+  const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
 
   const getLessonOverrideForAdmin = (studentId: string, date: Date): LessonOverride | null => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -273,7 +281,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const findTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    return getTrialLessonForDayAndTime(trialLessons, dayIndex, timeSlot);
+    return getTrialLessonForDayAndTime(trialLessons, dayIndex, timeSlot, weekStart);
   };
 
   const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date; _override?: LessonOverride }) => {
@@ -557,6 +565,40 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
               </Button>
             </div>
           </div>
+          {/* Week Navigation */}
+          {!showTemplate && (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setWeekOffset((o) => o - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {weekOffset !== 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 px-2"
+                  onClick={() => setWeekOffset(0)}
+                >
+                  Bu Hafta
+                </Button>
+              )}
+              <span className="text-sm font-medium text-muted-foreground min-w-[140px] text-center">
+                {weekLabel}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setWeekOffset((o) => o + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -580,17 +622,17 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                     {DAYS.map((_, dayIndex) => {
                       if (!showTemplate) {
                         // GÜNCEL MODE: render from lesson_instances + trials
-                        const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot);
+                        const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
                         const trialLesson = findTrialLessonForDayAndTime(dayIndex, timeSlot);
                         
                         // Skip if this lesson is secondary in a back-to-back group
-                        if (actualLesson && isSecondaryInBackToBack(actualLessons, dayIndex, actualLesson.id)) {
+                        if (actualLesson && isSecondaryInBackToBack(actualLessons, dayIndex, actualLesson.id, weekStart)) {
                           return <td key={dayIndex} className="border border-border p-2"></td>;
                         }
                         
                         // Check for back-to-back group
                         const b2bGroup = actualLesson
-                          ? getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id)
+                          ? getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id, weekStart)
                           : null;
                         
                         return (

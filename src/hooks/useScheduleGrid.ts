@@ -40,12 +40,20 @@ export interface ActualLesson {
 }
 
 /**
- * Get the date for a specific day index (0=Mon, 6=Sun) in the current week.
+ * Get the Monday of the week for a given offset (0 = current week).
  */
-export function getDateForDayIndex(dayIndex: number): Date {
+export function getWeekStartForOffset(offset: number): Date {
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  return addDays(weekStart, dayIndex);
+  return addDays(weekStart, offset * 7);
+}
+
+/**
+ * Get the date for a specific day index (0=Mon, 6=Sun) in a given week.
+ */
+export function getDateForDayIndex(dayIndex: number, weekStart?: Date): Date {
+  const ws = weekStart || startOfWeek(new Date(), { weekStartsOn: 1 });
+  return addDays(ws, dayIndex);
 }
 
 /**
@@ -90,15 +98,16 @@ export function getAllTimeSlotsActual(
 }
 
 /**
- * Finds a trial lesson for a specific day and time slot in the current week.
+ * Finds a trial lesson for a specific day and time slot in a given week.
  */
 export function getTrialLessonForDayAndTime<T extends TrialLessonInfo>(
   trialLessons: T[],
   dayIndex: number,
-  timeSlot: string
+  timeSlot: string,
+  weekStart?: Date
 ): T | undefined {
   const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
-  const dateForDay = getDateForDayIndex(dayIndex);
+  const dateForDay = getDateForDayIndex(dayIndex, weekStart);
   const dateStr = format(dateForDay, "yyyy-MM-dd");
   return trialLessons.find(
     (l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot && l.lesson_date === dateStr
@@ -106,15 +115,15 @@ export function getTrialLessonForDayAndTime<T extends TrialLessonInfo>(
 }
 
 /**
- * Fetch actual lessons (lesson_instances) for a teacher for the current week.
+ * Fetch actual lessons (lesson_instances) for a teacher for a specific week.
  */
 export async function fetchActualLessonsForWeek(
-  teacherId: string
+  teacherId: string,
+  weekStart?: Date
 ): Promise<ActualLesson[]> {
-  const today = new Date();
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const weekEnd = addDays(weekStart, 6);
-  const startStr = format(weekStart, "yyyy-MM-dd");
+  const ws = weekStart || startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekEnd = addDays(ws, 6);
+  const startStr = format(ws, "yyyy-MM-dd");
   const endStr = format(weekEnd, "yyyy-MM-dd");
 
   const { data: instances, error } = await supabase
@@ -152,9 +161,10 @@ export async function fetchActualLessonsForWeek(
 export function getActualLessonForDayAndTime(
   actualLessons: ActualLesson[],
   dayIndex: number,
-  timeSlot: string
+  timeSlot: string,
+  weekStart?: Date
 ): ActualLesson | null {
-  const dateForDay = getDateForDayIndex(dayIndex);
+  const dateForDay = getDateForDayIndex(dayIndex, weekStart);
   const dateStr = format(dateForDay, "yyyy-MM-dd");
   return actualLessons.find(
     (l) => l.lesson_date === dateStr && l.start_time === timeSlot
@@ -163,17 +173,15 @@ export function getActualLessonForDayAndTime(
 
 /**
  * Detect back-to-back lesson groups for a specific day.
- * Returns groups where the same student has consecutive lessons
- * (end_time of one === start_time of next).
  */
 export function getBackToBackGroups(
   actualLessons: ActualLesson[],
-  dayIndex: number
+  dayIndex: number,
+  weekStart?: Date
 ): ActualLesson[][] {
-  const dateForDay = getDateForDayIndex(dayIndex);
+  const dateForDay = getDateForDayIndex(dayIndex, weekStart);
   const dateStr = format(dateForDay, "yyyy-MM-dd");
   
-  // Get lessons for this day, sorted by start_time
   const dayLessons = actualLessons
     .filter((l) => l.lesson_date === dateStr)
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
@@ -187,7 +195,6 @@ export function getBackToBackGroups(
     const group: ActualLesson[] = [dayLessons[i]];
     processed.add(dayLessons[i].id);
 
-    // Look for consecutive lessons for the same student
     let current = dayLessons[i];
     for (let j = i + 1; j < dayLessons.length; j++) {
       if (processed.has(dayLessons[j].id)) continue;
@@ -211,14 +218,14 @@ export function getBackToBackGroups(
 
 /**
  * Check if a lesson is part of a back-to-back group (not the first one).
- * Returns the group if the lesson is a secondary member.
  */
 export function isSecondaryInBackToBack(
   actualLessons: ActualLesson[],
   dayIndex: number,
-  lessonId: string
+  lessonId: string,
+  weekStart?: Date
 ): boolean {
-  const groups = getBackToBackGroups(actualLessons, dayIndex);
+  const groups = getBackToBackGroups(actualLessons, dayIndex, weekStart);
   return groups.some(
     (group) => group.length > 1 && group.findIndex((l) => l.id === lessonId) > 0
   );
@@ -230,9 +237,10 @@ export function isSecondaryInBackToBack(
 export function getBackToBackGroupForLesson(
   actualLessons: ActualLesson[],
   dayIndex: number,
-  lessonId: string
+  lessonId: string,
+  weekStart?: Date
 ): ActualLesson[] | null {
-  const groups = getBackToBackGroups(actualLessons, dayIndex);
+  const groups = getBackToBackGroups(actualLessons, dayIndex, weekStart);
   const group = groups.find(
     (g) => g.length > 1 && g[0].id === lessonId
   );
