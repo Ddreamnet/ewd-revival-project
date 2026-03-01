@@ -198,9 +198,6 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
       const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
       const lessonDate = addDays(ws, dayIndex);
 
-      // Skip dates in the past
-      if (lessonDate < today) continue;
-
       const dateStr = format(lessonDate, "yyyy-MM-dd");
       instancesToInsert.push({
         student_id: studentId,
