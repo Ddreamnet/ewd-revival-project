@@ -197,6 +197,17 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
           setPendingLesson(null);
           return;
         }
+
+        // Sync calculated dates to lesson_instances
+        for (const inst of instances) {
+          const dateForLesson = newLessonDates[inst.lesson_number.toString()];
+          if (dateForLesson) {
+            await supabase
+              .from("lesson_instances")
+              .update({ lesson_date: dateForLesson })
+              .eq("id", inst.id);
+          }
+        }
       }
 
       const { data: existingRecords } = await supabase

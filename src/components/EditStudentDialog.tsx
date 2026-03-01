@@ -362,33 +362,57 @@ export function EditStudentDialog({
         throw new Error("Ders takip kaydı bulunamadı");
       }
 
-      // IMPORTANT: Only resets student tracking, NOT teacher balance
+      // Delete ALL existing instances for this student-teacher pair
+      await supabase
+        .from("lesson_instances")
+        .delete()
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId);
+
+      // Generate fresh instances from template slots starting from today
+      const templateSlots: TemplateSlot[] = lessons.map((l) => ({
+        dayOfWeek: l.dayOfWeek,
+        startTime: l.startTime,
+        endTime: l.endTime,
+      }));
+      const totalLessonsCount = lessonsPerWeek * 4;
+      const today = new Date();
+      const futureDates = generateFutureInstanceDates(templateSlots, totalLessonsCount, today);
+
+      const newLessonDates: Record<string, string> = {};
+      for (let i = 0; i < futureDates.length; i++) {
+        await supabase.from("lesson_instances").insert({
+          student_id: studentUserId,
+          teacher_id: teacherUserId,
+          lesson_number: i + 1,
+          lesson_date: futureDates[i].lessonDate,
+          start_time: futureDates[i].startTime,
+          end_time: futureDates[i].endTime,
+          status: "planned",
+        });
+        newLessonDates[(i + 1).toString()] = futureDates[i].lessonDate;
+      }
+
+      // Update tracking record with fresh data
       const { error } = await supabase
         .from("student_lesson_tracking")
         .update({ 
           completed_lessons: [],
-          lesson_dates: {}
+          lesson_dates: newLessonDates
         })
         .eq("id", existingRecords[0].id);
 
       if (error) throw error;
 
-      // Reset all instance statuses to planned (don't touch balance)
-      await supabase
-        .from("lesson_instances")
-        .update({ status: "planned" })
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
       setCompletedLessons([]);
-      setLessonDates({});
-      setOriginalLessonDates({});
+      setLessonDates(newLessonDates);
+      setOriginalLessonDates(newLessonDates);
       setShowResetConfirm(false);
       fetchInstances();
       
       toast({
         title: "Başarılı",
-        description: "Tüm dersler sıfırlandı (Öğretmen bakiyesi korundu)",
+        description: "Tüm dersler sıfırlandı ve yeniden oluşturuldu (Öğretmen bakiyesi korundu)",
       });
     } catch (error: any) {
       toast({
@@ -429,7 +453,8 @@ export function EditStudentDialog({
                   lessonDates[key],
                   inst.start_time,
                   inst.end_time,
-                  inst.id
+                  inst.id,
+                  studentUserId
                 );
                 if (c.length > 0) {
                   setConflicts(c);
@@ -490,7 +515,8 @@ export function EditStudentDialog({
                   futureDates[i].lessonDate,
                   futureDates[i].startTime,
                   futureDates[i].endTime,
-                  plannedAfterChanged[i]?.id
+                  plannedAfterChanged[i]?.id,
+                  studentUserId
                 );
                 allConflicts.push(...c);
               }
@@ -551,7 +577,8 @@ export function EditStudentDialog({
               lessonDates[key],
               inst.start_time,
               inst.end_time,
-              inst.id
+              inst.id,
+              studentUserId
             );
             if (c.length > 0) {
               setConflicts(c);
@@ -828,7 +855,7 @@ export function EditStudentDialog({
   const totalLessons = lessonsPerWeek * 4;
 
   const sortedLessonsForDisplay = (() => {
-    // Instance-based display
+    // Instance-based display — cap at totalLessons (lpw * 4)
     if (instances.length > 0) {
       // Sort instances by date+time for chronological "Ders N" labels
       const sorted = [...instances].sort((a, b) => {
@@ -837,7 +864,10 @@ export function EditStudentDialog({
         return a.start_time.localeCompare(b.start_time);
       });
 
-      return sorted.map((inst, idx) => ({
+      // Take only first totalLessons entries
+      const capped = sorted.slice(0, totalLessons);
+
+      const result = capped.map((inst, idx) => ({
         displayIndex: idx + 1,
         lessonNumber: inst.lesson_number,
         effectiveDate: inst.lesson_date,
@@ -848,6 +878,23 @@ export function EditStudentDialog({
         isOverridden: inst.original_date !== null,
         instanceId: inst.id,
       }));
+
+      // Fill empty rows if fewer instances than totalLessons
+      for (let i = result.length; i < totalLessons; i++) {
+        result.push({
+          displayIndex: i + 1,
+          lessonNumber: i + 1,
+          effectiveDate: "",
+          startTime: "",
+          endTime: "",
+          isCompleted: false,
+          isCancelled: false,
+          isOverridden: false,
+          instanceId: undefined,
+        });
+      }
+
+      return result;
     }
 
     // Legacy fallback: use lessonDates JSON

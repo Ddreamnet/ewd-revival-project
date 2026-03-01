@@ -37,7 +37,8 @@ export async function checkTeacherConflicts(
   date: string,
   startTime: string,
   endTime: string,
-  excludeInstanceId?: string
+  excludeInstanceId?: string,
+  excludeStudentId?: string
 ): Promise<ConflictInfo[]> {
   const conflicts: ConflictInfo[] = [];
 
@@ -56,18 +57,25 @@ export async function checkTeacherConflicts(
   const { data: instances } = await instanceQuery;
 
   if (instances) {
+    // Filter out all instances of the excluded student (self-conflict prevention)
+    const filtered = excludeStudentId
+      ? instances.filter((i) => i.student_id !== excludeStudentId)
+      : instances;
+
     // Fetch student names for conflicting instances
-    const studentIds = [...new Set(instances.map((i) => i.student_id))];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("user_id, full_name")
-      .in("user_id", studentIds);
+    const studentIds = [...new Set(filtered.map((i) => i.student_id))];
+    const { data: profiles } = studentIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", studentIds)
+      : { data: [] };
 
     const nameMap = new Map(
       (profiles || []).map((p) => [p.user_id, p.full_name])
     );
 
-    for (const inst of instances) {
+    for (const inst of filtered) {
       if (hasTimeOverlap(startTime, endTime, inst.start_time, inst.end_time)) {
         conflicts.push({
           studentName: nameMap.get(inst.student_id) || "Bilinmeyen Öğrenci",
