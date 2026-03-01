@@ -115,7 +115,113 @@ export function getTrialLessonForDayAndTime<T extends TrialLessonInfo>(
 }
 
 /**
+ * Ensure lesson_instances exist for all active template students for a given week.
+ * "Lazy generation": if a student has templates but no instances for this week, generate them.
+ * Only generates for weeks that include today or are in the future.
+ */
+async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekEnd = addDays(ws, 6);
+
+  // Don't generate for fully past weeks
+  if (weekEnd < today) return;
+
+  const startStr = format(ws, "yyyy-MM-dd");
+  const endStr = format(weekEnd, "yyyy-MM-dd");
+
+  // Get all templates for this teacher
+  const { data: templates } = await supabase
+    .from("student_lessons")
+    .select("student_id, day_of_week, start_time, end_time")
+    .eq("teacher_id", teacherId);
+
+  if (!templates || templates.length === 0) return;
+
+  // Get active (non-archived) student IDs
+  const templateStudentIds = [...new Set(templates.map((t) => t.student_id))];
+  const { data: activeStudents } = await supabase
+    .from("students")
+    .select("student_id")
+    .eq("teacher_id", teacherId)
+    .eq("is_archived", false)
+    .in("student_id", templateStudentIds);
+
+  if (!activeStudents || activeStudents.length === 0) return;
+  const activeStudentIds = new Set(activeStudents.map((s) => s.student_id));
+
+  // Check which students already have instances for this week
+  const { data: existingInstances } = await supabase
+    .from("lesson_instances")
+    .select("student_id")
+    .eq("teacher_id", teacherId)
+    .gte("lesson_date", startStr)
+    .lte("lesson_date", endStr);
+
+  const studentsWithInstances = new Set((existingInstances || []).map((i) => i.student_id));
+
+  // Find students with templates but no instances this week
+  const missingStudents = [...activeStudentIds].filter((id) => !studentsWithInstances.has(id));
+  if (missingStudents.length === 0) return;
+
+  // Get max lesson_number per missing student (batch)
+  const { data: maxLessons } = await supabase
+    .from("lesson_instances")
+    .select("student_id, lesson_number")
+    .eq("teacher_id", teacherId)
+    .in("student_id", missingStudents)
+    .order("lesson_number", { ascending: false });
+
+  const maxLessonMap = new Map<string, number>();
+  (maxLessons || []).forEach((row) => {
+    if (!maxLessonMap.has(row.student_id)) {
+      maxLessonMap.set(row.student_id, row.lesson_number);
+    }
+  });
+
+  // Generate instances from templates
+  const instancesToInsert: Array<{
+    student_id: string;
+    teacher_id: string;
+    lesson_number: number;
+    lesson_date: string;
+    start_time: string;
+    end_time: string;
+    status: string;
+  }> = [];
+
+  for (const studentId of missingStudents) {
+    const studentTemplates = templates.filter((t) => t.student_id === studentId);
+    let nextNum = (maxLessonMap.get(studentId) || 0) + 1;
+
+    for (const tmpl of studentTemplates) {
+      const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
+      const lessonDate = addDays(ws, dayIndex);
+
+      // Skip dates in the past
+      if (lessonDate < today) continue;
+
+      const dateStr = format(lessonDate, "yyyy-MM-dd");
+      instancesToInsert.push({
+        student_id: studentId,
+        teacher_id: teacherId,
+        lesson_number: nextNum++,
+        lesson_date: dateStr,
+        start_time: tmpl.start_time,
+        end_time: tmpl.end_time,
+        status: "planned",
+      });
+    }
+  }
+
+  if (instancesToInsert.length > 0) {
+    await supabase.from("lesson_instances").insert(instancesToInsert);
+  }
+}
+
+/**
  * Fetch actual lessons (lesson_instances) for a teacher for a specific week.
+ * Automatically generates missing instances from templates (lazy generation).
  */
 export async function fetchActualLessonsForWeek(
   teacherId: string,
@@ -125,6 +231,9 @@ export async function fetchActualLessonsForWeek(
   const weekEnd = addDays(ws, 6);
   const startStr = format(ws, "yyyy-MM-dd");
   const endStr = format(weekEnd, "yyyy-MM-dd");
+
+  // Ensure instances exist for all template students this week
+  await ensureInstancesForWeek(teacherId, ws);
 
   const { data: instances, error } = await supabase
     .from("lesson_instances")
