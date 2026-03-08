@@ -1112,7 +1112,7 @@ export function EditStudentDialog({
             </div>
             <div className="space-y-2">
               {sortedLessonsForDisplay.map((lesson) => (
-                <div key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`} className={`flex items-center gap-3 p-3 border rounded-lg ${
+                <div key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border rounded-lg ${
                   lesson.isCancelled ? "opacity-50 bg-muted" : ""
                 } ${lesson.isOverridden ? "border-amber-500" : ""}`}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1135,7 +1135,6 @@ export function EditStudentDialog({
                       Ders {lesson.displayIndex}
                       {lesson.isCancelled && " (İptal)"}
                     </span>
-                    {/* Time range display */}
                     {lesson.startTime && lesson.endTime && (
                       <span className="text-xs text-muted-foreground ml-1 shrink-0">
                         {formatTime(lesson.startTime)} - {formatTime(lesson.endTime)}
@@ -1150,7 +1149,7 @@ export function EditStudentDialog({
                       type="date"
                       value={lessonDates[lesson.lessonNumber.toString()] || lesson.effectiveDate || ""}
                       onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
-                      className={`w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
+                      className={`w-full sm:w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
                       disabled={lesson.isCancelled}
                     />
                   </div>
