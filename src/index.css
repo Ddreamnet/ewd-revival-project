@@ -155,55 +155,59 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Dark mode with deeper pastels */
-    --background: 280 15% 8%;
-    --foreground: 320 20% 90%;
+    /* Navy-based dark palette — hue 222 */
+    --background: 222 25% 7%;
+    --foreground: 220 15% 90%;
 
-    --card: 280 15% 10%;
-    --card-foreground: 320 20% 90%;
+    --card: 222 20% 11%;
+    --card-foreground: 220 15% 90%;
 
-    --popover: 280 15% 10%;
-    --popover-foreground: 320 20% 90%;
+    --popover: 222 20% 13%;
+    --popover-foreground: 220 15% 90%;
 
-    /* Brighter lavender for dark mode */
-    --primary: 280 70% 75%;
-    --primary-foreground: 280 15% 8%;
+    /* Lavender primary — slightly brighter for dark surfaces */
+    --primary: 280 65% 72%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Muted pink for secondary */
-    --secondary: 340 30% 25%;
-    --secondary-foreground: 320 20% 90%;
+    /* Muted navy-purple for secondary */
+    --secondary: 260 20% 22%;
+    --secondary-foreground: 220 15% 90%;
 
-    --muted: 280 10% 15%;
-    --muted-foreground: 320 10% 70%;
+    --muted: 222 15% 16%;
+    --muted-foreground: 220 10% 60%;
 
-    /* Warmer accent in dark mode */
-    --accent: 20 60% 40%;
-    --accent-foreground: 320 20% 90%;
+    /* Warm accent */
+    --accent: 20 55% 42%;
+    --accent-foreground: 220 15% 90%;
 
-    /* Soft red for destructive */
-    --destructive: 0 50% 50%;
-    --destructive-foreground: 320 20% 90%;
+    /* Destructive — readable red */
+    --destructive: 0 55% 48%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 280 10% 20%;
-    --input: 280 10% 20%;
-    --ring: 280 70% 75%;
+    --border: 222 15% 20%;
+    --input: 222 18% 14%;
+    --ring: 280 65% 72%;
 
-    /* Dark mode sidebar with deep teal */
-    --sidebar-background: 180 15% 12%;
-    --sidebar-foreground: 180 10% 80%;
-    --sidebar-primary: 180 50% 60%;
-    --sidebar-primary-foreground: 180 15% 12%;
-    --sidebar-accent: 180 10% 18%;
-    --sidebar-accent-foreground: 180 10% 80%;
-    --sidebar-border: 180 10% 18%;
-    --sidebar-ring: 180 50% 60%;
+    /* Sidebar — navy tones instead of teal */
+    --sidebar-background: 222 22% 10%;
+    --sidebar-foreground: 220 10% 80%;
+    --sidebar-primary: 280 55% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 15% 16%;
+    --sidebar-accent-foreground: 220 10% 80%;
+    --sidebar-border: 222 15% 18%;
+    --sidebar-ring: 280 55% 65%;
 
-    /* Landing page colors dark mode */
-    --landing-pink: 330 70% 70%;
-    --landing-purple: 280 50% 60%;
-    --landing-purple-dark: 280 45% 45%;
-    --landing-yellow: 45 90% 55%;
-    --landing-yellow-light: 45 80% 70%;
+    /* Landing page dark variants */
+    --landing-pink: 330 50% 55%;
+    --landing-purple: 280 40% 55%;
+    --landing-purple-dark: 280 35% 72%;
+    --landing-yellow: 45 80% 50%;
+    --landing-yellow-light: 45 60% 40%;
+
+    /* Custom tokens */
+    --elevated: 222 20% 14%;
+    --soft-panel: 222 18% 12%;
   }
 }
 
