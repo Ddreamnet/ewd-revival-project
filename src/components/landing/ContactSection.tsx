@@ -184,8 +184,8 @@ export function ContactSection() {
                           phone: e.target.value,
                         })
                       }
-                      className="min-w-0 flex-1 h-9 px-3 bg-purple-200/70 border-0 rounded-r-xl 
-                                 placeholder:text-purple-500 text-sm text-foreground
+                      className="min-w-0 flex-1 h-9 px-3 bg-input border border-border rounded-r-xl 
+                                 placeholder:text-muted-foreground text-sm text-foreground
                                  focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
                   </div>
