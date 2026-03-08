@@ -39,7 +39,7 @@ interface WeeklyScheduleDialogProps {
   onOpenChange: (open: boolean) => void;
   teacherId: string;
 }
-const STUDENT_COLORS = ["bg-rose-100 border-rose-300 text-rose-900", "bg-blue-100 border-blue-300 text-blue-900", "bg-amber-100 border-amber-300 text-amber-900", "bg-emerald-100 border-emerald-300 text-emerald-900", "bg-purple-100 border-purple-300 text-purple-900", "bg-pink-100 border-pink-300 text-pink-900", "bg-cyan-100 border-cyan-300 text-cyan-900", "bg-orange-100 border-orange-300 text-orange-900", "bg-lime-100 border-lime-300 text-lime-900", "bg-indigo-100 border-indigo-300 text-indigo-900"];
+const STUDENT_COLORS = ["bg-rose-100 border-rose-300 text-rose-900 dark:bg-rose-950 dark:border-rose-800 dark:text-rose-200", "bg-blue-100 border-blue-300 text-blue-900 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200", "bg-amber-100 border-amber-300 text-amber-900 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200", "bg-emerald-100 border-emerald-300 text-emerald-900 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-200", "bg-purple-100 border-purple-300 text-purple-900 dark:bg-purple-950 dark:border-purple-800 dark:text-purple-200", "bg-pink-100 border-pink-300 text-pink-900 dark:bg-pink-950 dark:border-pink-800 dark:text-pink-200", "bg-cyan-100 border-cyan-300 text-cyan-900 dark:bg-cyan-950 dark:border-cyan-800 dark:text-cyan-200", "bg-orange-100 border-orange-300 text-orange-900 dark:bg-orange-950 dark:border-orange-800 dark:text-orange-200", "bg-lime-100 border-lime-300 text-lime-900 dark:bg-lime-950 dark:border-lime-800 dark:text-lime-200", "bg-indigo-100 border-indigo-300 text-indigo-900 dark:bg-indigo-950 dark:border-indigo-800 dark:text-indigo-200"];
 
 export function WeeklyScheduleDialog({
   open,

@@ -56,8 +56,8 @@ function WorkWithUsContent() {
           </h1>
 
           {/* Pink frame + white inner panel (matching ContactSection) */}
-          <div className="bg-pink-300/80 rounded-[20px] p-3 shadow-lg w-full max-w-[400px] mx-auto">
-            <div className="bg-white/70 backdrop-blur-sm rounded-[16px] p-4">
+          <div className="bg-secondary/80 rounded-[20px] p-3 shadow-lg w-full max-w-[400px] mx-auto">
+            <div className="bg-card/70 backdrop-blur-sm rounded-[16px] p-4">
               <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
                 {/* Ad Soyad */}
                 <div className="relative">
@@ -66,9 +66,9 @@ function WorkWithUsContent() {
                     name="fullName"
                     placeholder={t.workWithUs.fullName[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl placeholder:text-purple-500 text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
-                  <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+                  <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
 
                 {/* Yaş */}
@@ -79,9 +79,9 @@ function WorkWithUsContent() {
                     placeholder={t.workWithUs.age[language]}
                     required
                     inputMode="numeric"
-                    className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl placeholder:text-purple-500 text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
 
                 {/* Üniversite */}
@@ -91,9 +91,9 @@ function WorkWithUsContent() {
                     name="university"
                     placeholder={t.workWithUs.university[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl placeholder:text-purple-500 text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
-                  <Building className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+                  <Building className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
 
                 {/* Bölüm */}
@@ -103,9 +103,9 @@ function WorkWithUsContent() {
                     name="department"
                     placeholder={t.workWithUs.department[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl placeholder:text-purple-500 text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
-                  <GraduationCap className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+                  <GraduationCap className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
 
                 {/* E-posta */}
@@ -115,14 +115,14 @@ function WorkWithUsContent() {
                     name="email"
                     placeholder={t.workWithUs.email[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl placeholder:text-purple-500 text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
-                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
 
                 {/* Telefon +90 prefix */}
                 <div className="flex">
-                  <div className="flex items-center px-3 bg-purple-300/70 rounded-l-xl text-sm font-medium text-purple-800 border-r border-purple-300/60 h-9">
+                  <div className="flex items-center px-3 bg-muted rounded-l-xl text-sm font-medium text-muted-foreground border-r border-border/60 h-9">
                     +90
                   </div>
                   <div className="relative flex-1">
@@ -132,9 +132,9 @@ function WorkWithUsContent() {
                       placeholder={t.workWithUs.phone[language]}
                       required
                       inputMode="numeric"
-                      className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-r-xl placeholder:text-purple-500 text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                      className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-r-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
-                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   </div>
                 </div>
 
@@ -142,7 +142,7 @@ function WorkWithUsContent() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-10 rounded-xl font-bold text-amber-900 bg-gradient-to-b from-yellow-300 to-landing-yellow hover:brightness-105 active:translate-y-[1px] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full h-10 rounded-xl font-bold text-amber-900 dark:text-amber-100 bg-gradient-to-b from-yellow-300 to-landing-yellow hover:brightness-105 active:translate-y-[1px] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSubmitting
                     ? '...'
@@ -152,7 +152,7 @@ function WorkWithUsContent() {
                 </button>
 
                 {/* Note */}
-                <p className="text-xs text-center text-purple-700/70 mt-2">
+                <p className="text-xs text-center text-muted-foreground mt-2">
                   {t.workWithUs.note[language]}
                 </p>
               </form>

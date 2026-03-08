@@ -29,19 +29,19 @@ export function Footer() {
             <Link to="/">
               <img src="/uploads/logo.webp" alt="English with Dilara" className="h-28 w-auto object-contain" />
             </Link>
-            <p className="text-sm text-[#4A2040]/70 text-center md:text-left">{t.footer.tagline[language]}</p>
+            <p className="text-sm text-[#4A2040]/70 dark:text-muted-foreground text-center md:text-left">{t.footer.tagline[language]}</p>
           </div>
 
           {/* Center – Links */}
           <div className="items-center gap-6 md:gap-16 flex-row flex md:items-center justify-center self-center">
             <Link
               to="/bizimle-calisin"
-              className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
+              className="text-sm font-medium text-[#4A2040] dark:text-foreground hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
               {t.footer.workWithUs[language]}
             </Link>
             <Link
               to="/gizlilik-politikasi"
-              className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
+              className="text-sm font-medium text-[#4A2040] dark:text-foreground hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
               {t.footer.privacyPolicy[language]}
             </Link>
           </div>
@@ -59,7 +59,7 @@ export function Footer() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={label}
-                      className="w-10 h-10 rounded-full bg-[#FFF0F6] border border-[#D98BB5] shadow-sm flex items-center justify-center text-[#4A2040] hover:bg-[#FFE0EE] hover:text-[#7C2D6B] transition-colors duration-200">
+                      className="w-10 h-10 rounded-full bg-[#FFF0F6] dark:bg-card border border-[#D98BB5] dark:border-border shadow-sm flex items-center justify-center text-[#4A2040] dark:text-foreground hover:bg-[#FFE0EE] dark:hover:bg-muted hover:text-[#7C2D6B] dark:hover:text-primary transition-colors duration-200">
                         <Icon className="w-5 h-5" />
                       </a>
                     </TooltipTrigger>
@@ -94,7 +94,7 @@ export function Footer() {
                   <span className="text-[13px] font-semibold text-white -mt-0.5">Google Play</span>
                 </div>
                 {/* Coming soon overlay */}
-                <span className="absolute -top-2 -right-2 bg-landing-pink text-[8px] font-bold text-[#4A2040] px-1.5 py-0.5 rounded-full shadow-sm">
+                 <span className="absolute -top-2 -right-2 bg-landing-pink text-[8px] font-bold text-[#4A2040] dark:text-foreground px-1.5 py-0.5 rounded-full shadow-sm">
                   {t.footer.comingSoon[language]}
                 </span>
               </a>
@@ -117,7 +117,7 @@ export function Footer() {
                   <span className="text-[13px] font-semibold text-white -mt-0.5">App Store</span>
                 </div>
                 {/* Coming soon overlay */}
-                <span className="absolute -top-2 -right-2 bg-landing-pink text-[8px] font-bold text-[#4A2040] px-1.5 py-0.5 rounded-full shadow-sm">
+                <span className="absolute -top-2 -right-2 bg-landing-pink text-[8px] font-bold text-[#4A2040] dark:text-foreground px-1.5 py-0.5 rounded-full shadow-sm">
                   {t.footer.comingSoon[language]}
                 </span>
               </a>
@@ -126,8 +126,8 @@ export function Footer() {
         </div>
 
         {/* Divider + Copyright */}
-        <div className="border-t border-[#E9AFCB]/40 text-center my-[4px] mt-[4px] pt-[12px]">
-          <p className="text-sm text-[#4A2040]/60">
+        <div className="border-t border-[#E9AFCB]/40 dark:border-border text-center my-[4px] mt-[4px] pt-[12px]">
+          <p className="text-sm text-[#4A2040]/60 dark:text-muted-foreground">
             © {new Date().getFullYear()} English with Dilara. {t.footer.copyright[language]}
           </p>
         </div>

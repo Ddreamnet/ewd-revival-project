@@ -113,11 +113,11 @@ export function ContactSection() {
           {/* Center - Form */}
           <div className="w-full max-w-[min(340px,calc(100%-2rem))] mx-auto">
             {/* Dış Pembe Çerçeve */}
-            <div className="bg-pink-300/80 rounded-[20px] p-3 shadow-lg">
-              {/* İç Panel - Lila/Beyaz */}
-              <div className="bg-white/70 backdrop-blur-sm rounded-[16px] p-4">
+            <div className="bg-secondary/80 rounded-[20px] p-3 shadow-lg">
+              {/* İç Panel */}
+              <div className="bg-card/70 backdrop-blur-sm rounded-[16px] p-4">
                 {/* Başlık */}
-                <h3 className="text-lg font-bold text-purple-900 mb-4">{t.contact.form.title[language]}</h3>
+                <h3 className="text-lg font-bold text-foreground mb-4">{t.contact.form.title[language]}</h3>
 
                 <form onSubmit={handleSubmit} className="space-y-3">
                   {/* Ad Soyad - Sağda User ikonu */}
@@ -132,11 +132,11 @@ export function ContactSection() {
                           fullName: e.target.value,
                         })
                       }
-                      className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl 
-                                 placeholder:text-purple-500 text-sm text-foreground
+                      className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl 
+                                 placeholder:text-muted-foreground text-sm text-foreground
                                  focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
-                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   </div>
 
                   {/* Select - Öğrenci yaşı */}
@@ -150,14 +150,14 @@ export function ContactSection() {
                     }
                   >
                     <SelectTrigger
-                      className="h-9 bg-purple-200/70 border-0 rounded-xl text-sm 
-                                               placeholder:text-purple-500 
+                      className="h-9 bg-input border border-border rounded-xl text-sm 
+                                               placeholder:text-muted-foreground 
                                                focus:ring-2 focus:ring-pink-400 focus:outline-none
-                                               [&>span]:text-purple-500 [&>span]:data-[state=selected]:text-foreground"
+                                               [&>span]:text-muted-foreground [&>span]:data-[state=selected]:text-foreground"
                     >
                       <SelectValue placeholder={t.contact.form.studentAge[language]} />
                     </SelectTrigger>
-                    <SelectContent className="bg-white z-[60] rounded-xl border-purple-300">
+                    <SelectContent className="z-[60] rounded-xl">
                       {ageOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value} className="text-sm">
                           {option.label[language]}
@@ -169,8 +169,8 @@ export function ContactSection() {
                   {/* Telefon - +90 prefix birleşik */}
                   <div className="flex min-w-0">
                     <div
-                      className="flex-shrink-0 flex items-center px-3 bg-purple-300/70 rounded-l-xl 
-                                    text-sm font-medium text-purple-800 border-r border-purple-300/60 h-9"
+                      className="flex-shrink-0 flex items-center px-3 bg-muted rounded-l-xl 
+                                    text-sm font-medium text-muted-foreground border-r border-border/60 h-9"
                     >
                       +90
                     </div>
@@ -184,8 +184,8 @@ export function ContactSection() {
                           phone: e.target.value,
                         })
                       }
-                      className="min-w-0 flex-1 h-9 px-3 bg-purple-200/70 border-0 rounded-r-xl 
-                                 placeholder:text-purple-500 text-sm text-foreground
+                      className="min-w-0 flex-1 h-9 px-3 bg-input border border-border rounded-r-xl 
+                                 placeholder:text-muted-foreground text-sm text-foreground
                                  focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
                   </div>
@@ -200,15 +200,15 @@ export function ContactSection() {
                         message: e.target.value,
                       })
                     }
-                    className="w-full min-h-[80px] px-3 py-2 bg-purple-200/70 border-0 rounded-xl 
-                               placeholder:text-purple-500 text-sm text-foreground resize-none
+                    className="w-full min-h-[80px] px-3 py-2 bg-input border border-border rounded-xl 
+                               placeholder:text-muted-foreground text-sm text-foreground resize-none
                                focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
 
                   {/* Sarı Gönder Butonu */}
                   <button
                     type="submit"
-                    className="w-full h-10 rounded-xl font-bold text-amber-900
+                    className="w-full h-10 rounded-xl font-bold text-amber-900 dark:text-amber-100
                                bg-gradient-to-b from-yellow-300 to-landing-yellow
                                hover:brightness-105 active:translate-y-[1px] transition-all
                                shadow-sm"
@@ -217,7 +217,7 @@ export function ContactSection() {
                   </button>
 
                   {/* Alt açıklama */}
-                  <p className="text-xs text-center text-purple-700/70 mt-2">{t.contact.form.note[language]}</p>
+                  <p className="text-xs text-center text-muted-foreground mt-2">{t.contact.form.note[language]}</p>
                 </form>
               </div>
             </div>
