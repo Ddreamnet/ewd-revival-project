@@ -239,7 +239,7 @@ export function ValuesSection() {
                 >
                   {/* Outer card frame */}
                   <div
-                    className="rounded-3xl bg-white/90 shadow-xl overflow-hidden"
+                    className="rounded-3xl bg-white/90 dark:bg-card/90 shadow-xl overflow-hidden"
                     style={{
                       boxShadow: isCenter
                         ? "0 20px 60px -10px rgba(180,100,160,0.25), 0 8px 24px -4px rgba(180,100,160,0.15)"
