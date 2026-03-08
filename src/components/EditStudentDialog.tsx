@@ -955,7 +955,7 @@ export function EditStudentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Öğrenci Ayarları</DialogTitle>
         </DialogHeader>
@@ -995,7 +995,7 @@ export function EditStudentDialog({
           <div className="space-y-3">
             <Label className="text-base font-medium">Ders Programı</Label>
             {lessons.map((lesson, index) => (
-              <div key={index} className="grid grid-cols-4 gap-3 p-3 border rounded-lg">
+              <div key={index} classN1 sm:grid-cols-4 gap-2 sm:e="grid grid-cols-4 gap-3 p-3 border rounded-lg">
                 <div className="space-y-2">
                   <Label>Gün</Label>
                   <Select
