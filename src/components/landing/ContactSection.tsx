@@ -217,7 +217,7 @@ export function ContactSection() {
                   </button>
 
                   {/* Alt açıklama */}
-                  <p className="text-xs text-center text-purple-700/70 mt-2">{t.contact.form.note[language]}</p>
+                  <p className="text-xs text-center text-muted-foreground mt-2">{t.contact.form.note[language]}</p>
                 </form>
               </div>
             </div>
