@@ -59,7 +59,7 @@ export function Footer() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={label}
-                      className="w-10 h-10 rounded-full bg-[#FFF0F6] border border-[#D98BB5] shadow-sm flex items-center justify-center text-[#4A2040] hover:bg-[#FFE0EE] hover:text-[#7C2D6B] transition-colors duration-200">
+                      className="w-10 h-10 rounded-full bg-[#FFF0F6] dark:bg-card border border-[#D98BB5] dark:border-border shadow-sm flex items-center justify-center text-[#4A2040] dark:text-foreground hover:bg-[#FFE0EE] dark:hover:bg-muted hover:text-[#7C2D6B] dark:hover:text-primary transition-colors duration-200">
                         <Icon className="w-5 h-5" />
                       </a>
                     </TooltipTrigger>
