@@ -161,8 +161,8 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
                               <p className="font-semibold text-sm">{formatMinutes(payment.amount_minutes)}</p>
                             </div>
                             <div className="flex gap-3 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1" dark:text-blue-400>
-                                <Check dark:text-blue-400Circle2 className="h-3 w-3 text-blue-500" />
+                              <span className="flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-blue-500 dark:text-blue-400" />
                                 {payment.completed_regular_lessons} ders
                               </span>
                               <span className="flex items-center gap-1">
