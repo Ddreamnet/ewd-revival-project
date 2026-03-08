@@ -955,7 +955,7 @@ export function EditStudentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] w-[calc(100%-1rem)] w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Öğrenci Ayarları</DialogTitle>
         </DialogHeader>
@@ -995,7 +995,7 @@ export function EditStudentDialog({
           <div className="space-y-3">
             <Label className="text-base font-medium">Ders Programı</Label>
             {lessons.map((lesson, index) => (
-              <div key={index} className="grid grid-cols-4 gap-3 p-3 border rounded-lg">
+              <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-3 p-3 border rounded-lg">
                 <div className="space-y-2">
                   <Label>Gün</Label>
                   <Select
@@ -1067,14 +1067,14 @@ export function EditStudentDialog({
 
           {/* İşlenen Dersler Bölümü */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <Label className="text-base font-medium">İşlenen Dersler</Label>
                 <p className="text-sm text-muted-foreground">
                   Ders tarihlerini düzenleyebilir ve güncelleyebilirsiniz.
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {completedLessons.length < lessonsPerWeek * 4 && (
                   <Button
                     type="button"
@@ -1112,7 +1112,7 @@ export function EditStudentDialog({
             </div>
             <div className="space-y-2">
               {sortedLessonsForDisplay.map((lesson) => (
-                <div key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`} className={`flex items-center gap-3 p-3 border rounded-lg ${
+                <div key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border rounded-lg ${
                   lesson.isCancelled ? "opacity-50 bg-muted" : ""
                 } ${lesson.isOverridden ? "border-amber-500" : ""}`}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1135,7 +1135,6 @@ export function EditStudentDialog({
                       Ders {lesson.displayIndex}
                       {lesson.isCancelled && " (İptal)"}
                     </span>
-                    {/* Time range display */}
                     {lesson.startTime && lesson.endTime && (
                       <span className="text-xs text-muted-foreground ml-1 shrink-0">
                         {formatTime(lesson.startTime)} - {formatTime(lesson.endTime)}
@@ -1150,7 +1149,7 @@ export function EditStudentDialog({
                       type="date"
                       value={lessonDates[lesson.lessonNumber.toString()] || lesson.effectiveDate || ""}
                       onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
-                      className={`w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
+                      className={`w-full sm:w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
                       disabled={lesson.isCancelled}
                     />
                   </div>
@@ -1182,7 +1181,7 @@ export function EditStudentDialog({
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
