@@ -785,6 +785,18 @@ All colors MUST be HSL.
   }
 }
 
+/* Dark mode hero book colors */
+.dark .hero-book-wrap {
+  --book-a: hsl(260 30% 35%);
+  --book-b: hsl(260 25% 28%);
+  --spine: hsl(260 20% 22%);
+  --page: hsl(222 20% 14%);
+  --ink: hsl(220 15% 90%);
+  --muted: hsl(220 10% 65%);
+  --spark: hsla(45 80% 60% / 0.85);
+  --stitch: hsla(220 15% 90% / 0.2);
+}
+
 /* ===== Why Section Styles ===== */
 
 /* Float animation for why cards */
