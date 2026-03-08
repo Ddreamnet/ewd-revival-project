@@ -113,11 +113,11 @@ export function ContactSection() {
           {/* Center - Form */}
           <div className="w-full max-w-[min(340px,calc(100%-2rem))] mx-auto">
             {/* Dış Pembe Çerçeve */}
-            <div className="bg-pink-300/80 rounded-[20px] p-3 shadow-lg">
-              {/* İç Panel - Lila/Beyaz */}
-              <div className="bg-white/70 backdrop-blur-sm rounded-[16px] p-4">
+            <div className="bg-secondary/80 rounded-[20px] p-3 shadow-lg">
+              {/* İç Panel */}
+              <div className="bg-card/70 backdrop-blur-sm rounded-[16px] p-4">
                 {/* Başlık */}
-                <h3 className="text-lg font-bold text-purple-900 mb-4">{t.contact.form.title[language]}</h3>
+                <h3 className="text-lg font-bold text-foreground mb-4">{t.contact.form.title[language]}</h3>
 
                 <form onSubmit={handleSubmit} className="space-y-3">
                   {/* Ad Soyad - Sağda User ikonu */}
