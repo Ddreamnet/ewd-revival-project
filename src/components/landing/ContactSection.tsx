@@ -169,8 +169,8 @@ export function ContactSection() {
                   {/* Telefon - +90 prefix birleşik */}
                   <div className="flex min-w-0">
                     <div
-                      className="flex-shrink-0 flex items-center px-3 bg-purple-300/70 rounded-l-xl 
-                                    text-sm font-medium text-purple-800 border-r border-purple-300/60 h-9"
+                      className="flex-shrink-0 flex items-center px-3 bg-muted rounded-l-xl 
+                                    text-sm font-medium text-muted-foreground border-r border-border/60 h-9"
                     >
                       +90
                     </div>
