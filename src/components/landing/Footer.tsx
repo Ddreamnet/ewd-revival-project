@@ -29,7 +29,7 @@ export function Footer() {
             <Link to="/">
               <img src="/uploads/logo.webp" alt="English with Dilara" className="h-28 w-auto object-contain" />
             </Link>
-            <p className="text-sm text-[#4A2040]/70 text-center md:text-left">{t.footer.tagline[language]}</p>
+            <p className="text-sm text-[#4A2040]/70 dark:text-muted-foreground text-center md:text-left">{t.footer.tagline[language]}</p>
           </div>
 
           {/* Center – Links */}
