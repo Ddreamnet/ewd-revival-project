@@ -995,7 +995,7 @@ export function EditStudentDialog({
           <div className="space-y-3">
             <Label className="text-base font-medium">Ders Programı</Label>
             {lessons.map((lesson, index) => (
-              <di1 sm:grid-cols-4 gap-2 sm:key={index} classN1 sm:grid-cols-4 gap-2 sm:e="grid grid-cols-4 gap-3 p-3 border rounded-lg">
+              <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-3 p-3 border rounded-lg">
                 <div className="space-y-2">
                   <Label>Gün</Label>
                   <Select
