@@ -56,8 +56,8 @@ function WorkWithUsContent() {
           </h1>
 
           {/* Pink frame + white inner panel (matching ContactSection) */}
-          <div className="bg-pink-300/80 rounded-[20px] p-3 shadow-lg w-full max-w-[400px] mx-auto">
-            <div className="bg-white/70 backdrop-blur-sm rounded-[16px] p-4">
+          <div className="bg-secondary/80 rounded-[20px] p-3 shadow-lg w-full max-w-[400px] mx-auto">
+            <div className="bg-card/70 backdrop-blur-sm rounded-[16px] p-4">
               <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
                 {/* Ad Soyad */}
                 <div className="relative">
