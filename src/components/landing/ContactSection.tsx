@@ -157,7 +157,7 @@ export function ContactSection() {
                     >
                       <SelectValue placeholder={t.contact.form.studentAge[language]} />
                     </SelectTrigger>
-                    <SelectContent className="bg-white z-[60] rounded-xl border-purple-300">
+                    <SelectContent className="z-[60] rounded-xl">
                       {ageOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value} className="text-sm">
                           {option.label[language]}
