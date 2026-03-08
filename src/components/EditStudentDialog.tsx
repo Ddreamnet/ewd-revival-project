@@ -1067,14 +1067,14 @@ export function EditStudentDialog({
 
           {/* İşlenen Dersler Bölümü */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <Label className="text-base font-medium">İşlenen Dersler</Label>
                 <p className="text-sm text-muted-foreground">
                   Ders tarihlerini düzenleyebilir ve güncelleyebilirsiniz.
                 </p>
-            flex-wrap   </div>
-              <div className="flex gap-2">
+              </div>
+              <div className="flex flex-wrap gap-2">
                 {completedLessons.length < lessonsPerWeek * 4 && (
                   <Button
                     type="button"
