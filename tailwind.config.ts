@@ -70,6 +70,9 @@ export default {
           yellow: "hsl(var(--landing-yellow))",
           "yellow-light": "hsl(var(--landing-yellow-light))",
         },
+        // Dark mode utility tokens
+        elevated: "hsl(var(--elevated, var(--card)))",
+        "soft-panel": "hsl(var(--soft-panel, var(--background)))",
       },
       borderRadius: {
         lg: "var(--radius)",
