@@ -120,7 +120,7 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="bg-card border rounded-lg p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="h-4 w-4 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-blue-500 dark:text-blue-400 dark:text-blue-400 flex-shrink-0" />
                   <p className="text-xs text-muted-foreground">Normal Dersler</p>
                 </div>
                 <p className="text-lg sm:text-2xl font-semibold break-words">
@@ -130,7 +130,7 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
 
               <div className="bg-card border rounded-lg p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                  <Calendar className="h-4 wdark:text-purple-400 -4 text-purple-500 flex-shrink-0" />
                   <p className="text-xs text-muted-foreground">Deneme Dersleri</p>
                 </div>
                 <p className="text-lg sm:text-2xl font-semibold break-words">
