@@ -152,7 +152,7 @@ function WorkWithUsContent() {
                 </button>
 
                 {/* Note */}
-                <p className="text-xs text-center text-purple-700/70 mt-2">
+                <p className="text-xs text-center text-muted-foreground mt-2">
                   {t.workWithUs.note[language]}
                 </p>
               </form>
