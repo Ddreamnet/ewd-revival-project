@@ -96,7 +96,7 @@ export function BlogSection() {
           {canPrev && (
             <button
               onClick={() => emblaApi?.scrollPrev()}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 bg-white/90 shadow-md rounded-full p-2 hover:bg-white transition hidden md:flex items-center justify-center"
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 bg-white/90 dark:bg-card shadow-md rounded-full p-2 hover:bg-white dark:hover:bg-muted transition hidden md:flex items-center justify-center"
             >
               <ChevronLeft className="h-5 w-5 text-foreground" />
             </button>
