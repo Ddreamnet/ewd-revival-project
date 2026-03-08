@@ -130,7 +130,7 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
 
               <div className="bg-card border rounded-lg p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-2">
-      dark:text-purple-400             <Calenddark:text-purple-400 ar className="h-4 wdark:text-purple-400 -4 text-purple-500 flex-shrink-0" />
+      <Calendar className="h-4 w-4 text-purple-500 dark:text-purple-400 flex-shrink-0" />
                   <p className="text-xs text-muted-foreground">Deneme Dersleri</p>
                 </div>
                 <p className="text-lg sm:text-2xl font-semibold break-words">
