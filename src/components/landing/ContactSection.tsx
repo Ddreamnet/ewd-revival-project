@@ -200,8 +200,8 @@ export function ContactSection() {
                         message: e.target.value,
                       })
                     }
-                    className="w-full min-h-[80px] px-3 py-2 bg-purple-200/70 border-0 rounded-xl 
-                               placeholder:text-purple-500 text-sm text-foreground resize-none
+                    className="w-full min-h-[80px] px-3 py-2 bg-input border border-border rounded-xl 
+                               placeholder:text-muted-foreground text-sm text-foreground resize-none
                                focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
 
