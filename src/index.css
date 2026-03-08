@@ -247,6 +247,15 @@ All colors MUST be HSL.
     pointer-events: none;
   }
 
+  /* Dark mode: CSS-based navy gingham pattern */
+  html.dark::before {
+    background:
+      repeating-conic-gradient(
+        hsl(222 25% 10%) 0% 25%,
+        hsl(222 20% 8%) 0% 50%
+      ) 0 0 / 20px 20px;
+  }
+
   body {
     min-height: 100%;
     margin: 0;
