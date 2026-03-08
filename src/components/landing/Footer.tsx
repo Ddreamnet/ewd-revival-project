@@ -41,7 +41,7 @@ export function Footer() {
             </Link>
             <Link
               to="/gizlilik-politikasi"
-              className="text-sm font-medium text-[#4A2040] hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
+              className="text-sm font-medium text-[#4A2040] dark:text-foreground hover:text-landing-pink hover:underline underline-offset-4 transition-colors">
               {t.footer.privacyPolicy[language]}
             </Link>
           </div>
