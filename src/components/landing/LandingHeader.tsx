@@ -197,7 +197,7 @@ export function LandingHeader() {
                   <Globe className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-sm z-[60]">
+              <DropdownMenuContent align="end" className="bg-white/95 dark:bg-popover backdrop-blur-sm z-[60]">
                 <DropdownMenuItem
                   onClick={() => setLanguage('tr')}
                   className={`cursor-pointer ${language === 'tr' ? 'bg-landing-purple/20' : ''}`}>
