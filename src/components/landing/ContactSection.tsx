@@ -150,10 +150,10 @@ export function ContactSection() {
                     }
                   >
                     <SelectTrigger
-                      className="h-9 bg-purple-200/70 border-0 rounded-xl text-sm 
-                                               placeholder:text-purple-500 
+                      className="h-9 bg-input border border-border rounded-xl text-sm 
+                                               placeholder:text-muted-foreground 
                                                focus:ring-2 focus:ring-pink-400 focus:outline-none
-                                               [&>span]:text-purple-500 [&>span]:data-[state=selected]:text-foreground"
+                                               [&>span]:text-muted-foreground [&>span]:data-[state=selected]:text-foreground"
                     >
                       <SelectValue placeholder={t.contact.form.studentAge[language]} />
                     </SelectTrigger>
