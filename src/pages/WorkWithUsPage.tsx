@@ -91,9 +91,9 @@ function WorkWithUsContent() {
                     name="university"
                     placeholder={t.workWithUs.university[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-purple-200/70 border-0 rounded-xl placeholder:text-purple-500 text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
-                  <Building className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+                  <Building className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
 
                 {/* Bölüm */}
