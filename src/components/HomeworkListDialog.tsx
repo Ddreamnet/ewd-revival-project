@@ -337,7 +337,7 @@ export function HomeworkListDialog({
 
                         <Badge 
                           variant="outline" 
-                          className={`absolute bottom-2 right-2 text-xs ${uploadedByStudent ? "text-red-700 border-red-300" : "text-blue-700 border-blue-300"}`}
+                          className={`absolute bottom-2 right-2 text-xs ${uploadedByStudent ? "text-red-700 border-red-300 dark:text-red-400 dark:border-red-800" : "text-blue-700 border-blue-300 dark:text-blue-400 dark:border-blue-800"}`}
                         >
                           {uploadedByStudent ? "Öğrenci" : "Öğretmen"}
                         </Badge>

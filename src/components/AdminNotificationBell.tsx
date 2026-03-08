@@ -143,7 +143,7 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
                 </CardDescription>
               </div>
               {unreadCount > 0 && (
-                <Badge className="bg-amber-500 text-white">
+                <Badge className="bg-amber-500 text-amber-950">
                   {unreadCount}
                 </Badge>
               )}
