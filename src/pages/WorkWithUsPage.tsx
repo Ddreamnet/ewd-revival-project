@@ -122,7 +122,7 @@ function WorkWithUsContent() {
 
                 {/* Telefon +90 prefix */}
                 <div className="flex">
-                  <div className="flex items-center px-3 bg-purple-300/70 rounded-l-xl text-sm font-medium text-purple-800 border-r border-purple-300/60 h-9">
+                  <div className="flex items-center px-3 bg-muted rounded-l-xl text-sm font-medium text-muted-foreground border-r border-border/60 h-9">
                     +90
                   </div>
                   <div className="relative flex-1">
