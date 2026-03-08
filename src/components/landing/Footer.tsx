@@ -94,7 +94,7 @@ export function Footer() {
                   <span className="text-[13px] font-semibold text-white -mt-0.5">Google Play</span>
                 </div>
                 {/* Coming soon overlay */}
-                <span className="absolute -top-2 -right-2 bg-landing-pink text-[8px] font-bold text-[#4A2040] px-1.5 py-0.5 rounded-full shadow-sm">
+                 <span className="absolute -top-2 -right-2 bg-landing-pink text-[8px] font-bold text-[#4A2040] dark:text-foreground px-1.5 py-0.5 rounded-full shadow-sm">
                   {t.footer.comingSoon[language]}
                 </span>
               </a>
