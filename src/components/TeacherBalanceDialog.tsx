@@ -166,7 +166,7 @@ export function TeacherBalanceDialog({ open, onOpenChange, teacherId }: TeacherB
                                 {payment.completed_regular_lessons} ders
                               </span>
                               <span className="flex items-center gap-1">
-                  dark:text-purple-400               <Calendar className="h-3 w-3 text-purple-500" />
+                  <Calendar className="h-3 w-3 text-purple-500 dark:text-purple-400" />
                                 {payment.completed_trial_lessons} ders
                               </span>
                             </div>
