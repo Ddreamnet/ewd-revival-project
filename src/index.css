@@ -241,7 +241,7 @@ All colors MUST be HSL.
     left: 0;
     right: 0;      /* 100vw yerine — scrollbar genişliğini içermez */
     bottom: 0;     /* 100vh yerine */
-    background: url("/uploads/pinkgingham.png") repeat;
+    background: url("/uploads/pinkgingham.webp") repeat;
     background-size: auto;
     z-index: -1;
     pointer-events: none;
