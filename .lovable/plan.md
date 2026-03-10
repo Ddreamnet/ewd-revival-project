@@ -1,120 +1,52 @@
 
 
-## Plan: iOS Notch / Dynamic Island Safe Area Düzeltmesi (Revize)
+# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
 
-### Yaklaşım
+## Problem
 
-`viewport-fit=cover` ile WebView'ı ekran kenarlarına kadar uzatıp, CSS custom property'ler üzerinden `env(safe-area-inset-*)` ile içerikleri güvenli alana çekmek. Arkaplan (`html::before` fixed pseudo-element) zaten edge-to-edge — dokunulmayacak.
+The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
 
-### Değiştirilecek Dosyalar
+**Affected students (Fatih's):**
+- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
+- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
 
-**1. `index.html`** — viewport-fit=cover ekleme
+## Root Cause
 
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-```
+The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
 
-Android'de etkisiz.
+## Solution
 
----
+**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
 
-**2. `src/index.css`** — CSS custom property'ler ve safe area utility'leri
+### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
 
-Mevcut `pb-safe` utility'si (satır 342-347) genişletilecek. `safe-area-bottom` fallback `0px` olacak:
+1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
 
-```css
-:root {
-  --safe-area-top: env(safe-area-inset-top, 0px);
-  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-area-left: env(safe-area-inset-left, 0px);
-  --safe-area-right: env(safe-area-inset-right, 0px);
-}
+2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
 
-@layer utilities {
-  .pt-safe { padding-top: var(--safe-area-top); }
-  .pb-safe { padding-bottom: var(--safe-area-bottom); }
-  .px-safe {
-    padding-left: var(--safe-area-left);
-    padding-right: var(--safe-area-right);
-  }
-}
-```
+3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
 
-Tüm bileşenler bu utility sınıflarını kullanır — arbitrary `env()` / `calc()` ifadeleri gerekmez.
+### What stays the same
 
----
+- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
+- The `datesUnassigned` logic for reset stays
+- The self-conflict fix stays
+- Template-based generation logic stays (only generates for template day slots)
 
-**3. `capacitor.config.ts`** — StatusBar konfigürasyonu
+### Technical Detail
 
-`StatusBar.overlaysWebView` Capacitor iOS'ta varsayılan olarak `true`'dur. Bu zorunlu bir değişiklik değil; mevcut davranışı netleştirmek ve gelecekte yanlışlıkla değiştirilmesini önlemek için config'e açıkça eklenir. `overlaysWebView: true` iken `backgroundColor` etkisizdir — arkaplan zaten CSS ile yönetiliyor.
+The simplified `ensureInstancesForWeek` will:
+1. Get templates for teacher
+2. Get active students
+3. Check which students already have instances for this specific week
+4. For students missing instances this week, generate from templates (no cap check)
+5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
 
-```ts
-plugins: {
-  PushNotifications: { presentationOptions: ["badge", "sound", "alert"] },
-  StatusBar: {
-    overlaysWebView: true,  // varsayılan davranışı açıkça belirtir
-    style: 'DEFAULT'
-  }
-}
-```
+This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
 
----
+### Files Changed
 
-**4. `src/components/Header.tsx`** — Dashboard header
-
-Dış div arkaplanıyla (`bg-card/50 backdrop-blur-sm`) notch arkasına uzanır. `pt-safe` ile inner content safe area'dan başlar. `px-safe` eklenir ama mevcut `px-2 sm:px-4` zaten minimum yatay padding sağlıyor — `px-safe` landscape'te yan inset varsa ek koruma ekler, portrait'te `0px` döner ve mevcut padding'i etkilemez.
-
-```tsx
-<div className="border-b bg-card/50 dark:bg-card/70 backdrop-blur-sm pt-safe px-safe">
-  <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3">
-```
-
-`px-safe` dış kaba, `px-2 sm:px-4` inner container'a uygulanır — iki farklı elemana uygulandığı için çakışma olmaz, toplamları geçerlidir.
-
----
-
-**5. `src/components/landing/LandingHeader.tsx`** — Fixed landing header
-
-Header `fixed top-0 left-0 right-0 bg-transparent`. Inner content wrapper'a (satır 109, `max-w-7xl mx-auto px-4...` div) `pt-safe` eklenir. Logo absolute pozisyonu bu div'e göre olduğu için otomatik olarak safe area altına kayar.
-
-Dış `<header>` elementine `px-safe` eklenir — landscape'te yan inset koruması sağlar. Mevcut `px-4 sm:px-6 lg:px-8` inner container'dadır, `px-safe` dış `<header>`'dadır — farklı elemanlara uygulandığı için toplanır, çakışmaz.
-
-```tsx
-<header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible px-safe">
-  ...
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative pt-safe">
-```
-
-Double offset yok — `pt-safe` sadece inner container'da, `px-safe` sadece outer header'da.
-
----
-
-**6. `src/components/ui/toast.tsx`** — Toast viewport
-
-Toast `fixed top-0` kullanıyor (mobile'da üstten). Notch'a çakışmaması için `pt-safe` eklenir. Desktop'ta (`sm:top-auto sm:bottom-0`) etkilenmez.
-
-```tsx
-className={cn(
-  "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 pt-safe sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
-  className,
-)}
-```
-
----
-
-### Dokunulmayacaklar
-- `html::before` arkaplan — zaten `position: fixed; top: 0` ile edge-to-edge
-- Modal/sheet bileşenleri — viewport-relative
-- Android görünümü — `env()` fallback `0px`
-- AuthForm — kendi fixed top bar'ı yok, safe area sorunu yok
-
-### Özet
-
-| Bileşen | Arkaplan | Interactive Content |
-|---------|----------|-------------------|
-| LandingHeader | bg-transparent, body BG notch arkasına uzanır | inner div'e `pt-safe` |
-| Dashboard Header | bg-card/50 notch arkasına uzanır | dış div'e `pt-safe` |
-| Toast | fixed top-0 | `pt-safe` ile notch altından |
-
-Pattern: Dış kap background edge-to-edge → inner content `pt-safe` → interaktif elemanlar güvenli alanda. `px-safe` landscape yan inset koruması için dış kaba eklenir, mevcut yatay padding inner container'da korunur.
+| File | Change |
+|---|---|
+| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
 
