@@ -8,7 +8,7 @@ interface HeaderProps {
 
 export function Header({ children, rightActions }: HeaderProps) {
   return (
-    <div className="border-b bg-card/50 dark:bg-card/70 backdrop-blur-sm">
+    <div className="border-b bg-card/50 dark:bg-card/70 backdrop-blur-sm pt-safe px-safe">
       <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">

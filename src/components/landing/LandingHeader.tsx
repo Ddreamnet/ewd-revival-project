@@ -106,7 +106,7 @@ export function LandingHeader() {
         </button>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative pt-safe">
         <div className="flex items-center justify-between h-20 md:h-24 mt-[16px]">
           {/* Invisible placeholder for logo space */}
           <div className="w-20 sm:w-28 md:w-40 flex-shrink-0 invisible" />
