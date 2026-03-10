@@ -73,14 +73,14 @@ export function MobileNavPanel() {
           </span>
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="relative flex items-center w-full bg-muted rounded-full p-1 h-11 cursor-pointer"
+            className="relative flex items-center w-full bg-muted rounded-full p-0.5 h-8 cursor-pointer"
           >
             {/* Sliding knob */}
             <div
-              className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full shadow-md
+              className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-full shadow-md
                          transition-all duration-300 ease-out
                          ${isDark
-                           ? 'bg-slate-700 translate-x-[calc(100%+8px)]'
+                           ? 'bg-slate-700 translate-x-[calc(100%+4px)]'
                            : 'bg-gradient-to-r from-amber-300 to-orange-300 translate-x-0'
                          }`}
             />
@@ -88,13 +88,13 @@ export function MobileNavPanel() {
               className={`relative z-10 flex-1 flex items-center justify-center transition-colors duration-300
                          ${!isDark ? 'text-amber-900' : 'text-muted-foreground'}`}
             >
-              <Sun className="h-4.5 w-4.5" />
+              <Sun className="h-3.5 w-3.5" />
             </div>
             <div
               className={`relative z-10 flex-1 flex items-center justify-center transition-colors duration-300
                          ${isDark ? 'text-blue-100' : 'text-muted-foreground'}`}
             >
-              <Moon className="h-4.5 w-4.5" />
+              <Moon className="h-3.5 w-3.5" />
             </div>
           </button>
         </div>
