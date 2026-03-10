@@ -59,44 +59,44 @@ const BurstParticles = ({ isActive }: { isActive: boolean }) => {
 const TrialBubble = ({ onClick, language, t }: { onClick: () => void; language: string; t: any }) => (
   <button onClick={onClick} className="relative group scale-75 origin-bottom-right">
     <FloatingSparkle delay="0s" position="-top-2 -left-2" />
-    <FloatingSparkle delay="0.5s" position="-top-1 -right-3" />
-    <FloatingSparkle delay="1s" position="-bottom-2 -left-1" />
-    <FloatingSparkle delay="1.5s" position="bottom-4 -right-4" />
+    <FloatingSparkle delay="1s" position="-top-1 -right-3" />
+    <FloatingSparkle delay="2s" position="-bottom-2 -left-1" />
+    <FloatingSparkle delay="3s" position="bottom-4 -right-4" />
 
     <div className="relative bg-gradient-to-br from-landing-yellow via-landing-pink to-landing-purple 
+                    dark:from-[hsl(260,30%,25%)] dark:via-[hsl(280,25%,30%)] dark:to-[hsl(250,35%,20%)]
                     rounded-2xl p-3 md:p-4 
                     animate-glow-pulse
                     transform transition-all duration-300 
                     group-hover:scale-105 group-hover:shadow-2xl
                     overflow-hidden">
       
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent 
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent 
                       -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
       <div className="flex justify-center mb-1.5">
-        <Gift className="w-6 h-6 md:w-8 md:h-8 text-landing-purple-dark animate-wiggle" />
+        <Gift className="w-6 h-6 md:w-8 md:h-8 text-landing-purple-dark dark:text-[hsl(280,60%,75%)] animate-wiggle" />
       </div>
 
       <div className="text-center space-y-0">
         <p className="text-base md:text-lg font-black 
                      bg-gradient-to-r from-landing-purple-dark via-landing-pink to-landing-purple-dark 
+                     dark:from-[hsl(280,60%,75%)] dark:via-[hsl(330,70%,75%)] dark:to-[hsl(280,60%,75%)]
                      bg-[length:200%_auto] bg-clip-text text-transparent 
-                     animate-gradient-shift
-                     animate-pulse-scale">
+                     animate-gradient-shift">
           {t.stickyBubble.line1[language]}
         </p>
         
-        <p className="text-sm md:text-base font-bold text-foreground animate-bounce-gentle"
-           style={{ animationDelay: '0.2s' }}>
+        <p className="text-sm md:text-base font-bold text-foreground">
           {t.stickyBubble.line2[language]}
         </p>
         
-        <p className="text-sm md:text-base font-bold text-foreground animate-bounce-gentle"
-           style={{ animationDelay: '0.4s' }}>
+        <p className="text-sm md:text-base font-bold text-foreground">
           {t.stickyBubble.line3[language]}
         </p>
 
-        <div className="flex items-center justify-center gap-1 pt-1.5 text-xs md:text-sm font-semibold text-landing-purple-dark
+        <div className="flex items-center justify-center gap-1 pt-1.5 text-xs md:text-sm font-semibold 
+                        text-landing-purple-dark dark:text-[hsl(280,60%,75%)]
                         opacity-80 group-hover:opacity-100 transition-opacity">
           <span>{t.stickyBubble.cta[language]}</span>
           <ArrowRight className="w-3 h-3 md:w-4 md:h-4 animate-arrow-bounce" />
@@ -105,6 +105,7 @@ const TrialBubble = ({ onClick, language, t }: { onClick: () => void; language: 
 
       <div className="absolute -bottom-1.5 right-3 w-3 h-3 
                       bg-gradient-to-br from-landing-pink to-landing-purple 
+                      dark:from-[hsl(280,25%,30%)] dark:to-[hsl(250,35%,20%)]
                       transform rotate-45" />
     </div>
   </button>

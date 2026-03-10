@@ -470,7 +470,6 @@ All colors MUST be HSL.
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
 
 .hero-book {
