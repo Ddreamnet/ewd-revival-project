@@ -30,8 +30,8 @@ export function MobileNavPanel() {
       <PopoverContent
         align="end"
         sideOffset={12}
-        className="w-64 rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl
-                   shadow-[0_8px_32px_rgba(147,112,219,0.15)] p-4 space-y-4 z-[70]"
+        className="w-48 rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl
+                   shadow-[0_8px_32px_rgba(147,112,219,0.15)] p-2.5 space-y-2.5 z-[70]"
       >
         {/* Language Switch */}
         <div className="space-y-1.5">
