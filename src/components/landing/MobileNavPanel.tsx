@@ -38,29 +38,29 @@ export function MobileNavPanel() {
           <span className="text-xs font-medium text-muted-foreground px-1">
             {language === 'tr' ? 'Dil' : 'Language'}
           </span>
-          <div className="relative flex items-center bg-muted rounded-full p-1 h-11">
+          <div className="relative flex items-center bg-muted rounded-full p-0.5 h-8">
             {/* Sliding knob */}
             <div
-              className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-landing-purple shadow-md
+              className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-full bg-landing-purple shadow-md
                          transition-transform duration-300 ease-out"
-              style={{ transform: language === 'en' ? 'translateX(calc(100% + 8px))' : 'translateX(0)' }}
+              style={{ transform: language === 'en' ? 'translateX(calc(100% + 4px))' : 'translateX(0)' }}
             />
             <button
               onClick={() => setLanguage('tr')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 text-sm font-medium
+              className={`relative z-10 flex-1 flex items-center justify-center gap-1 text-xs font-medium
                          rounded-full h-full transition-colors duration-300
                          ${language === 'tr' ? 'text-white' : 'text-muted-foreground'}`}
             >
-              <span className="text-base">🇹🇷</span>
+              <span className="text-sm">🇹🇷</span>
               <span>TR</span>
             </button>
             <button
               onClick={() => setLanguage('en')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 text-sm font-medium
+              className={`relative z-10 flex-1 flex items-center justify-center gap-1 text-xs font-medium
                          rounded-full h-full transition-colors duration-300
                          ${language === 'en' ? 'text-white' : 'text-muted-foreground'}`}
             >
-              <span className="text-base">🇬🇧</span>
+              <span className="text-sm">🇬🇧</span>
               <span>EN</span>
             </button>
           </div>
