@@ -17,13 +17,13 @@ export function MobileNavPanel() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="md:hidden rounded-full p-2.5 bg-landing-purple/10 text-landing-purple-dark
+          className="md:hidden rounded-full p-2 bg-landing-purple/10 text-landing-purple-dark
                      hover:bg-landing-purple/20 hover:scale-110
                      hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
                      transition-all duration-300"
           aria-label="Menü"
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {open ? <X className="h-[18px] w-[18px]" /> : <Menu className="h-[18px] w-[18px]" />}
         </button>
       </PopoverTrigger>
 
