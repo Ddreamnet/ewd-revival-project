@@ -10,6 +10,7 @@ import {
 '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { MobileNavPanel } from './MobileNavPanel';
+import { ThemeToggleButton } from '@/components/ThemeToggleButton';
 
 export function LandingHeader() {
   const { language, setLanguage, t } = useLanguage();
@@ -186,6 +187,9 @@ export function LandingHeader() {
           <div className="flex items-center gap-2 md:gap-3">
             {/* Mobile: Hamburger popover panel */}
             <MobileNavPanel />
+
+            {/* Desktop: Theme Toggle */}
+            <ThemeToggleButton variant="landing" className="hidden md:flex" />
 
             {/* Desktop: Language Dropdown */}
             <DropdownMenu>

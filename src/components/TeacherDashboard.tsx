@@ -10,7 +10,7 @@ import { StudentTopics } from "./StudentTopics";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { NotificationBell } from "./NotificationBell";
-import { ContactDialog } from "./ContactDialog";
+import { ThemeToggleButton } from "./ThemeToggleButton";
 import { WeeklyScheduleDialog } from "./WeeklyScheduleDialog";
 import { TeacherBalanceDialog } from "./TeacherBalanceDialog";
 import { StudentAboutDialog } from "./StudentAboutDialog";
@@ -186,7 +186,7 @@ export function TeacherDashboard() {
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Konular</span>
             </Button>
-            <ContactDialog />
+            <ThemeToggleButton />
             <Button onClick={signOut} variant="outline" size="sm" disabled={signingOut}>
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">{signingOut ? "Çıkış..." : "Çıkış"}</span>

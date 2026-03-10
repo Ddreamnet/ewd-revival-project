@@ -1,32 +1,52 @@
 
 
-## Plan: Tema Butonu + Panel Header Düzenlemeleri
+# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
 
-### 1. Yeni bileşen: `ThemeToggleButton`
-Yeni bir `src/components/ThemeToggleButton.tsx` oluşturulacak. `next-themes`'den `useTheme` kullanarak:
-- Daire şeklinde buton (`rounded-full`)
-- Dark modda `Sun` ikonu, light modda `Moon` (hilal) ikonu (MobileNavPanel'deki ile aynı)
-- Tıklanınca tema değişir
-- Boyut ve stil prop ile kontrol edilebilir (landing vs panel header için)
+## Problem
 
-### 2. `LandingHeader.tsx` - Desktop/tablet tema butonu
-- Dil dropdown'unun **soluna** yeni `ThemeToggleButton` eklenecek (satır ~191 civarı)
-- Dil butonuyla aynı boyut ve stil: `rounded-full bg-landing-purple/10 text-landing-purple-dark hover:bg-landing-purple/20 hover:scale-110 hover:shadow-...`
-- Sadece `hidden md:flex` (mobilde hamburger menüdeki mevcut switch kullanılıyor)
+The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
 
-### 3. `TeacherDashboard.tsx` - İletişim butonunu kaldır, tema butonu ekle
-- Satır 189'daki `<ContactDialog />` kaldırılacak
-- rightActions'a `ThemeToggleButton` eklenecek (çıkış butonunun yanına)
+**Affected students (Fatih's):**
+- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
+- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
 
-### 4. `StudentDashboard.tsx` - Tema butonu ekle
-- rightActions'a `ThemeToggleButton` eklenecek
-- `<ContactDialog />` öğretmen panelinde kaldırılıyor ama öğrenci panelinde de kaldırılıp kaldırılmayacağı: kullanıcı sadece "öğretmen panellerindeki" dedi, öğrenci panelindeki kalacak
+## Root Cause
 
-### 5. `AdminDashboard.tsx` - Tema butonu ekle
-- rightActions'a `ThemeToggleButton` eklenecek (çıkış butonunun soluna)
+The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
 
-### Teknik detaylar
-- `ThemeToggleButton` bileşeni `useTheme()` hook'unu kullanacak, `resolvedTheme` ile mevcut temayı okuyacak
-- İkonlar: `Moon` (light modda gösterilir → dark'a geçir), `Sun` (dark modda gösterilir → light'a geçir) — MobileNavPanel ile aynı mantık
-- Panel header'larında buton stili: `variant="outline" size="sm"` ile mevcut butonlarla uyumlu
+## Solution
+
+**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
+
+### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
+
+1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
+
+2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
+
+3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
+
+### What stays the same
+
+- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
+- The `datesUnassigned` logic for reset stays
+- The self-conflict fix stays
+- Template-based generation logic stays (only generates for template day slots)
+
+### Technical Detail
+
+The simplified `ensureInstancesForWeek` will:
+1. Get templates for teacher
+2. Get active students
+3. Check which students already have instances for this specific week
+4. For students missing instances this week, generate from templates (no cap check)
+5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
+
+This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
 

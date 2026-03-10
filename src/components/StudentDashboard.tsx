@@ -32,6 +32,7 @@ import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
 import { HomeworkListDialog } from "./HomeworkListDialog";
 import { ContactDialog } from "./ContactDialog";
 import { NotificationBell } from "./NotificationBell";
+import { ThemeToggleButton } from "./ThemeToggleButton";
 import { initPushNotifications } from "@/lib/pushNotifications";
 import { getResourceIcon } from "@/lib/resourceUtils";
 import { useStudentTopics } from "@/hooks/useStudentTopics";
@@ -157,6 +158,7 @@ export function StudentDashboard() {
               onNotificationClick={(_studentId) => setListDialogOpen(true)}
             />
             <ContactDialog />
+            <ThemeToggleButton />
             <Button onClick={signOut} variant="outline" size="sm" disabled={signingOut}>
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">{signingOut ? "Çıkış..." : "Çıkış"}</span>

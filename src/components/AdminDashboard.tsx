@@ -24,6 +24,7 @@ import { AdminTeacherList } from "./AdminTeacherList";
 import { AdminStudentList } from "./AdminStudentList";
 import { useAdminTopicsCrud } from "@/hooks/useAdminTopicsCrud";
 import type { Teacher, Student, Topic, Resource } from "@/lib/types";
+import { ThemeToggleButton } from "./ThemeToggleButton";
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -207,6 +208,7 @@ export function AdminDashboard() {
               <FolderOpen className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Konular</span>
             </Button>
+            <ThemeToggleButton />
             <Button onClick={signOut} variant="outline" size="sm" disabled={signingOut}>
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">{signingOut ? "Çıkış..." : "Çıkış"}</span>
