@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger } from
 '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { MobileNavPanel } from './MobileNavPanel';
 
 export function LandingHeader() {
   const { language, setLanguage, t } = useLanguage();
