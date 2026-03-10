@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
       data: {
         notification_id: String(record.id),
         homework_id: String(record.homework_id),
-        deep_link: "/notifications",
+        deep_link: `/dashboard?action=homework&student_id=${record.student_id}&teacher_id=${record.teacher_id}`,
       },
     };
 

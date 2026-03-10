@@ -115,7 +115,7 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
   await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
     console.log('Push action performed:', action);
     const data = action.notification.data ?? {};
-    const deepLink: string = data.deep_link ?? '/notifications';
+    const deepLink: string = data.deep_link ?? '/dashboard';
     // Safely navigate using history API so React Router picks it up
     if (deepLink && deepLink.startsWith('/')) {
       window.history.pushState({}, '', deepLink);
