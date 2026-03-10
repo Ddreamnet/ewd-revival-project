@@ -259,7 +259,7 @@ export function TeacherDashboard() {
                           return <div key={index} className="flex items-center gap-1">
                                       <Clock className="h-3 w-3 text-muted-foreground" />
                                       <span className={`
-                    ${status === "past" ? "text-[10px] text-green-600 line-through" : status === "upcoming" ? "text-sm text-red-600 font-medium" : "text-xs text-muted-foreground"}
+                    ${status === "past" ? "text-[10px] text-red-600 dark:text-red-800 line-through" : status === "upcoming" ? "text-sm text-green-600 dark:text-green-700 font-medium" : "text-xs text-muted-foreground"}
                   `}>
                                         {getDayName(lesson.dayOfWeek)} {formatTime(lesson.startTime)}-
                                         {formatTime(lesson.endTime)}
