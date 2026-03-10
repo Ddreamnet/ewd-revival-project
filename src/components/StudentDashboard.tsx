@@ -74,6 +74,15 @@ export function StudentDashboard() {
     }
   }, [profile]);
 
+  // Handle homework deep link from push notification
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'homework') {
+      setListDialogOpen(true);
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, []);
+
   const fetchTeacherRelation = async () => {
     try {
       const { data: studentRelation, error: relationError } = await supabase

@@ -80,6 +80,10 @@ Deno.serve(async (req) => {
       for (const tokenRow of tokens) {
         console.log(`[SEND-PUSH] FCM payload: title=${recipient.title}, channel_id=${recipient.channel_id || 'default'}, token=${tokenRow.token.substring(0, 10)}...`);
 
+        const soundFile = recipient.channel_id
+          ? `${recipient.channel_id}.wav`
+          : "default";
+
         const fcmPayload = {
           message: {
             token: tokenRow.token,
@@ -94,6 +98,13 @@ Deno.serve(async (req) => {
                   ? { channel_id: recipient.channel_id, sound: recipient.channel_id }
                   : { default_sound: true }),
                 default_vibrate_timings: true,
+              },
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: soundFile,
+                },
               },
             },
             data: recipient.data || {},

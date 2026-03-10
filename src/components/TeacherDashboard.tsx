@@ -48,6 +48,26 @@ export function TeacherDashboard() {
       }
     }
   }, [profile]);
+
+  // Handle homework deep link from push notification
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'homework') {
+      const studentId = params.get('student_id');
+      if (studentId) {
+        // Wait for students to load, then open homework for the specific student
+        const checkAndOpen = () => {
+          const studentToShow = students.find(s => s.student_id === studentId);
+          if (studentToShow) {
+            setSelectedStudent(studentToShow);
+            setShowHomeworkForStudent(studentToShow);
+          }
+        };
+        checkAndOpen();
+      }
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, [students]);
   const fetchStudents = async () => {
     try {
       // Fetch students with their lessons (exclude archived students)
