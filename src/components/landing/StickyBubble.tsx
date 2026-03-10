@@ -57,7 +57,7 @@ const BurstParticles = ({ isActive }: { isActive: boolean }) => {
 
 // Trial bubble component - extracted for cleaner code
 const TrialBubble = ({ onClick, language, t }: { onClick: () => void; language: string; t: any }) => (
-  <button onClick={onClick} className="relative group">
+  <button onClick={onClick} className="relative group scale-50 origin-bottom-right">
     <FloatingSparkle delay="0s" position="-top-2 -left-2" />
     <FloatingSparkle delay="0.5s" position="-top-1 -right-3" />
     <FloatingSparkle delay="1s" position="-bottom-2 -left-1" />
