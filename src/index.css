@@ -488,6 +488,7 @@ All colors MUST be HSL.
   display: flex;
   align-items: center;
   justify-content: center;
+  perspective: 800px;
 }
 
 .hero-book {
@@ -515,6 +516,7 @@ All colors MUST be HSL.
   border-radius: 16px;
   background: linear-gradient(180deg, var(--spine), #9158cf);
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+  transform: translateZ(-12px);
 }
 
 .hero-book__pages {
@@ -527,6 +529,7 @@ All colors MUST be HSL.
   background: linear-gradient(180deg, var(--page), #ffeef8);
   box-shadow: inset -2px 0 0 rgba(0, 0, 0, 0.06);
   transform-origin: 50% 50%;
+  transform: translateZ(-6px);
 }
 
 .hero-book__cover {
