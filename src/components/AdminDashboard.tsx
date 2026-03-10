@@ -24,6 +24,7 @@ import { AdminTeacherList } from "./AdminTeacherList";
 import { AdminStudentList } from "./AdminStudentList";
 import { useAdminTopicsCrud } from "@/hooks/useAdminTopicsCrud";
 import type { Teacher, Student, Topic, Resource } from "@/lib/types";
+import { ThemeToggleButton } from "./ThemeToggleButton";
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);

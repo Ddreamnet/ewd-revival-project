@@ -32,6 +32,7 @@ import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
 import { HomeworkListDialog } from "./HomeworkListDialog";
 import { ContactDialog } from "./ContactDialog";
 import { NotificationBell } from "./NotificationBell";
+import { ThemeToggleButton } from "./ThemeToggleButton";
 import { initPushNotifications } from "@/lib/pushNotifications";
 import { getResourceIcon } from "@/lib/resourceUtils";
 import { useStudentTopics } from "@/hooks/useStudentTopics";
