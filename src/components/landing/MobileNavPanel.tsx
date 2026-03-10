@@ -80,9 +80,10 @@ export function MobileNavPanel() {
               className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-full shadow-md
                          transition-all duration-300 ease-out
                          ${isDark
-                           ? 'bg-slate-700 translate-x-[calc(100%+4px)]'
-                           : 'bg-gradient-to-r from-amber-300 to-orange-300 translate-x-0'
+                           ? 'bg-slate-700'
+                           : 'bg-gradient-to-r from-amber-300 to-orange-300'
                          }`}
+              style={{ transform: isDark ? 'translateX(calc(100% + 4px))' : 'translateX(0)' }}
             />
             <div
               className={`relative z-10 flex-1 flex items-center justify-center transition-colors duration-300
