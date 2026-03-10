@@ -187,6 +187,9 @@ export function LandingHeader() {
             {/* Mobile: Hamburger popover panel */}
             <MobileNavPanel />
 
+            {/* Desktop: Theme Toggle */}
+            <ThemeToggleButton variant="landing" className="hidden md:flex" />
+
             {/* Desktop: Language Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
