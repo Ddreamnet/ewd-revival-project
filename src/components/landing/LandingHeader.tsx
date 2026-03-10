@@ -10,6 +10,7 @@ import {
 '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { MobileNavPanel } from './MobileNavPanel';
+import { ThemeToggleButton } from '@/components/ThemeToggleButton';
 
 export function LandingHeader() {
   const { language, setLanguage, t } = useLanguage();
