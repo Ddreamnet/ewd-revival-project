@@ -182,19 +182,21 @@ export function LandingHeader() {
             </button>
           </nav>
 
-          {/* Language + Login - Right */}
+          {/* Right side controls */}
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Language Dropdown - Creative Purple Design */}
+            {/* Mobile: Hamburger popover panel */}
+            <MobileNavPanel />
+
+            {/* Desktop: Language Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full bg-landing-purple/10 text-landing-purple-dark 
+                  className="hidden md:flex rounded-full bg-landing-purple/10 text-landing-purple-dark 
                              hover:bg-landing-purple/20 hover:scale-110 
                              hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
                              transition-all duration-300">
-
                   <Globe className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -202,43 +204,27 @@ export function LandingHeader() {
                 <DropdownMenuItem
                   onClick={() => setLanguage('tr')}
                   className={`cursor-pointer ${language === 'tr' ? 'bg-landing-purple/20' : ''}`}>
-
                   🇹🇷 TR
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setLanguage('en')}
                   className={`cursor-pointer ${language === 'en' ? 'bg-landing-purple/20' : ''}`}>
-
                   🇬🇧 GB
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Login Button - Creative Purple Design */}
-            <Link to="/login">
-              {/* Desktop: Text button with sparkle */}
+            {/* Desktop: Login Button */}
+            <Link to="/login" className="hidden md:block">
               <Button
                 variant="ghost"
-                className="hidden md:flex items-center rounded-full px-4 font-medium
+                className="flex items-center rounded-full px-4 font-medium
                            bg-gradient-to-r from-landing-purple/15 to-landing-pink/15
                            text-landing-purple-dark
                            hover:from-landing-purple/25 hover:to-landing-pink/25
                            hover:scale-105 hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
                            transition-all duration-300">
-
                 {t.header.login[language]}
-              </Button>
-              {/* Mobile: Icon button matching globe style */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden rounded-full bg-landing-purple/10 text-landing-purple-dark
-                           hover:bg-landing-purple/20 hover:scale-110 
-                           hover:shadow-[0_0_12px_rgba(147,112,219,0.4)]
-                           transition-all duration-300"
-                aria-label={t.header.login[language]}>
-
-                <LogIn className="h-5 w-5" />
               </Button>
             </Link>
           </div>
