@@ -156,10 +156,10 @@ All colors MUST be HSL.
 
   .dark {
     /* Navy-based dark palette — hue 222 */
-    --background: 222 25% 7%;
+    --background: 220 21% 11%;
     --foreground: 220 15% 90%;
 
-    --card: 220 23% 14%;
+    --card: 219 25% 14%;
     --card-foreground: 220 15% 90%;
 
     --popover: 222 20% 13%;
