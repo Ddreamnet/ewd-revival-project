@@ -809,11 +809,28 @@ All colors MUST be HSL.
   --book-a: hsl(260 30% 35%);
   --book-b: hsl(260 25% 28%);
   --spine: hsl(260 20% 22%);
-  --page: hsl(222 20% 14%);
+  --page: hsl(260 18% 28%);
   --ink: hsl(220 15% 90%);
   --muted: hsl(220 10% 65%);
   --spark: hsla(45 80% 60% / 0.85);
   --stitch: hsla(220 15% 90% / 0.2);
+}
+
+.dark .hero-book__pages {
+  background: linear-gradient(180deg, hsl(260 20% 32%), hsl(260 15% 24%));
+}
+
+.dark .hero-book__spine {
+  background: linear-gradient(180deg, hsl(260 22% 24%), hsl(260 18% 18%));
+}
+
+/* Tablet: kitap içi metin boyutları */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero-book__english { font-size: 28px; }
+  .hero-book__dilara { font-size: 28px; }
+  .hero-book__lead { font-size: 14px; }
+  .hero-book__sub { font-size: 12px; }
+  .hero-book__content { inset: 22px; padding: 10px; gap: 8px; }
 }
 
 /* ===== Why Section Styles ===== */
