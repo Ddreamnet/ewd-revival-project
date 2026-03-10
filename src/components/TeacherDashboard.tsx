@@ -10,7 +10,7 @@ import { StudentTopics } from "./StudentTopics";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { NotificationBell } from "./NotificationBell";
-import { ContactDialog } from "./ContactDialog";
+import { ThemeToggleButton } from "./ThemeToggleButton";
 import { WeeklyScheduleDialog } from "./WeeklyScheduleDialog";
 import { TeacherBalanceDialog } from "./TeacherBalanceDialog";
 import { StudentAboutDialog } from "./StudentAboutDialog";
