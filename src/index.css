@@ -488,6 +488,7 @@ All colors MUST be HSL.
   display: flex;
   align-items: center;
   justify-content: center;
+  perspective: 800px;
 }
 
 .hero-book {
@@ -515,6 +516,7 @@ All colors MUST be HSL.
   border-radius: 16px;
   background: linear-gradient(180deg, var(--spine), #9158cf);
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+  transform: translateZ(-12px);
 }
 
 .hero-book__pages {
@@ -527,6 +529,7 @@ All colors MUST be HSL.
   background: linear-gradient(180deg, var(--page), #ffeef8);
   box-shadow: inset -2px 0 0 rgba(0, 0, 0, 0.06);
   transform-origin: 50% 50%;
+  transform: translateZ(-6px);
 }
 
 .hero-book__cover {
@@ -536,10 +539,12 @@ All colors MUST be HSL.
   background: linear-gradient(145deg, var(--book-a), var(--book-b));
   box-shadow:
     inset 0 0 0 2px rgba(255, 255, 255, 0.3),
-    inset 0 -10px 22px rgba(0, 0, 0, 0.1);
+    inset 0 -10px 22px rgba(0, 0, 0, 0.1),
+    0 8px 24px -4px rgba(0, 0, 0, 0.18);
   transform-origin: 18% 55%;
   backface-visibility: hidden;
   overflow: hidden;
+  transform: translateZ(0);
 }
 
 .hero-book__stitches {
@@ -804,11 +809,28 @@ All colors MUST be HSL.
   --book-a: hsl(260 30% 35%);
   --book-b: hsl(260 25% 28%);
   --spine: hsl(260 20% 22%);
-  --page: hsl(222 20% 14%);
+  --page: hsl(260 18% 28%);
   --ink: hsl(220 15% 90%);
   --muted: hsl(220 10% 65%);
   --spark: hsla(45 80% 60% / 0.85);
   --stitch: hsla(220 15% 90% / 0.2);
+}
+
+.dark .hero-book__pages {
+  background: linear-gradient(180deg, hsl(260 20% 32%), hsl(260 15% 24%));
+}
+
+.dark .hero-book__spine {
+  background: linear-gradient(180deg, hsl(260 22% 24%), hsl(260 18% 18%));
+}
+
+/* Tablet: kitap içi metin boyutları */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero-book__english { font-size: 28px; }
+  .hero-book__dilara { font-size: 28px; }
+  .hero-book__lead { font-size: 14px; }
+  .hero-book__sub { font-size: 12px; }
+  .hero-book__content { inset: 22px; padding: 10px; gap: 8px; }
 }
 
 /* ===== Why Section Styles ===== */
