@@ -372,13 +372,31 @@ All colors MUST be HSL.
   0%,
   100% {
     box-shadow:
-      0 0 20px hsla(330, 85%, 86%, 0.4),
-      0 0 40px hsla(280, 50%, 75%, 0.2);
+      0 0 15px hsla(330, 85%, 86%, 0.3),
+      0 0 30px hsla(280, 50%, 75%, 0.15);
   }
   50% {
     box-shadow:
-      0 0 40px hsla(330, 85%, 86%, 0.8),
-      0 0 60px hsla(280, 50%, 75%, 0.4);
+      0 0 25px hsla(330, 85%, 86%, 0.5),
+      0 0 45px hsla(280, 50%, 75%, 0.25);
+  }
+}
+
+.dark .animate-glow-pulse {
+  animation-name: glow-pulse-dark;
+}
+
+@keyframes glow-pulse-dark {
+  0%,
+  100% {
+    box-shadow:
+      0 0 12px hsla(260, 40%, 50%, 0.2),
+      0 0 25px hsla(280, 30%, 40%, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 20px hsla(260, 40%, 50%, 0.35),
+      0 0 35px hsla(280, 30%, 40%, 0.2);
   }
 }
 
@@ -470,7 +488,6 @@ All colors MUST be HSL.
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
 
 .hero-book {
