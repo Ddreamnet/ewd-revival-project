@@ -1,52 +1,207 @@
 
 
-# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
+## Plan: iOS Push Notification Entegrasyonu (Revize v3)
 
-## Problem
+### Analiz Sonuçları
 
-The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
+Mevcut sistemde 3 bildirim tipi var:
 
-**Affected students (Fatih's):**
-- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
-- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
+| Tip | Edge Function | channel_id | Ses | deep_link | Tetik |
+|-----|--------------|------------|-----|-----------|-------|
+| Ödev | `notifications-push` | `homework` | homework.wav | `/notifications` | DB webhook |
+| Ders hatırlatma | `lesson-reminder-cron` | `lesson` | lesson.wav | yok | Cron |
+| Son ders uyarısı | `admin-notifications-push` | `last_lesson` | last_lesson.wav | `/admin` | DB webhook |
 
-## Root Cause
+---
 
-The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
+### Token Akışı — Kritik Analiz
 
-## Solution
+**Sorun:** Capacitor plugin'i iOS'ta Firebase SDK olmadan sadece APNs device token döner. FCM HTTP v1 API bu token'ı kabul etmez.
 
-**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
+**Çözüm:** Firebase SDK entegre edilecek. AppDelegate'te APNs token Firebase'e bridge edildikten sonra, `Messaging.messaging().token(...)` ile gerçek FCM registration token alınacak ve Capacitor'ın `registration` event'ine **bu FCM token** verilecek.
 
-### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
+**Token akışı (adım adım):**
+1. `PushNotifications.register()` → iOS APNs'e kayıt ister
+2. `didRegisterForRemoteNotificationsWithDeviceToken` → APNs device token gelir
+3. `Messaging.messaging().apnsToken = deviceToken` → APNs token Firebase'e bridge edilir
+4. `Messaging.messaging().token { token, error in ... }` → Firebase SDK, FCM sunucusundan gerçek FCM registration token alır
+5. `NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: token)` → **FCM token** Capacitor plugin'e verilir (APNs token değil)
+6. Capacitor `registration` event'inde `token.value` = gerçek FCM token
+7. Bu FCM token Supabase `push_tokens` tablosuna kaydedilir
+8. `send-push` edge function bu token'ı FCM HTTP v1 API'ye gönderir → çalışır
 
-1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
+**Garanti:** iOS tarafında backend'e kaydedilen token APNs token değil, FCM registration token'dır.
 
-2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
+---
 
-3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
+### 1. Firebase iOS SDK Entegrasyonu (Manuel — Xcode)
 
-### What stays the same
+Kullanıcının yapacağı adımlar:
+1. Xcode'da: **File → Add Package Dependencies**
+2. Repo URL: `https://github.com/firebase/firebase-ios-sdk`
+3. Version: en güncel stable sürüm
+4. Sadece **FirebaseMessaging** modülünü seç
+5. Xcode SPM dependency'yi resolve edecek
 
-- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
-- The `datesUnassigned` logic for reset stays
-- The self-conflict fix stays
-- Template-based generation logic stays (only generates for template day slots)
+`Package.swift` dosyası elle düzenlenmeyecek.
 
-### Technical Detail
+---
 
-The simplified `ensureInstancesForWeek` will:
-1. Get templates for teacher
-2. Get active students
-3. Check which students already have instances for this specific week
-4. For students missing instances this week, generate from templates (no cap check)
-5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
+### 2. `ios/App/App/AppDelegate.swift` — APNs Callback'leri + Firebase Bridge
 
-This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
+```swift
+import UIKit
+import Capacitor
+import FirebaseCore
+import FirebaseMessaging
 
-### Files Changed
+@UIApplicationMain
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
 
-| File | Change |
-|---|---|
-| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        FirebaseApp.configure()
+        return true
+    }
+
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // APNs token'ı Firebase'e bridge et
+        Messaging.messaging().apnsToken = deviceToken
+        // Firebase'den gerçek FCM registration token'ı al
+        Messaging.messaging().token { token, error in
+            if let error = error {
+                NotificationCenter.default.post(
+                    name: .capacitorDidFailToRegisterForRemoteNotifications,
+                    object: error
+                )
+            } else if let token = token {
+                // Capacitor'a FCM token gönder (APNs token değil)
+                NotificationCenter.default.post(
+                    name: .capacitorDidRegisterForRemoteNotifications,
+                    object: token
+                )
+            }
+        }
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(
+            name: .capacitorDidFailToRegisterForRemoteNotifications,
+            object: error
+        )
+    }
+
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
+    }
+
+    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+        return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    }
+}
+```
+
+---
+
+### 3. `capacitor.config.ts` — iOS Foreground PresentationOptions
+
+```ts
+plugins: {
+  PushNotifications: {
+    presentationOptions: ["badge", "sound", "alert"]
+  }
+}
+```
+
+LocalNotifications ile duplicate oluşturmaya gerek yok.
+
+---
+
+### 4. `supabase/functions/send-push/index.ts` — APNs Payload Ekleme
+
+Android bloğu aynen korunacak. `apns` bloğu eklenecek:
+
+```ts
+const soundFile = recipient.channel_id
+  ? `${recipient.channel_id}.wav`
+  : "default";
+
+apns: {
+  payload: {
+    aps: {
+      sound: soundFile
+    }
+  }
+}
+```
+
+`mutable-content` opsiyoneldir, bu projede kullanılmayacak.
+
+Ses eşlemesi: `homework` → `homework.wav`, `lesson` → `lesson.wav`, `last_lesson` → `last_lesson.wav`
+
+---
+
+### 5. Homework Bildirimi → Ödevler Ekranına Yönlendirme
+
+**5a. `notifications-push/index.ts`** — deep_link güncelleme:
+```ts
+deep_link: "/dashboard?action=homework&student_id=X&teacher_id=Y"
+```
+
+**5b. `src/lib/pushNotifications.ts`** — action listener'ında:
+```ts
+const deepLink = data.deep_link ?? '/dashboard';
+if (deepLink.startsWith('/')) {
+  window.history.pushState({}, '', deepLink);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+```
+
+**5c. `StudentDashboard.tsx` ve `TeacherDashboard.tsx`** — query param kontrolü:
+```ts
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('action') === 'homework') {
+    setListDialogOpen(true);
+    window.history.replaceState({}, '', '/dashboard');
+  }
+}, []);
+```
+
+**Senaryolar:** Cold start, background tap, foreground tap — üçünde de `pushNotificationActionPerformed` → URL push → useEffect → homework dialog açılır.
+
+---
+
+### Değiştirilecek Dosyalar
+
+| Dosya | Değişiklik |
+|-------|-----------|
+| `ios/App/App/AppDelegate.swift` | APNs callback + `Messaging.messaging().token(...)` ile FCM token bridge |
+| `capacitor.config.ts` | PushNotifications presentationOptions |
+| `supabase/functions/send-push/index.ts` | APNs payload bloğu |
+| `supabase/functions/notifications-push/index.ts` | deep_link homework route |
+| `src/lib/pushNotifications.ts` | Deep link action handling |
+| `src/components/StudentDashboard.tsx` | Query param ile homework dialog |
+| `src/components/TeacherDashboard.tsx` | Query param ile homework dialog |
+
+### Dokunulmayacaklar
+- Android bildirim kanalları ve ses mantığı
+- Edge function tetikleme akışları
+- Token kayıt/upsert mantığı
+- Ders hatırlatma ve admin notification deep link'leri
+
+### Kullanıcının Manuel Yapması Gerekenler
+1. Xcode: **File → Add Package Dependencies** → `https://github.com/firebase/firebase-ios-sdk` → **FirebaseMessaging**
+2. `npx cap sync ios`
+3. App'i yeniden build et
+
+### Özet
+
+1. **iOS'ta hangi token kaydediliyor?** → `Messaging.messaging().token(...)` ile alınan FCM registration token. APNs token değil.
+2. **Bu token neden doğru?** → `send-push` FCM HTTP v1 API kullanıyor, FCM token bekliyor. Firebase SDK APNs→FCM dönüşümünü garanti ediyor.
+3. **Homework tıklanınca?** → `/dashboard?action=homework` → useEffect → HomeworkListDialog açılır.
+4. **Cold/background/foreground:** Üçünde de tutarlı çalışır.
 
