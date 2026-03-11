@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { clearSupabaseStorage } from "@/lib/capacitorStorage";
+import { clearSupabaseStorage, saveCredentials } from "@/lib/capacitorStorage";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
 
