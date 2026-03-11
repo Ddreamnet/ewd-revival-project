@@ -144,7 +144,6 @@ export function HomeworkListDialog({
       if (urlParts.length < 2) {
         throw new Error("Invalid file URL");
       }
-      // Decode the path to handle special characters
       const filePath = decodeURIComponent(urlParts[1]);
 
       const { data, error } = await supabase.storage
@@ -153,6 +152,22 @@ export function HomeworkListDialog({
 
       if (error) throw error;
 
+      // Native platform: use Filesystem + Share
+      if (Capacitor.isNativePlatform()) {
+        const success = await downloadFileNative({
+          url: fileUrl,
+          fileName,
+          blob: data,
+        });
+        if (success) {
+          toast({ title: "Başarılı", description: "Dosya indirildi" });
+        } else {
+          throw new Error("Native download failed");
+        }
+        return;
+      }
+
+      // Web: blob + anchor download
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
