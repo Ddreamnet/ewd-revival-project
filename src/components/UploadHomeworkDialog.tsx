@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Camera, Plus } from "lucide-react";
+import { pickImageNative, isNativePlatform } from "@/lib/nativeCamera";
 
 interface UploadHomeworkDialogProps {
   open: boolean;
@@ -14,7 +15,7 @@ interface UploadHomeworkDialogProps {
   studentId: string;
   teacherId: string;
   onSuccess?: () => void;
-  uploadedByUserId?: string; // Kim yüklüyor (öğrenci veya öğretmen)
+  uploadedByUserId?: string;
 }
 
 export function UploadHomeworkDialog({ 
@@ -30,6 +31,7 @@ export function UploadHomeworkDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const acceptedFileTypes = "image/jpeg,image/jpg,image/png,image/webp,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -40,7 +42,6 @@ export function UploadHomeworkDialog({
       
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        // Check file size (max 10MB)
         if (file.size > 10 * 1024 * 1024) {
           toast({
             title: "Hata",
@@ -57,6 +58,21 @@ export function UploadHomeworkDialog({
     
     // Reset input to allow selecting same file again
     e.target.value = '';
+  };
+
+  const handleNativeCamera = async () => {
+    try {
+      const file = await pickImageNative();
+      if (file) {
+        setFiles(prev => [...prev, file]);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: "Fotoğraf alınamadı. Lütfen kamera izinlerini kontrol edin.",
+        variant: "destructive",
+      });
+    }
   };
 
   const removeFile = (index: number) => {
@@ -89,9 +105,7 @@ export function UploadHomeworkDialog({
       const uploaderId = uploadedByUserId || studentId;
       const submissions = [];
 
-      // Upload all files
       for (const file of files) {
-        // Upload file to storage
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${studentId}/${uploaderId}/${fileName}`;
@@ -102,7 +116,6 @@ export function UploadHomeworkDialog({
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('homework-files')
           .getPublicUrl(filePath);
@@ -120,7 +133,6 @@ export function UploadHomeworkDialog({
         });
       }
 
-      // Create homework submission records
       const { error: insertError } = await supabase
         .from('homework_submissions')
         .insert(submissions);
@@ -132,7 +144,6 @@ export function UploadHomeworkDialog({
         description: `${files.length} dosya başarıyla yüklendi`,
       });
 
-      // Reset form
       setTitle("");
       setDescription("");
       setFiles([]);
@@ -152,7 +163,7 @@ export function UploadHomeworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[500px] max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Ödev Yükle</DialogTitle>
           <DialogDescription>
@@ -181,29 +192,59 @@ export function UploadHomeworkDialog({
               placeholder="Ödev hakkında ek bilgiler..."
               rows={3}
               disabled={uploading}
+              className="max-h-[120px] overflow-y-auto"
             />
           </div>
 
           <div className="space-y-2">
             <Label>Dosyalar *</Label>
-            <Input
+            
+            {/* Hidden native file input */}
+            <input
+              ref={fileInputRef}
               type="file"
               accept={acceptedFileTypes}
               onChange={handleFileChange}
               disabled={uploading}
-              className="cursor-pointer"
               multiple
+              className="hidden"
             />
+
+            {/* Custom file selection buttons */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex-1"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Dosya Seç
+              </Button>
+              {isNativePlatform() && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleNativeCamera}
+                  disabled={uploading}
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Fotoğraf Çek
+                </Button>
+              )}
+            </div>
+
             {files.length > 0 && (
               <div className="space-y-2">
                 {files.map((file, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-                    <span className="flex-1 truncate">{file.name}</span>
+                  <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded min-w-0">
+                    <span className="flex-1 truncate min-w-0">{file.name}</span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-6 w-6 flex-shrink-0"
                       onClick={() => removeFile(index)}
                       disabled={uploading}
                     >

@@ -271,7 +271,7 @@ export function AddResourceDialog({
               >
                 {selectedFile ? (
                   <div className="flex items-center justify-between p-2 bg-muted rounded">
-                    <span className="text-sm truncate">{selectedFile.name}</span>
+                    <span className="text-sm truncate min-w-0">{selectedFile.name}</span>
                     <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedFile(null)}>
                       <X className="h-4 w-4" />
                     </Button>

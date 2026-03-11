@@ -336,7 +336,7 @@ export function HomeworkListDialog({
                               className="flex items-center gap-2 bg-background/50 p-2 rounded border overflow-hidden"
                             >
                               <div className="flex-shrink-0">{getFileIcon(file.file_type)}</div>
-                              <span className="text-xs sm:text-sm flex-1 truncate" title={file.file_name}>
+                              <span className="text-xs sm:text-sm flex-1 truncate min-w-0" title={file.file_name}>
                                 {file.file_name}
                               </span>
                               <Button
