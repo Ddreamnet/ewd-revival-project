@@ -121,6 +121,8 @@ export function AuthForm() {
                           <Input
                           id="signin-email"
                           type="email"
+                          name="email"
+                          autoComplete="username"
                           placeholder="E-posta adresinizi girin"
                           value={signInData.email}
                           onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
