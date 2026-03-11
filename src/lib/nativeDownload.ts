@@ -1,20 +1,22 @@
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { FileTransfer } from '@capacitor/file-transfer';
 import { Share } from '@capacitor/share';
 
 interface DownloadOptions {
   url: string;
   fileName: string;
-  /** Optional: if Supabase auth is needed, provide the blob fallback */
-  blobFallback?: Blob;
+  /** If Supabase auth is needed, provide the blob directly */
+  blob?: Blob;
 }
 
 /**
- * Native download — downloads file to device cache via @capacitor/file-transfer,
- * then opens native share/save sheet.
+ * Native download — writes file to device cache via Filesystem,
+ * then opens native share/save sheet via Share plugin.
  * 
- * Falls back to blob+writeFile if FileTransfer fails (e.g. auth-protected URLs).
+ * Two modes:
+ * 1. blob provided → base64 encode → Filesystem.writeFile
+ * 2. url only → fetch → blob → same flow
+ * 
  * Returns true if successful.
  */
 export async function downloadFileNative(options: DownloadOptions): Promise<boolean> {
@@ -22,62 +24,37 @@ export async function downloadFileNative(options: DownloadOptions): Promise<bool
     return false; // web'de kullanılmaz
   }
 
-  const { fileName, blobFallback } = options;
-  let fileUri: string;
+  const { url, fileName } = options;
 
   try {
-    // Hedef path: Cache directory (temizlenebilir, kalıcılık gerekmez)
-    const targetPath = `downloads/${Date.now()}_${fileName}`;
-
-    // Önce FileTransfer ile dene (daha verimli, native HTTP)
-    if (!blobFallback) {
-      try {
-        const result = await FileTransfer.download({
-          url: options.url,
-          path: targetPath,
-          directory: Directory.Cache,
-        });
-        fileUri = result.path;
-      } catch (transferError) {
-        console.warn('FileTransfer failed, will use blob fallback:', transferError);
-        // FileTransfer başarısız oldu — blob ile devam et
-        throw transferError;
-      }
-    } else {
-      throw new Error('Use blob fallback');
+    // Get blob — either provided or fetch from URL
+    let blob = options.blob;
+    if (!blob) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+      blob = await response.blob();
     }
 
-    // Share sheet ile kullanıcıya sun
+    // Blob → base64
+    const base64 = await blobToBase64(blob);
+
+    // Write to cache directory
+    const targetPath = `downloads/${Date.now()}_${fileName}`;
+    const writeResult = await Filesystem.writeFile({
+      path: targetPath,
+      data: base64,
+      directory: Directory.Cache,
+    });
+
+    // Open native share/save sheet
     await Share.share({
       title: fileName,
-      url: fileUri,
+      url: writeResult.uri,
     });
 
     return true;
-  } catch {
-    // Fallback: blob → base64 → Filesystem.writeFile
-    if (blobFallback) {
-      try {
-        const base64 = await blobToBase64(blobFallback);
-        const targetPath = `downloads/${Date.now()}_${fileName}`;
-
-        const writeResult = await Filesystem.writeFile({
-          path: targetPath,
-          data: base64,
-          directory: Directory.Cache,
-        });
-
-        await Share.share({
-          title: fileName,
-          url: writeResult.uri,
-        });
-
-        return true;
-      } catch (fallbackError) {
-        console.error('Blob fallback download failed:', fallbackError);
-        return false;
-      }
-    }
+  } catch (error) {
+    console.error('Native download failed:', error);
     return false;
   }
 }
