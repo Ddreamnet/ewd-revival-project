@@ -168,7 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setInitializing(false);
         setLoading(false);
       }
-    }, 5000);
+    }, 3000);
 
     supabase.auth
       .getSession()
