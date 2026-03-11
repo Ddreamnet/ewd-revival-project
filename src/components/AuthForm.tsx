@@ -134,6 +134,8 @@ export function AuthForm() {
                           <Input
                           id="signin-password"
                           type="password"
+                          name="password"
+                          autoComplete="current-password"
                           placeholder="Şifrenizi girin"
                           value={signInData.password}
                           onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
