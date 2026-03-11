@@ -180,6 +180,8 @@ export function AuthForm() {
                           <Input
                           id="signup-password"
                           type="password"
+                          name="password"
+                          autoComplete="new-password"
                           placeholder="Şifrenizi girin"
                           value={signUpData.password}
                           onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
