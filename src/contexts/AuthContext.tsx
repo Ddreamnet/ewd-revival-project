@@ -59,32 +59,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (DEV) console.log("[Auth] fetching profile for:", userId);
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
+
+      const [profileResult, rolesResult] = await Promise.all([
+        supabase.from("profiles").select("*").eq("user_id", userId).single(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+      ]);
 
       if (isSigningOutRef.current) return;
 
-      if (profileError) {
-        if (DEV) console.log("[Auth] profile fetch error:", profileError.code);
-        if (profileError.code === "PGRST116") {
+      if (profileResult.error) {
+        if (DEV) console.log("[Auth] profile fetch error:", profileResult.error.code);
+        if (profileResult.error.code === "PGRST116") {
           profileRef.current = null;
           setProfile(null);
         } else {
-          throw profileError;
+          throw profileResult.error;
         }
       } else {
-        const { data: rolesData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId);
-
-        if (isSigningOutRef.current) return;
-
         const roles =
-          rolesData?.map((r) => r.role as "teacher" | "student" | "admin") || [];
+          rolesResult.data?.map((r) => r.role as "teacher" | "student" | "admin") || [];
         const primaryRole = roles.includes("admin")
           ? "admin"
           : roles.includes("teacher")
@@ -92,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           : "student";
 
         if (DEV) console.log("[Auth] profile loaded, roles:", roles);
-        const merged: Profile = { ...profileData, roles, role: primaryRole as Profile["role"] };
+        const merged: Profile = { ...profileResult.data, roles, role: primaryRole as Profile["role"] };
         profileRef.current = merged;
         setProfile(merged);
       }
