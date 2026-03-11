@@ -30,6 +30,7 @@ export function generateSlug(title: string): string {
 export function usePublishedPosts(limit?: number) {
   return useQuery({
     queryKey: ["blog-posts", "published", limit],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       let query = supabase
         .from("blog_posts")
@@ -47,6 +48,7 @@ export function usePublishedPosts(limit?: number) {
 export function usePublishedPostsPaginated(page: number, pageSize = 9) {
   return useQuery({
     queryKey: ["blog-posts", "published", "paginated", page, pageSize],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const from = page * pageSize;
       const to = from + pageSize - 1;
@@ -65,6 +67,7 @@ export function usePublishedPostsPaginated(page: number, pageSize = 9) {
 export function useBlogPostBySlug(slug: string) {
   return useQuery({
     queryKey: ["blog-posts", "slug", slug],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("blog_posts")

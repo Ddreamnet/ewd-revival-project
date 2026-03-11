@@ -9,8 +9,16 @@ const config: CapacitorConfig = {
       presentationOptions: ["badge", "sound", "alert"]
     },
     StatusBar: {
-      overlaysWebView: true,  // varsayılan; açıkça belirtiliyor
+      overlaysWebView: true,
       style: 'DEFAULT'
+    },
+    SplashScreen: {
+      launchAutoHide: false,
+      backgroundColor: "#fdf2f8",
+      showSpinner: false,
+      splashFullScreen: true,
+      splashImmersive: true,
+      androidScaleType: "CENTER_CROP",
     }
   }
 };

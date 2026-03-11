@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { loadCredentials } from "@/lib/capacitorStorage";
 
 export function AuthForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,6 +21,15 @@ export function AuthForm() {
     email: "",
     password: ""
   });
+
+  // Prefill from saved credentials (Preferences on native, localStorage on web)
+  useEffect(() => {
+    loadCredentials().then(({ email, password }) => {
+      if (email || password) {
+        setSignInData({ email, password });
+      }
+    });
+  }, []);
 
   const [signUpData, setSignUpData] = useState({
     email: "",
@@ -111,6 +121,8 @@ export function AuthForm() {
                           <Input
                           id="signin-email"
                           type="email"
+                          name="email"
+                          autoComplete="username"
                           placeholder="E-posta adresinizi girin"
                           value={signInData.email}
                           onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
@@ -122,6 +134,8 @@ export function AuthForm() {
                           <Input
                           id="signin-password"
                           type="password"
+                          name="password"
+                          autoComplete="current-password"
                           placeholder="Şifrenizi girin"
                           value={signInData.password}
                           onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
@@ -140,6 +154,8 @@ export function AuthForm() {
                           <Input
                           id="signup-name"
                           type="text"
+                          name="fullName"
+                          autoComplete="name"
                           placeholder="Ad ve soyadınızı girin"
                           value={signUpData.fullName}
                           onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
@@ -151,6 +167,8 @@ export function AuthForm() {
                           <Input
                           id="signup-email"
                           type="email"
+                          name="email"
+                          autoComplete="email"
                           placeholder="E-posta adresinizi girin"
                           value={signUpData.email}
                           onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
@@ -162,6 +180,8 @@ export function AuthForm() {
                           <Input
                           id="signup-password"
                           type="password"
+                          name="password"
+                          autoComplete="new-password"
                           placeholder="Şifrenizi girin"
                           value={signUpData.password}
                           onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}

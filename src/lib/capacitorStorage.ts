@@ -37,10 +37,36 @@ export const capacitorStorage = isNative
 /**
  * Helper to clear all Supabase auth keys from the active storage.
  */
+// ── Credential prefill storage ──────────────────────────────────────────
+const CRED_EMAIL_KEY = 'app-cred-email';
+const CRED_PASSWORD_KEY = 'app-cred-password';
+
+export async function saveCredentials(email: string, password: string): Promise<void> {
+  if (isNative) {
+    await Preferences.set({ key: CRED_EMAIL_KEY, value: email });
+    await Preferences.set({ key: CRED_PASSWORD_KEY, value: password });
+  } else {
+    localStorage.setItem(CRED_EMAIL_KEY, email);
+    localStorage.setItem(CRED_PASSWORD_KEY, password);
+  }
+}
+
+export async function loadCredentials(): Promise<{ email: string; password: string }> {
+  if (isNative) {
+    const { value: email } = await Preferences.get({ key: CRED_EMAIL_KEY });
+    const { value: password } = await Preferences.get({ key: CRED_PASSWORD_KEY });
+    return { email: email || '', password: password || '' };
+  } else {
+    return {
+      email: localStorage.getItem(CRED_EMAIL_KEY) || '',
+      password: localStorage.getItem(CRED_PASSWORD_KEY) || '',
+    };
+  }
+}
+
+// ── Supabase session storage cleanup ────────────────────────────────────
 export async function clearSupabaseStorage(): Promise<void> {
   if (isNative) {
-    // On native, Preferences doesn't expose "list all keys",
-    // so we clear the known Supabase key pattern.
     const knownKey = `sb-hwwpbtcgppzuscbvjkde-auth-token`;
     await Preferences.remove({ key: knownKey });
   } else {
