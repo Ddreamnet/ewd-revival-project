@@ -83,9 +83,9 @@ export function LandingHeader() {
   const isBlogActive = activeSection === 'blog';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible px-safe">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible landing-header">
       {/* Logo - Absolute positioned, independent from header flow */}
-      <div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
+      <div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60] landing-header-logo">
         <button
           onClick={() => {
             if (window.location.pathname === '/') {
@@ -106,8 +106,8 @@ export function LandingHeader() {
         </button>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative pt-safe">
-        <div className="flex items-center justify-between h-20 md:h-24 mt-[16px]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative landing-header-inner">
+        <div className="flex items-center justify-between h-20 md:h-24 mt-[16px] landing-header-row">
           {/* Invisible placeholder for logo space */}
           <div className="w-20 sm:w-28 md:w-40 flex-shrink-0 invisible" />
 
