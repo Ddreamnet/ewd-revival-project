@@ -48,6 +48,7 @@ export function usePublishedPosts(limit?: number) {
 export function usePublishedPostsPaginated(page: number, pageSize = 9) {
   return useQuery({
     queryKey: ["blog-posts", "published", "paginated", page, pageSize],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const from = page * pageSize;
       const to = from + pageSize - 1;
