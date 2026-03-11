@@ -111,6 +111,7 @@ export function EditHomeworkDialog({
               placeholder="Ödev hakkında ek bilgiler..."
               rows={3}
               disabled={updating}
+              className="max-h-[120px] overflow-y-auto"
             />
           </div>
         </div>

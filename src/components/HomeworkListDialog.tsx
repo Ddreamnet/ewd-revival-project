@@ -11,6 +11,8 @@ import { FileText, Calendar, Download, FileImage, File, Edit2, Trash2 } from "lu
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { EditHomeworkDialog } from "./EditHomeworkDialog";
+import { downloadFileNative } from "@/lib/nativeDownload";
+import { Capacitor } from "@capacitor/core";
 
 interface HomeworkListDialogProps {
   open: boolean;
@@ -142,7 +144,6 @@ export function HomeworkListDialog({
       if (urlParts.length < 2) {
         throw new Error("Invalid file URL");
       }
-      // Decode the path to handle special characters
       const filePath = decodeURIComponent(urlParts[1]);
 
       const { data, error } = await supabase.storage
@@ -151,6 +152,22 @@ export function HomeworkListDialog({
 
       if (error) throw error;
 
+      // Native platform: use Filesystem + Share
+      if (Capacitor.isNativePlatform()) {
+        const success = await downloadFileNative({
+          url: fileUrl,
+          fileName,
+          blob: data,
+        });
+        if (success) {
+          toast({ title: "Başarılı", description: "Dosya indirildi" });
+        } else {
+          throw new Error("Native download failed");
+        }
+        return;
+      }
+
+      // Web: blob + anchor download
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
@@ -319,7 +336,7 @@ export function HomeworkListDialog({
                               className="flex items-center gap-2 bg-background/50 p-2 rounded border overflow-hidden"
                             >
                               <div className="flex-shrink-0">{getFileIcon(file.file_type)}</div>
-                              <span className="text-xs sm:text-sm flex-1 truncate" title={file.file_name}>
+                              <span className="text-xs sm:text-sm flex-1 truncate min-w-0" title={file.file_name}>
                                 {file.file_name}
                               </span>
                               <Button

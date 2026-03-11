@@ -12,6 +12,9 @@ const config: CapacitorConfig = {
       overlaysWebView: true,
       style: 'DEFAULT'
     },
+    Keyboard: {
+      resize: "body",
+    },
     SplashScreen: {
       launchAutoHide: false,
       backgroundColor: "#fdf2f8",
