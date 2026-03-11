@@ -80,19 +80,3 @@ export async function clearSupabaseStorage(): Promise<void> {
     keysToRemove.forEach((key) => localStorage.removeItem(key));
   }
 }
-  if (isNative) {
-    // On native, Preferences doesn't expose "list all keys",
-    // so we clear the known Supabase key pattern.
-    const knownKey = `sb-hwwpbtcgppzuscbvjkde-auth-token`;
-    await Preferences.remove({ key: knownKey });
-  } else {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
-  }
-}

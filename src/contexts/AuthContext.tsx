@@ -257,6 +257,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isSigningOutRef.current = false;
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      // Save credentials for prefill on next login
+      await saveCredentials(email, password);
       return { error: null };
     } catch (error: any) {
       return { error };

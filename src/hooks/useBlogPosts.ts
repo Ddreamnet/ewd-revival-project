@@ -67,6 +67,7 @@ export function usePublishedPostsPaginated(page: number, pageSize = 9) {
 export function useBlogPostBySlug(slug: string) {
   return useQuery({
     queryKey: ["blog-posts", "slug", slug],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("blog_posts")
