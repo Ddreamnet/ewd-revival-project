@@ -84,27 +84,32 @@ export function LandingHeader() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible px-safe">
+      {/* Logo - Absolute positioned, independent from header flow */}
+      <div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
+        <button
+          onClick={() => {
+            if (window.location.pathname === '/') {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              navigate('/');
+            }
+          }}
+          className="focus:outline-none"
+          aria-label="Ana sayfaya git">
+
+          <img
+            src="/uploads/logo.webp"
+            alt="English with Dilara"
+            className="h-20 sm:h-28 md:h-32 lg:h-40 w-auto hover:scale-105 transition-transform duration-100 ease-out cursor-pointer"
+            style={{ transform: `rotate(${logoRotation}deg)` }} />
+
+        </button>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative pt-safe">
-        <div className="flex items-center justify-between h-20 md:h-24">
-          {/* Logo - left zone, normal flow */}
-          <div className="flex-shrink-0">
-            <button
-              onClick={() => {
-                if (window.location.pathname === '/') {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                } else {
-                  navigate('/');
-                }
-              }}
-              className="focus:outline-none"
-              aria-label="Ana sayfaya git">
-              <img
-                src="/uploads/logo.webp"
-                alt="English with Dilara"
-                className="h-20 sm:h-28 md:h-32 lg:h-40 w-auto hover:scale-105 transition-transform duration-100 ease-out cursor-pointer"
-                style={{ transform: `rotate(${logoRotation}deg)` }} />
-            </button>
-          </div>
+        <div className="flex items-center justify-between h-20 md:h-24 mt-[16px]">
+          {/* Invisible placeholder for logo space */}
+          <div className="w-20 sm:w-28 md:w-40 flex-shrink-0 invisible" />
 
           {/* Menu - Absolute Center */}
           <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-4">
