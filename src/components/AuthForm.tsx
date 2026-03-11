@@ -154,6 +154,8 @@ export function AuthForm() {
                           <Input
                           id="signup-name"
                           type="text"
+                          name="fullName"
+                          autoComplete="name"
                           placeholder="Ad ve soyadınızı girin"
                           value={signUpData.fullName}
                           onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
