@@ -1,52 +1,54 @@
 
 
-# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
+## Plan: iOS-Native Horizontal Safe Area for LandingHeader
 
-## Problem
+### What's missing
 
-The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
+The previous revision removed `px-safe` from `<header>` (line 86) to avoid affecting desktop/Android layouts. But with `viewport-fit=cover`, iPhone landscape mode can have left/right safe area insets that need protection.
 
-**Affected students (Fatih's):**
-- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
-- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
+### Solution
 
-## Root Cause
+Add horizontal safe area protection scoped to iOS native only, matching the existing pattern.
 
-The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
+**1. `src/components/landing/LandingHeader.tsx`**
 
-## Solution
+- Remove the current unconditional `px-safe` from line 86's `<header>` (if still present after implementation).
+- Add a marker class `landing-header` to the outer `<header>` element. No other DOM changes.
 
-**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
+```tsx
+<header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible landing-header">
+```
 
-### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
+Everything else stays: absolute logo, placeholder, nav center, inner container with `px-4 sm:px-6 lg:px-8`.
 
-1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
+**2. `src/index.css`** — Add iOS-scoped horizontal rule
 
-2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
+Inside the `.ios-native` scoped block (alongside the other marker class rules from the approved plan):
 
-3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
+```css
+.ios-native .landing-header {
+  padding-left: var(--safe-area-left);
+  padding-right: var(--safe-area-right);
+}
+```
 
-### What stays the same
+This applies left/right safe area padding to the outer `<header>` only on iOS native. The inner container's `px-4 / sm:px-6 / lg:px-8` sits on a different element, so values stack naturally without conflict. On desktop/Android, `ios-native` class is absent so nothing fires. In portrait mode, `--safe-area-left` and `--safe-area-right` resolve to `0px`.
 
-- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
-- The `datesUnassigned` logic for reset stays
-- The self-conflict fix stays
-- Template-based generation logic stays (only generates for template day slots)
+**3. Dashboard Header (`src/components/Header.tsx`)**
 
-### Technical Detail
+Same approach: add `dashboard-header` marker class (already in the approved plan) and add horizontal safe area in the iOS-scoped CSS:
 
-The simplified `ensureInstancesForWeek` will:
-1. Get templates for teacher
-2. Get active students
-3. Check which students already have instances for this specific week
-4. For students missing instances this week, generate from templates (no cap check)
-5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
+```css
+.ios-native .dashboard-header {
+  padding-top: var(--safe-area-top);
+  padding-left: var(--safe-area-left);
+  padding-right: var(--safe-area-right);
+}
+```
 
-This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
-
-### Files Changed
-
-| File | Change |
-|---|---|
-| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
+### What stays unchanged
+- Logo absolute positioning, placeholder, nav center, right-side controls
+- Inner container padding (`px-4 sm:px-6 lg:px-8`) untouched
+- Desktop and Android rendering identical to current
+- All other parts of the approved plan remain as-is
 
