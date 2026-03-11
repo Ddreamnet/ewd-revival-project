@@ -81,6 +81,18 @@ function ScrollToTop() {
   }, [pathname]);
   return null;
 }
+// Hides the native splash screen once the app is ready (initializing === false)
+function SplashHider() {
+  const { initializing } = useAuthContext();
+  useEffect(() => {
+    if (!initializing && Capacitor.isNativePlatform()) {
+      import("@capacitor/splash-screen").then(({ SplashScreen }) => {
+        SplashScreen.hide({ fadeOutDuration: 200 });
+      });
+    }
+  }, [initializing]);
+  return null;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
