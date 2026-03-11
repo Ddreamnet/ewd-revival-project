@@ -22,6 +22,15 @@ export function AuthForm() {
     password: ""
   });
 
+  // Prefill from saved credentials (Preferences on native, localStorage on web)
+  useEffect(() => {
+    loadCredentials().then(({ email, password }) => {
+      if (email || password) {
+        setSignInData({ email, password });
+      }
+    });
+  }, []);
+
   const [signUpData, setSignUpData] = useState({
     email: "",
     password: "",
