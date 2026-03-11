@@ -5,11 +5,13 @@ import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, lazy, Suspense } from "react";
+import { Capacitor } from "@capacitor/core";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
 import { AuthForm } from "@/components/AuthForm";
-import { TeacherDashboard } from "@/components/TeacherDashboard";
-import { StudentDashboard } from "@/components/StudentDashboard";
-import { AdminDashboard } from "@/components/AdminDashboard";
+
+const TeacherDashboard = lazy(() => import("./components/TeacherDashboard").then(m => ({ default: m.TeacherDashboard })));
+const StudentDashboard = lazy(() => import("./components/StudentDashboard").then(m => ({ default: m.StudentDashboard })));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 
 // Eager-load the landing page for instant first paint
 import LandingPage from "./pages/LandingPage";
