@@ -30,6 +30,7 @@ export function generateSlug(title: string): string {
 export function usePublishedPosts(limit?: number) {
   return useQuery({
     queryKey: ["blog-posts", "published", limit],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       let query = supabase
         .from("blog_posts")
