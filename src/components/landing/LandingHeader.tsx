@@ -83,7 +83,7 @@ export function LandingHeader() {
   const isBlogActive = activeSection === 'blog';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible px-safe">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-transparent overflow-visible landing-header">
       {/* Logo - Absolute positioned, independent from header flow */}
       <div className="absolute left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
         <button
