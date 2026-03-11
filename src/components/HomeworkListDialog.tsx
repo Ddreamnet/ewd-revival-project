@@ -11,6 +11,8 @@ import { FileText, Calendar, Download, FileImage, File, Edit2, Trash2 } from "lu
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { EditHomeworkDialog } from "./EditHomeworkDialog";
+import { downloadFileNative } from "@/lib/nativeDownload";
+import { Capacitor } from "@capacitor/core";
 
 interface HomeworkListDialogProps {
   open: boolean;
