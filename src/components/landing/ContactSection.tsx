@@ -127,134 +127,74 @@ export function ContactSection() {
         </div>
 
         {/* Three Column Layout */}
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-end">
+        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           {/* Left - Contact Cards */}
-          <div className="flex flex-col justify-center self-center space-y-4">
-            <div class="bg-landing-yellow/40 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
-              <div class="space-y-3">
-                <div class="flex items-center gap-3">
+          <div className="flex flex-col self-start space-y-4 w-full lg:max-w-sm">
+            {/* Contact Card */}
+            <div className="w-full max-w-full rounded-2xl bg-landing-yellow/40 backdrop-blur-sm p-4 sm:p-5 shadow-lg">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 min-w-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="lucide lucide-phone w-5 h-5 text-foreground/70"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5"
                   >
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                   </svg>
-                  <span class="text-base font-medium">0530 679 2831</span>
+                  <span className="text-sm sm:text-base font-medium min-w-0 break-words">0530 679 2831</span>
                 </div>
-                <div class="flex items-center gap-3">
+
+                <div className="flex items-start gap-3 min-w-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="lucide lucide-globe w-5 h-5 text-foreground/70"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5"
                   >
-                    <circle cx="12" cy="12" r="10">
-                      <div class="bg-landing-yellow/40 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
-                        <div class="space-y-3">
-                          <div class="flex items-center gap-3">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="24"
-                              height="24"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              class="lucide lucide-phone w-5 h-5 text-foreground/70"
-                            >
-                              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                            </svg>
-                            <span class="text-base font-medium">0530 679 2831</span>
-                          </div>
-                          <div class="flex items-center gap-3">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="24"
-                              height="24"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              class="lucide lucide-globe w-5 h-5 text-foreground/70"
-                            >
-                              <circle cx="12" cy="12" r="10"></circle>
-                              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
-                              <path d="M2 12h20"></path>
-                            </svg>
-                            <span class="text-base font-medium">englishwithdilara.com</span>
-                          </div>
-                          <div class="flex items-center gap-3">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="24"
-                              height="24"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              class="lucide lucide-mail w-5 h-5 text-foreground/70"
-                            >
-                              <rect width="20" height="16" x="2" y="4" rx="2"></rect>
-                              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
-                            </svg>
-                            <span class="text-base font-medium">englishwithdilara@gmail.com</span>
-                          </div>
-                        </div>
-                      </div>
-                    </circle>
-                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
-                    <path d="M2 12h20"></path>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                    <path d="M2 12h20" />
                   </svg>
-                  <span class="text-base font-medium">englishwithdilara.com</span>
+                  <span className="text-sm sm:text-base font-medium min-w-0 break-words">englishwithdilara.com</span>
                 </div>
-                <div class="flex items-center gap-3">
+
+                <div className="flex items-start gap-3 min-w-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="lucide lucide-mail w-5 h-5 text-foreground/70"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5"
                   >
-                    <rect width="20" height="16" x="2" y="4" rx="2"></rect>
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                    <rect width="20" height="16" x="2" y="4" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                   </svg>
-                  <span class="text-base font-medium">englishwithdilara@gmail.com</span>
+                  <span className="text-sm sm:text-base font-medium min-w-0 break-all">
+                    englishwithdilara@gmail.com
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Why Card */}
-            <div className="hidden lg:block bg-landing-purple/20 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
+            <div className="hidden lg:block w-full rounded-2xl bg-landing-purple/20 backdrop-blur-sm p-4 sm:p-5 shadow-lg">
               <h3 className="text-lg font-bold text-landing-purple-dark mb-4">{t.contact.whyCard.title[language]}</h3>
               <ul className="space-y-2">
                 {whyItems.map((item, index) => (
-                  <li key={index} className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-landing-purple-dark flex-shrink-0" />
+                  <li key={index} className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-landing-purple-dark flex-shrink-0 mt-0.5" />
                     <span className="text-sm text-foreground">{item[language]}</span>
                   </li>
                 ))}
