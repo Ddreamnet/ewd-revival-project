@@ -228,6 +228,7 @@ export const translations = {
     email: { tr: "E-posta", en: "Email" },
     phone: { tr: "Telefon Numaranız", en: "Your Phone Number" },
     submit: { tr: "Gönder", en: "Submit" },
+    sending: { tr: "Gönderiliyor...", en: "Sending..." },
     submitted: { tr: "Gönderildi ✓", en: "Submitted ✓" },
     note: {
       tr: "Başvurunuzu aldıktan sonra en kısa sürede sizinle iletişime geçeceğiz.",
