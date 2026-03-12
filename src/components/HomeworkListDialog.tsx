@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { AlertDialogTrigger } from "@radix-ui/react-alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Calendar, FileImage, File, Edit2, Trash2, Eye, Share2, X } from "lucide-react";
+import { FileText, Calendar, FileImage, File, Edit2, Trash2, Eye, Download, X } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { EditHomeworkDialog } from "./EditHomeworkDialog";
