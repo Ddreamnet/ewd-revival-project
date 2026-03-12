@@ -77,7 +77,7 @@ function WorkWithUsContent() {
                     placeholder={t.workWithUs.age[language]}
                     required
                     inputMode="numeric"
-                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-base md:text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
                   <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
@@ -89,7 +89,8 @@ function WorkWithUsContent() {
                     name="university"
                     placeholder={t.workWithUs.university[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    autoComplete="organization"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-base md:text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
                   <Building className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
