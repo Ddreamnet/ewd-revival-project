@@ -417,7 +417,7 @@ export function HomeworkListDialog({
       {previewImage && (
         <div 
           className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center cursor-pointer"
-          onClick={() => setPreviewImage(null)}
+          onClick={() => { if (previewImage) URL.revokeObjectURL(previewImage); setPreviewImage(null); }}
         >
           <img 
             src={previewImage} 
@@ -429,7 +429,7 @@ export function HomeworkListDialog({
             variant="ghost"
             size="icon"
             className="absolute top-4 right-4 text-white hover:bg-white/20"
-            onClick={() => setPreviewImage(null)}
+            onClick={() => { if (previewImage) URL.revokeObjectURL(previewImage); setPreviewImage(null); }}
           >
             <X className="h-6 w-6" />
           </Button>
