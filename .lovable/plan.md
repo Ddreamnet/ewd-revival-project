@@ -1,145 +1,52 @@
 
 
-## Plan — 7 Düzeltme
+# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
 
-### Analiz Sonuçları
+## Problem
 
-**iOS Zoom Kök Nedeni:**
-- `textarea.tsx` satır 11: `text-sm` (14px) kullanıyor. iOS Safari/WebView 16px altındaki input'lara focus olunca otomatik zoom yapar.
-- `input.tsx` satır 11: `text-base` + `md:text-sm` — bu zaten doğru pattern (mobilde 16px, desktop'ta 14px).
-- **Textarea aynı pattern'i kullanmıyor** — bu iOS zoom'un kök nedeni.
+The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
 
-**Bottom-sheet durumu:**
-- `UploadHomeworkDialog` satır 24-25, 188: `BOTTOM_SHEET_CLASSES` const + className'de kullanılıyor
-- `EditHomeworkDialog` satır 12-13, 89: aynı
-- `AddResourceDialog` satır 206: inline bottom-sheet class'ları
+**Affected students (Fatih's):**
+- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
+- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
 
-**Download/Share durumu:**
-- `nativeDownload.ts` satır 65-68: `Share.share` çağrılıyor, kullanıcı share sheet'i kapatırsa hata fırlatılıyor çünkü `catch` bloğuna düşüyor ve `return false` → `HomeworkListDialog` satır 165'te `throw new Error("Native download failed")`
-- Share.share cancellation genellikle error fırlatmaz ama bazı platformlarda `activityType` null dönebilir — asıl sorun `HomeworkListDialog`'daki `if (!success)` → `throw` mantığı
+## Root Cause
 
-**Toast süreleri:**
-- `use-toast.ts` satır 6: `TOAST_REMOVE_DELAY = 1000000` — bu sadece remove delay, radix toast'un kendi `duration` prop'u var
-- `ToastProvider` satır 8: duration prop verilmemiş — default 5000ms
-- Tip bazlı süre için `ToastProvider`'a default duration verilip, toast çağrılarında `duration` override edilebilir
+The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
 
----
+## Solution
 
-### 1. iOS Zoom Fix — Textarea font-size
+**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
 
-`src/components/ui/textarea.tsx` satır 11:
-- `text-sm` → `text-base md:text-sm`
-- Input component ile aynı pattern: mobilde 16px (zoom tetiklemez), desktop'ta 14px
+### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
 
-Tek satır değişiklik. Tüm textarea'lar otomatik düzelir.
+1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
 
-### 2. Bottom-Sheet Geri Alma
+2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
 
-**UploadHomeworkDialog:**
-- Satır 24-25: `BOTTOM_SHEET_CLASSES` const'ı sil
-- Satır 188: className'den `${BOTTOM_SHEET_CLASSES}` referansını kaldır
+3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
 
-**EditHomeworkDialog:**
-- Satır 12-13: `BOTTOM_SHEET_CLASSES` const'ı sil
-- Satır 89: className'den `${BOTTOM_SHEET_CLASSES}` referansını kaldır
+### What stays the same
 
-**AddResourceDialog:**
-- Satır 206: inline bottom-sheet class'larını kaldır, sadece `max-h-[90dvh]` kalsın
+- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
+- The `datesUnassigned` logic for reset stays
+- The self-conflict fix stays
+- Template-based generation logic stays (only generates for template day slots)
 
-Üç dialog da centered modal olarak kalacak.
+### Technical Detail
 
-### 3. Dosya Görüntüleme / Kaydet-Paylaş Ayrımı
+The simplified `ensureInstancesForWeek` will:
+1. Get templates for teacher
+2. Get active students
+3. Check which students already have instances for this specific week
+4. For students missing instances this week, generate from templates (no cap check)
+5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
 
-`HomeworkListDialog` dosya listesinde her dosya için iki aksiyon butonu:
+This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
 
-**A) Görseller (image/\*):**
-- "Görüntüle" butonu → tam ekran overlay/modal ile `<img>` göster (indirmeden)
-- "Kaydet/Paylaş" butonu → mevcut download + share akışı
+### Files Changed
 
-**B) PDF:**
-- "Görüntüle" butonu → `window.open(fileUrl, '_blank')` ile tarayıcıda/in-app aç
-- "Kaydet/Paylaş" butonu → mevcut download + share akışı
-
-**C) Diğer (DOCX vb.):**
-- "Kaydet/Paylaş" butonu → download + share
-- Preview mümkün değil, sadece kaydet/paylaş sunulur
-
-Yeni UI: Dosya satırında iki küçük icon button — `Eye` (görüntüle, varsa) + `Share2`/`Download` (kaydet/paylaş)
-
-Görsel preview için basit bir fullscreen overlay (dialog içinde dialog olmaz — ayrı state ile):
-```tsx
-{previewImage && (
-  <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center" onClick={closePreview}>
-    <img src={previewImage} className="max-w-full max-h-full object-contain" />
-    <button className="absolute top-4 right-4">✕</button>
-  </div>
-)}
-```
-
-### 4. Share Sheet Cancellation
-
-`nativeDownload.ts`:
-- `Share.share` çağrısını try/catch ile sarmalayıp, share hatalarını yoksay (cancellation)
-- Dosya yazma başarılı → `return true` (share sonucu ne olursa olsun)
-- Dosya yazma başarısız → `return false`
-
-```typescript
-// Write successful — file is ready
-// Open share sheet (cancellation is OK)
-try {
-  await Share.share({ title: fileName, url: writeResult.uri });
-} catch (e) {
-  // User cancelled share sheet — not an error
-  console.log('Share cancelled or unavailable:', e);
-}
-return true;
-```
-
-`HomeworkListDialog` satır 162-166:
-```typescript
-if (success) {
-  toast({ title: "Dosya hazırlandı", description: "Kaydetmek veya paylaşmak için açılıyor" });
-}
-// success false ise — gerçek dosya yazma hatası
-```
-Zaten mevcut hali yakın ama `else throw` kaldırılacak, `catch` bloğundaki mesaj güncellenir.
-
-### 5. Toast Metinleri
-
-- Download/share başarı: "Dosya hazırlandı" (zaten var, korunur)
-- Download/share hata: "Dosya hazırlanamadı" (gerçek hata)
-- Görüntüle: toast gerekmez
-- Cancellation: toast yok
-
-### 6. Toast Süreleri
-
-`src/components/ui/toaster.tsx`:
-- `ToastProvider`'a default `duration` verme — variant bazlı çöz
-- Her `Toast` render'ında variant'a göre `duration` prop ekle:
-  - `destructive` → `duration={5000}` (5 saniye)
-  - default → `duration={3000}` (3 saniye)
-
-```tsx
-<Toast key={id} duration={props.variant === "destructive" ? 5000 : 3000} {...props}>
-```
-
----
-
-### Değiştirilecek Dosyalar
-
-| Dosya | Değişiklik |
-|-------|-----------|
-| `src/components/ui/textarea.tsx` | `text-sm` → `text-base md:text-sm` |
-| `src/components/UploadHomeworkDialog.tsx` | Bottom-sheet class'ları kaldır |
-| `src/components/EditHomeworkDialog.tsx` | Bottom-sheet class'ları kaldır |
-| `src/components/AddResourceDialog.tsx` | Bottom-sheet class'ları kaldır |
-| `src/components/HomeworkListDialog.tsx` | Görüntüle/Kaydet-Paylaş ayrımı, share error handling, toast metinleri |
-| `src/lib/nativeDownload.ts` | Share cancellation → hata sayma |
-| `src/components/ui/toaster.tsx` | Variant bazlı toast duration |
-
-### Manuel Yapılacaklar
-
-1. `npx cap sync` — textarea font-size değişikliği native'de de etkili olacak
-2. iOS cihazda test: textarea'ya focus olunca zoom yapmamalı
-3. Görüntüle/Kaydet-Paylaş butonlarını test et
+| File | Change |
+|---|---|
+| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
 

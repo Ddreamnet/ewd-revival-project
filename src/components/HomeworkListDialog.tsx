@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { AlertDialogTrigger } from "@radix-ui/react-alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Calendar, Download, FileImage, File, Edit2, Trash2 } from "lucide-react";
+import { FileText, Calendar, FileImage, File, Edit2, Trash2, Eye, Share2, X } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { EditHomeworkDialog } from "./EditHomeworkDialog";
@@ -65,6 +65,7 @@ export function HomeworkListDialog({
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editHomework, setEditHomework] = useState<Homework | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -87,7 +88,6 @@ export function HomeworkListDialog({
 
       setHomeworks(data || []);
 
-      // Group homeworks by batch_id
       const grouped: { [key: string]: GroupedHomework } = {};
       
       (data || []).forEach((hw: Homework) => {
@@ -110,7 +110,6 @@ export function HomeworkListDialog({
         });
       });
 
-      // Sort by created_at descending
       const sortedGroups = Object.values(grouped).sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -137,9 +136,20 @@ export function HomeworkListDialog({
     }
   };
 
-  const handleDownload = async (fileUrl: string, fileName: string) => {
+  const isPreviewable = (fileType: string) => {
+    return fileType.startsWith('image/') || fileType === 'application/pdf';
+  };
+
+  const handlePreview = (fileUrl: string, fileType: string) => {
+    if (fileType.startsWith('image/')) {
+      setPreviewImage(fileUrl);
+    } else if (fileType === 'application/pdf') {
+      window.open(fileUrl, '_blank');
+    }
+  };
+
+  const handleSaveShare = async (fileUrl: string, fileName: string) => {
     try {
-      // Extract file path from public URL
       const urlParts = fileUrl.split('/homework-files/');
       if (urlParts.length < 2) {
         throw new Error("Invalid file URL");
@@ -159,11 +169,14 @@ export function HomeworkListDialog({
           fileName,
           blob: data,
         });
-        if (success) {
-          toast({ title: "Dosya hazırlandı", description: "Kaydetmek veya paylaşmak için açılıyor" });
-        } else {
-          throw new Error("Native download failed");
+        if (!success) {
+          toast({
+            title: "Hata",
+            description: "Dosya hazırlanamadı",
+            variant: "destructive",
+          });
         }
+        // success=true → file written & share sheet opened (or user cancelled) — no error
         return;
       }
 
@@ -179,7 +192,7 @@ export function HomeworkListDialog({
     } catch (error: any) {
       toast({
         title: "Hata",
-        description: "Dosya indirilemedi",
+        description: "Dosya hazırlanamadı",
         variant: "destructive",
       });
     }
@@ -189,7 +202,6 @@ export function HomeworkListDialog({
     try {
       const batchHomeworks = homeworks.filter(h => h.batch_id === batchId);
       
-      // Delete files from storage
       const filePaths = batchHomeworks
         .map(h => h.file_url.split('/homework-files/')[1])
         .filter(Boolean)
@@ -199,7 +211,6 @@ export function HomeworkListDialog({
         await supabase.storage.from('homework-files').remove(filePaths);
       }
 
-      // Delete records from database
       const { error } = await supabase
         .from('homework_submissions')
         .delete()
@@ -224,12 +235,10 @@ export function HomeworkListDialog({
   };
 
   const canEdit = (group: GroupedHomework) => {
-    // Sadece yükleyen kişi düzenleyebilir/silebilir
     return group.uploaded_by_user_id === currentUserId;
   };
 
   const isUploadedByStudent = (group: GroupedHomework) => {
-    // uploaded_by_user_id student_id'ye eşitse öğrenci yükledi
     return group.uploaded_by_user_id === group.student_id;
   };
 
@@ -339,15 +348,28 @@ export function HomeworkListDialog({
                               <span className="text-xs sm:text-sm flex-1 truncate min-w-0" title={file.file_name}>
                                 {file.file_name}
                               </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDownload(file.file_url, file.file_name)}
-                                title="İndir"
-                                className="flex-shrink-0 h-8 w-8 p-0"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {isPreviewable(file.file_type) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handlePreview(file.file_url, file.file_type)}
+                                    title="Görüntüle"
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleSaveShare(file.file_url, file.file_name)}
+                                  title={Capacitor.isNativePlatform() ? "Kaydet/Paylaş" : "İndir"}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Share2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -367,6 +389,29 @@ export function HomeworkListDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Fullscreen image preview overlay */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center cursor-pointer"
+          onClick={() => setPreviewImage(null)}
+        >
+          <img 
+            src={previewImage} 
+            className="max-w-full max-h-full object-contain p-4" 
+            alt="Preview"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 text-white hover:bg-white/20"
+            onClick={() => setPreviewImage(null)}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       {editHomework && (

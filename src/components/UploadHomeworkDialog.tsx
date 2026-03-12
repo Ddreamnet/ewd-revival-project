@@ -20,9 +20,6 @@ interface UploadHomeworkDialogProps {
   uploadedByUserId?: string;
 }
 
-// Bottom-sheet classes that override centered modal on mobile
-const BOTTOM_SHEET_CLASSES =
-  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-xl max-sm:max-h-[85dvh] max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom";
 
 export function UploadHomeworkDialog({ 
   open, 
@@ -185,7 +182,7 @@ export function UploadHomeworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) setShowAndroidPicker(false); onOpenChange(v); }}>
-      <DialogContent className={`w-[calc(100%-1rem)] sm:max-w-[500px] max-h-[90dvh] overflow-y-auto ${BOTTOM_SHEET_CLASSES}`}>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[500px] max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Ödev Yükle</DialogTitle>
           <DialogDescription>

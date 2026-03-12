@@ -61,11 +61,16 @@ export async function downloadFileNative(options: DownloadOptions): Promise<bool
       recursive: true,
     });
 
-    // Open native share/save sheet
-    await Share.share({
-      title: fileName,
-      url: writeResult.uri,
-    });
+    // Open native share/save sheet — cancellation is not an error
+    try {
+      await Share.share({
+        title: fileName,
+        url: writeResult.uri,
+      });
+    } catch (e) {
+      // User cancelled share sheet — not an error
+      console.log('Share cancelled or unavailable:', e);
+    }
 
     return true;
   } catch (error) {
