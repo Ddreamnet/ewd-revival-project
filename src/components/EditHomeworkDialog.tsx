@@ -8,6 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Save } from "lucide-react";
 
+// Bottom-sheet classes that override centered modal on mobile
+const BOTTOM_SHEET_CLASSES =
+  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-xl max-sm:max-h-[85dvh] max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom";
+
 interface EditHomeworkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -82,7 +86,7 @@ export function EditHomeworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[500px]">
+      <DialogContent className={`w-[calc(100%-1rem)] sm:max-w-[500px] max-h-[90dvh] overflow-y-auto ${BOTTOM_SHEET_CLASSES}`}>
         <DialogHeader>
           <DialogTitle>Ödevi Düzenle</DialogTitle>
           <DialogDescription>

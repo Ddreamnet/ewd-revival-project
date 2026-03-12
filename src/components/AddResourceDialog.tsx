@@ -312,6 +312,7 @@ export function AddResourceDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
+              className="max-h-[120px] overflow-y-auto"
             />
           </div>
 

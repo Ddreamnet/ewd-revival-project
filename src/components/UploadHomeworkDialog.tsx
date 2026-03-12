@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, X, Camera, Plus } from "lucide-react";
+import { Upload, X, Plus, ImageIcon, FolderOpen } from "lucide-react";
 import { pickImageNative, isNativePlatform } from "@/lib/nativeCamera";
+import { Capacitor } from "@capacitor/core";
+import { CameraSource } from "@capacitor/camera";
 
 interface UploadHomeworkDialogProps {
   open: boolean;
@@ -17,6 +19,10 @@ interface UploadHomeworkDialogProps {
   onSuccess?: () => void;
   uploadedByUserId?: string;
 }
+
+// Bottom-sheet classes that override centered modal on mobile
+const BOTTOM_SHEET_CLASSES =
+  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-xl max-sm:max-h-[85dvh] max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom";
 
 export function UploadHomeworkDialog({ 
   open, 
@@ -30,6 +36,7 @@ export function UploadHomeworkDialog({
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [showAndroidPicker, setShowAndroidPicker] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,9 +67,11 @@ export function UploadHomeworkDialog({
     e.target.value = '';
   };
 
-  const handleNativeCamera = async () => {
+  /** Android fallback: pick image via native camera plugin */
+  const handleAndroidCameraOption = async (source: CameraSource) => {
+    setShowAndroidPicker(false);
     try {
-      const file = await pickImageNative();
+      const file = await pickImageNative(source);
       if (file) {
         setFiles(prev => [...prev, file]);
       }
@@ -73,6 +82,19 @@ export function UploadHomeworkDialog({
         variant: "destructive",
       });
     }
+  };
+
+  /** Main file select button handler — platform-aware */
+  const handleFileSelectClick = () => {
+    // Android fallback: show 3-option picker because WebView file input
+    // doesn't offer camera option on Android
+    if (Capacitor.getPlatform() === "android") {
+      setShowAndroidPicker(true);
+      return;
+    }
+    // Web + iOS: system file chooser (iOS shows camera option natively
+    // when Info.plist permissions are configured)
+    fileInputRef.current?.click();
   };
 
   const removeFile = (index: number) => {
@@ -162,8 +184,8 @@ export function UploadHomeworkDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[500px] max-h-[90dvh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) setShowAndroidPicker(false); onOpenChange(v); }}>
+      <DialogContent className={`w-[calc(100%-1rem)] sm:max-w-[500px] max-h-[90dvh] overflow-y-auto ${BOTTOM_SHEET_CLASSES}`}>
         <DialogHeader>
           <DialogTitle>Ödev Yükle</DialogTitle>
           <DialogDescription>
@@ -210,30 +232,56 @@ export function UploadHomeworkDialog({
               className="hidden"
             />
 
-            {/* Custom file selection buttons */}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex-1"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Dosya Seç
-              </Button>
-              {isNativePlatform() && (
+            {/* Single file select button */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleFileSelectClick}
+              disabled={uploading}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Dosya Seç
+            </Button>
+
+            {/* Android-only 3-option fallback picker */}
+            {showAndroidPicker && (
+              <div className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/50 animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleNativeCamera}
+                  size="sm"
+                  onClick={() => handleAndroidCameraOption(CameraSource.Camera)}
                   disabled={uploading}
+                  className="justify-start"
                 >
-                  <Camera className="h-4 w-4 mr-2" />
+                  <Upload className="h-4 w-4 mr-2" />
                   Fotoğraf Çek
                 </Button>
-              )}
-            </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAndroidCameraOption(CameraSource.Photos)}
+                  disabled={uploading}
+                  className="justify-start"
+                >
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  Galeriden Seç
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setShowAndroidPicker(false); fileInputRef.current?.click(); }}
+                  disabled={uploading}
+                  className="justify-start"
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Dosya Seç (PDF, DOCX...)
+                </Button>
+              </div>
+            )}
 
             {files.length > 0 && (
               <div className="space-y-2">

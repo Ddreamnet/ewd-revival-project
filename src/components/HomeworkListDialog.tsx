@@ -160,7 +160,7 @@ export function HomeworkListDialog({
           blob: data,
         });
         if (success) {
-          toast({ title: "Başarılı", description: "Dosya indirildi" });
+          toast({ title: "Dosya hazırlandı", description: "Kaydetmek veya paylaşmak için açılıyor" });
         } else {
           throw new Error("Native download failed");
         }

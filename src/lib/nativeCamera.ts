@@ -5,15 +5,22 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
  * Native camera wrapper — on native platforms opens Camera/Gallery prompt,
  * returns a File object compatible with existing upload flows.
  * Returns null if user cancels or an error occurs.
+ * 
+ * @param source Optional CameraSource override. Defaults to CameraSource.Prompt.
+ *   - CameraSource.Camera  → only camera
+ *   - CameraSource.Photos  → only gallery
+ *   - CameraSource.Prompt  → system prompt (Camera + Gallery)
  */
-export async function pickImageNative(): Promise<File | null> {
+export async function pickImageNative(
+  source: CameraSource = CameraSource.Prompt
+): Promise<File | null> {
   if (!Capacitor.isNativePlatform()) {
     return null; // web'de kullanılmaz
   }
 
   try {
     const photo = await Camera.getPhoto({
-      source: CameraSource.Prompt, // "Camera" + "Gallery" seçenekleri
+      source,
       resultType: CameraResultType.DataUrl,
       quality: 85,
       width: 1920,
