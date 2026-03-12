@@ -20,9 +20,6 @@ interface UploadHomeworkDialogProps {
   uploadedByUserId?: string;
 }
 
-// Bottom-sheet classes that override centered modal on mobile
-const BOTTOM_SHEET_CLASSES =
-  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-xl max-sm:max-h-[85dvh] max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom";
 
 export function UploadHomeworkDialog({ 
   open, 
