@@ -271,7 +271,10 @@ export function StudentDashboard() {
                           <ChevronRight className="h-4 w-4 mt-0.5 shrink-0" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium">{topic.title}</h4>
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-medium">{topic.title}</h4>
+                            <span className="text-xs text-muted-foreground shrink-0 mt-0.5">{visibleResources.length}</span>
+                          </div>
                           {topic.description && (
                             <p className={`text-sm text-muted-foreground mt-0.5 ${
                               !expandedTopics.has(topic.id) ? 'line-clamp-2' : ''
@@ -279,9 +282,6 @@ export function StudentDashboard() {
                               {topic.description}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                            <Badge variant="outline" className="text-xs">{visibleResources.length} kaynak</Badge>
-                          </div>
                         </div>
                       </CollapsibleTrigger>
 
