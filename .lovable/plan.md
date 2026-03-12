@@ -1,52 +1,74 @@
+## Plan — Formspree Entegrasyonu (2 Form)
+
+### Mevcut Durum
+
+1. **ContactSection (öğrenci formu):** `handleSubmit` sadece `console.log` yapıyor. Formspree bağlantısı yok. Controlled state kullanıyor. `name` attribute'ları eksik. Success/error translation key'leri yok.
+2. **WorkWithUsPage (öğretmen formu):** Formspree yapısı var ama endpoint `YOUR_FORM_ID` placeholder. Uncontrolled form (FormData) kullanıyor. Submit/loading/success zaten kısmen var.
+
+### Değişiklikler
+
+#### 1. `src/lib/translations.ts`
+
+Contact form için success/error/sending translation key'leri ekle:
+
+```
+contact.form.success: "Başvurunuz gönderildi!" / "Your application has been submitted!"
+contact.form.error: "Bir hata oluştu, lütfen tekrar deneyin." / "An error occurred, please try again."
+contact.form.sending: "Gönderiliyor..." / "Sending..."
+contact.form.submitted: "Gönderildi ✓" / "Submitted ✓"
+```
+
+#### 2. `src/components/landing/ContactSection.tsx`
+
+- Formspree endpoint: `https://formspree.io/f/mzdjgzzo`
+- `isSubmitting` ve `submitted` state ekle
+- Tüm input/textarea/select'e anlamlı `name` attribute ekle (`fullName`, `studentAge`, `phone`, `message`)
+- Honeypot anti-spam alanı ekle (gizli input `_gotcha`)
+- `handleSubmit`: `fetch` ile Formspree'ye POST, FormData kullan
+- Submit butonu: `disabled={isSubmitting}`, loading text göster, submitted state
+- Başarıda form reset + success toast, hatada error toast
+- `required` attribute ekle zorunlu alanlara
+- `autocomplete` attribute ekle
+- Input font-size zaten `text-sm` — `text-base md:text-sm` yaparak iOS zoom fix (input.tsx pattern ile uyumlu)
+
+#### 3. `src/pages/WorkWithUsPage.tsx`
+
+- Endpoint'i `https://formspree.io/f/mwvrbpvp` olarak güncelle
+- Honeypot anti-spam alanı ekle
+- `autocomplete` attribute ekle
+- Input'lara `text-base md:text-sm` (iOS zoom fix)
+- Loading state'de spinner veya "Gönderiliyor..." göster
+
+#### 4. Anti-spam (her iki form)
+
+Formspree'nin kendi `_gotcha` honeypot field'ı:
+
+```html
+<input type="text" name="_gotcha" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+```
+
+### Dosya Listesi
 
 
-# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
+| Dosya                                       | Değişiklik                                                  |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| `src/lib/translations.ts`                   | Contact form success/error/sending key'leri ekle            |
+| `src/components/landing/ContactSection.tsx` | Formspree entegrasyonu, validation, submit akışı, anti-spam |
+| `src/pages/WorkWithUsPage.tsx`              | Endpoint düzelt, anti-spam, iOS font fix                    |
 
-## Problem
 
-The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
+**Ek dikkat:**
 
-**Affected students (Fatih's):**
-- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
-- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
+- AJAX/fetch submit’lerde `Accept: application/json` header’ı kesin olsun
 
-## Root Cause
+- Öğrenci formu endpoint: https://formspree.io/f/mzdjgzzo
 
-The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
+- Öğretmen formu endpoint: https://formspree.io/f/mwvrbpvp
 
-## Solution
+- Placeholder, TODO veya yarım entegrasyon bırakma
 
-**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
+- Her iki form da gerçek submit, loading, success, error, validation ve anti-spam ile tam çalışır halde bitsin  
+Dokunulmayan
 
-### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
-
-1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
-
-2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
-
-3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
-
-### What stays the same
-
-- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
-- The `datesUnassigned` logic for reset stays
-- The self-conflict fix stays
-- Template-based generation logic stays (only generates for template day slots)
-
-### Technical Detail
-
-The simplified `ensureInstancesForWeek` will:
-1. Get templates for teacher
-2. Get active students
-3. Check which students already have instances for this specific week
-4. For students missing instances this week, generate from templates (no cap check)
-5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
-
-This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
-
-### Files Changed
-
-| File | Change |
-|---|---|
-| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
-
+- UI tasarımı, renkler, spacing, tipografi — hiçbiri değişmez
+- Mevcut translation yapısı korunur
