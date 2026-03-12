@@ -206,40 +206,41 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
         <CardContent className="p-4">
           <Collapsible open={expandedTopics.has(topic.id)} onOpenChange={() => toggleTopic(topic.id)}>
             {/* Konu Başlığı ve Kontroller */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 flex-1">
-                {/* Tamamlanma Checkbox'ı */}
-                <Checkbox 
-                  checked={topic.is_completed} 
-                  onCheckedChange={() => toggleTopicCompletion(topic.id, topic.is_completed, topic.isGlobal || false)}
-                />
+            <div className="flex items-start gap-3">
+              {/* Tamamlanma Checkbox'ı */}
+              <Checkbox 
+                checked={topic.is_completed} 
+                onCheckedChange={() => toggleTopicCompletion(topic.id, topic.is_completed, topic.isGlobal || false)}
+                className="mt-1 shrink-0"
+              />
 
-                {/* Başlık ve Açıklama */}
-                <CollapsibleTrigger className="flex items-center gap-2 flex-1 text-left">
+              {/* Başlık, Açıklama ve Badge'ler */}
+              <CollapsibleTrigger className="flex-1 text-left">
+                <div className="flex items-start gap-2">
                   {expandedTopics.has(topic.id) ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 mt-0.5 shrink-0" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 mt-0.5 shrink-0" />
                   )}
-                  <div className="flex-1">
-                    <h4 className="font-medium">
-                      {topic.title}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium">{topic.title}</h4>
+                    {topic.description && (
+                      <p className={`text-sm text-muted-foreground mt-0.5 ${
+                        !expandedTopics.has(topic.id) ? 'line-clamp-2' : ''
+                      }`}>
+                        {topic.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       {topic.isGlobal && (
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          Global
-                        </Badge>
+                        <Badge variant="outline" className="text-xs">Global</Badge>
                       )}
-                    </h4>
-                    {topic.description && <p className="text-sm text-muted-foreground">{topic.description}</p>}
+                      {topic.is_completed && <Badge variant="secondary" className="text-xs">Tamamlandı</Badge>}
+                      <Badge variant="outline" className="text-xs">{topic.resources.length} kaynak</Badge>
+                    </div>
                   </div>
-                </CollapsibleTrigger>
-
-                {/* Badge - removed delete button for teachers */}
-                <div className="flex items-center gap-2">
-                  {topic.is_completed && <Badge variant="secondary">Tamamlandı</Badge>}
-                  <Badge variant="outline">{topic.resources.length} kaynak</Badge>
                 </div>
-              </div>
+              </CollapsibleTrigger>
             </div>
 
             {/* Kaynaklar Listesi (Açılabilir) */}

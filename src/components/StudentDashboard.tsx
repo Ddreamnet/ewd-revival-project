@@ -261,27 +261,29 @@ export function StudentDashboard() {
                     <Card key={topic.id} className="border-l-4 border-l-primary">
                       <CardContent className="p-4">
                         <Collapsible>
-                          <div className="flex items-center justify-between">
-                            <CollapsibleTrigger
-                              className="flex items-center gap-2 flex-1 text-left"
-                              onClick={() => toggleTopic(topic.id)}
-                            >
-                              {expandedTopics.has(topic.id) ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                              <div className="flex-1">
-                                <h4 className="font-medium">{topic.title}</h4>
-                                {topic.description && (
-                                  <p className="text-sm text-muted-foreground">{topic.description}</p>
-                                )}
-                              </div>
-                            </CollapsibleTrigger>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">{visibleResources.length} kaynak</Badge>
-                            </div>
+                      <CollapsibleTrigger
+                        className="flex items-start gap-2 w-full text-left"
+                        onClick={() => toggleTopic(topic.id)}
+                      >
+                        {expandedTopics.has(topic.id) ? (
+                          <ChevronDown className="h-4 w-4 mt-0.5 shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 mt-0.5 shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium">{topic.title}</h4>
+                          {topic.description && (
+                            <p className={`text-sm text-muted-foreground mt-0.5 ${
+                              !expandedTopics.has(topic.id) ? 'line-clamp-2' : ''
+                            }`}>
+                              {topic.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <Badge variant="outline" className="text-xs">{visibleResources.length} kaynak</Badge>
                           </div>
+                        </div>
+                      </CollapsibleTrigger>
 
                           {/* Kaynaklar */}
                           <CollapsibleContent className="mt-4">
