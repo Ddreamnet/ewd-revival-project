@@ -26,7 +26,7 @@ function WorkWithUsContent() {
         headers: { Accept: 'application/json' },
       });
       if (res.ok) {
-        e.currentTarget.reset();
+        formRef.current?.reset();
         setSubmitted(true);
         toast.success(t.workWithUs.success[language]);
         setTimeout(() => setSubmitted(false), 3000);
