@@ -4,6 +4,10 @@ import { Phone, Globe, Mail, Check, User } from "lucide-react";
 const whatsappLogo = "/uploads/whatsappLogo.png";
 const instagramLogo = "/uploads/instagramLogo.png";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/mzdjgzzo";
+
 export function ContactSection() {
   const { language, t } = useLanguage();
   const [formData, setFormData] = useState({
@@ -12,6 +16,9 @@ export function ContactSection() {
     phone: "",
     message: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
   const whatsappMessage =
     language === "tr"
       ? "Merhaba, ücretsiz deneme dersi hakkında bilgi almak istiyorum."
@@ -50,11 +57,40 @@ export function ContactSection() {
       label: t.contact.form.ageOptions.age16_18,
     },
   ];
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Form submission logic here
-    console.log("Form submitted:", formData);
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append("fullName", formData.fullName.trim());
+      fd.append("studentAge", formData.studentAge);
+      fd.append("phone", formData.phone.trim());
+      fd.append("message", formData.message.trim());
+      fd.append("_gotcha", ""); // honeypot
+
+      const res = await fetch(FORMSPREE_ENDPOINT, {
+        method: "POST",
+        body: fd,
+        headers: { Accept: "application/json" },
+      });
+
+      if (res.ok) {
+        setFormData({ fullName: "", studentAge: "", phone: "", message: "" });
+        setSubmitted(true);
+        toast.success(t.contact.form.success[language]);
+        setTimeout(() => setSubmitted(false), 3000);
+      } else {
+        toast.error(t.contact.form.error[language]);
+      }
+    } catch {
+      toast.error(t.contact.form.error[language]);
+    }
+    setIsSubmitting(false);
   };
+
   return (
     <section id="contact" className="scroll-section py-16 md:py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -94,8 +130,6 @@ export function ContactSection() {
         <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-end">
           {/* Left - Contact Cards */}
           <div className="flex flex-col justify-center self-center space-y-4">
-            {/* Yellow Contact Info Card */}
-
             {/* Why Card */}
             <div className="hidden lg:block bg-landing-purple/20 backdrop-blur-sm rounded-2xl p-5 shadow-lg">
               <h3 className="text-lg font-bold text-landing-purple-dark mb-4">{t.contact.whyCard.title[language]}</h3>
@@ -120,10 +154,14 @@ export function ContactSection() {
                 <h3 className="text-lg font-bold text-foreground mb-4">{t.contact.form.title[language]}</h3>
 
                 <form onSubmit={handleSubmit} className="space-y-3">
-                  {/* Ad Soyad - Sağda User ikonu */}
+                  {/* Honeypot anti-spam */}
+                  <input type="text" name="_gotcha" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+
+                  {/* Ad Soyad */}
                   <div className="relative">
                     <input
                       type="text"
+                      name="fullName"
                       placeholder={t.contact.form.fullName[language]}
                       value={formData.fullName}
                       onChange={(e) =>
@@ -132,8 +170,11 @@ export function ContactSection() {
                           fullName: e.target.value,
                         })
                       }
+                      required
+                      autoComplete="name"
+                      maxLength={100}
                       className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl 
-                                 placeholder:text-muted-foreground text-sm text-foreground
+                                 placeholder:text-muted-foreground text-base md:text-sm text-foreground
                                  focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
                     <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -148,9 +189,10 @@ export function ContactSection() {
                         studentAge: value,
                       })
                     }
+                    required
                   >
                     <SelectTrigger
-                      className="h-9 bg-input border border-border rounded-xl text-sm 
+                      className="h-9 bg-input border border-border rounded-xl text-base md:text-sm 
                                                placeholder:text-muted-foreground 
                                                focus:ring-2 focus:ring-pink-400 focus:outline-none
                                                [&>span]:text-muted-foreground [&>span]:data-[state=selected]:text-foreground"
@@ -176,6 +218,7 @@ export function ContactSection() {
                     </div>
                     <input
                       type="tel"
+                      name="phone"
                       placeholder={t.contact.form.phone[language]}
                       value={formData.phone}
                       onChange={(e) =>
@@ -184,14 +227,18 @@ export function ContactSection() {
                           phone: e.target.value,
                         })
                       }
+                      required
+                      autoComplete="tel"
+                      maxLength={15}
                       className="min-w-0 flex-1 h-9 px-3 bg-input border border-border rounded-r-xl 
-                                 placeholder:text-muted-foreground text-sm text-foreground
+                                 placeholder:text-muted-foreground text-base md:text-sm text-foreground
                                  focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
                   </div>
 
                   {/* Mesaj Textarea */}
                   <textarea
+                    name="message"
                     placeholder={t.contact.form.message[language]}
                     value={formData.message}
                     onChange={(e) =>
@@ -200,20 +247,26 @@ export function ContactSection() {
                         message: e.target.value,
                       })
                     }
+                    maxLength={1000}
                     className="w-full min-h-[80px] px-3 py-2 bg-input border border-border rounded-xl 
-                               placeholder:text-muted-foreground text-sm text-foreground resize-none
+                               placeholder:text-muted-foreground text-base md:text-sm text-foreground resize-none
                                focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
 
                   {/* Sarı Gönder Butonu */}
                   <button
                     type="submit"
+                    disabled={isSubmitting || submitted}
                     className="w-full h-10 rounded-xl font-bold text-amber-900 dark:text-amber-100
                                bg-gradient-to-b from-yellow-300 to-landing-yellow
                                hover:brightness-105 active:translate-y-[1px] transition-all
-                               shadow-sm"
+                               shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {t.contact.form.submit[language]}
+                    {isSubmitting
+                      ? t.contact.form.sending[language]
+                      : submitted
+                        ? t.contact.form.submitted[language]
+                        : t.contact.form.submit[language]}
                   </button>
 
                   {/* Alt açıklama */}

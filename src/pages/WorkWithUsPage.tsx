@@ -6,7 +6,7 @@ import { LandingHeader } from '@/components/landing/LandingHeader';
 import { Footer } from '@/components/landing/Footer';
 import { toast } from 'sonner';
 
-const FORMSPREE_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID";
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/mwvrbpvp";
 
 function WorkWithUsContent() {
   const { language, t } = useLanguage();
@@ -16,12 +16,6 @@ function WorkWithUsContent() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (FORMSPREE_ENDPOINT.includes('YOUR_FORM_ID')) {
-      console.warn('[WorkWithUs] Formspree endpoint henüz yapılandırılmamış!');
-      toast.error(t.workWithUs.formNotReady[language]);
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -59,6 +53,9 @@ function WorkWithUsContent() {
           <div className="bg-secondary/80 rounded-[20px] p-3 shadow-lg w-full max-w-[400px] mx-auto">
             <div className="bg-card/70 backdrop-blur-sm rounded-[16px] p-4">
               <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
+                {/* Honeypot anti-spam */}
+                <input type="text" name="_gotcha" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+
                 {/* Ad Soyad */}
                 <div className="relative">
                   <input
@@ -66,7 +63,8 @@ function WorkWithUsContent() {
                     name="fullName"
                     placeholder={t.workWithUs.fullName[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    autoComplete="name"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-base md:text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
                   <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
@@ -79,7 +77,7 @@ function WorkWithUsContent() {
                     placeholder={t.workWithUs.age[language]}
                     required
                     inputMode="numeric"
-                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-base md:text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
                   <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
@@ -91,7 +89,8 @@ function WorkWithUsContent() {
                     name="university"
                     placeholder={t.workWithUs.university[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    autoComplete="organization"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-base md:text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
                   <Building className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
@@ -103,7 +102,7 @@ function WorkWithUsContent() {
                     name="department"
                     placeholder={t.workWithUs.department[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-base md:text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
                   <GraduationCap className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
@@ -115,7 +114,8 @@ function WorkWithUsContent() {
                     name="email"
                     placeholder={t.workWithUs.email[language]}
                     required
-                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    autoComplete="email"
+                    className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl placeholder:text-muted-foreground text-base md:text-sm text-foreground focus:ring-2 focus:ring-pink-400 focus:outline-none"
                   />
                   <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
@@ -145,7 +145,7 @@ function WorkWithUsContent() {
                   className="w-full h-10 rounded-xl font-bold text-amber-900 dark:text-amber-100 bg-gradient-to-b from-yellow-300 to-landing-yellow hover:brightness-105 active:translate-y-[1px] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSubmitting
-                    ? '...'
+                    ? t.workWithUs.sending[language]
                     : submitted
                       ? t.workWithUs.submitted[language]
                       : t.workWithUs.submit[language]}
