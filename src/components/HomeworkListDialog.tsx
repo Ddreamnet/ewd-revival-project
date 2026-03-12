@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { AlertDialogTrigger } from "@radix-ui/react-alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Calendar, FileImage, File, Edit2, Trash2, Eye, Share2, X } from "lucide-react";
+import { FileText, Calendar, FileImage, File, Edit2, Trash2, Eye, Download, X } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { EditHomeworkDialog } from "./EditHomeworkDialog";
@@ -140,11 +140,34 @@ export function HomeworkListDialog({
     return fileType.startsWith('image/') || fileType === 'application/pdf';
   };
 
-  const handlePreview = (fileUrl: string, fileType: string) => {
-    if (fileType.startsWith('image/')) {
-      setPreviewImage(fileUrl);
-    } else if (fileType === 'application/pdf') {
-      window.open(fileUrl, '_blank');
+  const handlePreview = async (fileUrl: string, fileType: string) => {
+    const urlParts = fileUrl.split('/homework-files/');
+    if (urlParts.length < 2 || !urlParts[1]) {
+      toast({ title: "Hata", description: "Dosya yolu çözümlenemedi", variant: "destructive" });
+      return;
+    }
+    const filePath = decodeURIComponent(urlParts[1]);
+
+    try {
+      const { data, error } = await supabase.storage.from('homework-files').download(filePath);
+      if (error || !data) {
+        toast({ title: "Hata", description: "Dosya yüklenemedi", variant: "destructive" });
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(data);
+
+      if (fileType.startsWith('image/')) {
+        // Cleanup previous blob URL before setting new one
+        if (previewImage) URL.revokeObjectURL(previewImage);
+        setPreviewImage(objectUrl);
+      } else if (fileType === 'application/pdf') {
+        window.open(objectUrl, '_blank');
+        // Cleanup PDF blob URL after browser has had time to load it
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      }
+    } catch {
+      toast({ title: "Hata", description: "Dosya önizlemesi açılamadı", variant: "destructive" });
     }
   };
 
@@ -364,10 +387,10 @@ export function HomeworkListDialog({
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleSaveShare(file.file_url, file.file_name)}
-                                  title={Capacitor.isNativePlatform() ? "Kaydet/Paylaş" : "İndir"}
+                                  title="İndir"
                                   className="h-8 w-8 p-0"
                                 >
-                                  <Share2 className="h-4 w-4" />
+                                  <Download className="h-4 w-4" />
                                 </Button>
                               </div>
                             </div>
@@ -394,7 +417,7 @@ export function HomeworkListDialog({
       {previewImage && (
         <div 
           className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center cursor-pointer"
-          onClick={() => setPreviewImage(null)}
+          onClick={() => { if (previewImage) URL.revokeObjectURL(previewImage); setPreviewImage(null); }}
         >
           <img 
             src={previewImage} 
@@ -406,7 +429,7 @@ export function HomeworkListDialog({
             variant="ghost"
             size="icon"
             className="absolute top-4 right-4 text-white hover:bg-white/20"
-            onClick={() => setPreviewImage(null)}
+            onClick={() => { if (previewImage) URL.revokeObjectURL(previewImage); setPreviewImage(null); }}
           >
             <X className="h-6 w-6" />
           </Button>
