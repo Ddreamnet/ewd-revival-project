@@ -17,12 +17,6 @@ function WorkWithUsContent() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (FORMSPREE_ENDPOINT.includes('YOUR_FORM_ID')) {
-      console.warn('[WorkWithUs] Formspree endpoint henüz yapılandırılmamış!');
-      toast.error(t.workWithUs.formNotReady[language]);
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const fd = new FormData(e.currentTarget);
