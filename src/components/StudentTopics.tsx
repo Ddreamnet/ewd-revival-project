@@ -235,7 +235,7 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
                       {topic.isGlobal && (
                         <Badge variant="outline" className="text-xs">Global</Badge>
                       )}
-                      {topic.is_completed && <Badge variant="secondary" className="text-xs">Tamamlandı</Badge>}
+                      
                       <Badge variant="outline" className="text-xs">{topic.resources.length} kaynak</Badge>
                     </div>
                   </div>
