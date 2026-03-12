@@ -387,10 +387,10 @@ export function HomeworkListDialog({
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleSaveShare(file.file_url, file.file_name)}
-                                  title={Capacitor.isNativePlatform() ? "Kaydet/Paylaş" : "İndir"}
+                                  title="İndir"
                                   className="h-8 w-8 p-0"
                                 >
-                                  <Share2 className="h-4 w-4" />
+                                  <Download className="h-4 w-4" />
                                 </Button>
                               </div>
                             </div>
