@@ -140,11 +140,34 @@ export function HomeworkListDialog({
     return fileType.startsWith('image/') || fileType === 'application/pdf';
   };
 
-  const handlePreview = (fileUrl: string, fileType: string) => {
-    if (fileType.startsWith('image/')) {
-      setPreviewImage(fileUrl);
-    } else if (fileType === 'application/pdf') {
-      window.open(fileUrl, '_blank');
+  const handlePreview = async (fileUrl: string, fileType: string) => {
+    const urlParts = fileUrl.split('/homework-files/');
+    if (urlParts.length < 2 || !urlParts[1]) {
+      toast({ title: "Hata", description: "Dosya yolu çözümlenemedi", variant: "destructive" });
+      return;
+    }
+    const filePath = decodeURIComponent(urlParts[1]);
+
+    try {
+      const { data, error } = await supabase.storage.from('homework-files').download(filePath);
+      if (error || !data) {
+        toast({ title: "Hata", description: "Dosya yüklenemedi", variant: "destructive" });
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(data);
+
+      if (fileType.startsWith('image/')) {
+        // Cleanup previous blob URL before setting new one
+        if (previewImage) URL.revokeObjectURL(previewImage);
+        setPreviewImage(objectUrl);
+      } else if (fileType === 'application/pdf') {
+        window.open(objectUrl, '_blank');
+        // Cleanup PDF blob URL after browser has had time to load it
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      }
+    } catch {
+      toast({ title: "Hata", description: "Dosya önizlemesi açılamadı", variant: "destructive" });
     }
   };
 
