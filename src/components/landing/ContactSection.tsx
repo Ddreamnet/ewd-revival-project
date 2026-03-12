@@ -127,62 +127,26 @@ export function ContactSection() {
         </div>
 
         {/* Three Column Layout */}
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           {/* Left - Contact Cards */}
-          <div className="flex flex-col self-start space-y-4 w-full lg:max-w-sm">
+          <div className="flex flex-col self-start space-y-4 w-full min-w-0 lg:max-w-sm">
             {/* Contact Card */}
             <div className="w-full max-w-full rounded-2xl bg-landing-yellow/40 backdrop-blur-sm p-4 sm:p-5 shadow-lg">
               <div className="space-y-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5"
-                  >
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                  </svg>
+                  <Phone className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5" />
                   <span className="text-sm sm:text-base font-medium min-w-0 break-words">0530 679 2831</span>
                 </div>
 
                 <div className="flex items-start gap-3 min-w-0">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                    <path d="M2 12h20" />
-                  </svg>
+                  <Globe className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5" />
                   <span className="text-sm sm:text-base font-medium min-w-0 break-words">englishwithdilara.com</span>
                 </div>
 
                 <div className="flex items-start gap-3 min-w-0">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5"
-                  >
-                    <rect width="20" height="16" x="2" y="4" rx="2" />
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                  </svg>
+                  <Mail className="w-5 h-5 text-foreground/70 shrink-0 mt-0.5" />
                   <span className="text-sm sm:text-base font-medium min-w-0 break-all">
-                    englishwithdilara@gmail.com
+                    admin@englishwithdilara.com
                   </span>
                 </div>
               </div>
@@ -203,139 +167,131 @@ export function ContactSection() {
           </div>
 
           {/* Center - Form */}
-          <div className="w-full max-w-[min(340px,calc(100%-2rem))] mx-auto">
-            {/* Dış Pembe Çerçeve */}
-            <div className="bg-secondary/80 rounded-[20px] p-3 shadow-lg">
-              {/* İç Panel */}
-              <div className="bg-card/70 backdrop-blur-sm rounded-[16px] p-4">
-                {/* Başlık */}
-                <h3 className="text-lg font-bold text-foreground mb-4">{t.contact.form.title[language]}</h3>
+          <div className="w-full min-w-0 mx-auto lg:mx-0">
+            <div className="w-full max-w-[340px] sm:max-w-[380px] mx-auto">
+              <div className="overflow-hidden bg-secondary/80 rounded-[20px] p-3 shadow-lg">
+                <div className="overflow-hidden bg-card/70 backdrop-blur-sm rounded-[16px] p-4">
+                  <h3 className="text-lg font-bold text-foreground mb-4">{t.contact.form.title[language]}</h3>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  {/* Honeypot anti-spam */}
-                  <input type="text" name="_gotcha" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
+                  <form onSubmit={handleSubmit} className="space-y-3">
+                    <input type="text" name="_gotcha" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
 
-                  {/* Ad Soyad */}
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="fullName"
-                      placeholder={t.contact.form.fullName[language]}
-                      value={formData.fullName}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          fullName: e.target.value,
-                        })
-                      }
-                      required
-                      autoComplete="name"
-                      maxLength={100}
-                      className="w-full h-9 px-3 pr-10 bg-input border border-border rounded-xl 
-                                 placeholder:text-muted-foreground text-base md:text-sm text-foreground
-                                 focus:ring-2 focus:ring-pink-400 focus:outline-none"
-                    />
-                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  </div>
-
-                  {/* Select - Öğrenci yaşı */}
-                  <Select
-                    value={formData.studentAge}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        studentAge: value,
-                      })
-                    }
-                    required
-                  >
-                    <SelectTrigger
-                      className="h-9 bg-input border border-border rounded-xl text-base md:text-sm 
-                                               placeholder:text-muted-foreground 
-                                               focus:ring-2 focus:ring-pink-400 focus:outline-none
-                                               [&>span]:text-muted-foreground [&>span]:data-[state=selected]:text-foreground"
-                    >
-                      <SelectValue placeholder={t.contact.form.studentAge[language]} />
-                    </SelectTrigger>
-                    <SelectContent className="z-[60] rounded-xl">
-                      {ageOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value} className="text-sm">
-                          {option.label[language]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Telefon - +90 prefix birleşik */}
-                  <div className="flex min-w-0">
-                    <div
-                      className="flex-shrink-0 flex items-center px-3 bg-muted rounded-l-xl 
-                                    text-sm font-medium text-muted-foreground border-r border-border/60 h-9"
-                    >
-                      +90
+                    <div className="relative min-w-0">
+                      <input
+                        type="text"
+                        name="fullName"
+                        placeholder={t.contact.form.fullName[language]}
+                        value={formData.fullName}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            fullName: e.target.value,
+                          })
+                        }
+                        required
+                        autoComplete="name"
+                        maxLength={100}
+                        className="w-full min-w-0 h-9 px-3 pr-10 bg-input border border-border rounded-xl
+                           placeholder:text-muted-foreground text-sm sm:text-base text-foreground
+                           focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                      />
+                      <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     </div>
-                    <input
-                      type="tel"
-                      name="phone"
-                      placeholder={t.contact.form.phone[language]}
-                      value={formData.phone}
-                      onChange={(e) =>
+
+                    <Select
+                      value={formData.studentAge}
+                      onValueChange={(value) =>
                         setFormData({
                           ...formData,
-                          phone: e.target.value,
+                          studentAge: value,
                         })
                       }
                       required
-                      autoComplete="tel"
-                      maxLength={15}
-                      className="min-w-0 flex-1 h-9 px-3 bg-input border border-border rounded-r-xl 
-                                 placeholder:text-muted-foreground text-base md:text-sm text-foreground
-                                 focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                    >
+                      <SelectTrigger
+                        className="w-full min-w-0 h-9 bg-input border border-border rounded-xl text-sm sm:text-base
+                           placeholder:text-muted-foreground
+                           focus:ring-2 focus:ring-pink-400 focus:outline-none
+                           [&>span]:text-muted-foreground [&>span]:data-[state=selected]:text-foreground"
+                      >
+                        <SelectValue placeholder={t.contact.form.studentAge[language]} />
+                      </SelectTrigger>
+                      <SelectContent className="z-[60] rounded-xl">
+                        {ageOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value} className="text-sm">
+                            {option.label[language]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="flex min-w-0 overflow-hidden rounded-xl">
+                      <div
+                        className="flex-shrink-0 flex items-center px-3 bg-muted
+                           text-sm font-medium text-muted-foreground border-r border-border/60 h-9"
+                      >
+                        +90
+                      </div>
+                      <input
+                        type="tel"
+                        name="phone"
+                        placeholder={t.contact.form.phone[language]}
+                        value={formData.phone}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            phone: e.target.value,
+                          })
+                        }
+                        required
+                        autoComplete="tel"
+                        maxLength={15}
+                        className="min-w-0 flex-1 h-9 px-3 bg-input border border-border
+                           placeholder:text-muted-foreground text-sm sm:text-base text-foreground
+                           focus:ring-2 focus:ring-pink-400 focus:outline-none"
+                      />
+                    </div>
+
+                    <textarea
+                      name="message"
+                      placeholder={t.contact.form.message[language]}
+                      value={formData.message}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          message: e.target.value,
+                        })
+                      }
+                      maxLength={1000}
+                      className="w-full min-w-0 min-h-[80px] px-3 py-2 bg-input border border-border rounded-xl
+                         placeholder:text-muted-foreground text-sm sm:text-base text-foreground resize-none
+                         focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
-                  </div>
 
-                  {/* Mesaj Textarea */}
-                  <textarea
-                    name="message"
-                    placeholder={t.contact.form.message[language]}
-                    value={formData.message}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        message: e.target.value,
-                      })
-                    }
-                    maxLength={1000}
-                    className="w-full min-h-[80px] px-3 py-2 bg-input border border-border rounded-xl 
-                               placeholder:text-muted-foreground text-base md:text-sm text-foreground resize-none
-                               focus:ring-2 focus:ring-pink-400 focus:outline-none"
-                  />
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || submitted}
+                      className="w-full h-10 rounded-xl font-bold text-amber-900 dark:text-amber-100
+                         bg-gradient-to-b from-yellow-300 to-landing-yellow
+                         hover:brightness-105 active:translate-y-[1px] transition-all
+                         shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting
+                        ? t.contact.form.sending[language]
+                        : submitted
+                          ? t.contact.form.submitted[language]
+                          : t.contact.form.submit[language]}
+                    </button>
 
-                  {/* Sarı Gönder Butonu */}
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || submitted}
-                    className="w-full h-10 rounded-xl font-bold text-amber-900 dark:text-amber-100
-                               bg-gradient-to-b from-yellow-300 to-landing-yellow
-                               hover:brightness-105 active:translate-y-[1px] transition-all
-                               shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting
-                      ? t.contact.form.sending[language]
-                      : submitted
-                        ? t.contact.form.submitted[language]
-                        : t.contact.form.submit[language]}
-                  </button>
-
-                  {/* Alt açıklama */}
-                  <p className="text-xs text-center text-muted-foreground mt-2">{t.contact.form.note[language]}</p>
-                </form>
+                    <p className="text-xs text-center text-muted-foreground mt-2">{t.contact.form.note[language]}</p>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Right - Character */}
-          <div className="hidden lg:flex items-end justify-end overflow-hidden">
+          <div className="hidden lg:flex items-end justify-end overflow-hidden min-w-0">
             <img
               src="/uploads/dilarateacher.png"
               alt="Dilara Teacher"
