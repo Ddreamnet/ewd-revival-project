@@ -38,12 +38,27 @@ export async function downloadFileNative(options: DownloadOptions): Promise<bool
     // Blob → base64
     const base64 = await blobToBase64(blob);
 
+    // Ensure downloads directory exists
+    try {
+      await Filesystem.mkdir({
+        path: 'downloads',
+        directory: Directory.Cache,
+        recursive: true,
+      });
+    } catch (e: any) {
+      // Directory already exists — ignore
+      if (!e?.message?.includes('exist')) {
+        console.warn('mkdir warning:', e);
+      }
+    }
+
     // Write to cache directory
     const targetPath = `downloads/${Date.now()}_${fileName}`;
     const writeResult = await Filesystem.writeFile({
       path: targetPath,
       data: base64,
       directory: Directory.Cache,
+      recursive: true,
     });
 
     // Open native share/save sheet

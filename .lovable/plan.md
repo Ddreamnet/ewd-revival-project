@@ -1,132 +1,52 @@
 
 
-## Final Plan — 4 Düzeltme
+# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
 
-### Dosya Analizi Sonuçları
+## Problem
 
-**AddResourceDialog durumu:**
-- `max-h-[90vh]` kullanıyor (satır 206) → dvh'ye çevrilmeli
-- Textarea'da `max-h` yok (satır 309-315) → eklenmeli
-- Dosya adı: `min-w-0 truncate` zaten var (satır 274) → OK
-- File input: `className="hidden"` + custom button zaten var → OK
-- Klavye sorunu: centered modal + vh → etkileniyor → bottom-sheet gerekli
-- Native kamera: Kullanmıyor, sadece file input. Kaynak türleri PDF/video/image/document/link — dosya seçimi ağırlıklı. Kamera ihtiyacı düşük, sistem chooser yeterli.
-- **Sonuç:** dvh, textarea max-h ve bottom-sheet eklenmeli. Native camera dropdown gerekmez.
+The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
 
-**UploadHomeworkDialog durumu:**
-- Ayrı "Fotoğraf Çek" butonu var (satır 225-235) → kaldırılacak
-- `handleNativeCamera` fonksiyonu var (satır 63-76) → kaldırılacak
-- Camera import var (satır 9-10) → güncelleme gerekecek
-- Bottom-sheet class'ları yok → eklenecek
+**Affected students (Fatih's):**
+- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
+- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
 
-**EditHomeworkDialog durumu:**
-- `max-h` yok (satır 85) → dvh + bottom-sheet eklenecek
-- Textarea max-h zaten var → OK
+## Root Cause
 
-**nativeDownload.ts:**
-- `recursive: true` eksik (satır 43-47)
-- mkdir yok
+The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
 
-**nativeCamera.ts:**
-- Source parametresi sabit `CameraSource.Prompt` — opsiyonel source desteği eklenecek (Android fallback dropdown için)
+## Solution
 
----
+**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
 
-### 1. Scoped Mobile Bottom-Sheet
+### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
 
-Global `dialog.tsx` değişmeyecek. Üç dialog'a className override:
+1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
 
-```
-max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto 
-max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 
-max-sm:rounded-b-none max-sm:rounded-t-xl max-sm:max-h-[85dvh]
-max-sm:data-[state=open]:slide-in-from-bottom 
-max-sm:data-[state=closed]:slide-out-to-bottom
-```
+2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
 
-`dialog.tsx` satır 39'daki `left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]` mobilde bastırılır:
-- `max-sm:left-0` → `left-[50%]` override
-- `max-sm:top-auto` → `top-[50%]` override
-- `max-sm:translate-x-0 max-sm:translate-y-0` → translate'ler sıfırlanır
-- `max-sm:bottom-0 max-sm:inset-x-0` → alta yapışır, tam genişlik
+3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
 
-Desktop'ta (`sm:` üzeri) bu override'lar etkisiz.
+### What stays the same
 
-**Uygulanacak dialoglar:** UploadHomeworkDialog, EditHomeworkDialog, AddResourceDialog
+- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
+- The `datesUnassigned` logic for reset stays
+- The self-conflict fix stays
+- Template-based generation logic stays (only generates for template day slots)
 
----
+### Technical Detail
 
-### 2. Tek Butonlu Akış — Platform Bazlı Strateji
+The simplified `ensureInstancesForWeek` will:
+1. Get templates for teacher
+2. Get active students
+3. Check which students already have instances for this specific week
+4. For students missing instances this week, generate from templates (no cap check)
+5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
 
-**UploadHomeworkDialog:**
+This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
 
-- Ayrı "Fotoğraf Çek" butonu kaldırılacak (satır 225-235)
-- `handleNativeCamera` kaldırılacak (satır 63-76)
-- `Camera` lucide import kaldırılacak
+### Files Changed
 
-Tek "Dosya Seç" butonu:
-- **Web:** `fileInputRef.current?.click()` — mevcut davranış
-- **iOS:** `fileInputRef.current?.click()` — iOS sistem chooser'ı Info.plist permission'lar düzeltildikten sonra kamera + galeri + dosya seçeneklerini sunar. Ek dropdown gerekmez.
-- **Android (fallback):** Android WebView'da `<input type="file">` kamera seçeneği sunmaz. Bu yüzden Android'de butona basınca bir ActionSheet/alert ile 3 seçenek sunulacak:
-  1. "Fotoğraf Çek" → `pickImageNative(CameraSource.Camera)`
-  2. "Galeriden Seç" → `pickImageNative(CameraSource.Photos)`
-  3. "Dosya Seç" → `fileInputRef.current?.click()`
-
-Bunu radix dropdown yerine basit bir `window.confirm` benzeri yapı veya custom küçük bir dialog ile yapabiliriz. En temiz yaklaşım: Android'de `Capacitor.getPlatform() === 'android'` kontrolü ile koşullu ActionSheet.
-
-**nativeCamera.ts güncelleme:** `pickImageNative` fonksiyonuna opsiyonel `source` parametresi eklenir (default: `CameraSource.Prompt`). Android fallback'te `Camera` ve `Photos` ayrı ayrı çağrılabilir.
-
-**AddResourceDialog:** Değişiklik yok. Kaynak türü çeşitliliği (PDF/video/document/link) nedeniyle sistem chooser yeterli. Native kamera dropdown eklenmeyecek.
-
----
-
-### 3. Native Download — mkdir + recursive + toast düzeltmesi
-
-`nativeDownload.ts` satır 42-47:
-
-```typescript
-// mkdir ile downloads klasörünü oluştur
-try {
-  await Filesystem.mkdir({ path: 'downloads', directory: Directory.Cache, recursive: true });
-} catch (e: any) {
-  if (!e?.message?.includes('exist')) console.warn('mkdir warning:', e);
-}
-
-const writeResult = await Filesystem.writeFile({
-  path: targetPath,
-  data: base64,
-  directory: Directory.Cache,
-  recursive: true,  // ← eklendi
-});
-```
-
-`HomeworkListDialog.tsx` satır 163: toast mesajı `"Dosya indirildi"` → `"Dosya hazırlandı"`
-
----
-
-### 4. AddResourceDialog Ek Düzeltmeler
-
-- Satır 206: `max-h-[90vh]` → `max-h-[90dvh]` + bottom-sheet class'ları
-- Satır 309-315: Textarea'ya `max-h-[120px] overflow-y-auto` ekle
-
----
-
-### Değiştirilecek Dosyalar
-
-| Dosya | Değişiklik |
-|-------|-----------|
-| `src/components/UploadHomeworkDialog.tsx` | Kamera butonu kaldır, tek buton (web+iOS: file input, Android: 3 seçenekli fallback), bottom-sheet className |
-| `src/components/EditHomeworkDialog.tsx` | dvh + bottom-sheet className |
-| `src/components/AddResourceDialog.tsx` | `max-h-[90vh]`→`max-h-[90dvh]`, textarea max-h, bottom-sheet className |
-| `src/components/HomeworkListDialog.tsx` | Toast mesajı düzelt |
-| `src/lib/nativeCamera.ts` | Source parametresi opsiyonel kabul et |
-| `src/lib/nativeDownload.ts` | mkdir + recursive:true |
-
-**Dokunulmayan:** `dialog.tsx`, `capacitor.config.ts`, `index.html`
-
-### Manuel Yapılacaklar
-
-1. iOS Info.plist'e üç key ekle (NSCameraUsageDescription, NSPhotoLibraryUsageDescription, NSPhotoLibraryAddUsageDescription)
-2. `npm install` + `npx cap sync`
-3. Test: mobilde bottom-sheet + keyboard, iOS'ta tek buton + sistem chooser, Android'de tek buton + 3 seçenekli fallback, download
+| File | Change |
+|---|---|
+| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
 

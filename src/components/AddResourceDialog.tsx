@@ -203,7 +203,7 @@ export function AddResourceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg max-h-[90dvh] overflow-y-auto max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-xl max-sm:max-h-[85dvh] max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom">
         <DialogHeader>
           <DialogTitle>Öğrenme Kaynağı Ekle</DialogTitle>
           <DialogDescription>
@@ -312,6 +312,7 @@ export function AddResourceDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
+              className="max-h-[120px] overflow-y-auto"
             />
           </div>
 
