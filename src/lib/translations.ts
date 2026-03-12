@@ -188,6 +188,10 @@ export const translations = {
       phone: { tr: "Telefon Numaranız", en: "Your phone number" },
       message: { tr: "Mesajınız", en: "Your message" },
       submit: { tr: "Gönder", en: "Send" },
+      sending: { tr: "Gönderiliyor...", en: "Sending..." },
+      submitted: { tr: "Gönderildi ✓", en: "Submitted ✓" },
+      success: { tr: "Başvurunuz başarıyla gönderildi!", en: "Your application has been submitted successfully!" },
+      error: { tr: "Bir hata oluştu, lütfen tekrar deneyin.", en: "An error occurred, please try again." },
       note: {
         tr: "Formu doldurduktan sonra en kısa sürede sizinle iletişime geçiyoruz.",
         en: "After you submit the form, we'll get back to you as soon as possible.",

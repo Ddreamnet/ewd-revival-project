@@ -145,7 +145,7 @@ function WorkWithUsContent() {
                   className="w-full h-10 rounded-xl font-bold text-amber-900 dark:text-amber-100 bg-gradient-to-b from-yellow-300 to-landing-yellow hover:brightness-105 active:translate-y-[1px] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSubmitting
-                    ? '...'
+                    ? (t.workWithUs.sending?.[language] ?? 'Gönderiliyor...')
                     : submitted
                       ? t.workWithUs.submitted[language]
                       : t.workWithUs.submit[language]}
