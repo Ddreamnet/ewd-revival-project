@@ -1,7 +1,7 @@
 
 # Lesson Scheduling System — Refactoring Plan
 
-## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅ + Phase 5 ✅ + Phase 6 ✅ (partial)
+## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅ + Phase 5 ✅ + Phase 6 ✅ (partial) + Phase 7 ✅
 
 ---
 
@@ -122,9 +122,13 @@ Stop writing to `lesson_overrides`. Instance-only reschedule.
 
 ---
 
-## Phase 7: Cancelled Status Removal
+## Phase 7: Cancelled Status Removal (DONE)
 
-Remove `cancelled` concept from UI/code.
+### Changes Made
+- ✅ **Deleted `src/lib/lessonSorting.ts`** — Dead code; no imports anywhere. Used legacy `LessonOverrideInfo` + `isCancelled` logic
+- ✅ **`src/lib/lessonTypes.ts`** — Removed `LessonOverrideInfo` interface, removed `isCancelled` from `SortedLesson` and `DisplayLessonData`, updated `LessonInstance.status` comment to `'planned' | 'completed'`
+- ✅ **`src/components/EditStudentDialog.tsx`** — Removed all `isCancelled` mapping, conditional styling, and "(İptal)" label from lesson list
+- ✅ **`src/hooks/useScheduleGrid.ts`** — Removed `is_cancelled` override logic from `getAllTimeSlots`; overrides param now unused
 
 ---
 

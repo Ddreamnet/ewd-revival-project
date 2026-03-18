@@ -673,7 +673,6 @@ export function EditStudentDialog({
       startTime: inst.start_time,
       endTime: inst.end_time,
       isCompleted: inst.status === "completed",
-      isCancelled: inst.status === "cancelled",
       isOverridden: inst.original_date !== null,
       instanceId: inst.id,
     }));
@@ -687,7 +686,6 @@ export function EditStudentDialog({
         startTime: "",
         endTime: "",
         isCompleted: false,
-        isCancelled: false,
         isOverridden: false,
         instanceId: undefined,
       });
@@ -867,28 +865,21 @@ export function EditStudentDialog({
             </div>
             <div className="space-y-2">
               {sortedLessonsForDisplay.map((lesson) => (
-                <div key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border rounded-lg ${
-                  lesson.isCancelled ? "opacity-50 bg-muted" : ""
-                } ${lesson.isOverridden ? "border-amber-500" : ""}`}>
+                <div key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border rounded-lg ${lesson.isOverridden ? "border-amber-500" : ""}`}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <div 
                       className={`h-4 w-4 rounded-full shrink-0 ${
-                        lesson.isCancelled 
-                          ? "bg-muted-foreground" 
-                          : lesson.isCompleted
-                            ? "bg-primary" 
-                            : "bg-muted"
+                        lesson.isCompleted
+                          ? "bg-primary" 
+                          : "bg-muted"
                       }`} 
                     />
                     <span className={`font-medium text-sm ${
-                      lesson.isCancelled 
-                        ? "text-muted-foreground line-through" 
-                        : lesson.isCompleted
-                          ? "text-foreground" 
-                          : "text-muted-foreground"
+                      lesson.isCompleted
+                        ? "text-foreground" 
+                        : "text-muted-foreground"
                     }`}>
                       Ders {lesson.displayIndex}
-                      {lesson.isCancelled && " (İptal)"}
                     </span>
                     {lesson.startTime && lesson.endTime && (
                       <span className="text-xs text-muted-foreground ml-1 shrink-0">
@@ -905,7 +896,7 @@ export function EditStudentDialog({
                       value={lessonDates[lesson.lessonNumber.toString()] || lesson.effectiveDate || ""}
                       onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
                       className={`w-full sm:w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
-                      disabled={lesson.isCancelled}
+                      disabled={false}
                     />
                   </div>
                 </div>

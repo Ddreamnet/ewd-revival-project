@@ -76,17 +76,12 @@ export function dayIndexToDbDayOfWeek(dayIndex: number): number {
 export function getAllTimeSlots(
   lessons: BaseLessonInfo[],
   trialLessons: TrialLessonInfo[],
-  overrides: { is_cancelled?: boolean; new_start_time?: string | null }[] = []
+  _overrides: unknown[] = []
 ): string[] {
   const allTimes = new Set<string>();
 
   lessons.forEach((l) => allTimes.add(l.start_time));
   trialLessons.forEach((l) => allTimes.add(l.start_time));
-  overrides.forEach((o) => {
-    if (!o.is_cancelled && o.new_start_time) {
-      allTimes.add(o.new_start_time);
-    }
-  });
 
   return Array.from(allTimes).sort();
 }
