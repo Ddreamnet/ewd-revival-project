@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Clock, CheckCircle2, Calendar, Plus, Minus, RotateCcw, Receipt } from "lucide-react";
 import { toast } from "sonner";
+import { manualBalanceAdjust } from "@/lib/lessonService";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 
