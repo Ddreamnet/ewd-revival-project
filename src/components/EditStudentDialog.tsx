@@ -249,109 +249,48 @@ export function EditStudentDialog({
 
   const handleMarkLastLesson = async () => {
     try {
-      const totalLessons = lessonsPerWeek * 4;
-      if (completedLessons.length >= totalLessons) return;
-
-      const nextLesson = completedLessons.length === 0 ? 1 : Math.max(...completedLessons) + 1;
-      const newCompletedLessons = [...completedLessons, nextLesson].sort((a, b) => a - b);
-
-      const { data: existingRecords } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (!existingRecords || existingRecords.length === 0) {
-        throw new Error("Ders takip kaydı bulunamadı");
+      const nextInst = await getNextCompletableInstance(studentUserId, teacherUserId);
+      if (!nextInst) {
+        toast({ title: "Bilgi", description: "İşlenecek ders kalmadı" });
+        return;
       }
 
-      const { error } = await supabase
-        .from("student_lesson_tracking")
-        .update({ completed_lessons: newCompletedLessons })
-        .eq("id", existingRecords[0].id);
-
-      if (error) throw error;
-
-      // Update instance status + use instance-aware balance
-      const inst = findInstanceForLesson(nextLesson);
-      if (inst) {
-        await supabase
-          .from("lesson_instances")
-          .update({ status: "completed" })
-          .eq("id", inst.id);
-        await addRegularLessonBalance(teacherUserId, studentUserId, inst.id);
-      } else {
-        await addRegularLessonBalance(teacherUserId, studentUserId);
+      const result = await completeLesson(nextInst.id, teacherUserId, studentUserId);
+      if (!result.success) {
+        toast({ title: "Hata", description: result.error || "Ders işaretlenemedi", variant: "destructive" });
+        return;
       }
 
+      // Refresh local state
+      const newCompletedLessons = [...completedLessons, instances.find(i => i.id === nextInst.id)?.lesson_number ?? (completedLessons.length + 1)].sort((a, b) => a - b);
       setCompletedLessons(newCompletedLessons);
-      // Refresh instances to get updated status
       fetchInstances();
-      toast({
-        title: "Başarılı",
-        description: `${nextLesson}. ders işaretlendi`,
-      });
+      toast({ title: "Başarılı", description: `Ders işaretlendi` });
     } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Ders işaretlenemedi",
-        variant: "destructive",
-      });
+      toast({ title: "Hata", description: error.message || "Ders işaretlenemedi", variant: "destructive" });
     }
   };
 
   const handleUndoLastLesson = async () => {
     try {
-      if (completedLessons.length === 0) return;
-
-      const lastLesson = Math.max(...completedLessons);
-      const newCompletedLessons = completedLessons.filter(l => l !== lastLesson);
-
-      const { data: existingRecords } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (!existingRecords || existingRecords.length === 0) {
-        throw new Error("Ders takip kaydı bulunamadı");
+      const lastInst = await getLastCompletedInstance(studentUserId, teacherUserId);
+      if (!lastInst) {
+        toast({ title: "Bilgi", description: "Geri alınacak ders yok" });
+        return;
       }
 
-      const { error } = await supabase
-        .from("student_lesson_tracking")
-        .update({ completed_lessons: newCompletedLessons })
-        .eq("id", existingRecords[0].id);
-
-      if (error) throw error;
-
-      // Revert instance status + use instance-aware balance
-      const inst = findInstanceForLesson(lastLesson);
-      if (inst) {
-        await supabase
-          .from("lesson_instances")
-          .update({ status: "planned" })
-          .eq("id", inst.id);
-        await subtractRegularLessonBalance(teacherUserId, studentUserId, inst.id);
-      } else {
-        await subtractRegularLessonBalance(teacherUserId, studentUserId);
+      const result = await undoCompleteLesson(lastInst.id, teacherUserId, studentUserId);
+      if (!result.success) {
+        toast({ title: "Hata", description: result.error || "Ders geri alınamadı", variant: "destructive" });
+        return;
       }
 
+      const newCompletedLessons = completedLessons.filter(l => l !== lastInst.lesson_number);
       setCompletedLessons(newCompletedLessons);
       fetchInstances();
-      toast({
-        title: "Başarılı",
-        description: `${lastLesson}. ders geri alındı`,
-      });
+      toast({ title: "Başarılı", description: "Son ders geri alındı" });
     } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Ders geri alınamadı",
-        variant: "destructive",
-      });
+      toast({ title: "Hata", description: error.message || "Ders geri alınamadı", variant: "destructive" });
     }
   };
 
