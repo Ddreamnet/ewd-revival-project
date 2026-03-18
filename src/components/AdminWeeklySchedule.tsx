@@ -227,56 +227,14 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const weekEnd = addDays(weekStart, 6);
   const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
 
-  const getLessonOverrideForAdmin = (studentId: string, date: Date): LessonOverride | null => {
-    const dateStr = format(date, "yyyy-MM-dd");
-    return overrides.find((o) => {
-      return o.student_id === studentId && 
-             format(new Date(o.original_date), "yyyy-MM-dd") === dateStr;
-    }) || null;
-  };
-
+  // Template mode: pure template positions (no override adjustments)
   const getLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
     const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
-    const dateForDay = getDateForDayIndex(dayIndex);
-    
-    // First check if there's a moved lesson that should appear here
-    const movedLesson = overrides.find((o) => {
-      if (o.is_cancelled || !o.new_date) return false;
-      const newDate = new Date(o.new_date);
-      const effectiveTime = o.new_start_time || o.original_start_time;
-      return format(newDate, "yyyy-MM-dd") === format(dateForDay, "yyyy-MM-dd") && effectiveTime === timeSlot;
-    });
-    
-    if (movedLesson) {
-      const originalLesson = lessons.find((l) => l.student_id === movedLesson.student_id);
-      if (originalLesson) {
-        return {
-          ...originalLesson,
-          start_time: movedLesson.new_start_time || movedLesson.original_start_time,
-          end_time: movedLesson.new_end_time || movedLesson.original_end_time,
-          _isOverride: true,
-          _originalDate: new Date(movedLesson.original_date),
-          _override: movedLesson,
-        };
-      }
-    }
-    
     const lesson = lessons.find((l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
-    
     if (lesson) {
       const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
-      const override = getLessonOverrideForAdmin(lesson.student_id, lessonDate);
-      if (override) {
-        return { 
-          ...lesson, 
-          _originalDate: lessonDate,
-          _isPostponed: true,
-          _override: override,
-        };
-      }
       return { ...lesson, _originalDate: lessonDate };
     }
-    
     return null;
   };
 
