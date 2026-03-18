@@ -462,20 +462,8 @@ export function EditStudentDialog({
         }
       }
 
-      // Rebuild legacy JSON from instances (canonical sync)
-      await rebuildLegacyLessonDatesFromInstances(studentUserId, teacherUserId);
-
-      // Re-fetch synced dates
-      const { data: syncedTracking } = await supabase
-        .from("student_lesson_tracking")
-        .select("lesson_dates")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const syncedDates = (syncedTracking as any)?.lesson_dates || finalDates;
+      // Re-fetch instances to get synced dates
+      await fetchInstances();
 
       toast({
         title: "Başarılı",
