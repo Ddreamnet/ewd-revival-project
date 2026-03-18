@@ -136,27 +136,9 @@ export function EditStudentDialog({
     }
   };
 
+  // Legacy fetchLessonOverrides kept as no-op for transition
   const fetchLessonOverrides = async () => {
-    try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
-      const { data, error } = await supabase
-        .from("lesson_overrides")
-        .select("id, original_date, new_date, is_cancelled")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
-
-      if (error) throw error;
-      setLessonOverrides(data || []);
-    } catch (error: any) {
-      console.error("Failed to fetch lesson overrides:", error);
-    }
+    // Phase 2: lesson_overrides no longer read — instances are source of truth
   };
 
   const fetchInstances = async () => {
