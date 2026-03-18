@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash2, Archive, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { LessonDates, LessonOverrideInfo, LessonInstance, formatTime } from "@/lib/lessonTypes";
+import { LessonDates, LessonInstance, formatTime } from "@/lib/lessonTypes";
 import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
 import {
   completeLesson,
@@ -58,10 +58,8 @@ export function EditStudentDialog({
   const [name, setName] = useState("");
   const [lessonsPerWeek, setLessonsPerWeek] = useState(1);
   const [lessons, setLessons] = useState<StudentLessonBase[]>([{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]);
-  const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
-  const [lessonOverrides, setLessonOverrides] = useState<LessonOverrideInfo[]>([]);
   const [instances, setInstances] = useState<LessonInstance[]>([]);
   const [trackingRecordId, setTrackingRecordId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,7 +85,6 @@ export function EditStudentDialog({
       setConflicts([]);
       fetchStudentIds().then(() => {
         fetchLessonTracking();
-        fetchLessonOverrides();
         fetchInstances();
       });
     }
@@ -128,7 +125,6 @@ export function EditStudentDialog({
       if (records && records.length > 0) {
         const data = records[0];
         setTrackingRecordId(data.id);
-        setCompletedLessons((data as any).completed_lessons || []);
         const dates = (data as any).lesson_dates || {};
         setLessonDates(dates);
         setOriginalLessonDates(dates);
@@ -140,27 +136,9 @@ export function EditStudentDialog({
     }
   };
 
+  // Legacy fetchLessonOverrides kept as no-op for transition
   const fetchLessonOverrides = async () => {
-    try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
-      const { data, error } = await supabase
-        .from("lesson_overrides")
-        .select("id, original_date, new_date, is_cancelled")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id);
-
-      if (error) throw error;
-      setLessonOverrides(data || []);
-    } catch (error: any) {
-      console.error("Failed to fetch lesson overrides:", error);
-    }
+    // Phase 2: lesson_overrides no longer read — instances are source of truth
   };
 
   const fetchInstances = async () => {
@@ -261,10 +239,8 @@ export function EditStudentDialog({
         return;
       }
 
-      // Refresh local state
-      const newCompletedLessons = [...completedLessons, instances.find(i => i.id === nextInst.id)?.lesson_number ?? (completedLessons.length + 1)].sort((a, b) => a - b);
-      setCompletedLessons(newCompletedLessons);
-      fetchInstances();
+      // Refresh instances (source of truth)
+      await fetchInstances();
       toast({ title: "Başarılı", description: `Ders işaretlendi` });
     } catch (error: any) {
       toast({ title: "Hata", description: error.message || "Ders işaretlenemedi", variant: "destructive" });
@@ -285,9 +261,7 @@ export function EditStudentDialog({
         return;
       }
 
-      const newCompletedLessons = completedLessons.filter(l => l !== lastInst.lesson_number);
-      setCompletedLessons(newCompletedLessons);
-      fetchInstances();
+      await fetchInstances();
       toast({ title: "Başarılı", description: "Son ders geri alındı" });
     } catch (error: any) {
       toast({ title: "Hata", description: error.message || "Ders geri alınamadı", variant: "destructive" });
@@ -308,11 +282,10 @@ export function EditStudentDialog({
         return;
       }
 
-      setCompletedLessons([]);
       setLessonDates({});
       setOriginalLessonDates({});
       setShowResetConfirm(false);
-      fetchInstances();
+      await fetchInstances();
       
       toast({
         title: "Başarılı",
@@ -754,8 +727,8 @@ export function EditStudentDialog({
     }
   };
 
-  // Build sorted lessons for the date display section
-  // Uses instances if available, sorted chronologically by (lesson_date, start_time)
+  // Derive completed count from instances (source of truth)
+  const completedCount = instances.filter((i) => i.status === "completed").length;
   const totalLessons = lessonsPerWeek * 4;
 
   const sortedLessonsForDisplay = (() => {
@@ -804,7 +777,7 @@ export function EditStudentDialog({
       return result;
     }
 
-    // Legacy fallback: use lessonDates JSON
+    // Legacy fallback: use lessonDates JSON (no instances yet)
     const lessonsWithDates: {
       displayIndex: number;
       lessonNumber: number;
@@ -819,39 +792,18 @@ export function EditStudentDialog({
 
     for (let i = 1; i <= totalLessons; i++) {
       const originalDate = lessonDates[i.toString()];
-      if (!originalDate) {
-        lessonsWithDates.push({
-          displayIndex: i,
-          lessonNumber: i,
-          effectiveDate: "",
-          startTime: "",
-          endTime: "",
-          isCompleted: completedLessons.includes(i),
-          isCancelled: false,
-          isOverridden: false,
-        });
-        continue;
-      }
-
-      const override = lessonOverrides.find((o) => o.original_date === originalDate);
-      const isCancelled = override?.is_cancelled || false;
-      const effectiveDate = override && override.new_date && !isCancelled
-        ? override.new_date
-        : originalDate;
-
       lessonsWithDates.push({
         displayIndex: i,
         lessonNumber: i,
-        effectiveDate,
+        effectiveDate: originalDate || "",
         startTime: "",
         endTime: "",
-        isCompleted: completedLessons.includes(i),
-        isCancelled,
-        isOverridden: effectiveDate !== originalDate,
+        isCompleted: false,
+        isCancelled: false,
+        isOverridden: false,
       });
     }
 
-    // Sort by effective date
     const withDates = lessonsWithDates.filter(l => l.effectiveDate);
     const withoutDates = lessonsWithDates.filter(l => !l.effectiveDate);
     withDates.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
@@ -980,7 +932,7 @@ export function EditStudentDialog({
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {completedLessons.length < lessonsPerWeek * 4 && (
+                {completedCount < lessonsPerWeek * 4 && (
                   <Button
                     type="button"
                     variant="default"
@@ -991,7 +943,7 @@ export function EditStudentDialog({
                     Son Dersi İşaretle
                   </Button>
                 )}
-                {completedLessons.length > 0 && (
+                {completedCount > 0 && (
                   <>
                     <Button
                       type="button"

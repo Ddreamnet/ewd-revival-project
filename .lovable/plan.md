@@ -1,7 +1,7 @@
 
 # Lesson Scheduling System — Refactoring Plan
 
-## Current Status: Phase 0 ✅ + Phase 1 ✅
+## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅
 
 ---
 
@@ -56,9 +56,14 @@ Wire all existing mutation call sites to use `lessonService.ts` instead of inlin
 
 ---
 
-## Phase 2: Read Path Unification
+## Phase 2: Read Path Unification (DONE)
 
 All panels derive display data from `lesson_instances.status` instead of legacy `completed_lessons` array or `lesson_dates` JSON.
+
+### Changes Made
+- ✅ **StudentLessonTracker.tsx** — Complete rewrite: removed `completed_lessons`, `lesson_dates`, `lesson_overrides` state; derives all display from `lesson_instances`; realtime subscription on `lesson_instances` table
+- ✅ **EditStudentDialog.tsx** — Removed `completedLessons` state; added `completedCount` derived from `instances.filter(i => i.status === 'completed')`; removed `lessonOverrides` state and fetch; legacy fallback simplified (no override lookup)
+- ✅ **LessonTracker.tsx** — Already instance-based from Phase 1
 
 ---
 

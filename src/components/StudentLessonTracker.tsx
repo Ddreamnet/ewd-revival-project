@@ -1,47 +1,35 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { BookCheck, Ban } from "lucide-react";
+import { BookCheck } from "lucide-react";
 import { format } from "date-fns";
-import { LessonDates, LessonOverrideInfo, LessonInstance, getRowConfig } from "@/lib/lessonTypes";
-import { getSortedLessons, getDisplayLessonData } from "@/lib/lessonSorting";
+import { LessonInstance, getRowConfig } from "@/lib/lessonTypes";
 
 interface StudentLessonTrackerProps {
   studentId: string;
 }
 
 export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
-  const [lessonsPerWeek, setLessonsPerWeek] = useState<number>(1);
-  const [completedLessons, setCompletedLessons] = useState<number[]>([]);
-  const [lessonDates, setLessonDates] = useState<LessonDates>({});
-  const [lessonOverrides, setLessonOverrides] = useState<LessonOverrideInfo[]>([]);
   const [instances, setInstances] = useState<LessonInstance[]>([]);
+  const [templateCount, setTemplateCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
-    fetchTracking();
-    fetchLessonOverrides();
-    fetchInstances();
+    loadData();
 
+    // Realtime: listen to instance changes for this student
     const channel = supabase
-      .channel("lesson-tracking-changes")
+      .channel("student-instance-changes")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "student_lesson_tracking",
+          table: "lesson_instances",
           filter: `student_id=eq.${studentId}`,
         },
-        (payload) => {
-        if (payload.new && typeof payload.new === "object") {
-            const data = payload.new as any;
-            // Don't update lessonsPerWeek from tracking — use live template count
-            setCompletedLessons(data.completed_lessons || []);
-            setLessonDates(data.lesson_dates || {});
-          }
+        () => {
+          fetchInstances();
         },
       )
       .subscribe();
@@ -51,27 +39,10 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
     };
   }, [studentId]);
 
-  const fetchLessonOverrides = async () => {
-    try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("teacher_id")
-        .eq("student_id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
-      const { data, error } = await supabase
-        .from("lesson_overrides")
-        .select("id, original_date, new_date, is_cancelled")
-        .eq("student_id", studentId)
-        .eq("teacher_id", studentData.teacher_id);
-
-      if (error) throw error;
-      setLessonOverrides(data || []);
-    } catch (error: any) {
-      console.error("Failed to fetch lesson overrides:", error);
-    }
+  const loadData = async () => {
+    setLoading(true);
+    await Promise.all([fetchInstances(), fetchTemplateCount()]);
+    setLoading(false);
   };
 
   const fetchInstances = async () => {
@@ -89,16 +60,18 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
         .select("*")
         .eq("student_id", studentId)
         .eq("teacher_id", studentData.teacher_id)
-        .order("lesson_number", { ascending: true });
+        .in("status", ["planned", "completed"])
+        .order("lesson_date", { ascending: true })
+        .order("start_time", { ascending: true });
 
       if (error) throw error;
-      setInstances(data || []);
+      setInstances((data as LessonInstance[]) || []);
     } catch (error: any) {
       console.error("Failed to fetch lesson instances:", error);
     }
   };
 
-  const fetchTracking = async () => {
+  const fetchTemplateCount = async () => {
     try {
       const { data: studentData, error: studentError } = await supabase
         .from("students")
@@ -108,50 +81,22 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
       if (studentError) throw studentError;
 
-      const { data: records, error } = await supabase
-        .from("student_lesson_tracking")
-        .select("*")
-        .eq("student_id", studentId)
-        .eq("teacher_id", studentData.teacher_id)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (error) throw error;
-
-      if (records && records.length > 0) {
-        const data = records[0];
-        setCompletedLessons((data as any).completed_lessons || []);
-        setLessonDates((data as any).lesson_dates || {});
-      }
-
-      // Derive lessonsPerWeek from live student_lessons template (same as teacher panel)
-      const { data: templateSlots, error: slotsError } = await supabase
+      const { count } = await supabase
         .from("student_lessons")
-        .select("id")
+        .select("id", { count: "exact", head: true })
         .eq("student_id", studentId)
         .eq("teacher_id", studentData.teacher_id);
 
-      if (!slotsError && templateSlots) {
-        setLessonsPerWeek(templateSlots.length || 1);
-      }
+      setTemplateCount(count ?? 0);
     } catch (error: any) {
-      console.error("Failed to fetch lesson tracking:", error);
-    } finally {
-      setLoading(false);
+      console.error("Failed to fetch template count:", error);
     }
   };
 
-  const totalLessonsPerMonth = lessonsPerWeek * 4;
-  const rowConfig = getRowConfig(lessonsPerWeek);
-  const remainingLessons = totalLessonsPerMonth - completedLessons.length;
-  
-  // Build instanceStartTimes map for time-aware sorting
-  const instanceStartTimes: Record<string, string> = {};
-  instances.forEach(inst => {
-    instanceStartTimes[inst.lesson_number.toString()] = inst.start_time;
-  });
-  
-  const sortedLessons = getSortedLessons(lessonDates, lessonOverrides, totalLessonsPerMonth, instanceStartTimes);
+  const totalLessonsPerMonth = templateCount * 4;
+  const rowConfig = getRowConfig(templateCount);
+  const completedCount = instances.filter((i) => i.status === "completed").length;
+  const displayInstances = instances.slice(0, totalLessonsPerMonth);
 
   if (loading) {
     return (
@@ -171,7 +116,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
             <BookCheck className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
             <div>
               <p className="text-lg sm:text-2xl font-bold">
-                {completedLessons.length}/{totalLessonsPerMonth}
+                {completedCount}/{totalLessonsPerMonth}
               </p>
               <p className="text-xs sm:text-sm text-muted-foreground">İşlenen Dersler</p>
             </div>
@@ -180,48 +125,41 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (
               <div key={rowIndex} className="flex gap-1.5">
                 {Array.from({ length: rowConfig.buttonsPerRow }, (_, colIndex) => {
-                  const displayPosition = rowIndex * rowConfig.buttonsPerRow + colIndex + 1;
-                  if (displayPosition > totalLessonsPerMonth) return null;
+                  const displayPosition = rowIndex * rowConfig.buttonsPerRow + colIndex;
+                  if (displayPosition >= totalLessonsPerMonth) return null;
 
-                  const lessonData = getDisplayLessonData(sortedLessons, lessonDates, displayPosition);
-                  const { lessonNumber, displayDate, isCancelled, isOverridden } = lessonData;
-                  const isCompleted = completedLessons.includes(lessonNumber);
-                  
-                  // Get instance time for tooltip
-                  const inst = instances.find(i => i.lesson_number === lessonNumber);
-                  const timeInfo = inst ? `${inst.start_time.slice(0,5)} - ${inst.end_time.slice(0,5)}` : "";
+                  const inst = displayInstances[displayPosition];
+                  if (!inst) return null;
+
+                  const isCompleted = inst.status === "completed";
+                  const isRescheduled = inst.original_date !== null;
+                  const timeInfo = `${inst.start_time.slice(0, 5)} - ${inst.end_time.slice(0, 5)}`;
 
                   return (
-                    <div key={displayPosition} className="flex flex-col items-center gap-0.5">
+                    <div key={inst.id} className="flex flex-col items-center gap-0.5">
                       <div
                         className={`
-                        h-8 w-8 rounded-lg border-2 transition-all duration-200
-                        flex items-center justify-center text-xs font-semibold shadow-sm
-                        ${
-                          isCancelled
-                            ? "bg-muted text-muted-foreground border-muted-foreground/30 opacity-50"
-                            : isCompleted
+                          h-8 w-8 rounded-lg border-2 transition-all duration-200
+                          flex items-center justify-center text-xs font-semibold shadow-sm
+                          ${
+                            isCompleted
                               ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md"
                               : "bg-muted/50 border-muted-foreground/20"
-                        }
-                      `}
-                        title={
-                          isCancelled
-                            ? `Ders ${displayPosition} - İptal Edildi`
-                            : timeInfo
-                              ? `Ders ${displayPosition} - ${timeInfo}`
-                              : `Ders ${displayPosition}`
-                        }
+                          }
+                        `}
+                        title={`Ders ${displayPosition + 1} - ${timeInfo}`}
                       >
-                        {isCancelled ? <Ban className="h-4 w-4" /> : displayPosition}
+                        {displayPosition + 1}
                       </div>
-                      {displayDate && (
-                        <span className={`text-[10px] whitespace-nowrap ${
-                          isOverridden ? "text-amber-600 font-medium" : "text-muted-foreground"
-                        }`}>
-                          {format(new Date(displayDate), "dd.MM")}
-                        </span>
-                      )}
+                      <span
+                        className={`text-[10px] whitespace-nowrap ${
+                          isRescheduled
+                            ? "text-amber-600 dark:text-amber-400 font-medium"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {format(new Date(inst.lesson_date), "dd.MM")}
+                      </span>
                     </div>
                   );
                 })}
