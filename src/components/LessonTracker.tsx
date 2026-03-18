@@ -84,12 +84,14 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   };
 
   const refreshCompletionState = async () => {
-    const [next, last] = await Promise.all([
+    const [next, last, rightsData] = await Promise.all([
       getNextCompletableInstance(studentId, teacherId),
       getLastCompletedInstance(studentId, teacherId),
+      getRemainingRights(studentId, teacherId),
     ]);
     setNextCompletableId(next?.id ?? null);
     setLastCompletedId(last?.id ?? null);
+    setRights(rightsData);
   };
 
   const handleLessonClick = (instanceId: string) => {
