@@ -1097,27 +1097,10 @@ export function EditStudentDialog({
                   if (confirmed) {
                     setLoading(true);
                     try {
-                      const { error } = await supabase
-                        .from("students")
-                        .update({ is_archived: true, archived_at: new Date().toISOString() })
-                        .eq("id", studentId);
-
-                      if (error) throw error;
-
-                      // Clean up planned instances (keep completed for history)
-                      await supabase
-                        .from("lesson_instances")
-                        .delete()
-                        .eq("student_id", studentUserId)
-                        .eq("teacher_id", teacherUserId)
-                        .eq("status", "planned");
-
-                      // Clean up lesson overrides
-                      await supabase
-                        .from("lesson_overrides")
-                        .delete()
-                        .eq("student_id", studentUserId)
-                        .eq("teacher_id", teacherUserId);
+                      const result = await archiveStudent(studentId, studentUserId, teacherUserId);
+                      if (!result.success) {
+                        throw new Error(result.error || "Arşivleme başarısız");
+                      }
 
                       toast({
                         title: "Başarılı",
