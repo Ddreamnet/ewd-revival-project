@@ -27,6 +27,7 @@ import {
   undoCompleteLesson,
   resetPackage,
   archiveStudent,
+  deleteStudent,
   getNextCompletableInstance,
   getLastCompletedInstance,
 } from "@/lib/lessonService";
