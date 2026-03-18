@@ -732,8 +732,8 @@ export function EditStudentDialog({
     }
   };
 
-  // Build sorted lessons for the date display section
-  // Uses instances if available, sorted chronologically by (lesson_date, start_time)
+  // Derive completed count from instances (source of truth)
+  const completedCount = instances.filter((i) => i.status === "completed").length;
   const totalLessons = lessonsPerWeek * 4;
 
   const sortedLessonsForDisplay = (() => {
