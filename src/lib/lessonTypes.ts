@@ -9,20 +9,11 @@ export interface LessonDates {
   [key: string]: string;
 }
 
-/** Lightweight override info used by tracker components (not the full DB row) */
-export interface LessonOverrideInfo {
-  id: string;
-  original_date: string;
-  new_date: string | null;
-  is_cancelled: boolean;
-}
-
 /** A single lesson with its dates and override status, used for display */
 export interface SortedLesson {
   lessonNumber: number;
   originalDate: string;
   effectiveDate: string;
-  isCancelled: boolean;
   isOverridden: boolean;
 }
 
@@ -30,7 +21,6 @@ export interface SortedLesson {
 export interface DisplayLessonData {
   lessonNumber: number;
   displayDate: string | null;
-  isCancelled: boolean;
   isOverridden: boolean;
 }
 
