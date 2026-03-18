@@ -32,7 +32,7 @@ import {
 } from "@/lib/lessonService";
 import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
-import { rebuildLegacyLessonDatesFromInstances, checkNonTemplateWeekday } from "@/lib/lessonSync";
+import { checkNonTemplateWeekday } from "@/lib/lessonSync";
 import type { StudentLessonBase } from "@/lib/types";
 import { DAYS_OF_WEEK } from "@/lib/types";
 
