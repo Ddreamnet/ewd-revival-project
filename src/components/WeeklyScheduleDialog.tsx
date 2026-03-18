@@ -163,48 +163,10 @@ export function WeeklyScheduleDialog({
     ? getAllTimeSlots(lessons, [], [])  // Kalıcı: template only, no trials, no overrides
     : getAllTimeSlotsActual(actualLessons, trialLessons); // Güncel: actual + trials
 
-  const getLessonForDayAndTime = (dayIndex: number, timeSlot: string): (StudentLesson & { _isOverride?: boolean; _override?: LessonOverride }) | null => {
+  // Template mode: pure template positions (no override adjustments)
+  const getLessonForDayAndTime = (dayIndex: number, timeSlot: string): StudentLesson | null => {
     const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
-    const dateForDay = getDateForDayIndex(dayIndex);
-    
-    const movedLesson = overrides.find((o) => {
-      if (o.is_cancelled || !o.new_date) return false;
-      const newDate = new Date(o.new_date);
-      const effectiveTime = o.new_start_time || o.original_start_time;
-      return format(newDate, "yyyy-MM-dd") === format(dateForDay, "yyyy-MM-dd") && effectiveTime === timeSlot;
-    });
-    
-    if (movedLesson) {
-      const originalLesson = lessons.find((l) => l.student_id === movedLesson.student_id);
-      if (originalLesson) {
-        return {
-          ...originalLesson,
-          start_time: movedLesson.new_start_time || movedLesson.original_start_time,
-          end_time: movedLesson.new_end_time || movedLesson.original_end_time,
-          _isOverride: true,
-          _override: movedLesson,
-        };
-      }
-    }
-    
-    const lesson = lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
-    
-    if (lesson) {
-      const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
-      
-      if (isLessonCancelled(lesson.student_id, lessonDate)) {
-        return null;
-      }
-      
-      const override = getLessonOverride(lesson.student_id, lessonDate);
-      if (override && override.new_date) {
-        return null;
-      }
-      
-      return lesson;
-    }
-    
-    return null;
+    return lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot) || null;
   };
   
   const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
