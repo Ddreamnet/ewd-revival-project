@@ -204,12 +204,6 @@ serve(async (req) => {
           if (instanceError) {
             console.error('Instance generation error:', instanceError);
           } else {
-            // Build lesson_dates JSON from instances
-            const lessonDatesJson: Record<string, string> = {};
-            instanceDates.forEach((inst, idx) => {
-              lessonDatesJson[(idx + 1).toString()] = inst.lessonDate;
-            });
-
             // Create student_lesson_tracking record
             const { error: trackingError } = await supabaseAdmin
               .from('student_lesson_tracking')
@@ -217,8 +211,6 @@ serve(async (req) => {
                 student_id: authData.user.id,
                 teacher_id: teacherId,
                 lessons_per_week: lessons.length,
-                lesson_dates: lessonDatesJson,
-                completed_lessons: [],
               });
 
             if (trackingError) {
