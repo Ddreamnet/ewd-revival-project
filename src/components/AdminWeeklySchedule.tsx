@@ -92,7 +92,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [selectedActualLesson, setSelectedActualLesson] = useState<ActualLesson | null>(null);
   
   const { toast } = useToast();
-  const { overrides, isLessonCancelled, getLessonOverride, getMovedLessonForDate, refetch: refetchOverrides } = useLessonOverrides(teacherId);
 
   useEffect(() => {
     fetchSchedule();
