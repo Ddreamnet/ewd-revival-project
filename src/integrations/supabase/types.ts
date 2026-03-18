@@ -50,6 +50,42 @@ export type Database = {
         }
         Relationships: []
       }
+      balance_events: {
+        Row: {
+          amount_minutes: number
+          created_at: string
+          event_type: string
+          id: string
+          instance_id: string | null
+          notes: string | null
+          package_cycle: number | null
+          student_id: string | null
+          teacher_id: string
+        }
+        Insert: {
+          amount_minutes: number
+          created_at?: string
+          event_type: string
+          id?: string
+          instance_id?: string | null
+          notes?: string | null
+          package_cycle?: number | null
+          student_id?: string | null
+          teacher_id: string
+        }
+        Update: {
+          amount_minutes?: number
+          created_at?: string
+          event_type?: string
+          id?: string
+          instance_id?: string | null
+          notes?: string | null
+          package_cycle?: number | null
+          student_id?: string | null
+          teacher_id?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           content: string | null
@@ -224,6 +260,7 @@ export type Database = {
           original_date: string | null
           original_end_time: string | null
           original_start_time: string | null
+          package_cycle: number
           rescheduled_count: number
           start_time: string
           status: string
@@ -240,6 +277,7 @@ export type Database = {
           original_date?: string | null
           original_end_time?: string | null
           original_start_time?: string | null
+          package_cycle?: number
           rescheduled_count?: number
           start_time: string
           status?: string
@@ -256,6 +294,7 @@ export type Database = {
           original_date?: string | null
           original_end_time?: string | null
           original_start_time?: string | null
+          package_cycle?: number
           rescheduled_count?: number
           start_time?: string
           status?: string
@@ -541,6 +580,7 @@ export type Database = {
           lesson_dates: Json | null
           lessons_per_week: number
           month_start_date: string
+          package_cycle: number
           student_id: string
           teacher_id: string
           updated_at: string | null
@@ -552,6 +592,7 @@ export type Database = {
           lesson_dates?: Json | null
           lessons_per_week: number
           month_start_date?: string
+          package_cycle?: number
           student_id: string
           teacher_id: string
           updated_at?: string | null
@@ -563,6 +604,7 @@ export type Database = {
           lesson_dates?: Json | null
           lessons_per_week?: number
           month_start_date?: string
+          package_cycle?: number
           student_id?: string
           teacher_id?: string
           updated_at?: string | null
@@ -695,6 +737,7 @@ export type Database = {
           completed_trial_lessons: number
           created_at: string
           id: string
+          manual_adjustment_minutes: number
           regular_lessons_minutes: number
           teacher_id: string
           total_minutes: number
@@ -706,6 +749,7 @@ export type Database = {
           completed_trial_lessons?: number
           created_at?: string
           id?: string
+          manual_adjustment_minutes?: number
           regular_lessons_minutes?: number
           teacher_id: string
           total_minutes?: number
@@ -717,6 +761,7 @@ export type Database = {
           completed_trial_lessons?: number
           created_at?: string
           id?: string
+          manual_adjustment_minutes?: number
           regular_lessons_minutes?: number
           teacher_id?: string
           total_minutes?: number
