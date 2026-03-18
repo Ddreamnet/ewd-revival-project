@@ -321,8 +321,8 @@ export function LessonOverrideDialog({
           })
           .eq("id", instanceId);
 
-        // Compat-only: rebuild legacy JSON (removed in Phase 6)
-        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+
       }
 
       toast({ title: "Başarılı", description: "Ders orijinal tarih ve saatine döndürüldü" });
