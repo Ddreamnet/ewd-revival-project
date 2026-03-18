@@ -261,9 +261,7 @@ export function EditStudentDialog({
         return;
       }
 
-      const newCompletedLessons = completedLessons.filter(l => l !== lastInst.lesson_number);
-      setCompletedLessons(newCompletedLessons);
-      fetchInstances();
+      await fetchInstances();
       toast({ title: "Başarılı", description: "Son ders geri alındı" });
     } catch (error: any) {
       toast({ title: "Hata", description: error.message || "Ders geri alınamadı", variant: "destructive" });
