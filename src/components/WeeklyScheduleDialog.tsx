@@ -13,7 +13,8 @@ import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
 import { format, startOfWeek, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
-import { addToTeacherBalance, subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
+import { completeTrialLesson } from "@/lib/lessonService";
+import { subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
 import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
@@ -220,15 +221,10 @@ export function WeeklyScheduleDialog({
     if (!selectedTrialLesson || processing) return;
     setProcessing(true);
     try {
-      const { error } = await supabase.from("trial_lessons").update({ is_completed: true }).eq("id", selectedTrialLesson.id);
-      if (error) throw error;
-
-      await addToTeacherBalance({
-        teacherId,
-        lessonType: "trial",
-        startTime: selectedTrialLesson.start_time,
-        endTime: selectedTrialLesson.end_time,
-      });
+      const result = await completeTrialLesson(selectedTrialLesson.id, teacherId);
+      if (!result.success) {
+        throw new Error(result.error || "İşlem başarısız");
+      }
       toast({ title: "Başarılı", description: "Deneme dersi işlendi olarak işaretlendi" });
       await fetchSchedule();
     } catch (error: any) {

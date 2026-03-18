@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Clock, CheckCircle2, Calendar, Plus, Minus, RotateCcw, Receipt } from "lucide-react";
 import { toast } from "sonner";
+import { manualBalanceAdjust } from "@/lib/lessonService";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 
@@ -107,32 +108,10 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
     }
 
     try {
-      const { data: existingBalance } = await supabase
-        .from("teacher_balance")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .maybeSingle();
-
-      if (existingBalance) {
-        const { error } = await supabase
-          .from("teacher_balance")
-          .update({
-            total_minutes: existingBalance.total_minutes + minutes,
-          })
-          .eq("teacher_id", teacherId);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("teacher_balance").insert({
-          teacher_id: teacherId,
-          total_minutes: minutes,
-          completed_regular_lessons: 0,
-          completed_trial_lessons: 0,
-          regular_lessons_minutes: 0,
-          trial_lessons_minutes: 0,
-        });
-
-        if (error) throw error;
+      const result = await manualBalanceAdjust(teacherId, minutes, "Manuel dakika ekleme");
+      if (!result.success) {
+        toast.error(result.error || "Dakika eklenirken hata oluştu");
+        return;
       }
 
       toast.success(`${minutes} dakika eklendi`);
@@ -157,14 +136,11 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
     }
 
     try {
-      const { error } = await supabase
-        .from("teacher_balance")
-        .update({
-          total_minutes: Math.max(0, balance.total_minutes - minutes),
-        })
-        .eq("teacher_id", teacherId);
-
-      if (error) throw error;
+      const result = await manualBalanceAdjust(teacherId, -minutes, "Manuel dakika çıkarma");
+      if (!result.success) {
+        toast.error(result.error || "Dakika çıkarılırken hata oluştu");
+        return;
+      }
 
       toast.success(`${minutes} dakika çıkarıldı`);
       setMinutesToSubtract("");

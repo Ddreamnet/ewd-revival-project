@@ -22,7 +22,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { LessonDates, LessonOverrideInfo, LessonInstance, formatTime } from "@/lib/lessonTypes";
 import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
-import { addRegularLessonBalance, subtractRegularLessonBalance } from "@/lib/teacherBalance";
+import {
+  completeLesson,
+  undoCompleteLesson,
+  resetPackage,
+  archiveStudent,
+  getNextCompletableInstance,
+  getLastCompletedInstance,
+} from "@/lib/lessonService";
 import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { rebuildLegacyLessonDatesFromInstances, checkNonTemplateWeekday } from "@/lib/lessonSync";
@@ -242,166 +249,64 @@ export function EditStudentDialog({
 
   const handleMarkLastLesson = async () => {
     try {
-      const totalLessons = lessonsPerWeek * 4;
-      if (completedLessons.length >= totalLessons) return;
-
-      const nextLesson = completedLessons.length === 0 ? 1 : Math.max(...completedLessons) + 1;
-      const newCompletedLessons = [...completedLessons, nextLesson].sort((a, b) => a - b);
-
-      const { data: existingRecords } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (!existingRecords || existingRecords.length === 0) {
-        throw new Error("Ders takip kaydı bulunamadı");
+      const nextInst = await getNextCompletableInstance(studentUserId, teacherUserId);
+      if (!nextInst) {
+        toast({ title: "Bilgi", description: "İşlenecek ders kalmadı" });
+        return;
       }
 
-      const { error } = await supabase
-        .from("student_lesson_tracking")
-        .update({ completed_lessons: newCompletedLessons })
-        .eq("id", existingRecords[0].id);
-
-      if (error) throw error;
-
-      // Update instance status + use instance-aware balance
-      const inst = findInstanceForLesson(nextLesson);
-      if (inst) {
-        await supabase
-          .from("lesson_instances")
-          .update({ status: "completed" })
-          .eq("id", inst.id);
-        await addRegularLessonBalance(teacherUserId, studentUserId, inst.id);
-      } else {
-        await addRegularLessonBalance(teacherUserId, studentUserId);
+      const result = await completeLesson(nextInst.id, teacherUserId, studentUserId);
+      if (!result.success) {
+        toast({ title: "Hata", description: result.error || "Ders işaretlenemedi", variant: "destructive" });
+        return;
       }
 
+      // Refresh local state
+      const newCompletedLessons = [...completedLessons, instances.find(i => i.id === nextInst.id)?.lesson_number ?? (completedLessons.length + 1)].sort((a, b) => a - b);
       setCompletedLessons(newCompletedLessons);
-      // Refresh instances to get updated status
       fetchInstances();
-      toast({
-        title: "Başarılı",
-        description: `${nextLesson}. ders işaretlendi`,
-      });
+      toast({ title: "Başarılı", description: `Ders işaretlendi` });
     } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Ders işaretlenemedi",
-        variant: "destructive",
-      });
+      toast({ title: "Hata", description: error.message || "Ders işaretlenemedi", variant: "destructive" });
     }
   };
 
   const handleUndoLastLesson = async () => {
     try {
-      if (completedLessons.length === 0) return;
-
-      const lastLesson = Math.max(...completedLessons);
-      const newCompletedLessons = completedLessons.filter(l => l !== lastLesson);
-
-      const { data: existingRecords } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (!existingRecords || existingRecords.length === 0) {
-        throw new Error("Ders takip kaydı bulunamadı");
+      const lastInst = await getLastCompletedInstance(studentUserId, teacherUserId);
+      if (!lastInst) {
+        toast({ title: "Bilgi", description: "Geri alınacak ders yok" });
+        return;
       }
 
-      const { error } = await supabase
-        .from("student_lesson_tracking")
-        .update({ completed_lessons: newCompletedLessons })
-        .eq("id", existingRecords[0].id);
-
-      if (error) throw error;
-
-      // Revert instance status + use instance-aware balance
-      const inst = findInstanceForLesson(lastLesson);
-      if (inst) {
-        await supabase
-          .from("lesson_instances")
-          .update({ status: "planned" })
-          .eq("id", inst.id);
-        await subtractRegularLessonBalance(teacherUserId, studentUserId, inst.id);
-      } else {
-        await subtractRegularLessonBalance(teacherUserId, studentUserId);
+      const result = await undoCompleteLesson(lastInst.id, teacherUserId, studentUserId);
+      if (!result.success) {
+        toast({ title: "Hata", description: result.error || "Ders geri alınamadı", variant: "destructive" });
+        return;
       }
 
+      const newCompletedLessons = completedLessons.filter(l => l !== lastInst.lesson_number);
       setCompletedLessons(newCompletedLessons);
       fetchInstances();
-      toast({
-        title: "Başarılı",
-        description: `${lastLesson}. ders geri alındı`,
-      });
+      toast({ title: "Başarılı", description: "Son ders geri alındı" });
     } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Ders geri alınamadı",
-        variant: "destructive",
-      });
+      toast({ title: "Hata", description: error.message || "Ders geri alınamadı", variant: "destructive" });
     }
   };
 
   const handleResetAllLessons = async () => {
     try {
-      const { data: existingRecords } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (!existingRecords || existingRecords.length === 0) {
-        throw new Error("Ders takip kaydı bulunamadı");
-      }
-
-      // Delete ALL existing instances for this student-teacher pair
-      await supabase
-        .from("lesson_instances")
-        .delete()
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
-      // Generate fresh instances WITHOUT dates — dates will come when teacher marks first lesson
       const templateSlots: TemplateSlot[] = lessons.map((l) => ({
         dayOfWeek: l.dayOfWeek,
         startTime: l.startTime,
         endTime: l.endTime,
       }));
-      const totalLessonsCount = lessonsPerWeek * 4;
-      const today = new Date();
-      const futureDates = generateFutureInstanceDates(templateSlots, totalLessonsCount, today);
 
-      // Insert instances with placeholder dates (needed for structure) but clear lesson_dates
-      for (let i = 0; i < futureDates.length; i++) {
-        await supabase.from("lesson_instances").insert({
-          student_id: studentUserId,
-          teacher_id: teacherUserId,
-          lesson_number: i + 1,
-          lesson_date: futureDates[i].lessonDate,
-          start_time: futureDates[i].startTime,
-          end_time: futureDates[i].endTime,
-          status: "planned",
-        });
+      const result = await resetPackage(studentUserId, teacherUserId, templateSlots);
+      if (!result.success) {
+        toast({ title: "Hata", description: result.error || "Dersler sıfırlanamadı", variant: "destructive" });
+        return;
       }
-
-      // Update tracking record — clear dates so they get assigned on first mark
-      const { error } = await supabase
-        .from("student_lesson_tracking")
-        .update({ 
-          completed_lessons: [],
-          lesson_dates: {}
-        })
-        .eq("id", existingRecords[0].id);
-
-      if (error) throw error;
 
       setCompletedLessons([]);
       setLessonDates({});
@@ -411,7 +316,7 @@ export function EditStudentDialog({
       
       toast({
         title: "Başarılı",
-        description: "Tüm dersler sıfırlandı. Tarihler ilk ders işaretlendiğinde atanacak.",
+        description: `Paket sıfırlandı (Yeni döngü: ${result.new_cycle}). ${result.instances_created} ders planlandı.`,
       });
     } catch (error: any) {
       toast({
@@ -1192,27 +1097,10 @@ export function EditStudentDialog({
                   if (confirmed) {
                     setLoading(true);
                     try {
-                      const { error } = await supabase
-                        .from("students")
-                        .update({ is_archived: true, archived_at: new Date().toISOString() })
-                        .eq("id", studentId);
-
-                      if (error) throw error;
-
-                      // Clean up planned instances (keep completed for history)
-                      await supabase
-                        .from("lesson_instances")
-                        .delete()
-                        .eq("student_id", studentUserId)
-                        .eq("teacher_id", teacherUserId)
-                        .eq("status", "planned");
-
-                      // Clean up lesson overrides
-                      await supabase
-                        .from("lesson_overrides")
-                        .delete()
-                        .eq("student_id", studentUserId)
-                        .eq("teacher_id", teacherUserId);
+                      const result = await archiveStudent(studentId, studentUserId, teacherUserId);
+                      if (!result.success) {
+                        throw new Error(result.error || "Arşivleme başarısız");
+                      }
 
                       toast({
                         title: "Başarılı",

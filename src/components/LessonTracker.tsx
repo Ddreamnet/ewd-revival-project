@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,14 +9,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Ban } from "lucide-react";
-import { LessonDates, LessonOverrideInfo, LessonInstance, getRowConfig } from "@/lib/lessonTypes";
-import { getSortedLessons, getDisplayLessonData } from "@/lib/lessonSorting";
-import { calculateLessonDates } from "@/lib/lessonDateCalculation";
-import { addRegularLessonBalance } from "@/lib/teacherBalance";
+import { Ban, Undo2 } from "lucide-react";
+import { LessonInstance, getRowConfig } from "@/lib/lessonTypes";
+import {
+  completeLesson,
+  undoCompleteLesson,
+  getNextCompletableInstance,
+  getLastCompletedInstance,
+} from "@/lib/lessonService";
 
 interface LessonTrackerProps {
   studentId: string;
@@ -27,15 +29,15 @@ interface LessonTrackerProps {
 }
 
 export function LessonTracker({ studentId, studentName, teacherId }: LessonTrackerProps) {
-  const [completedLessons, setCompletedLessons] = useState<number[]>([]);
-  const [lessonDates, setLessonDates] = useState<LessonDates>({});
-  const [studentLessonDays, setStudentLessonDays] = useState<number[]>([]);
-  const [lessonOverrides, setLessonOverrides] = useState<LessonOverrideInfo[]>([]);
   const [instances, setInstances] = useState<LessonInstance[]>([]);
+  const [templateCount, setTemplateCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingLesson, setPendingLesson] = useState<number | null>(null);
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [pendingInstanceId, setPendingInstanceId] = useState<string | null>(null);
+  const [undoInstanceId, setUndoInstanceId] = useState<string | null>(null);
+  const [nextCompletableId, setNextCompletableId] = useState<string | null>(null);
+  const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -43,47 +45,13 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
       setLoading(false);
       return;
     }
-    
-    const loadData = async () => {
-      await Promise.all([
-        fetchStudentSchedule(),
-        fetchLessonOverrides(),
-        fetchTracking(),
-        fetchInstances(),
-      ]);
-    };
     loadData();
   }, [studentId, teacherId]);
 
-  const fetchStudentSchedule = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("student_lessons")
-        .select("day_of_week")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .order("day_of_week");
-
-      if (error) throw error;
-      setStudentLessonDays(data.map((lesson: any) => lesson.day_of_week));
-    } catch (error: any) {
-      console.error("Failed to fetch student schedule:", error);
-    }
-  };
-
-  const fetchLessonOverrides = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("lesson_overrides")
-        .select("id, original_date, new_date, is_cancelled")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId);
-
-      if (error) throw error;
-      setLessonOverrides(data || []);
-    } catch (error: any) {
-      console.error("Failed to fetch lesson overrides:", error);
-    }
+  const loadData = async () => {
+    setLoading(true);
+    await Promise.all([fetchInstances(), fetchTemplateCount(), refreshCompletionState()]);
+    setLoading(false);
   };
 
   const fetchInstances = async () => {
@@ -93,168 +61,69 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
         .select("*")
         .eq("student_id", studentId)
         .eq("teacher_id", teacherId)
-        .order("lesson_number", { ascending: true });
+        .in("status", ["planned", "completed"])
+        .order("lesson_date", { ascending: true })
+        .order("start_time", { ascending: true });
 
       if (error) throw error;
-      setInstances(data || []);
+      setInstances((data as LessonInstance[]) || []);
     } catch (error: any) {
       console.error("Failed to fetch lesson instances:", error);
     }
   };
 
-  const fetchTracking = async () => {
-    try {
-      const { data: records, error } = await supabase
-        .from("student_lesson_tracking")
-        .select("*")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (error) throw error;
-
-      if (records && records.length > 0) {
-        const data = records[0];
-        setCompletedLessons((data as any).completed_lessons || []);
-        setLessonDates((data as any).lesson_dates || {});
-      } else {
-        const { data: lessonsData } = await supabase
-          .from("student_lessons")
-          .select("id")
-          .eq("student_id", studentId)
-          .eq("teacher_id", teacherId);
-
-        const lessonsPerWeek = lessonsData?.length || 1;
-
-        const { data: newData, error: insertError } = await supabase
-          .from("student_lesson_tracking")
-          .insert({
-            student_id: studentId,
-            teacher_id: teacherId,
-            lessons_per_week: lessonsPerWeek,
-            completed_lessons: [],
-            lesson_dates: {},
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        if (newData) {
-          setCompletedLessons((newData as any).completed_lessons || []);
-          setLessonDates((newData as any).lesson_dates || {});
-        }
-      }
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: "Ders takibi yüklenemedi",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  const fetchTemplateCount = async () => {
+    const { count } = await supabase
+      .from("student_lessons")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", studentId)
+      .eq("teacher_id", teacherId);
+    setTemplateCount(count ?? 0);
   };
 
-  const handleLessonClick = (lessonNumber: number, instanceId?: string) => {
-    if (completedLessons.includes(lessonNumber)) return;
-    setPendingLesson(lessonNumber);
-    setPendingInstanceId(instanceId || null);
+  const refreshCompletionState = async () => {
+    const [next, last] = await Promise.all([
+      getNextCompletableInstance(studentId, teacherId),
+      getLastCompletedInstance(studentId, teacherId),
+    ]);
+    setNextCompletableId(next?.id ?? null);
+    setLastCompletedId(last?.id ?? null);
+  };
+
+  const handleLessonClick = (instanceId: string) => {
+    if (instanceId !== nextCompletableId) return;
+    setPendingInstanceId(instanceId);
     setShowConfirm(true);
   };
 
+  const handleUndoClick = () => {
+    if (!lastCompletedId) return;
+    setUndoInstanceId(lastCompletedId);
+    setShowUndoConfirm(true);
+  };
+
   const confirmLessonComplete = async () => {
-    if (pendingLesson === null) return;
+    if (!pendingInstanceId) return;
 
     try {
-      if (studentLessonDays.length === 0) {
+      const result = await completeLesson(pendingInstanceId, teacherId, studentId);
+
+      if (!result.success) {
         toast({
           title: "Hata",
-          description: "Öğrenci ders günleri yüklenemedi. Lütfen sayfayı yenileyin.",
+          description: result.error || "Ders işaretlenemedi",
           variant: "destructive",
         });
-        setShowConfirm(false);
-        setPendingLesson(null);
         return;
       }
 
-      const newCompletedLessons = [...completedLessons, pendingLesson].sort((a, b) => a - b);
-      let newLessonDates = { ...lessonDates };
+      await fetchInstances();
+      await refreshCompletionState();
 
-      if (Object.keys(lessonDates).length === 0) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const totalLessons = studentLessonDays.length * 4;
-        newLessonDates = calculateLessonDates(pendingLesson, today, studentLessonDays, totalLessons);
-        
-        if (Object.keys(newLessonDates).length === 0) {
-          toast({
-            title: "Hata", 
-            description: "Ders tarihleri hesaplanamadı. Lütfen tekrar deneyin.",
-            variant: "destructive",
-          });
-          setShowConfirm(false);
-          setPendingLesson(null);
-          return;
-        }
-
-        // Sync calculated dates to lesson_instances
-        for (const inst of instances) {
-          const dateForLesson = newLessonDates[inst.lesson_number.toString()];
-          if (dateForLesson) {
-            await supabase
-              .from("lesson_instances")
-              .update({ lesson_date: dateForLesson })
-              .eq("id", inst.id);
-          }
-        }
-      }
-
-      const { data: existingRecords } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (!existingRecords || existingRecords.length === 0) {
-        throw new Error("Ders takip kaydı bulunamadı");
-      }
-
-      const { error } = await supabase
-        .from("student_lesson_tracking")
-        .update({
-          completed_lessons: newCompletedLessons,
-          lesson_dates: newLessonDates,
-        })
-        .eq("id", existingRecords[0].id);
-
-      if (error) throw error;
-
-      // Find matching instance — prefer pendingInstanceId, fallback to lesson_number
-      const matchingInstance = pendingInstanceId
-        ? instances.find(i => i.id === pendingInstanceId)
-        : instances.find(i => i.lesson_number === pendingLesson);
-      
-      if (matchingInstance) {
-        await supabase
-          .from("lesson_instances")
-          .update({ status: "completed" })
-          .eq("id", matchingInstance.id);
-        
-        await addRegularLessonBalance(teacherId, studentId, matchingInstance.id);
-      } else {
-        await addRegularLessonBalance(teacherId, studentId);
-      }
-
-      setCompletedLessons(newCompletedLessons);
-      setLessonDates(newLessonDates);
-      // Refresh instances
-      fetchInstances();
+      const inst = instances.find((i) => i.id === pendingInstanceId);
       toast({
         title: "Başarılı",
-        description: `${pendingLesson}. ders işlendi olarak işaretlendi`,
+        description: `Ders işlendi olarak işaretlendi${inst ? ` (${format(new Date(inst.lesson_date), "dd.MM")})` : ""}`,
       });
     } catch (error: any) {
       toast({
@@ -264,21 +133,49 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
       });
     } finally {
       setShowConfirm(false);
-      setPendingLesson(null);
       setPendingInstanceId(null);
     }
   };
 
-  const totalLessonsPerMonth = studentLessonDays.length * 4;
-  const rowConfig = getRowConfig(studentLessonDays.length);
-  
-  // Build instanceStartTimes map for time-aware sorting
-  const instanceStartTimes: Record<string, string> = {};
-  instances.forEach(inst => {
-    instanceStartTimes[inst.lesson_number.toString()] = inst.start_time;
-  });
-  
-  const sortedLessons = getSortedLessons(lessonDates, lessonOverrides, totalLessonsPerMonth, instanceStartTimes);
+  const confirmUndo = async () => {
+    if (!undoInstanceId) return;
+
+    try {
+      const result = await undoCompleteLesson(undoInstanceId, teacherId, studentId);
+
+      if (!result.success) {
+        toast({
+          title: "Hata",
+          description: result.error || "Ders geri alınamadı",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await fetchInstances();
+      await refreshCompletionState();
+
+      toast({
+        title: "Başarılı",
+        description: "Son ders geri alındı",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setShowUndoConfirm(false);
+      setUndoInstanceId(null);
+    }
+  };
+
+  const totalLessonsPerMonth = templateCount * 4;
+  const rowConfig = getRowConfig(templateCount);
+
+  // Cap display at totalLessonsPerMonth, sorted chronologically
+  const displayInstances = instances.slice(0, totalLessonsPerMonth);
 
   if (loading) {
     return <div className="animate-pulse h-40 bg-muted rounded-lg"></div>;
@@ -292,50 +189,41 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (
               <div key={rowIndex} className="flex gap-1.5">
                 {Array.from({ length: rowConfig.buttonsPerRow }, (_, colIndex) => {
-                  const displayPosition = rowIndex * rowConfig.buttonsPerRow + colIndex + 1;
-                  if (displayPosition > totalLessonsPerMonth) return null;
+                  const displayPosition = rowIndex * rowConfig.buttonsPerRow + colIndex;
+                  if (displayPosition >= totalLessonsPerMonth) return null;
 
-                  const lessonData = getDisplayLessonData(sortedLessons, lessonDates, displayPosition);
-                  const { lessonNumber, displayDate, isCancelled, isOverridden } = lessonData;
-                  const isCompleted = completedLessons.includes(lessonNumber);
-                  
-                  // Get instance time for tooltip
-                  const inst = instances.find(i => i.lesson_number === lessonNumber);
-                  const timeInfo = inst ? `${inst.start_time.slice(0,5)} - ${inst.end_time.slice(0,5)}` : "";
+                  const inst = displayInstances[displayPosition];
+                  if (!inst) return null;
+
+                  const isCompleted = inst.status === "completed";
+                  const isNextCompletable = inst.id === nextCompletableId;
+                  const timeInfo = `${inst.start_time.slice(0, 5)} - ${inst.end_time.slice(0, 5)}`;
 
                   return (
-                    <div key={displayPosition} className="flex flex-col items-center gap-0.5">
+                    <div key={inst.id} className="flex flex-col items-center gap-0.5">
                       <button
-                        onClick={() => handleLessonClick(lessonNumber, inst?.id)}
-                        disabled={isCompleted || isCancelled}
+                        onClick={() => handleLessonClick(inst.id)}
+                        disabled={isCompleted || !isNextCompletable}
                         className={`
                           h-8 w-8 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
                           flex items-center justify-center shadow-sm relative
                           ${
-                            isCancelled
-                              ? "bg-muted text-muted-foreground border-muted-foreground/30 opacity-50 cursor-not-allowed"
-                              : isCompleted
-                                ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md"
-                                : "bg-background border-primary/30 hover:bg-primary/10 hover:scale-105 hover:shadow-md cursor-pointer hover:border-primary"
+                            isCompleted
+                              ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md"
+                              : isNextCompletable
+                                ? "bg-background border-primary hover:bg-primary/10 hover:scale-105 hover:shadow-md cursor-pointer"
+                                : "bg-background border-primary/30 opacity-60 cursor-not-allowed"
                           }
                         `}
-                        title={
-                          isCancelled 
-                            ? `Ders ${displayPosition} - İptal Edildi` 
-                            : timeInfo 
-                              ? `Ders ${displayPosition} - ${timeInfo}` 
-                              : `Ders ${displayPosition}`
-                        }
+                        title={`Ders ${displayPosition + 1} - ${timeInfo}`}
                       >
-                        {isCancelled ? <Ban className="h-4 w-4" /> : displayPosition}
+                        {displayPosition + 1}
                       </button>
-                      {displayDate && (
-                        <span className={`text-[10px] whitespace-nowrap ${
-                          isOverridden ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"
-                        }`}>
-                          {format(new Date(displayDate), "dd.MM")}
-                        </span>
-                      )}
+                      <span className={`text-[10px] whitespace-nowrap ${
+                        inst.original_date ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"
+                      }`}>
+                        {format(new Date(inst.lesson_date), "dd.MM")}
+                      </span>
                     </div>
                   );
                 })}
@@ -343,19 +231,48 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
             ))}
           </div>
         </div>
+        {/* Undo button */}
+        {lastCompletedId && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleUndoClick}
+            className="h-8 w-8 shrink-0"
+            title="Son dersi geri al"
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
+      {/* Complete confirmation */}
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Dersi İşaretle</AlertDialogTitle>
             <AlertDialogDescription>
-              {studentName} için {pendingLesson}. dersi işlendi olarak işaretlemek istiyor musunuz?
+              {studentName} için sıradaki dersi işlendi olarak işaretlemek istiyor musunuz?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setPendingLesson(null); setPendingInstanceId(null); }}>İptal</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPendingInstanceId(null)}>İptal</AlertDialogCancel>
             <AlertDialogAction onClick={confirmLessonComplete}>Onayla</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Undo confirmation */}
+      <AlertDialog open={showUndoConfirm} onOpenChange={setShowUndoConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Son Dersi Geri Al</AlertDialogTitle>
+            <AlertDialogDescription>
+              {studentName} için son işlenen dersi geri almak istiyor musunuz? Öğretmen bakiyesi de düzeltilecektir.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUndoInstanceId(null)}>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUndo}>Geri Al</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
