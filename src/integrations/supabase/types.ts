@@ -898,8 +898,28 @@ export type Database = {
         Returns: boolean
       }
       is_teacher: { Args: { _user_id: string }; Returns: boolean }
+      rpc_archive_student: {
+        Args: {
+          p_student_record_id: string
+          p_student_user_id: string
+          p_teacher_user_id: string
+        }
+        Returns: Json
+      }
       rpc_complete_lesson: {
         Args: { p_instance_id: string; p_teacher_id: string }
+        Returns: Json
+      }
+      rpc_complete_trial_lesson: {
+        Args: { p_teacher_id: string; p_trial_id: string }
+        Returns: Json
+      }
+      rpc_manual_balance_adjust: {
+        Args: {
+          p_amount_minutes: number
+          p_notes?: string
+          p_teacher_id: string
+        }
         Returns: Json
       }
       rpc_reset_package: {
