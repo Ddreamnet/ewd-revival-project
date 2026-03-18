@@ -273,60 +273,57 @@ export function LessonOverrideDialog({
     }
   };
 
-  // "Geri Al" - reverts instance + deletes override
+  // "Geri Al" - reverts instance to original date/time
   const handleRevert = async () => {
     setSaving(true);
     setConflicts([]);
     try {
-      // Revert instance if instanceId provided
-      if (instanceId) {
-        const { data: inst } = await supabase
-          .from("lesson_instances")
-          .select("original_date, original_start_time, original_end_time")
-          .eq("id", instanceId)
-          .single();
-
-        if (inst?.original_date) {
-          // Conflict check on original slot before reverting
-          const revertConflicts = await checkTeacherConflicts(
-            teacherId,
-            inst.original_date,
-            inst.original_start_time || originalStartTime,
-            inst.original_end_time || originalEndTime,
-            instanceId
-          );
-
-          if (revertConflicts.length > 0) {
-            setConflicts(revertConflicts);
-            setSaving(false);
-            setShowRevertConfirm(false);
-            return;
-          }
-
-          await supabase
-            .from("lesson_instances")
-            .update({
-              lesson_date: inst.original_date,
-              start_time: inst.original_start_time || originalStartTime,
-              end_time: inst.original_end_time || originalEndTime,
-              original_date: null,
-              original_start_time: null,
-              original_end_time: null,
-              rescheduled_count: 0,
-            })
-            .eq("id", instanceId);
-
-          await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-        }
+      if (!instanceId) {
+        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
+        setSaving(false);
+        setShowRevertConfirm(false);
+        return;
       }
 
-      // Delete override record
-      await supabase
-        .from("lesson_overrides")
-        .delete()
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .eq("original_date", format(originalDate, "yyyy-MM-dd"));
+      const { data: inst } = await supabase
+        .from("lesson_instances")
+        .select("original_date, original_start_time, original_end_time")
+        .eq("id", instanceId)
+        .single();
+
+      if (inst?.original_date) {
+        // Conflict check on original slot before reverting
+        const revertConflicts = await checkTeacherConflicts(
+          teacherId,
+          inst.original_date,
+          inst.original_start_time || originalStartTime,
+          inst.original_end_time || originalEndTime,
+          instanceId
+        );
+
+        if (revertConflicts.length > 0) {
+          setConflicts(revertConflicts);
+          setSaving(false);
+          setShowRevertConfirm(false);
+          return;
+        }
+
+        await supabase
+          .from("lesson_instances")
+          .update({
+            lesson_date: inst.original_date,
+            start_time: inst.original_start_time || originalStartTime,
+            end_time: inst.original_end_time || originalEndTime,
+            original_date: null,
+            original_start_time: null,
+            original_end_time: null,
+            rescheduled_count: 0,
+          })
+          .eq("id", instanceId);
+
+        // Compat-only: rebuild legacy JSON (removed in Phase 6)
+        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+      }
 
       toast({ title: "Başarılı", description: "Ders orijinal tarih ve saatine döndürüldü" });
       onSuccess();
