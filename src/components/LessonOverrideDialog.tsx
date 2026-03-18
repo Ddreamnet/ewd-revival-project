@@ -21,7 +21,7 @@ import { calculateNextLessonDate as calcNextDate } from "@/lib/lessonDateCalcula
 import { useToast } from "@/hooks/use-toast";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { shiftLessonsForward, TemplateSlot } from "@/lib/instanceGeneration";
-import { rebuildLegacyLessonDatesFromInstances, checkNonTemplateWeekday } from "@/lib/lessonSync";
+import { checkNonTemplateWeekday } from "@/lib/lessonSync";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -169,8 +169,8 @@ export function LessonOverrideDialog({
         return;
       }
 
-      // Rebuild legacy JSON from instances (compat-only, removed in Phase 6)
-      await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+
 
       toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
       onSuccess();
@@ -246,8 +246,8 @@ export function LessonOverrideDialog({
           })
           .eq("id", instanceId);
 
-        // Compat-only: rebuild legacy JSON (removed in Phase 6)
-        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+
 
         // Non-template weekday warning
         const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
@@ -321,8 +321,8 @@ export function LessonOverrideDialog({
           })
           .eq("id", instanceId);
 
-        // Compat-only: rebuild legacy JSON (removed in Phase 6)
-        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+
       }
 
       toast({ title: "Başarılı", description: "Ders orijinal tarih ve saatine döndürüldü" });

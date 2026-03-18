@@ -21,7 +21,6 @@ import { Loader2, Trash2, Archive, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { LessonDates, LessonInstance, formatTime } from "@/lib/lessonTypes";
-import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
 import {
   completeLesson,
   undoCompleteLesson,
@@ -33,7 +32,7 @@ import {
 } from "@/lib/lessonService";
 import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
-import { rebuildLegacyLessonDatesFromInstances, checkNonTemplateWeekday } from "@/lib/lessonSync";
+import { checkNonTemplateWeekday } from "@/lib/lessonSync";
 import type { StudentLessonBase } from "@/lib/types";
 import { DAYS_OF_WEEK } from "@/lib/types";
 
@@ -85,7 +84,6 @@ export function EditStudentDialog({
       );
       setConflicts([]);
       fetchStudentIds().then(() => {
-        fetchLessonTracking();
         fetchInstances();
       });
     }
@@ -103,7 +101,7 @@ export function EditStudentDialog({
     }
   };
 
-  const fetchLessonTracking = async () => {
+  const fetchTrackingRecordId = async () => {
     try {
       const { data: studentData, error: studentError } = await supabase
         .from("students")
@@ -115,31 +113,21 @@ export function EditStudentDialog({
 
       const { data: records, error } = await supabase
         .from("student_lesson_tracking")
-        .select("*")
+        .select("id")
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id)
-        .order("updated_at", { ascending: false })
         .limit(1);
 
       if (error) throw error;
 
       if (records && records.length > 0) {
-        const data = records[0];
-        setTrackingRecordId(data.id);
-        const dates = (data as any).lesson_dates || {};
-        setLessonDates(dates);
-        setOriginalLessonDates(dates);
+        setTrackingRecordId(records[0].id);
       } else {
         setTrackingRecordId(null);
       }
     } catch (error: any) {
-      console.error("Failed to fetch lesson tracking:", error);
+      console.error("Failed to fetch tracking record:", error);
     }
-  };
-
-  // Legacy fetchLessonOverrides kept as no-op for transition
-  const fetchLessonOverrides = async () => {
-    // Phase 2: lesson_overrides no longer read — instances are source of truth
   };
 
   const fetchInstances = async () => {
@@ -162,7 +150,16 @@ export function EditStudentDialog({
         .order("start_time", { ascending: true });
 
       if (error) throw error;
-      setInstances((data as LessonInstance[]) || []);
+      const fetchedInstances = (data as LessonInstance[]) || [];
+      setInstances(fetchedInstances);
+
+      // Derive lessonDates from instances (replaces legacy lesson_dates JSON)
+      const dates: LessonDates = {};
+      fetchedInstances.forEach((inst) => {
+        dates[inst.lesson_number.toString()] = inst.lesson_date;
+      });
+      setLessonDates(dates);
+      setOriginalLessonDates(dates);
     } catch (error: any) {
       console.error("Failed to fetch lesson instances:", error);
     }
@@ -424,17 +421,6 @@ export function EditStudentDialog({
                 };
               }
             }
-          } else {
-            // Legacy fallback
-            const lessonDays = lessons.map((l) => l.dayOfWeek).sort((a, b) => a - b);
-            const totalLessons = lessonsPerWeek * 4;
-            finalDates = recalculateRemainingDates(
-              firstChangedLesson,
-              lessonDates[firstChangedLesson.toString()],
-              lessonDates,
-              lessonDays,
-              totalLessons
-            );
           }
         }
       } else {
@@ -475,20 +461,8 @@ export function EditStudentDialog({
         }
       }
 
-      // Rebuild legacy JSON from instances (canonical sync)
-      await rebuildLegacyLessonDatesFromInstances(studentUserId, teacherUserId);
-
-      // Re-fetch synced dates
-      const { data: syncedTracking } = await supabase
-        .from("student_lesson_tracking")
-        .select("lesson_dates")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const syncedDates = (syncedTracking as any)?.lesson_dates || finalDates;
+      // Re-fetch instances to get synced dates
+      await fetchInstances();
 
       toast({
         title: "Başarılı",
@@ -510,12 +484,9 @@ export function EditStudentDialog({
         }
       }
 
-      setOriginalLessonDates(syncedDates);
-      setLessonDates(syncedDates);
       setShowConfirm(false);
       setUpdateRemainingDays(false);
       setConflicts([]);
-      fetchInstances();
     } catch (error: any) {
       toast({
         title: "Hata",
@@ -595,10 +566,8 @@ export function EditStudentDialog({
           return;
         }
 
-        // Rebuild legacy JSON after template sync
-        await rebuildLegacyLessonDatesFromInstances(studentUserId, teacherUserId);
       } else {
-        // Bug #1 fix: No instances exist yet — generate fresh instances
+        // No instances exist yet — generate fresh instances
         const today = new Date();
         const futureDates = generateFutureInstanceDates(newSlots, totalLessonsCount, today);
 
@@ -615,12 +584,7 @@ export function EditStudentDialog({
             });
           }
 
-          // Create or update tracking record
-          const lessonDatesJson: Record<string, string> = {};
-          futureDates.forEach((d, idx) => {
-            lessonDatesJson[(idx + 1).toString()] = d.lessonDate;
-          });
-
+          // Create or update tracking record (lessons_per_week only)
           const { data: existingTracking } = await supabase
             .from("student_lesson_tracking")
             .select("id")
@@ -631,15 +595,13 @@ export function EditStudentDialog({
           if (existingTracking && existingTracking.length > 0) {
             await supabase
               .from("student_lesson_tracking")
-              .update({ lessons_per_week: lessonsPerWeek, lesson_dates: lessonDatesJson })
+              .update({ lessons_per_week: lessonsPerWeek })
               .eq("id", existingTracking[0].id);
           } else {
             await supabase.from("student_lesson_tracking").insert({
               student_id: studentUserId,
               teacher_id: teacherUserId,
               lessons_per_week: lessonsPerWeek,
-              lesson_dates: lessonDatesJson,
-              completed_lessons: [],
             });
           }
         }
@@ -694,82 +656,44 @@ export function EditStudentDialog({
   const totalLessons = lessonsPerWeek * 4;
 
   const sortedLessonsForDisplay = (() => {
-    // Instance-based display — cap at totalLessons (lpw * 4)
-    if (instances.length > 0) {
-      // Sort instances by date+time for chronological "Ders N" labels
-      const sorted = [...instances].sort((a, b) => {
-        const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.start_time.localeCompare(b.start_time);
-      });
+    // Sort instances by date+time for chronological "Ders N" labels
+    const sorted = [...instances].sort((a, b) => {
+      const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.start_time.localeCompare(b.start_time);
+    });
 
-      // Take only first totalLessons entries
-      const capped = sorted.slice(0, totalLessons);
+    // Take only first totalLessons entries
+    const capped = sorted.slice(0, totalLessons);
 
-      // If lesson_dates is empty (reset state), hide placeholder dates from instances
-      const datesUnassigned = Object.keys(lessonDates).length === 0;
+    const result = capped.map((inst, idx) => ({
+      displayIndex: idx + 1,
+      lessonNumber: inst.lesson_number,
+      effectiveDate: inst.lesson_date,
+      startTime: inst.start_time,
+      endTime: inst.end_time,
+      isCompleted: inst.status === "completed",
+      isCancelled: inst.status === "cancelled",
+      isOverridden: inst.original_date !== null,
+      instanceId: inst.id,
+    }));
 
-      const result = capped.map((inst, idx) => ({
-        displayIndex: idx + 1,
-        lessonNumber: inst.lesson_number,
-        effectiveDate: datesUnassigned ? "" : inst.lesson_date,
-        startTime: inst.start_time,
-        endTime: inst.end_time,
-        isCompleted: inst.status === "completed",
-        isCancelled: inst.status === "cancelled",
-        isOverridden: inst.original_date !== null,
-        instanceId: inst.id,
-      }));
-
-      // Fill empty rows if fewer instances than totalLessons
-      for (let i = result.length; i < totalLessons; i++) {
-        result.push({
-          displayIndex: i + 1,
-          lessonNumber: i + 1,
-          effectiveDate: "",
-          startTime: "",
-          endTime: "",
-          isCompleted: false,
-          isCancelled: false,
-          isOverridden: false,
-          instanceId: undefined,
-        });
-      }
-
-      return result;
-    }
-
-    // Legacy fallback: use lessonDates JSON (no instances yet)
-    const lessonsWithDates: {
-      displayIndex: number;
-      lessonNumber: number;
-      effectiveDate: string;
-      startTime: string;
-      endTime: string;
-      isCompleted: boolean;
-      isCancelled: boolean;
-      isOverridden: boolean;
-      instanceId?: string;
-    }[] = [];
-
-    for (let i = 1; i <= totalLessons; i++) {
-      const originalDate = lessonDates[i.toString()];
-      lessonsWithDates.push({
-        displayIndex: i,
-        lessonNumber: i,
-        effectiveDate: originalDate || "",
+    // Fill empty rows if fewer instances than totalLessons
+    for (let i = result.length; i < totalLessons; i++) {
+      result.push({
+        displayIndex: i + 1,
+        lessonNumber: i + 1,
+        effectiveDate: "",
         startTime: "",
         endTime: "",
         isCompleted: false,
         isCancelled: false,
         isOverridden: false,
+        instanceId: undefined,
       });
     }
 
-    const withDates = lessonsWithDates.filter(l => l.effectiveDate);
-    const withoutDates = lessonsWithDates.filter(l => !l.effectiveDate);
-    withDates.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
-    return [...withDates, ...withoutDates].map((l, idx) => ({ ...l, displayIndex: idx + 1 }));
+    return result;
   })();
 
   return (

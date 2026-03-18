@@ -1,15 +1,14 @@
 /**
- * Centralized lesson mutation service — Phase 0.
+ * Centralized lesson mutation service.
  * All lesson write operations go through these functions,
  * which call atomic Supabase RPC functions.
  *
  * This is the SINGLE write path for lesson mutations.
  * No component should directly update lesson_instances status,
- * teacher_balance, or completed_lessons array.
+ * teacher_balance, or balance tracking.
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import { rebuildLegacyLessonDatesFromInstances } from "./lessonSync";
 import type { TemplateSlot } from "./instanceGeneration";
 
 interface RpcResult {
@@ -40,12 +39,6 @@ export async function completeLesson(
   }
 
   const result = data as unknown as RpcResult;
-
-  // Legacy compat: rebuild lesson_dates JSON (transition period only)
-  if (result.success) {
-    await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-  }
-
   return result;
 }
 
@@ -70,11 +63,6 @@ export async function undoCompleteLesson(
   }
 
   const result = data as unknown as RpcResult;
-
-  if (result.success) {
-    await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-  }
-
   return result;
 }
 

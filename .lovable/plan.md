@@ -1,7 +1,7 @@
 
 # Lesson Scheduling System — Refactoring Plan
 
-## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅ + Phase 5 ✅
+## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅ + Phase 5 ✅ + Phase 6 ✅ (partial)
 
 ---
 
@@ -109,9 +109,16 @@ Stop writing to `lesson_overrides`. Instance-only reschedule.
 
 ---
 
-## Phase 6: Legacy Data Retirement
+## Phase 6: Legacy Data Retirement (DONE — partial)
 
-Drop `completed_lessons`, `lesson_dates` columns. Drop `lesson_overrides` table. Update triggers.
+### Changes Made
+- ✅ **lessonService.ts** — Removed all `rebuildLegacyLessonDatesFromInstances` calls
+- ✅ **LessonOverrideDialog.tsx** — Removed all legacy sync calls
+- ✅ **EditStudentDialog.tsx** — Derives `lessonDates` from instances; removed legacy JSON reads, legacy fallback display, `completed_lessons` writes
+- ✅ **lessonSync.ts** — Removed `rebuildLegacyLessonDatesFromInstances`; kept `checkNonTemplateWeekday`
+- ✅ **useLessonOverrides.ts** — Deleted (moved `getLessonDateForCurrentWeek` to `useScheduleGrid.ts`)
+- ✅ **lesson-reminder-cron** — Rewritten to use `lesson_instances` instead of `lesson_overrides` + `student_lessons`
+- ⏳ **DB column/table drops deferred** — `completed_lessons`, `lesson_dates` columns and `lesson_overrides` table still exist; RPCs reference them for legacy compat. Safe to drop after RPC cleanup pass.
 
 ---
 
