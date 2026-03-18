@@ -1,156 +1,145 @@
 
-# Lesson Scheduling System — Refactoring Plan
 
-## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅ + Phase 5 ✅ + Phase 6 ✅ + Phase 7 ✅
+# Production Repair Plan: Lesson Instance Data & Cycle Integrity
 
----
+## Root Cause Summary
 
-## Phase 0 Deliverables (DONE)
-
-### Schema Changes (Migration)
-- ✅ `lesson_instances.package_cycle` INTEGER NOT NULL DEFAULT 1
-- ✅ `student_lesson_tracking.package_cycle` INTEGER NOT NULL DEFAULT 1
-- ✅ `teacher_balance.manual_adjustment_minutes` INTEGER NOT NULL DEFAULT 0
-- ✅ `balance_events` table with CHECK constraint on event_type
-- ✅ RLS policies on balance_events (admin full, teacher view own)
-- ✅ Indexes on package_cycle columns
-- ✅ `teacher_balance_teacher_id_key` UNIQUE constraint for upsert support
-
-### RPC Functions (Atomic Transactions)
-- ✅ `rpc_complete_lesson(instance_id, teacher_id)` — sequential completion + balance + audit
-- ✅ `rpc_undo_complete_lesson(instance_id, teacher_id)` — last-completed undo + balance reversal + audit
-- ✅ `rpc_reset_package(student_id, teacher_id, template_slots)` — non-destructive cycle increment
-- ✅ `rpc_archive_student(record_id, student_user_id, teacher_user_id)` — atomic archive
-- ✅ `rpc_manual_balance_adjust(teacher_id, amount, notes)` — separate manual category
-- ✅ `rpc_complete_trial_lesson(trial_id, teacher_id)` — trial completion + balance + audit
-
-### Frontend Service Layer
-- ✅ `src/lib/lessonService.ts` — thin wrapper around all RPCs
-  - `completeLesson()`, `undoCompleteLesson()`, `resetPackage()`
-  - `archiveStudent()`, `manualBalanceAdjust()`, `completeTrialLesson()`
-  - `getNextCompletableInstance()`, `getLastCompletedInstance()`, `getRemainingRights()`
+1. **Read paths missing `package_cycle` filter**: `LessonTracker`, `StudentLessonTracker`, `EditStudentDialog` fetch ALL instances across ALL cycles, then `slice(0, totalLessonsPerMonth)` — mixing old and current cycle data.
+2. **`ensureInstancesForWeek` generates unbounded instances**: No cycle awareness, no cap check, no `package_cycle` set on inserts. Every new week creates more planned instances regardless of rights.
+3. **`syncTemplateChange` and `shiftLessonsForward` have no cycle filter**: Operate on all instances across all cycles.
+4. **Pre-Phase-6 reconciliation gap**: Legacy `completed_lessons` data was not fully reconciled into `lesson_instances` before legacy columns were dropped.
 
 ---
 
-## Phase 1: Write Path Consolidation (NEXT)
+## Step 1: Add `data_repair` to `balance_events` CHECK constraint
 
-### Goal
-Wire all existing mutation call sites to use `lessonService.ts` instead of inline logic.
+The existing CHECK constraint on `balance_events.event_type` only allows: `lesson_complete`, `lesson_undo`, `trial_complete`, `trial_undo`, `manual_adjust`, `balance_reset`.
 
-### Changes Required
-1. **LessonTracker.tsx** — `confirmLessonComplete` → `lessonService.completeLesson()`
-   - Add undo button calling `lessonService.undoCompleteLesson()`
-   - Enforce sequential: only enable button for `getNextCompletableInstance()` result
-2. **EditStudentDialog.tsx** — `handleMarkLastLesson` → `lessonService.completeLesson()`
-   - `handleUndoLastLesson` → `lessonService.undoCompleteLesson()`
-   - `handleResetAllLessons` → `lessonService.resetPackage()`
-   - Archive handler → `lessonService.archiveStudent()`
-3. **LessonOverrideDialog.tsx** — stop writing to `lesson_overrides` in reschedule
-4. **AdminBalanceManager.tsx** — manual adjustments → `lessonService.manualBalanceAdjust()`
-5. **Trial lesson completion** → `lessonService.completeTrialLesson()`
+The repair migration needs to log audit events with `event_type = 'data_repair'`. Without this, every repair log INSERT will fail.
 
-### Key Rule Changes
-- Teacher gets undo capability (same RPC as admin)
-- Completion becomes strictly sequential (first planned by date in current cycle)
-- Balance writes become atomic (no more multi-step client-side updates)
+**Migration**: Drop and recreate the CHECK constraint to include `data_repair`:
+
+```sql
+ALTER TABLE balance_events DROP CONSTRAINT balance_events_event_type_check;
+ALTER TABLE balance_events ADD CONSTRAINT balance_events_event_type_check
+  CHECK (event_type = ANY (ARRAY[
+    'lesson_complete', 'lesson_undo',
+    'trial_complete', 'trial_undo',
+    'manual_adjust', 'balance_reset',
+    'data_repair'
+  ]));
+```
 
 ---
 
-## Phase 2: Read Path Unification (DONE)
+## Step 2: Two-Phase Repair Migration (SQL)
 
-All panels derive display data from `lesson_instances.status` instead of legacy `completed_lessons` array or `lesson_dates` JSON.
+### Phase A — Dry-run audit report (read-only RAISE NOTICE)
 
-### Changes Made
-- ✅ **StudentLessonTracker.tsx** — Complete rewrite: removed `completed_lessons`, `lesson_dates`, `lesson_overrides` state; derives all display from `lesson_instances`; realtime subscription on `lesson_instances` table
-- ✅ **EditStudentDialog.tsx** — Removed `completedLessons` state; added `completedCount` derived from `instances.filter(i => i.status === 'completed')`; removed `lessonOverrides` state and fetch; legacy fallback simplified (no override lookup)
-- ✅ **LessonTracker.tsx** — Already instance-based from Phase 1
+For each active, non-archived student:
+- Compute `total_rights = lessons_per_week * 4`
+- Count completed and planned instances in current `package_cycle`
+- Categorize:
+  - **OVER_COMPLETED**: completed > total_rights → manual review list, delete all planned
+  - **EXCESS_PLANNED**: completed + planned > total_rights → auto-fix: keep earliest N planned (N = total_rights - completed), delete rest
+  - **ORPHAN_PLANNED**: planned instances with wrong `package_cycle` or NULL → delete if `status='planned'`, report if `status='completed'`
+  - **OK**: no issues
 
----
+### Phase B — Safe auto-repair
 
-## Phase 3: Reschedule/Postpone Cleanup (DONE)
-
-Stop writing to `lesson_overrides`. Instance-only reschedule.
-
-### Changes Made
-- ✅ **LessonOverrideDialog.tsx** — Removed all `lesson_overrides` INSERT/UPDATE/DELETE writes
-  - `handleOneTimeChange`: writes only to `lesson_instances`, rebuilds legacy JSON (compat-only)
-  - `handlePostponeToNextLesson`: instance-based shift only, removed legacy JSON path
-  - `handleRevert`: reverts instance only, no override record deletion
-  - All three require `instanceId` (no legacy fallback)
-- ✅ **AdminWeeklySchedule.tsx** — Removed `useLessonOverrides` hook usage
-  - Template mode: pure template positions (no override adjustments)
-  - `handleLessonClick`: simplified, no override data
-  - `handleOverrideSuccess`: no `refetchOverrides` call
-- ✅ **WeeklyScheduleDialog.tsx** — Removed `useLessonOverrides` hook usage
-  - Template mode: pure template lookup by day_of_week + start_time
-- ✅ **Legacy postpone path** (JSON-based) removed from LessonOverrideDialog
+- Delete excess planned instances (EXCESS_PLANNED cases) — keep chronologically earliest
+- Delete orphan planned instances (wrong cycle, only `status='planned'`)
+- Delete all planned instances for OVER_COMPLETED students
+- Set `package_cycle` on planned instances where NULL and unambiguous single active cycle exists
+- **Never touch completed instances**
+- **Never modify teacher_balance**
+- Log all deletions to `balance_events` with `event_type = 'data_repair'`
+- Students with `completed > total_rights` are flagged for manual review only
 
 ---
 
-## Phase 4: Package/Rights Model (DONE)
+## Step 3: Add `package_cycle` filter to all READ paths
 
-### Changes Made
-- ✅ **LessonTracker.tsx** — Added cycle-aware remaining rights display (completed/total + cycle badge) using `getRemainingRights()` service call
-- ✅ **StudentLessonTracker.tsx** — Added package cycle badge next to "İşlenen Dersler" label; fetches `package_cycle` from `student_lesson_tracking`
-- ✅ **EditStudentDialog.tsx** — Weekly count change validation: blocks `lessonsPerWeek` decrease when `newTotal < completedCount` in current cycle with user-friendly error toast
-- ✅ Non-destructive reset already implemented in `rpc_reset_package` (Phase 0)
+**Files**: `LessonTracker.tsx`, `StudentLessonTracker.tsx`, `EditStudentDialog.tsx`
 
----
-
-## Phase 5: Archive/Delete/Reset Safety (DONE)
-
-### Changes Made
-- ✅ **`rpc_delete_student`** RPC — Atomic permanent deletion of student + all related data (topics, resources, completions, tracking, lessons, instances, overrides, notifications, admin_notifications, profile)
-- ✅ **`rpc_restore_student`** RPC — Atomic unarchive + planned instance regeneration from template slots (cycle-aware, preserves completed history)
-- ✅ **EditStudentDialog** — `handleDeleteStudent` replaced multi-step client-side deletes with `deleteStudent()` RPC call
-- ✅ **AdminDashboard** — `handleRestoreStudent` replaced simple update with `restoreStudent()` RPC call that also regenerates planned instances
-- ✅ **lessonService.ts** — Added `deleteStudent()` and `restoreStudent()` wrapper functions
-- ✅ Balance integrity: teacher balances are never touched during delete/restore (earned minutes preserved)
+Each `fetchInstances` will:
+1. Fetch `package_cycle` from `student_lesson_tracking`
+2. Add `.eq("package_cycle", currentCycle)` to the instances query
+3. Remove the `slice(0, totalLessonsPerMonth)` hack — cycle-filtered data is already correctly scoped
 
 ---
 
-## Phase 6: Legacy Data Retirement (DONE — partial)
+## Step 4: Add `package_cycle` filter to all WRITE paths
 
-### Changes Made
-- ✅ **lessonService.ts** — Removed all `rebuildLegacyLessonDatesFromInstances` calls
-- ✅ **LessonOverrideDialog.tsx** — Removed all legacy sync calls
-- ✅ **EditStudentDialog.tsx** — Derives `lessonDates` from instances; removed legacy JSON reads, legacy fallback display, `completed_lessons` writes
-- ✅ **lessonSync.ts** — Removed `rebuildLegacyLessonDatesFromInstances`; kept `checkNonTemplateWeekday`
-- ✅ **useLessonOverrides.ts** — Deleted (moved `getLessonDateForCurrentWeek` to `useScheduleGrid.ts`)
-- ✅ **lesson-reminder-cron** — Rewritten to use `lesson_instances` instead of `lesson_overrides` + `student_lessons`
-- ⏳ **DB column/table drops deferred** — `completed_lessons`, `lesson_dates` columns and `lesson_overrides` table still exist; RPCs reference them for legacy compat. Safe to drop after RPC cleanup pass.
+### `instanceGeneration.ts` — `syncTemplateChange`
+- Fetch current cycle from tracking
+- Add `.eq("package_cycle", currentCycle)` to instance query
+- Set `package_cycle` on any newly inserted instances
+- Enforce `total_rights` cap: don't generate more planned instances than `total_rights - completed_in_cycle`
 
----
+### `instanceGeneration.ts` — `shiftLessonsForward`
+- Add `.eq("package_cycle", currentCycle)` to instance query
 
-## Phase 7: Cancelled Status Removal (DONE)
-
-### Changes Made
-- ✅ **Deleted `src/lib/lessonSorting.ts`** — Dead code; no imports anywhere. Used legacy `LessonOverrideInfo` + `isCancelled` logic
-- ✅ **`src/lib/lessonTypes.ts`** — Removed `LessonOverrideInfo` interface, removed `isCancelled` from `SortedLesson` and `DisplayLessonData`, updated `LessonInstance.status` comment to `'planned' | 'completed'`
-- ✅ **`src/components/EditStudentDialog.tsx`** — Removed all `isCancelled` mapping, conditional styling, and "(İptal)" label from lesson list
-- ✅ **`src/hooks/useScheduleGrid.ts`** — Removed `is_cancelled` override logic from `getAllTimeSlots`; overrides param now unused
+### RPCs (already cycle-aware — confirmed correct):
+- `rpc_complete_lesson` — filters by current cycle
+- `rpc_undo_complete_lesson` — filters by current cycle
+- `rpc_reset_package` — increments cycle, generates for new cycle
 
 ---
 
-## Key Design Decisions
+## Step 5: Make `ensureInstancesForWeek` cycle-aware with cap
 
-### Package Cycle
-- Lightweight `package_cycle` INTEGER on existing tables (no new join table)
-- Pragmatic choice: sufficient for current needs
-- Future migration path to `student_package_cycles` table if reporting needs grow
+**File**: `useScheduleGrid.ts`
 
-### Balance Events
-- `event_type` uses CHECK constraint: `lesson_complete`, `lesson_undo`, `trial_complete`, `trial_undo`, `manual_adjust`, `balance_reset`
-- Append-only audit trail alongside accumulator
-- Manual adjustments tracked in separate `manual_adjustment_minutes` column
+Changes:
+- Fetch `package_cycle` and `lessons_per_week` from `student_lesson_tracking` for each missing student
+- Count existing instances in current cycle: `completed + planned`
+- Enforce invariant: `completed + planned <= weekly_count * 4`
+- Only generate if `existing_count < total_rights`
+- Generate at most `total_rights - existing_count` new instances
+- Set `package_cycle` on all inserted instances
+- If package exhausted (`completed >= total_rights`): skip generation entirely
 
-### Legacy Fields Policy
-- `completed_lessons` array and `lesson_dates` JSON are **compatibility-only** from Phase 0 onward
-- No read path uses them for business logic
-- Writes continue during transition (Phases 0-5) for backward compat only
-- Permanently retired in Phase 6
+---
 
-### Teacher Undo
-- Intentionally simple: only the chronologically last completed in current cycle
-- No selective historical undo
-- Same RPC for admin and teacher
+## Step 6: Block completion when package exhausted
+
+**`LessonTracker.tsx`**:
+- If `rights.remaining <= 0`, disable completion UI and show "Paket tamamlandı" message
+- `getNextCompletableInstance` already returns null when no planned instances exist, so this is mainly a UI clarity improvement
+
+---
+
+## Step 7: Handle `completed > total_rights` students safely
+
+- Do NOT auto-reassign or delete completed instances
+- Delete any remaining planned instances in current cycle (package is over-completed)
+- Add student to manual review list in migration output
+- UI will show actual completed count (e.g., "12/8") with a warning badge
+
+---
+
+## Files Modified
+
+| File | Change |
+|------|--------|
+| `src/components/LessonTracker.tsx` | Add cycle filter to fetchInstances, remove slice hack |
+| `src/components/StudentLessonTracker.tsx` | Add cycle filter to fetchInstances, remove slice hack |
+| `src/components/EditStudentDialog.tsx` | Add cycle filter to fetchInstances |
+| `src/hooks/useScheduleGrid.ts` | Cycle-aware `ensureInstancesForWeek` with cap |
+| `src/lib/instanceGeneration.ts` | Cycle filter on `syncTemplateChange` and `shiftLessonsForward` |
+| New migration SQL | CHECK constraint update + two-phase audit/repair |
+
+---
+
+## Safety Constraints
+
+- Completed instances are never modified, moved, or deleted
+- Teacher balances are never touched
+- Archived students are excluded from repair
+- Old cycle history is preserved
+- `package_cycle` NULL or mismatched completed instances are reported, not auto-fixed
+- Only orphan planned instances with clear rules are auto-deleted
+- All repair actions logged to `balance_events` with `event_type = 'data_repair'`
+- Students with `completed > total_rights` flagged for manual review, not silently "fixed"
+
