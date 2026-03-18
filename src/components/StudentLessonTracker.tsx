@@ -43,7 +43,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchInstances(), fetchTemplateCount()]);
+    await Promise.all([fetchInstances(), fetchTemplateCount(), fetchPackageCycle()]);
     setLoading(false);
   };
 
