@@ -686,7 +686,6 @@ export function EditStudentDialog({
         startTime: "",
         endTime: "",
         isCompleted: false,
-        isCancelled: false,
         isOverridden: false,
         instanceId: undefined,
       });
