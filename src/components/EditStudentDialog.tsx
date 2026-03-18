@@ -666,49 +666,10 @@ export function EditStudentDialog({
   const handleDeleteStudent = async () => {
     setLoading(true);
     try {
-      const { data: topics } = await supabase
-        .from("topics")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
-      if (topics && topics.length > 0) {
-        const topicIds = topics.map((t) => t.id);
-        await supabase.from("resources").delete().in("topic_id", topicIds);
-        await supabase.from("topics").delete().in("id", topicIds);
+      const result = await deleteStudent(studentId, studentUserId, teacherUserId);
+      if (!result.success) {
+        throw new Error(result.error || "Öğrenci silinemedi");
       }
-
-      await supabase
-        .from("student_resource_completion")
-        .delete()
-        .eq("student_id", studentUserId);
-
-      await supabase
-        .from("student_lesson_tracking")
-        .delete()
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
-      await supabase
-        .from("student_lessons")
-        .delete()
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
-      await supabase
-        .from("homework_submissions")
-        .delete()
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
-      await supabase
-        .from("lesson_instances")
-        .delete()
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
-      await supabase.from("students").delete().eq("id", studentId);
-      await supabase.from("profiles").delete().eq("user_id", studentUserId);
 
       toast({
         title: "Başarılı",
