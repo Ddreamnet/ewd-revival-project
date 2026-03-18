@@ -197,12 +197,23 @@ export async function shiftLessonsForward(
   fromInstanceId: string,
   templateSlots: TemplateSlot[]
 ): Promise<{ conflicts: ConflictInfo[]; success: boolean }> {
-  // Fetch all instances
+  // Get current cycle
+  const { data: tracking } = await supabase
+    .from("student_lesson_tracking")
+    .select("package_cycle")
+    .eq("student_id", studentId)
+    .eq("teacher_id", teacherId)
+    .maybeSingle();
+
+  const currentCycle = tracking?.package_cycle ?? 1;
+
+  // Fetch instances for current cycle only
   const { data: allInstances } = await supabase
     .from("lesson_instances")
     .select("*")
     .eq("student_id", studentId)
     .eq("teacher_id", teacherId)
+    .eq("package_cycle", currentCycle)
     .order("lesson_date", { ascending: true })
     .order("start_time", { ascending: true });
 

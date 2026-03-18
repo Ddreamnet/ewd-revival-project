@@ -166,6 +166,36 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
   const missingStudents = [...activeStudentIds].filter((id) => !studentsWithInstances.has(id));
   if (missingStudents.length === 0) return;
 
+  // Get tracking data for cycle and rights info
+  const { data: trackingData } = await supabase
+    .from("student_lesson_tracking")
+    .select("student_id, package_cycle, lessons_per_week")
+    .eq("teacher_id", teacherId)
+    .in("student_id", missingStudents);
+
+  const trackingMap = new Map<string, { cycle: number; lpw: number }>();
+  (trackingData || []).forEach((t) => {
+    trackingMap.set(t.student_id, { cycle: t.package_cycle, lpw: t.lessons_per_week });
+  });
+
+  // Get existing instance counts per student in current cycle
+  const { data: cycleCounts } = await supabase
+    .from("lesson_instances")
+    .select("student_id, status")
+    .eq("teacher_id", teacherId)
+    .in("student_id", missingStudents);
+
+  // Count per student per cycle
+  const cycleCountMap = new Map<string, number>();
+  (cycleCounts || []).forEach((row) => {
+    const tracking = trackingMap.get(row.student_id);
+    if (!tracking) return;
+    // Only count instances in the student's current cycle — but we don't have package_cycle in this query
+    // We need to re-query with cycle filter. For efficiency, count all and we'll filter below.
+    const key = row.student_id;
+    cycleCountMap.set(key, (cycleCountMap.get(key) || 0) + 1);
+  });
+
   // Get max lesson_number per missing student (batch)
   const { data: maxLessons } = await supabase
     .from("lesson_instances")
@@ -181,7 +211,8 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
     }
   });
 
-  // Generate instances from templates (no cap — cap is enforced at display level)
+  // For accurate cycle counts, query per-cycle instance counts
+  // Build a query for each missing student's current cycle
   const instancesToInsert: Array<{
     student_id: string;
     teacher_id: string;
@@ -190,13 +221,37 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
     start_time: string;
     end_time: string;
     status: string;
+    package_cycle: number;
   }> = [];
 
   for (const studentId of missingStudents) {
+    const tracking = trackingMap.get(studentId);
+    if (!tracking) continue; // No tracking record, skip
+
+    const totalRights = tracking.lpw * 4;
+    const currentCycle = tracking.cycle;
+
+    // Count existing instances in current cycle
+    const { count: existingInCycleCount } = await supabase
+      .from("lesson_instances")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", studentId)
+      .eq("teacher_id", teacherId)
+      .eq("package_cycle", currentCycle);
+
+    const existingInCycle = existingInCycleCount ?? 0;
+
+    // Enforce invariant: completed + planned <= total_rights
+    if (existingInCycle >= totalRights) continue; // Package exhausted
+
+    const remainingSlots = totalRights - existingInCycle;
     const studentTemplates = templates.filter((t) => t.student_id === studentId);
     let nextNum = (maxLessonMap.get(studentId) || 0) + 1;
+    let generated = 0;
 
     for (const tmpl of studentTemplates) {
+      if (generated >= remainingSlots) break;
+
       const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
       const lessonDate = addDays(ws, dayIndex);
       const dateStr = format(lessonDate, "yyyy-MM-dd");
@@ -208,7 +263,9 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
         start_time: tmpl.start_time,
         end_time: tmpl.end_time,
         status: "planned",
+        package_cycle: currentCycle,
       });
+      generated++;
     }
   }
 
