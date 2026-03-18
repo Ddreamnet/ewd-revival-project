@@ -777,7 +777,7 @@ export function EditStudentDialog({
       return result;
     }
 
-    // Legacy fallback: use lessonDates JSON
+    // Legacy fallback: use lessonDates JSON (no instances yet)
     const lessonsWithDates: {
       displayIndex: number;
       lessonNumber: number;
@@ -792,39 +792,18 @@ export function EditStudentDialog({
 
     for (let i = 1; i <= totalLessons; i++) {
       const originalDate = lessonDates[i.toString()];
-      if (!originalDate) {
-        lessonsWithDates.push({
-          displayIndex: i,
-          lessonNumber: i,
-          effectiveDate: "",
-          startTime: "",
-          endTime: "",
-          isCompleted: completedLessons.includes(i),
-          isCancelled: false,
-          isOverridden: false,
-        });
-        continue;
-      }
-
-      const override = lessonOverrides.find((o) => o.original_date === originalDate);
-      const isCancelled = override?.is_cancelled || false;
-      const effectiveDate = override && override.new_date && !isCancelled
-        ? override.new_date
-        : originalDate;
-
       lessonsWithDates.push({
         displayIndex: i,
         lessonNumber: i,
-        effectiveDate,
+        effectiveDate: originalDate || "",
         startTime: "",
         endTime: "",
-        isCompleted: completedLessons.includes(i),
-        isCancelled,
-        isOverridden: effectiveDate !== originalDate,
+        isCompleted: false,
+        isCancelled: false,
+        isOverridden: false,
       });
     }
 
-    // Sort by effective date
     const withDates = lessonsWithDates.filter(l => l.effectiveDate);
     const withoutDates = lessonsWithDates.filter(l => !l.effectiveDate);
     withDates.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
