@@ -560,6 +560,21 @@ export function EditStudentDialog({
 
       if (insertError) throw insertError;
 
+      // Always sync lessons_per_week to tracking table
+      const { data: existingTrackingSync } = await supabase
+        .from("student_lesson_tracking")
+        .select("id")
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId)
+        .limit(1);
+
+      if (existingTrackingSync && existingTrackingSync.length > 0) {
+        await supabase
+          .from("student_lesson_tracking")
+          .update({ lessons_per_week: lessonsPerWeek })
+          .eq("id", existingTrackingSync[0].id);
+      }
+
       // Sync template change to instances (regenerate planned)
       const newSlots: TemplateSlot[] = lessons.map((l) => ({
         dayOfWeek: l.dayOfWeek,
