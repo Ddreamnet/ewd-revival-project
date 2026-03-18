@@ -20,6 +20,7 @@ import {
   undoCompleteLesson,
   getNextCompletableInstance,
   getLastCompletedInstance,
+  getRemainingRights,
 } from "@/lib/lessonService";
 
 interface LessonTrackerProps {
