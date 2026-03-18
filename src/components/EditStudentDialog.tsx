@@ -58,10 +58,8 @@ export function EditStudentDialog({
   const [name, setName] = useState("");
   const [lessonsPerWeek, setLessonsPerWeek] = useState(1);
   const [lessons, setLessons] = useState<StudentLessonBase[]>([{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]);
-  const [completedLessons, setCompletedLessons] = useState<number[]>([]);
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
-  const [lessonOverrides, setLessonOverrides] = useState<LessonOverrideInfo[]>([]);
   const [instances, setInstances] = useState<LessonInstance[]>([]);
   const [trackingRecordId, setTrackingRecordId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
