@@ -125,7 +125,6 @@ export function EditStudentDialog({
       if (records && records.length > 0) {
         const data = records[0];
         setTrackingRecordId(data.id);
-        setCompletedLessons((data as any).completed_lessons || []);
         const dates = (data as any).lesson_dates || {};
         setLessonDates(dates);
         setOriginalLessonDates(dates);
