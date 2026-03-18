@@ -423,7 +423,6 @@ export function EditStudentDialog({
             }
           }
         }
-        }
       } else {
         // OFF: only date changes, time stays the same
         // Update individual instance dates without changing times
