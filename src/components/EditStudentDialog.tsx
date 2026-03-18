@@ -140,11 +140,22 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
+      // Get current package_cycle
+      const { data: tracking } = await supabase
+        .from("student_lesson_tracking")
+        .select("package_cycle")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .maybeSingle();
+
+      const currentCycle = tracking?.package_cycle ?? 1;
+
       const { data, error } = await supabase
         .from("lesson_instances")
         .select("*")
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id)
+        .eq("package_cycle", currentCycle)
         .in("status", ["planned", "completed"])
         .order("lesson_date", { ascending: true })
         .order("start_time", { ascending: true });
@@ -567,9 +578,32 @@ export function EditStudentDialog({
         }
 
       } else {
-        // No instances exist yet — generate fresh instances
+        // No instances exist yet — generate fresh instances with package_cycle
         const today = new Date();
         const futureDates = generateFutureInstanceDates(newSlots, totalLessonsCount, today);
+
+        // Get or create tracking record to know cycle
+        const { data: existingTracking } = await supabase
+          .from("student_lesson_tracking")
+          .select("id, package_cycle")
+          .eq("student_id", studentUserId)
+          .eq("teacher_id", teacherUserId)
+          .limit(1);
+
+        let currentCycle = 1;
+        if (existingTracking && existingTracking.length > 0) {
+          currentCycle = existingTracking[0].package_cycle ?? 1;
+          await supabase
+            .from("student_lesson_tracking")
+            .update({ lessons_per_week: lessonsPerWeek })
+            .eq("id", existingTracking[0].id);
+        } else {
+          await supabase.from("student_lesson_tracking").insert({
+            student_id: studentUserId,
+            teacher_id: teacherUserId,
+            lessons_per_week: lessonsPerWeek,
+          });
+        }
 
         if (futureDates.length > 0) {
           for (let i = 0; i < futureDates.length; i++) {
@@ -581,27 +615,7 @@ export function EditStudentDialog({
               start_time: futureDates[i].startTime,
               end_time: futureDates[i].endTime,
               status: "planned",
-            });
-          }
-
-          // Create or update tracking record (lessons_per_week only)
-          const { data: existingTracking } = await supabase
-            .from("student_lesson_tracking")
-            .select("id")
-            .eq("student_id", studentUserId)
-            .eq("teacher_id", teacherUserId)
-            .limit(1);
-
-          if (existingTracking && existingTracking.length > 0) {
-            await supabase
-              .from("student_lesson_tracking")
-              .update({ lessons_per_week: lessonsPerWeek })
-              .eq("id", existingTracking[0].id);
-          } else {
-            await supabase.from("student_lesson_tracking").insert({
-              student_id: studentUserId,
-              teacher_id: teacherUserId,
-              lessons_per_week: lessonsPerWeek,
+              package_cycle: currentCycle,
             });
           }
         }
@@ -657,16 +671,14 @@ export function EditStudentDialog({
 
   const sortedLessonsForDisplay = (() => {
     // Sort instances by date+time for chronological "Ders N" labels
+    // Cycle-filtered data is already correctly scoped — no slice needed
     const sorted = [...instances].sort((a, b) => {
       const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
       if (dateCompare !== 0) return dateCompare;
       return a.start_time.localeCompare(b.start_time);
     });
 
-    // Take only first totalLessons entries
-    const capped = sorted.slice(0, totalLessons);
-
-    const result = capped.map((inst, idx) => ({
+    const result = sorted.map((inst, idx) => ({
       displayIndex: idx + 1,
       lessonNumber: inst.lesson_number,
       effectiveDate: inst.lesson_date,

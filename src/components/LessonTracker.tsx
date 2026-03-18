@@ -58,11 +58,22 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   const fetchInstances = async () => {
     try {
+      // Get current package_cycle
+      const { data: tracking } = await supabase
+        .from("student_lesson_tracking")
+        .select("package_cycle")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId)
+        .maybeSingle();
+
+      const currentCycle = tracking?.package_cycle ?? 1;
+
       const { data, error } = await supabase
         .from("lesson_instances")
         .select("*")
         .eq("student_id", studentId)
         .eq("teacher_id", teacherId)
+        .eq("package_cycle", currentCycle)
         .in("status", ["planned", "completed"])
         .order("lesson_date", { ascending: true })
         .order("start_time", { ascending: true });
@@ -178,8 +189,8 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const totalLessonsPerMonth = templateCount * 4;
   const rowConfig = getRowConfig(templateCount);
 
-  // Cap display at totalLessonsPerMonth, sorted chronologically
-  const displayInstances = instances.slice(0, totalLessonsPerMonth);
+  // Cycle-filtered data is already correctly scoped — no slice needed
+  const displayInstances = instances;
 
   if (loading) {
     return <div className="animate-pulse h-40 bg-muted rounded-lg"></div>;
