@@ -120,9 +120,19 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
       if (records && records.length > 0) {
         const data = records[0];
-        setLessonsPerWeek((data as any).lessons_per_week);
         setCompletedLessons((data as any).completed_lessons || []);
         setLessonDates((data as any).lesson_dates || {});
+      }
+
+      // Derive lessonsPerWeek from live student_lessons template (same as teacher panel)
+      const { data: templateSlots, error: slotsError } = await supabase
+        .from("student_lessons")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("teacher_id", studentData.teacher_id);
+
+      if (!slotsError && templateSlots) {
+        setLessonsPerWeek(templateSlots.length || 1);
       }
     } catch (error: any) {
       console.error("Failed to fetch lesson tracking:", error);

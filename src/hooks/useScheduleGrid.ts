@@ -268,7 +268,7 @@ export async function fetchActualLessonsForWeek(
 
   const nameMap = new Map((profiles || []).map((p) => [p.user_id, p.full_name]));
 
-  return instances.map((inst) => ({
+  return filteredInstances.map((inst) => ({
     ...inst,
     student_name: nameMap.get(inst.student_id) || "Bilinmeyen",
   }));
