@@ -101,7 +101,7 @@ export function EditStudentDialog({
     }
   };
 
-  const fetchLessonTracking = async () => {
+  const fetchTrackingRecordId = async () => {
     try {
       const { data: studentData, error: studentError } = await supabase
         .from("students")
@@ -113,31 +113,21 @@ export function EditStudentDialog({
 
       const { data: records, error } = await supabase
         .from("student_lesson_tracking")
-        .select("*")
+        .select("id")
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id)
-        .order("updated_at", { ascending: false })
         .limit(1);
 
       if (error) throw error;
 
       if (records && records.length > 0) {
-        const data = records[0];
-        setTrackingRecordId(data.id);
-        const dates = (data as any).lesson_dates || {};
-        setLessonDates(dates);
-        setOriginalLessonDates(dates);
+        setTrackingRecordId(records[0].id);
       } else {
         setTrackingRecordId(null);
       }
     } catch (error: any) {
-      console.error("Failed to fetch lesson tracking:", error);
+      console.error("Failed to fetch tracking record:", error);
     }
-  };
-
-  // Legacy fetchLessonOverrides kept as no-op for transition
-  const fetchLessonOverrides = async () => {
-    // Phase 2: lesson_overrides no longer read — instances are source of truth
   };
 
   const fetchInstances = async () => {
