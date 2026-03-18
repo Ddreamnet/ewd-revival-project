@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { LessonOverrideDialog } from "./LessonOverrideDialog";
-import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
+import { getLessonDateForCurrentWeek } from "@/hooks/useLessonOverrides";
 import { format, startOfWeek, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
