@@ -566,10 +566,8 @@ export function EditStudentDialog({
           return;
         }
 
-        // Rebuild legacy JSON after template sync
-        await rebuildLegacyLessonDatesFromInstances(studentUserId, teacherUserId);
       } else {
-        // Bug #1 fix: No instances exist yet — generate fresh instances
+        // No instances exist yet — generate fresh instances
         const today = new Date();
         const futureDates = generateFutureInstanceDates(newSlots, totalLessonsCount, today);
 
@@ -586,12 +584,7 @@ export function EditStudentDialog({
             });
           }
 
-          // Create or update tracking record
-          const lessonDatesJson: Record<string, string> = {};
-          futureDates.forEach((d, idx) => {
-            lessonDatesJson[(idx + 1).toString()] = d.lessonDate;
-          });
-
+          // Create or update tracking record (lessons_per_week only)
           const { data: existingTracking } = await supabase
             .from("student_lesson_tracking")
             .select("id")
@@ -602,15 +595,13 @@ export function EditStudentDialog({
           if (existingTracking && existingTracking.length > 0) {
             await supabase
               .from("student_lesson_tracking")
-              .update({ lessons_per_week: lessonsPerWeek, lesson_dates: lessonDatesJson })
+              .update({ lessons_per_week: lessonsPerWeek })
               .eq("id", existingTracking[0].id);
           } else {
             await supabase.from("student_lesson_tracking").insert({
               student_id: studentUserId,
               teacher_id: teacherUserId,
               lessons_per_week: lessonsPerWeek,
-              lesson_dates: lessonDatesJson,
-              completed_lessons: [],
             });
           }
         }
