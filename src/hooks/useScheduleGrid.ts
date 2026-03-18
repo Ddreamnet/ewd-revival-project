@@ -4,8 +4,15 @@
  */
 
 import { format, startOfWeek, addDays } from "date-fns";
-import { getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
 import { supabase } from "@/integrations/supabase/client";
+
+/** Helper to calculate the date for a lesson based on day_of_week for current week */
+export function getLessonDateForCurrentWeek(dayOfWeek: number): Date {
+  const today = new Date();
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  return addDays(weekStart, daysFromMonday);
+}
 
 interface BaseLessonInfo {
   id: string;
