@@ -95,6 +95,27 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
     }
   };
 
+  const fetchPackageCycle = async () => {
+    try {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("teacher_id")
+        .eq("student_id", studentId)
+        .single();
+      if (studentError) throw studentError;
+
+      const { data } = await supabase
+        .from("student_lesson_tracking")
+        .select("package_cycle")
+        .eq("student_id", studentId)
+        .eq("teacher_id", studentData.teacher_id)
+        .maybeSingle();
+      setPackageCycle(data?.package_cycle ?? 1);
+    } catch (error: any) {
+      console.error("Failed to fetch package cycle:", error);
+    }
+  };
+
   const totalLessonsPerMonth = templateCount * 4;
   const rowConfig = getRowConfig(templateCount);
   const completedCount = instances.filter((i) => i.status === "completed").length;
