@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { LessonOverrideDialog } from "./LessonOverrideDialog";
-import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
+import { getLessonDateForCurrentWeek } from "@/hooks/useLessonOverrides";
 import { format, startOfWeek, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
@@ -92,7 +92,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const [selectedActualLesson, setSelectedActualLesson] = useState<ActualLesson | null>(null);
   
   const { toast } = useToast();
-  const { overrides, isLessonCancelled, getLessonOverride, getMovedLessonForDate, refetch: refetchOverrides } = useLessonOverrides(teacherId);
 
   useEffect(() => {
     fetchSchedule();
@@ -228,56 +227,14 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   const weekEnd = addDays(weekStart, 6);
   const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
 
-  const getLessonOverrideForAdmin = (studentId: string, date: Date): LessonOverride | null => {
-    const dateStr = format(date, "yyyy-MM-dd");
-    return overrides.find((o) => {
-      return o.student_id === studentId && 
-             format(new Date(o.original_date), "yyyy-MM-dd") === dateStr;
-    }) || null;
-  };
-
+  // Template mode: pure template positions (no override adjustments)
   const getLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
     const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
-    const dateForDay = getDateForDayIndex(dayIndex);
-    
-    // First check if there's a moved lesson that should appear here
-    const movedLesson = overrides.find((o) => {
-      if (o.is_cancelled || !o.new_date) return false;
-      const newDate = new Date(o.new_date);
-      const effectiveTime = o.new_start_time || o.original_start_time;
-      return format(newDate, "yyyy-MM-dd") === format(dateForDay, "yyyy-MM-dd") && effectiveTime === timeSlot;
-    });
-    
-    if (movedLesson) {
-      const originalLesson = lessons.find((l) => l.student_id === movedLesson.student_id);
-      if (originalLesson) {
-        return {
-          ...originalLesson,
-          start_time: movedLesson.new_start_time || movedLesson.original_start_time,
-          end_time: movedLesson.new_end_time || movedLesson.original_end_time,
-          _isOverride: true,
-          _originalDate: new Date(movedLesson.original_date),
-          _override: movedLesson,
-        };
-      }
-    }
-    
     const lesson = lessons.find((l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
-    
     if (lesson) {
       const lessonDate = getLessonDateForCurrentWeek(lesson.day_of_week);
-      const override = getLessonOverrideForAdmin(lesson.student_id, lessonDate);
-      if (override) {
-        return { 
-          ...lesson, 
-          _originalDate: lessonDate,
-          _isPostponed: true,
-          _override: override,
-        };
-      }
       return { ...lesson, _originalDate: lessonDate };
     }
-    
     return null;
   };
 
@@ -285,43 +242,22 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     return getTrialLessonForDayAndTime(trialLessons, dayIndex, timeSlot, weekStart);
   };
 
-  const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date; _override?: LessonOverride }) => {
-    const override = lesson._override;
-    let originalDateForOverride: Date;
-    let currentDisplayDate: Date;
-    let currentStartTime: string;
-    let currentEndTime: string;
-    let originalStartTimeForDialog: string;
-    let originalEndTimeForDialog: string;
-    
-    if (override) {
-      originalDateForOverride = new Date(override.original_date);
-      currentDisplayDate = override.new_date ? new Date(override.new_date) : originalDateForOverride;
-      currentStartTime = override.new_start_time || override.original_start_time;
-      currentEndTime = override.new_end_time || override.original_end_time;
-      originalStartTimeForDialog = override.original_start_time;
-      originalEndTimeForDialog = override.original_end_time;
-    } else {
-      originalDateForOverride = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
-      currentDisplayDate = originalDateForOverride;
-      currentStartTime = lesson.start_time;
-      currentEndTime = lesson.end_time;
-      originalStartTimeForDialog = lesson.start_time;
-      originalEndTimeForDialog = lesson.end_time;
-    }
+  const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date }) => {
+    // Template mode click: no override info, just template data
+    const originalDateForOverride = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
     
     const lessonWithOriginalTimes = {
       ...lesson,
-      _originalStartTime: originalStartTimeForDialog,
-      _originalEndTime: originalEndTimeForDialog,
-      _hasOverride: !!override,
+      _originalStartTime: lesson.start_time,
+      _originalEndTime: lesson.end_time,
+      _hasOverride: false,
     };
     
     setSelectedLesson(lessonWithOriginalTimes);
     setSelectedLessonDate(originalDateForOverride);
-    setSelectedLessonCurrentDate(currentDisplayDate);
-    setSelectedLessonCurrentStartTime(currentStartTime);
-    setSelectedLessonCurrentEndTime(currentEndTime);
+    setSelectedLessonCurrentDate(originalDateForOverride);
+    setSelectedLessonCurrentStartTime(lesson.start_time);
+    setSelectedLessonCurrentEndTime(lesson.end_time);
     setShowOverrideDialog(true);
   };
 
@@ -353,7 +289,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const handleOverrideSuccess = () => {
-    refetchOverrides();
     fetchSchedule();
     if (!showTemplate) fetchActualSchedule();
   };

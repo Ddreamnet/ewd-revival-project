@@ -121,58 +121,60 @@ export function LessonOverrideDialog({
     }
   };
 
-  // "Sonraki Derse Aktar" - uses lesson_instances if instanceId provided, else legacy JSON
+  // "Sonraki Derse Aktar" - instance-based shift
   const handlePostponeToNextLesson = async () => {
     setSaving(true);
     setConflicts([]);
     try {
-      if (instanceId) {
-        // Instance-based: shift forward using template slots
-        const { data: templateSlots } = await supabase
-          .from("student_lessons")
-          .select("day_of_week, start_time, end_time")
-          .eq("student_id", studentId)
-          .eq("teacher_id", teacherId);
-
-        if (!templateSlots || templateSlots.length === 0) {
-          toast({ title: "Hata", description: "Ders programı bulunamadı", variant: "destructive" });
-          setSaving(false);
-          setShowPostponeConfirm(false);
-          return;
-        }
-
-        const slots: TemplateSlot[] = templateSlots.map((s) => ({
-          dayOfWeek: s.day_of_week,
-          startTime: s.start_time,
-          endTime: s.end_time,
-        }));
-
-        const result = await shiftLessonsForward(studentId, teacherId, instanceId, slots);
-
-        if (result.conflicts.length > 0) {
-          setConflicts(result.conflicts);
-          setSaving(false);
-          setShowPostponeConfirm(false);
-          return;
-        }
-
-        if (!result.success) {
-          toast({ title: "Hata", description: "Dersler kaydırılamadı", variant: "destructive" });
-          setSaving(false);
-          setShowPostponeConfirm(false);
-          return;
-        }
-
-        // Rebuild legacy JSON from instances (canonical sync)
-        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-
-        toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
-        onSuccess();
-        onOpenChange(false);
-      } else {
-        // Legacy JSON-based path
-        await handlePostponeToNextLessonLegacy();
+      if (!instanceId) {
+        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
       }
+
+      // Instance-based: shift forward using template slots
+      const { data: templateSlots } = await supabase
+        .from("student_lessons")
+        .select("day_of_week, start_time, end_time")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId);
+
+      if (!templateSlots || templateSlots.length === 0) {
+        toast({ title: "Hata", description: "Ders programı bulunamadı", variant: "destructive" });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      const slots: TemplateSlot[] = templateSlots.map((s) => ({
+        dayOfWeek: s.day_of_week,
+        startTime: s.start_time,
+        endTime: s.end_time,
+      }));
+
+      const result = await shiftLessonsForward(studentId, teacherId, instanceId, slots);
+
+      if (result.conflicts.length > 0) {
+        setConflicts(result.conflicts);
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      if (!result.success) {
+        toast({ title: "Hata", description: "Dersler kaydırılamadı", variant: "destructive" });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      // Rebuild legacy JSON from instances (compat-only, removed in Phase 6)
+      await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+      toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
+      onSuccess();
+      onOpenChange(false);
     } catch (error: any) {
       console.error("Error postponing lesson:", error);
       toast({ title: "Hata", description: error.message || "Ders ertelenemedi", variant: "destructive" });
@@ -182,84 +184,7 @@ export function LessonOverrideDialog({
     }
   };
 
-  // Legacy postpone (keeps backward compat until full migration)
-  const handlePostponeToNextLessonLegacy = async () => {
-    const { data: trackingData, error: trackingError } = await supabase
-      .from("student_lesson_tracking")
-      .select("*")
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (trackingError) throw trackingError;
-    if (!trackingData || !trackingData.lesson_dates) {
-      toast({ title: "Hata", description: "Ders takip verisi bulunamadı", variant: "destructive" });
-      return;
-    }
-
-    const lessonDates = trackingData.lesson_dates as Record<string, string>;
-    const originalDateStr = format(originalDate, "yyyy-MM-dd");
-
-    let targetLessonNumber: number | null = null;
-    for (const [lessonNum, dateStr] of Object.entries(lessonDates)) {
-      if (dateStr === originalDateStr) {
-        targetLessonNumber = parseInt(lessonNum);
-        break;
-      }
-    }
-
-    if (targetLessonNumber === null) {
-      toast({ title: "Hata", description: "Bu tarih için ders kaydı bulunamadı", variant: "destructive" });
-      return;
-    }
-
-    const { data: lessonDays, error: lessonDaysError } = await supabase
-      .from("student_lessons")
-      .select("day_of_week")
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId);
-
-    if (lessonDaysError || !lessonDays || lessonDays.length === 0) {
-      toast({ title: "Hata", description: "Öğrenci ders günleri bulunamadı", variant: "destructive" });
-      return;
-    }
-
-    const days = lessonDays.map((l: any) => l.day_of_week).sort((a: number, b: number) => a - b);
-    const totalLessons = trackingData.lessons_per_week * 4;
-    const newLessonDates: Record<string, string> = { ...lessonDates };
-
-    let currentLessonDate = new Date(originalDate);
-    for (let i = targetLessonNumber; i <= totalLessons; i++) {
-      let nextDate = addDays(currentLessonDate, 1);
-      let attempts = 0;
-      while (!days.includes(nextDate.getDay()) && attempts < 14) {
-        nextDate = addDays(nextDate, 1);
-        attempts++;
-      }
-      newLessonDates[i.toString()] = format(nextDate, "yyyy-MM-dd");
-      currentLessonDate = nextDate;
-    }
-
-    const { error: updateError } = await supabase
-      .from("student_lesson_tracking")
-      .update({ lesson_dates: newLessonDates })
-      .eq("id", trackingData.id);
-
-    if (updateError) throw updateError;
-
-    await supabase
-      .from("lesson_overrides")
-      .delete()
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId)
-      .eq("original_date", originalDateStr);
-
-    toast({ title: "Başarılı", description: `${targetLessonNumber}. ders ve sonraki tüm dersler kaydırıldı` });
-    onSuccess();
-    onOpenChange(false);
-  };
+  // Legacy postpone removed in Phase 3 — all operations are instance-based
 
   // "1 Seferlik Değiştir" with conflict check + instance update
   const handleOneTimeChange = async () => {
@@ -294,73 +219,44 @@ export function LessonOverrideDialog({
         return;
       }
 
-      // Update lesson_instances if instanceId provided
-      if (instanceId) {
-        const { data: currentInst } = await supabase
-          .from("lesson_instances")
-          .select("lesson_date, start_time, end_time, original_date, rescheduled_count")
-          .eq("id", instanceId)
-          .single();
-
-        if (currentInst) {
-          await supabase
-            .from("lesson_instances")
-            .update({
-              lesson_date: newDateStr,
-              start_time: newStartFull,
-              end_time: newEndFull,
-              original_date: currentInst.original_date || currentInst.lesson_date,
-              original_start_time: currentInst.original_date ? undefined : currentInst.start_time,
-              original_end_time: currentInst.original_date ? undefined : currentInst.end_time,
-              rescheduled_count: currentInst.rescheduled_count + 1,
-            })
-            .eq("id", instanceId);
-
-          await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-
-          // Non-template weekday warning
-          const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
-          if (check.isNonTemplate) {
-            toast({
-              title: "Bilgi",
-              description: `Seçilen tarih (${format(newDate, "d MMM", { locale: tr })}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
-            });
-          }
-        }
+      // Update lesson_instances (source of truth)
+      if (!instanceId) {
+        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
+        setSaving(false);
+        return;
       }
 
-      // Also write to lesson_overrides for backward compat
-      const { data: existingOverride } = await supabase
-        .from("lesson_overrides")
-        .select("id")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .eq("original_date", format(originalDate, "yyyy-MM-dd"))
-        .maybeSingle();
+      const { data: currentInst } = await supabase
+        .from("lesson_instances")
+        .select("lesson_date, start_time, end_time, original_date, rescheduled_count")
+        .eq("id", instanceId)
+        .single();
 
-      if (existingOverride) {
+      if (currentInst) {
         await supabase
-          .from("lesson_overrides")
+          .from("lesson_instances")
           .update({
-            new_date: newDateStr,
-            new_start_time: newStartFull,
-            new_end_time: newEndFull,
-            is_cancelled: false,
+            lesson_date: newDateStr,
+            start_time: newStartFull,
+            end_time: newEndFull,
+            original_date: currentInst.original_date || currentInst.lesson_date,
+            original_start_time: currentInst.original_date ? undefined : currentInst.start_time,
+            original_end_time: currentInst.original_date ? undefined : currentInst.end_time,
+            rescheduled_count: currentInst.rescheduled_count + 1,
           })
-          .eq("id", existingOverride.id);
-      } else {
-        await supabase.from("lesson_overrides").insert({
-          student_id: studentId,
-          teacher_id: teacherId,
-          original_date: format(originalDate, "yyyy-MM-dd"),
-          original_day_of_week: originalDayOfWeek,
-          original_start_time: originalStartTime,
-          original_end_time: originalEndTime,
-          new_date: newDateStr,
-          new_start_time: newStartFull,
-          new_end_time: newEndFull,
-          is_cancelled: false,
-        });
+          .eq("id", instanceId);
+
+        // Compat-only: rebuild legacy JSON (removed in Phase 6)
+        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+        // Non-template weekday warning
+        const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
+        if (check.isNonTemplate) {
+          toast({
+            title: "Bilgi",
+            description: `Seçilen tarih (${format(newDate, "d MMM", { locale: tr })}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
+          });
+        }
       }
 
       toast({
@@ -377,60 +273,57 @@ export function LessonOverrideDialog({
     }
   };
 
-  // "Geri Al" - reverts instance + deletes override
+  // "Geri Al" - reverts instance to original date/time
   const handleRevert = async () => {
     setSaving(true);
     setConflicts([]);
     try {
-      // Revert instance if instanceId provided
-      if (instanceId) {
-        const { data: inst } = await supabase
-          .from("lesson_instances")
-          .select("original_date, original_start_time, original_end_time")
-          .eq("id", instanceId)
-          .single();
-
-        if (inst?.original_date) {
-          // Conflict check on original slot before reverting
-          const revertConflicts = await checkTeacherConflicts(
-            teacherId,
-            inst.original_date,
-            inst.original_start_time || originalStartTime,
-            inst.original_end_time || originalEndTime,
-            instanceId
-          );
-
-          if (revertConflicts.length > 0) {
-            setConflicts(revertConflicts);
-            setSaving(false);
-            setShowRevertConfirm(false);
-            return;
-          }
-
-          await supabase
-            .from("lesson_instances")
-            .update({
-              lesson_date: inst.original_date,
-              start_time: inst.original_start_time || originalStartTime,
-              end_time: inst.original_end_time || originalEndTime,
-              original_date: null,
-              original_start_time: null,
-              original_end_time: null,
-              rescheduled_count: 0,
-            })
-            .eq("id", instanceId);
-
-          await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-        }
+      if (!instanceId) {
+        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
+        setSaving(false);
+        setShowRevertConfirm(false);
+        return;
       }
 
-      // Delete override record
-      await supabase
-        .from("lesson_overrides")
-        .delete()
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .eq("original_date", format(originalDate, "yyyy-MM-dd"));
+      const { data: inst } = await supabase
+        .from("lesson_instances")
+        .select("original_date, original_start_time, original_end_time")
+        .eq("id", instanceId)
+        .single();
+
+      if (inst?.original_date) {
+        // Conflict check on original slot before reverting
+        const revertConflicts = await checkTeacherConflicts(
+          teacherId,
+          inst.original_date,
+          inst.original_start_time || originalStartTime,
+          inst.original_end_time || originalEndTime,
+          instanceId
+        );
+
+        if (revertConflicts.length > 0) {
+          setConflicts(revertConflicts);
+          setSaving(false);
+          setShowRevertConfirm(false);
+          return;
+        }
+
+        await supabase
+          .from("lesson_instances")
+          .update({
+            lesson_date: inst.original_date,
+            start_time: inst.original_start_time || originalStartTime,
+            end_time: inst.original_end_time || originalEndTime,
+            original_date: null,
+            original_start_time: null,
+            original_end_time: null,
+            rescheduled_count: 0,
+          })
+          .eq("id", instanceId);
+
+        // Compat-only: rebuild legacy JSON (removed in Phase 6)
+        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+      }
 
       toast({ title: "Başarılı", description: "Ders orijinal tarih ve saatine döndürüldü" });
       onSuccess();
