@@ -33,7 +33,7 @@ export interface LessonInstance {
   lesson_date: string;
   start_time: string;
   end_time: string;
-  status: string; // 'planned' | 'completed' | 'cancelled'
+  status: string; // 'planned' | 'completed'
   original_date: string | null;
   original_start_time: string | null;
   original_end_time: string | null;

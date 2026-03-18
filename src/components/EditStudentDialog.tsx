@@ -896,7 +896,7 @@ export function EditStudentDialog({
                       value={lessonDates[lesson.lessonNumber.toString()] || lesson.effectiveDate || ""}
                       onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
                       className={`w-full sm:w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
-                      disabled={lesson.isCancelled}
+                      disabled={false}
                     />
                   </div>
                 </div>
