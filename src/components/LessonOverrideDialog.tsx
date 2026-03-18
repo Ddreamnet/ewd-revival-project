@@ -21,7 +21,7 @@ import { calculateNextLessonDate as calcNextDate } from "@/lib/lessonDateCalcula
 import { useToast } from "@/hooks/use-toast";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { shiftLessonsForward, TemplateSlot } from "@/lib/instanceGeneration";
-import { rebuildLegacyLessonDatesFromInstances, checkNonTemplateWeekday } from "@/lib/lessonSync";
+import { checkNonTemplateWeekday } from "@/lib/lessonSync";
 import {
   AlertDialog,
   AlertDialogAction,
