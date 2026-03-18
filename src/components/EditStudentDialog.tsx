@@ -943,7 +943,7 @@ export function EditStudentDialog({
                     Son Dersi İşaretle
                   </Button>
                 )}
-                {completedLessons.length > 0 && (
+                {completedCount > 0 && (
                   <>
                     <Button
                       type="button"
