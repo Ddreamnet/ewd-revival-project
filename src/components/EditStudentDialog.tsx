@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash2, Archive, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { LessonDates, LessonOverrideInfo, LessonInstance, formatTime } from "@/lib/lessonTypes";
+import { LessonDates, LessonInstance, formatTime } from "@/lib/lessonTypes";
 import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
 import {
   completeLesson,
