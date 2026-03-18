@@ -169,8 +169,8 @@ export function LessonOverrideDialog({
         return;
       }
 
-      // Rebuild legacy JSON from instances (compat-only, removed in Phase 6)
-      await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+
 
       toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
       onSuccess();
