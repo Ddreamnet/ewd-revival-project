@@ -150,7 +150,16 @@ export function EditStudentDialog({
         .order("start_time", { ascending: true });
 
       if (error) throw error;
-      setInstances((data as LessonInstance[]) || []);
+      const fetchedInstances = (data as LessonInstance[]) || [];
+      setInstances(fetchedInstances);
+
+      // Derive lessonDates from instances (replaces legacy lesson_dates JSON)
+      const dates: LessonDates = {};
+      fetchedInstances.forEach((inst) => {
+        dates[inst.lesson_number.toString()] = inst.lesson_date;
+      });
+      setLessonDates(dates);
+      setOriginalLessonDates(dates);
     } catch (error: any) {
       console.error("Failed to fetch lesson instances:", error);
     }
