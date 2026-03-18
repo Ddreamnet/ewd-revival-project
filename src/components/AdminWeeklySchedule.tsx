@@ -242,43 +242,22 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     return getTrialLessonForDayAndTime(trialLessons, dayIndex, timeSlot, weekStart);
   };
 
-  const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date; _override?: LessonOverride }) => {
-    const override = lesson._override;
-    let originalDateForOverride: Date;
-    let currentDisplayDate: Date;
-    let currentStartTime: string;
-    let currentEndTime: string;
-    let originalStartTimeForDialog: string;
-    let originalEndTimeForDialog: string;
-    
-    if (override) {
-      originalDateForOverride = new Date(override.original_date);
-      currentDisplayDate = override.new_date ? new Date(override.new_date) : originalDateForOverride;
-      currentStartTime = override.new_start_time || override.original_start_time;
-      currentEndTime = override.new_end_time || override.original_end_time;
-      originalStartTimeForDialog = override.original_start_time;
-      originalEndTimeForDialog = override.original_end_time;
-    } else {
-      originalDateForOverride = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
-      currentDisplayDate = originalDateForOverride;
-      currentStartTime = lesson.start_time;
-      currentEndTime = lesson.end_time;
-      originalStartTimeForDialog = lesson.start_time;
-      originalEndTimeForDialog = lesson.end_time;
-    }
+  const handleLessonClick = (lesson: StudentLesson & { _originalDate?: Date }) => {
+    // Template mode click: no override info, just template data
+    const originalDateForOverride = lesson._originalDate || getLessonDateForCurrentWeek(lesson.day_of_week);
     
     const lessonWithOriginalTimes = {
       ...lesson,
-      _originalStartTime: originalStartTimeForDialog,
-      _originalEndTime: originalEndTimeForDialog,
-      _hasOverride: !!override,
+      _originalStartTime: lesson.start_time,
+      _originalEndTime: lesson.end_time,
+      _hasOverride: false,
     };
     
     setSelectedLesson(lessonWithOriginalTimes);
     setSelectedLessonDate(originalDateForOverride);
-    setSelectedLessonCurrentDate(currentDisplayDate);
-    setSelectedLessonCurrentStartTime(currentStartTime);
-    setSelectedLessonCurrentEndTime(currentEndTime);
+    setSelectedLessonCurrentDate(originalDateForOverride);
+    setSelectedLessonCurrentStartTime(lesson.start_time);
+    setSelectedLessonCurrentEndTime(lesson.end_time);
     setShowOverrideDialog(true);
   };
 
