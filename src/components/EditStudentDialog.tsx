@@ -578,9 +578,32 @@ export function EditStudentDialog({
         }
 
       } else {
-        // No instances exist yet — generate fresh instances
+        // No instances exist yet — generate fresh instances with package_cycle
         const today = new Date();
         const futureDates = generateFutureInstanceDates(newSlots, totalLessonsCount, today);
+
+        // Get or create tracking record to know cycle
+        const { data: existingTracking } = await supabase
+          .from("student_lesson_tracking")
+          .select("id, package_cycle")
+          .eq("student_id", studentUserId)
+          .eq("teacher_id", teacherUserId)
+          .limit(1);
+
+        let currentCycle = 1;
+        if (existingTracking && existingTracking.length > 0) {
+          currentCycle = existingTracking[0].package_cycle ?? 1;
+          await supabase
+            .from("student_lesson_tracking")
+            .update({ lessons_per_week: lessonsPerWeek })
+            .eq("id", existingTracking[0].id);
+        } else {
+          await supabase.from("student_lesson_tracking").insert({
+            student_id: studentUserId,
+            teacher_id: teacherUserId,
+            lessons_per_week: lessonsPerWeek,
+          });
+        }
 
         if (futureDates.length > 0) {
           for (let i = 0; i < futureDates.length; i++) {
@@ -592,27 +615,7 @@ export function EditStudentDialog({
               start_time: futureDates[i].startTime,
               end_time: futureDates[i].endTime,
               status: "planned",
-            });
-          }
-
-          // Create or update tracking record (lessons_per_week only)
-          const { data: existingTracking } = await supabase
-            .from("student_lesson_tracking")
-            .select("id")
-            .eq("student_id", studentUserId)
-            .eq("teacher_id", teacherUserId)
-            .limit(1);
-
-          if (existingTracking && existingTracking.length > 0) {
-            await supabase
-              .from("student_lesson_tracking")
-              .update({ lessons_per_week: lessonsPerWeek })
-              .eq("id", existingTracking[0].id);
-          } else {
-            await supabase.from("student_lesson_tracking").insert({
-              student_id: studentUserId,
-              teacher_id: teacherUserId,
-              lessons_per_week: lessonsPerWeek,
+              package_cycle: currentCycle,
             });
           }
         }
