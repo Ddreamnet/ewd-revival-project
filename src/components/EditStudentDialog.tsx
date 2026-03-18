@@ -296,58 +296,17 @@ export function EditStudentDialog({
 
   const handleResetAllLessons = async () => {
     try {
-      const { data: existingRecords } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (!existingRecords || existingRecords.length === 0) {
-        throw new Error("Ders takip kaydı bulunamadı");
-      }
-
-      // Delete ALL existing instances for this student-teacher pair
-      await supabase
-        .from("lesson_instances")
-        .delete()
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
-      // Generate fresh instances WITHOUT dates — dates will come when teacher marks first lesson
       const templateSlots: TemplateSlot[] = lessons.map((l) => ({
         dayOfWeek: l.dayOfWeek,
         startTime: l.startTime,
         endTime: l.endTime,
       }));
-      const totalLessonsCount = lessonsPerWeek * 4;
-      const today = new Date();
-      const futureDates = generateFutureInstanceDates(templateSlots, totalLessonsCount, today);
 
-      // Insert instances with placeholder dates (needed for structure) but clear lesson_dates
-      for (let i = 0; i < futureDates.length; i++) {
-        await supabase.from("lesson_instances").insert({
-          student_id: studentUserId,
-          teacher_id: teacherUserId,
-          lesson_number: i + 1,
-          lesson_date: futureDates[i].lessonDate,
-          start_time: futureDates[i].startTime,
-          end_time: futureDates[i].endTime,
-          status: "planned",
-        });
+      const result = await resetPackage(studentUserId, teacherUserId, templateSlots);
+      if (!result.success) {
+        toast({ title: "Hata", description: result.error || "Dersler sıfırlanamadı", variant: "destructive" });
+        return;
       }
-
-      // Update tracking record — clear dates so they get assigned on first mark
-      const { error } = await supabase
-        .from("student_lesson_tracking")
-        .update({ 
-          completed_lessons: [],
-          lesson_dates: {}
-        })
-        .eq("id", existingRecords[0].id);
-
-      if (error) throw error;
 
       setCompletedLessons([]);
       setLessonDates({});
@@ -357,7 +316,7 @@ export function EditStudentDialog({
       
       toast({
         title: "Başarılı",
-        description: "Tüm dersler sıfırlandı. Tarihler ilk ders işaretlendiğinde atanacak.",
+        description: `Paket sıfırlandı (Yeni döngü: ${result.new_cycle}). ${result.instances_created} ders planlandı.`,
       });
     } catch (error: any) {
       toast({
