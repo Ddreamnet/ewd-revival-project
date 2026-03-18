@@ -243,8 +243,22 @@ export async function fetchActualLessonsForWeek(
 
   if (error || !instances) return [];
 
+  // Safety-net: filter out archived students' instances
+  const allStudentIds = [...new Set(instances.map((i) => i.student_id))];
+  if (allStudentIds.length === 0) return [];
+
+  const { data: activeStudents } = await supabase
+    .from("students")
+    .select("student_id")
+    .eq("teacher_id", teacherId)
+    .eq("is_archived", false)
+    .in("student_id", allStudentIds);
+
+  const activeStudentIds = new Set((activeStudents || []).map((s) => s.student_id));
+  const filteredInstances = instances.filter((i) => activeStudentIds.has(i.student_id));
+
   // Fetch student names
-  const studentIds = [...new Set(instances.map((i) => i.student_id))];
+  const studentIds = [...new Set(filteredInstances.map((i) => i.student_id))];
   if (studentIds.length === 0) return [];
 
   const { data: profiles } = await supabase
@@ -254,7 +268,7 @@ export async function fetchActualLessonsForWeek(
 
   const nameMap = new Map((profiles || []).map((p) => [p.user_id, p.full_name]));
 
-  return instances.map((inst) => ({
+  return filteredInstances.map((inst) => ({
     ...inst,
     student_name: nameMap.get(inst.student_id) || "Bilinmeyen",
   }));

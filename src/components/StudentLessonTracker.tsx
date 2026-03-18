@@ -36,9 +36,9 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
           filter: `student_id=eq.${studentId}`,
         },
         (payload) => {
-          if (payload.new && typeof payload.new === "object") {
+        if (payload.new && typeof payload.new === "object") {
             const data = payload.new as any;
-            setLessonsPerWeek(data.lessons_per_week || 1);
+            // Don't update lessonsPerWeek from tracking — use live template count
             setCompletedLessons(data.completed_lessons || []);
             setLessonDates(data.lesson_dates || {});
           }
@@ -120,9 +120,19 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
       if (records && records.length > 0) {
         const data = records[0];
-        setLessonsPerWeek((data as any).lessons_per_week);
         setCompletedLessons((data as any).completed_lessons || []);
         setLessonDates((data as any).lesson_dates || {});
+      }
+
+      // Derive lessonsPerWeek from live student_lessons template (same as teacher panel)
+      const { data: templateSlots, error: slotsError } = await supabase
+        .from("student_lessons")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("teacher_id", studentData.teacher_id);
+
+      if (!slotsError && templateSlots) {
+        setLessonsPerWeek(templateSlots.length || 1);
       }
     } catch (error: any) {
       console.error("Failed to fetch lesson tracking:", error);
