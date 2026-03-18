@@ -178,9 +178,27 @@ export function AdminDashboard() {
 
   const handleRestoreStudent = async (studentId: string) => {
     try {
-      const { error } = await supabase.from("students").update({ is_archived: false, archived_at: null }).eq("id", studentId);
-      if (error) throw error;
-      toast({ title: "Başarılı", description: "Öğrenci başarıyla geri alındı" });
+      // Find the student record to get user IDs
+      const student = teachers
+        .flatMap((t) => t.students)
+        .find((s) => s.id === studentId);
+      if (!student) throw new Error("Öğrenci bulunamadı");
+
+      // Find the teacher who owns this student
+      const teacher = teachers.find((t) =>
+        t.students.some((s) => s.id === studentId)
+      );
+      if (!teacher) throw new Error("Öğretmen bulunamadı");
+
+      const result = await restoreStudent(studentId, student.student_id, teacher.user_id);
+      if (!result.success) {
+        throw new Error(result.error || "Geri alma başarısız");
+      }
+
+      toast({
+        title: "Başarılı",
+        description: `Öğrenci geri alındı${result.instances_created ? ` (${result.instances_created} ders planlandı)` : ""}`,
+      });
       fetchTeachers();
     } catch (error: any) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
