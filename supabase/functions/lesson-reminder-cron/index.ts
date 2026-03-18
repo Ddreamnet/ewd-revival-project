@@ -35,7 +35,6 @@ Deno.serve(async (req) => {
 
     // Target = 10 minutes from now (Turkey time)
     const target = new Date(trNow.getTime() + 10 * 60 * 1000);
-    const targetDay = target.getDay(); // 0=Sunday, matches DB
     const targetHour = String(target.getHours()).padStart(2, "0");
     const targetMinute = String(target.getMinutes()).padStart(2, "0");
     const targetTime = `${targetHour}:${targetMinute}`;
@@ -43,100 +42,69 @@ Deno.serve(async (req) => {
     // Today's date in YYYY-MM-DD (Turkey time)
     const todayStr = `${trParts.year}-${String(trParts.month).padStart(2, "0")}-${String(trParts.day).padStart(2, "0")}`;
 
-    console.log(`Cron running: TR now=${trNow.toISOString()}, target=${targetTime}, day=${targetDay}, date=${todayStr}`);
+    console.log(`Cron running: TR now=${trNow.toISOString()}, target=${targetTime}, date=${todayStr}`);
 
     // =========================================================================
-    // 2. Find regular lessons matching target day + time
+    // 2. Find lesson_instances for today at target time (planned status only)
     // =========================================================================
-    const { data: regularLessons, error: lessonsError } = await supabase
-      .from("student_lessons")
-      .select("id, student_id, teacher_id, start_time, day_of_week")
+    const { data: instances, error: instancesError } = await supabase
+      .from("lesson_instances")
+      .select("id, student_id, teacher_id, start_time")
+      .eq("lesson_date", todayStr)
+      .eq("status", "planned")
+      .eq("start_time", `${targetTime}:00`);
+
+    if (instancesError) {
+      console.error("Error fetching lesson instances:", instancesError);
+      throw instancesError;
+    }
+
+    // =========================================================================
+    // 3. Also check trial lessons for today at target time
+    // =========================================================================
+    const targetDay = target.getDay();
+    const { data: trialLessons, error: trialError } = await supabase
+      .from("trial_lessons")
+      .select("id, teacher_id, start_time")
+      .eq("lesson_date", todayStr)
       .eq("day_of_week", targetDay)
-      .eq("start_time", `${targetTime}:00`); // DB stores as HH:MM:SS
+      .eq("is_completed", false)
+      .eq("start_time", `${targetTime}:00`);
 
-    if (lessonsError) {
-      console.error("Error fetching lessons:", lessonsError);
-      throw lessonsError;
+    if (trialError) {
+      console.error("Error fetching trial lessons:", trialError);
     }
 
     // =========================================================================
-    // 3. Check overrides for today — cancellations and time changes
-    // =========================================================================
-    const { data: overrides, error: overridesError } = await supabase
-      .from("lesson_overrides")
-      .select("id, student_id, teacher_id, original_start_time, is_cancelled, new_date, new_start_time, original_date")
-      .eq("original_date", todayStr);
-
-    if (overridesError) {
-      console.error("Error fetching overrides:", overridesError);
-      throw overridesError;
-    }
-
-    // Build override lookup: key = `${student_id}_${original_start_time}`
-    const overrideMap = new Map<string, any>();
-    for (const ov of overrides || []) {
-      const key = `${ov.student_id}_${ov.original_start_time}`;
-      overrideMap.set(key, ov);
-    }
-
-    // =========================================================================
-    // 4. Filter regular lessons (exclude cancelled/rescheduled)
+    // 4. Build reminder list
     // =========================================================================
     interface LessonToRemind {
       lessonKey: string;
-      studentId: string;
+      studentId: string | null;
       teacherId: string;
     }
 
     const lessonsToRemind: LessonToRemind[] = [];
 
-    for (const lesson of regularLessons || []) {
-      const overrideKey = `${lesson.student_id}_${lesson.start_time}`;
-      const override = overrideMap.get(overrideKey);
-
-      if (override) {
-        // Cancelled → skip
-        if (override.is_cancelled) continue;
-        // Rescheduled to different time → skip (will be handled by override check below)
-        if (override.new_start_time && override.new_start_time !== lesson.start_time) continue;
-      }
-
+    for (const inst of instances || []) {
       lessonsToRemind.push({
-        lessonKey: `sl_${lesson.id}`,
-        studentId: lesson.student_id,
-        teacherId: lesson.teacher_id,
+        lessonKey: `li_${inst.id}`,
+        studentId: inst.student_id,
+        teacherId: inst.teacher_id,
       });
     }
 
-    // =========================================================================
-    // 5. Find lessons overridden TO today at target time
-    // =========================================================================
-    const { data: movedToToday, error: movedError } = await supabase
-      .from("lesson_overrides")
-      .select("id, student_id, teacher_id, new_start_time, new_date")
-      .eq("new_date", todayStr)
-      .eq("is_cancelled", false);
-
-    if (movedError) {
-      console.error("Error fetching moved overrides:", movedError);
-    }
-
-    for (const ov of movedToToday || []) {
-      // Check if new_start_time matches target
-      const ovTime = ov.new_start_time?.substring(0, 5); // HH:MM
-      if (ovTime === targetTime) {
-        lessonsToRemind.push({
-          lessonKey: `ov_${ov.id}`,
-          studentId: ov.student_id,
-          teacherId: ov.teacher_id,
-        });
-      }
+    for (const trial of trialLessons || []) {
+      lessonsToRemind.push({
+        lessonKey: `tl_${trial.id}`,
+        studentId: null,
+        teacherId: trial.teacher_id,
+      });
     }
 
     console.log(`Found ${lessonsToRemind.length} lessons to remind`);
 
     if (lessonsToRemind.length === 0) {
-      // Clean old logs while we're here
       await cleanOldLogs(supabase);
       return new Response(JSON.stringify({ reminded: 0 }), {
         status: 200,
@@ -145,10 +113,9 @@ Deno.serve(async (req) => {
     }
 
     // =========================================================================
-    // 6. Dedup + send push notifications
+    // 5. Get student names for teacher notifications
     // =========================================================================
-    // Get student names for teacher notifications
-    const studentIds = [...new Set(lessonsToRemind.map((l) => l.studentId))];
+    const studentIds = [...new Set(lessonsToRemind.map((l) => l.studentId).filter(Boolean))] as string[];
     const { data: profiles } = await supabase
       .from("profiles")
       .select("user_id, full_name")
@@ -159,7 +126,9 @@ Deno.serve(async (req) => {
       nameMap.set(p.user_id, p.full_name);
     }
 
-    // Prepare push recipients
+    // =========================================================================
+    // 6. Dedup + send push notifications
+    // =========================================================================
     interface PushRecipient {
       user_id: string;
       title: string;
@@ -170,19 +139,21 @@ Deno.serve(async (req) => {
     const pushRecipients: PushRecipient[] = [];
 
     for (const lesson of lessonsToRemind) {
-      const studentName = nameMap.get(lesson.studentId) || "Öğrenci";
+      const studentName = lesson.studentId ? (nameMap.get(lesson.studentId) || "Öğrenci") : "Deneme Dersi";
 
       // Dedup for student
-      const studentDedup = await tryInsertReminderLog(
-        supabase, lesson.studentId, lesson.lessonKey, todayStr
-      );
-      if (studentDedup) {
-        pushRecipients.push({
-          user_id: lesson.studentId,
-          title: "Ders Hatırlatma 📚",
-          body: "Dersiniz 10 dakika sonra başlıyor!",
-          channel_id: "lesson",
-        });
+      if (lesson.studentId) {
+        const studentDedup = await tryInsertReminderLog(
+          supabase, lesson.studentId, lesson.lessonKey, todayStr
+        );
+        if (studentDedup) {
+          pushRecipients.push({
+            user_id: lesson.studentId,
+            title: "Ders Hatırlatma 📚",
+            body: "Dersiniz 10 dakika sonra başlıyor!",
+            channel_id: "lesson",
+          });
+        }
       }
 
       // Dedup for teacher
