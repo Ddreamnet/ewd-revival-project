@@ -67,9 +67,23 @@ All panels derive display data from `lesson_instances.status` instead of legacy 
 
 ---
 
-## Phase 3: Reschedule/Postpone Cleanup
+## Phase 3: Reschedule/Postpone Cleanup (DONE)
 
 Stop writing to `lesson_overrides`. Instance-only reschedule.
+
+### Changes Made
+- ✅ **LessonOverrideDialog.tsx** — Removed all `lesson_overrides` INSERT/UPDATE/DELETE writes
+  - `handleOneTimeChange`: writes only to `lesson_instances`, rebuilds legacy JSON (compat-only)
+  - `handlePostponeToNextLesson`: instance-based shift only, removed legacy JSON path
+  - `handleRevert`: reverts instance only, no override record deletion
+  - All three require `instanceId` (no legacy fallback)
+- ✅ **AdminWeeklySchedule.tsx** — Removed `useLessonOverrides` hook usage
+  - Template mode: pure template positions (no override adjustments)
+  - `handleLessonClick`: simplified, no override data
+  - `handleOverrideSuccess`: no `refetchOverrides` call
+- ✅ **WeeklyScheduleDialog.tsx** — Removed `useLessonOverrides` hook usage
+  - Template mode: pure template lookup by day_of_week + start_time
+- ✅ **Legacy postpone path** (JSON-based) removed from LessonOverrideDialog
 
 ---
 
