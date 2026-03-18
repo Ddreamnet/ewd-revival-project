@@ -39,12 +39,6 @@ export async function completeLesson(
   }
 
   const result = data as unknown as RpcResult;
-
-  // Legacy compat: rebuild lesson_dates JSON (transition period only)
-  if (result.success) {
-    await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-  }
-
   return result;
 }
 
