@@ -140,11 +140,22 @@ export function EditStudentDialog({
 
       if (studentError) throw studentError;
 
+      // Get current package_cycle
+      const { data: tracking } = await supabase
+        .from("student_lesson_tracking")
+        .select("package_cycle")
+        .eq("student_id", studentData.student_id)
+        .eq("teacher_id", studentData.teacher_id)
+        .maybeSingle();
+
+      const currentCycle = tracking?.package_cycle ?? 1;
+
       const { data, error } = await supabase
         .from("lesson_instances")
         .select("*")
         .eq("student_id", studentData.student_id)
         .eq("teacher_id", studentData.teacher_id)
+        .eq("package_cycle", currentCycle)
         .in("status", ["planned", "completed"])
         .order("lesson_date", { ascending: true })
         .order("start_time", { ascending: true });
