@@ -76,7 +76,7 @@ export function dayIndexToDbDayOfWeek(dayIndex: number): number {
 export function getAllTimeSlots(
   lessons: BaseLessonInfo[],
   trialLessons: TrialLessonInfo[],
-  overrides: LessonOverride[]
+  overrides: { is_cancelled?: boolean; new_start_time?: string | null }[] = []
 ): string[] {
   const allTimes = new Set<string>();
 
