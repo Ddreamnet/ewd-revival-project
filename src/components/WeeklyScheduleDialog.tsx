@@ -66,13 +66,11 @@ export function WeeklyScheduleDialog({
   const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
 
   const { toast } = useToast();
-  const { overrides, isLessonCancelled, getLessonOverride, refetch: refetchOverrides } = useLessonOverrides(teacherId);
   const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
   useEffect(() => {
     if (open && teacherId) {
       fetchSchedule();
-      refetchOverrides();
     }
   }, [open, teacherId]);
 
