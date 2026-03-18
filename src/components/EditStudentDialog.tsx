@@ -484,12 +484,9 @@ export function EditStudentDialog({
         }
       }
 
-      setOriginalLessonDates(syncedDates);
-      setLessonDates(syncedDates);
       setShowConfirm(false);
       setUpdateRemainingDays(false);
       setConflicts([]);
-      fetchInstances();
     } catch (error: any) {
       toast({
         title: "Hata",
