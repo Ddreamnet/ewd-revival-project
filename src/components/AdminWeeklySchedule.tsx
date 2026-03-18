@@ -397,14 +397,10 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     if (!selectedTrialLesson) return;
 
     try {
-      const { error } = await supabase
-        .from("trial_lessons")
-        .update({ is_completed: true })
-        .eq("id", selectedTrialLesson.id);
-
-      if (error) throw error;
-
-      await updateTeacherBalance(selectedTrialLesson);
+      const result = await completeTrialLesson(selectedTrialLesson.id, teacherId);
+      if (!result.success) {
+        throw new Error(result.error || "İşlem başarısız");
+      }
 
       toast({
         title: "Başarılı",
@@ -435,7 +431,12 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
 
       if (error) throw error;
 
-      await subtractFromTeacherBalanceFn(selectedTrialLesson);
+      await subtractBalance({
+        teacherId,
+        lessonType: "trial",
+        startTime: selectedTrialLesson.start_time,
+        endTime: selectedTrialLesson.end_time,
+      });
 
       toast({
         title: "Başarılı",
@@ -453,24 +454,6 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
       setShowUnmarkAlert(false);
       setSelectedTrialLesson(null);
     }
-  };
-
-  const updateTeacherBalance = async (lesson: TrialLesson) => {
-    await addToTeacherBalance({
-      teacherId,
-      lessonType: "trial",
-      startTime: lesson.start_time,
-      endTime: lesson.end_time,
-    });
-  };
-
-  const subtractFromTeacherBalanceFn = async (lesson: TrialLesson) => {
-    await subtractBalance({
-      teacherId,
-      lessonType: "trial",
-      startTime: lesson.start_time,
-      endTime: lesson.end_time,
-    });
   };
 
   const timeSlots = computedTimeSlots;
