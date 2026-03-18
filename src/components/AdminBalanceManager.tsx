@@ -136,14 +136,11 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
     }
 
     try {
-      const { error } = await supabase
-        .from("teacher_balance")
-        .update({
-          total_minutes: Math.max(0, balance.total_minutes - minutes),
-        })
-        .eq("teacher_id", teacherId);
-
-      if (error) throw error;
+      const result = await manualBalanceAdjust(teacherId, -minutes, "Manuel dakika çıkarma");
+      if (!result.success) {
+        toast.error(result.error || "Dakika çıkarılırken hata oluştu");
+        return;
+      }
 
       toast.success(`${minutes} dakika çıkarıldı`);
       setMinutesToSubtract("");
