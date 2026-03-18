@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { BookCheck } from "lucide-react";
 import { format } from "date-fns";
@@ -12,6 +13,7 @@ interface StudentLessonTrackerProps {
 export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
   const [instances, setInstances] = useState<LessonInstance[]>([]);
   const [templateCount, setTemplateCount] = useState(0);
+  const [packageCycle, setPackageCycle] = useState(1);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchInstances(), fetchTemplateCount()]);
+    await Promise.all([fetchInstances(), fetchTemplateCount(), fetchPackageCycle()]);
     setLoading(false);
   };
 
@@ -93,6 +95,27 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
     }
   };
 
+  const fetchPackageCycle = async () => {
+    try {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("teacher_id")
+        .eq("student_id", studentId)
+        .single();
+      if (studentError) throw studentError;
+
+      const { data } = await supabase
+        .from("student_lesson_tracking")
+        .select("package_cycle")
+        .eq("student_id", studentId)
+        .eq("teacher_id", studentData.teacher_id)
+        .maybeSingle();
+      setPackageCycle(data?.package_cycle ?? 1);
+    } catch (error: any) {
+      console.error("Failed to fetch package cycle:", error);
+    }
+  };
+
   const totalLessonsPerMonth = templateCount * 4;
   const rowConfig = getRowConfig(templateCount);
   const completedCount = instances.filter((i) => i.status === "completed").length;
@@ -118,7 +141,12 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
               <p className="text-lg sm:text-2xl font-bold">
                 {completedCount}/{totalLessonsPerMonth}
               </p>
-              <p className="text-xs sm:text-sm text-muted-foreground">İşlenen Dersler</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs sm:text-sm text-muted-foreground">İşlenen Dersler</p>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                  Döngü {packageCycle}
+                </Badge>
+              </div>
             </div>
           </div>
           <div className="flex flex-col gap-1.5 flex-1">

@@ -20,6 +20,7 @@ import {
   undoCompleteLesson,
   getNextCompletableInstance,
   getLastCompletedInstance,
+  getRemainingRights,
 } from "@/lib/lessonService";
 
 interface LessonTrackerProps {
@@ -38,6 +39,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const [undoInstanceId, setUndoInstanceId] = useState<string | null>(null);
   const [nextCompletableId, setNextCompletableId] = useState<string | null>(null);
   const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
+  const [rights, setRights] = useState<{ total: number; completed: number; remaining: number; cycle: number } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -82,12 +84,14 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   };
 
   const refreshCompletionState = async () => {
-    const [next, last] = await Promise.all([
+    const [next, last, rightsData] = await Promise.all([
       getNextCompletableInstance(studentId, teacherId),
       getLastCompletedInstance(studentId, teacherId),
+      getRemainingRights(studentId, teacherId),
     ]);
     setNextCompletableId(next?.id ?? null);
     setLastCompletedId(last?.id ?? null);
+    setRights(rightsData);
   };
 
   const handleLessonClick = (instanceId: string) => {
@@ -184,6 +188,12 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   return (
     <>
       <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        {rights && (
+          <div className="flex flex-col items-center gap-0.5 shrink-0">
+            <span className="text-lg font-bold text-foreground">{rights.completed}/{rights.total}</span>
+            <span className="text-[10px] text-muted-foreground">Döngü {rights.cycle}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 border-2 border-primary/30 rounded-xl p-2 sm:p-2.5 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-sm w-full sm:w-auto overflow-x-auto">
           <div className="flex flex-col gap-1.5">
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (

@@ -1,7 +1,7 @@
 
 # Lesson Scheduling System — Refactoring Plan
 
-## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅
+## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅
 
 ---
 
@@ -87,11 +87,13 @@ Stop writing to `lesson_overrides`. Instance-only reschedule.
 
 ---
 
-## Phase 4: Package/Rights Model
+## Phase 4: Package/Rights Model (DONE)
 
-- Cycle-aware remaining rights display
-- Non-destructive reset (already implemented in RPC)
-- Weekly count change validation (block if new_total < completed_in_cycle)
+### Changes Made
+- ✅ **LessonTracker.tsx** — Added cycle-aware remaining rights display (completed/total + cycle badge) using `getRemainingRights()` service call
+- ✅ **StudentLessonTracker.tsx** — Added package cycle badge next to "İşlenen Dersler" label; fetches `package_cycle` from `student_lesson_tracking`
+- ✅ **EditStudentDialog.tsx** — Weekly count change validation: blocks `lessonsPerWeek` decrease when `newTotal < completedCount` in current cycle with user-friendly error toast
+- ✅ Non-destructive reset already implemented in `rpc_reset_package` (Phase 0)
 
 ---
 

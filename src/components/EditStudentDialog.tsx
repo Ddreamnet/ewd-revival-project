@@ -834,7 +834,19 @@ export function EditStudentDialog({
             <Label htmlFor="lessonsPerWeek">Haftalık Ders Sayısı</Label>
             <Select
               value={lessonsPerWeek.toString()}
-              onValueChange={(value) => setLessonsPerWeek(Number(value))}
+              onValueChange={(value) => {
+                const newCount = Number(value);
+                const newTotal = newCount * 4;
+                if (newTotal < completedCount) {
+                  toast({
+                    title: "Uyarı",
+                    description: `Haftalık ders sayısı ${newCount}'e düşürülemez çünkü bu döngüde zaten ${completedCount} ders tamamlanmış (toplam hak: ${newTotal}).`,
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setLessonsPerWeek(newCount);
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
