@@ -219,73 +219,44 @@ export function LessonOverrideDialog({
         return;
       }
 
-      // Update lesson_instances if instanceId provided
-      if (instanceId) {
-        const { data: currentInst } = await supabase
-          .from("lesson_instances")
-          .select("lesson_date, start_time, end_time, original_date, rescheduled_count")
-          .eq("id", instanceId)
-          .single();
-
-        if (currentInst) {
-          await supabase
-            .from("lesson_instances")
-            .update({
-              lesson_date: newDateStr,
-              start_time: newStartFull,
-              end_time: newEndFull,
-              original_date: currentInst.original_date || currentInst.lesson_date,
-              original_start_time: currentInst.original_date ? undefined : currentInst.start_time,
-              original_end_time: currentInst.original_date ? undefined : currentInst.end_time,
-              rescheduled_count: currentInst.rescheduled_count + 1,
-            })
-            .eq("id", instanceId);
-
-          await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-
-          // Non-template weekday warning
-          const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
-          if (check.isNonTemplate) {
-            toast({
-              title: "Bilgi",
-              description: `Seçilen tarih (${format(newDate, "d MMM", { locale: tr })}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
-            });
-          }
-        }
+      // Update lesson_instances (source of truth)
+      if (!instanceId) {
+        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
+        setSaving(false);
+        return;
       }
 
-      // Also write to lesson_overrides for backward compat
-      const { data: existingOverride } = await supabase
-        .from("lesson_overrides")
-        .select("id")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .eq("original_date", format(originalDate, "yyyy-MM-dd"))
-        .maybeSingle();
+      const { data: currentInst } = await supabase
+        .from("lesson_instances")
+        .select("lesson_date, start_time, end_time, original_date, rescheduled_count")
+        .eq("id", instanceId)
+        .single();
 
-      if (existingOverride) {
+      if (currentInst) {
         await supabase
-          .from("lesson_overrides")
+          .from("lesson_instances")
           .update({
-            new_date: newDateStr,
-            new_start_time: newStartFull,
-            new_end_time: newEndFull,
-            is_cancelled: false,
+            lesson_date: newDateStr,
+            start_time: newStartFull,
+            end_time: newEndFull,
+            original_date: currentInst.original_date || currentInst.lesson_date,
+            original_start_time: currentInst.original_date ? undefined : currentInst.start_time,
+            original_end_time: currentInst.original_date ? undefined : currentInst.end_time,
+            rescheduled_count: currentInst.rescheduled_count + 1,
           })
-          .eq("id", existingOverride.id);
-      } else {
-        await supabase.from("lesson_overrides").insert({
-          student_id: studentId,
-          teacher_id: teacherId,
-          original_date: format(originalDate, "yyyy-MM-dd"),
-          original_day_of_week: originalDayOfWeek,
-          original_start_time: originalStartTime,
-          original_end_time: originalEndTime,
-          new_date: newDateStr,
-          new_start_time: newStartFull,
-          new_end_time: newEndFull,
-          is_cancelled: false,
-        });
+          .eq("id", instanceId);
+
+        // Compat-only: rebuild legacy JSON (removed in Phase 6)
+        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+        // Non-template weekday warning
+        const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
+        if (check.isNonTemplate) {
+          toast({
+            title: "Bilgi",
+            description: `Seçilen tarih (${format(newDate, "d MMM", { locale: tr })}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
+          });
+        }
       }
 
       toast({
