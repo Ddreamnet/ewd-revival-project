@@ -656,46 +656,44 @@ export function EditStudentDialog({
   const totalLessons = lessonsPerWeek * 4;
 
   const sortedLessonsForDisplay = (() => {
-    // Instance-based display — cap at totalLessons (lpw * 4)
-    if (instances.length > 0) {
-      // Sort instances by date+time for chronological "Ders N" labels
-      const sorted = [...instances].sort((a, b) => {
-        const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.start_time.localeCompare(b.start_time);
+    // Sort instances by date+time for chronological "Ders N" labels
+    const sorted = [...instances].sort((a, b) => {
+      const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.start_time.localeCompare(b.start_time);
+    });
+
+    // Take only first totalLessons entries
+    const capped = sorted.slice(0, totalLessons);
+
+    const result = capped.map((inst, idx) => ({
+      displayIndex: idx + 1,
+      lessonNumber: inst.lesson_number,
+      effectiveDate: inst.lesson_date,
+      startTime: inst.start_time,
+      endTime: inst.end_time,
+      isCompleted: inst.status === "completed",
+      isCancelled: inst.status === "cancelled",
+      isOverridden: inst.original_date !== null,
+      instanceId: inst.id,
+    }));
+
+    // Fill empty rows if fewer instances than totalLessons
+    for (let i = result.length; i < totalLessons; i++) {
+      result.push({
+        displayIndex: i + 1,
+        lessonNumber: i + 1,
+        effectiveDate: "",
+        startTime: "",
+        endTime: "",
+        isCompleted: false,
+        isCancelled: false,
+        isOverridden: false,
+        instanceId: undefined,
       });
+    }
 
-      // Take only first totalLessons entries
-      const capped = sorted.slice(0, totalLessons);
-
-      const result = capped.map((inst, idx) => ({
-        displayIndex: idx + 1,
-        lessonNumber: inst.lesson_number,
-        effectiveDate: inst.lesson_date,
-        startTime: inst.start_time,
-        endTime: inst.end_time,
-        isCompleted: inst.status === "completed",
-        isCancelled: inst.status === "cancelled",
-        isOverridden: inst.original_date !== null,
-        instanceId: inst.id,
-      }));
-
-      // Fill empty rows if fewer instances than totalLessons
-      for (let i = result.length; i < totalLessons; i++) {
-        result.push({
-          displayIndex: i + 1,
-          lessonNumber: i + 1,
-          effectiveDate: "",
-          startTime: "",
-          endTime: "",
-          isCompleted: false,
-          isCancelled: false,
-          isOverridden: false,
-          instanceId: undefined,
-        });
-      }
-
-      return result;
+    return result;
   })();
 
   return (
