@@ -696,39 +696,6 @@ export function EditStudentDialog({
       }
 
       return result;
-    }
-
-    // Legacy fallback: use lessonDates JSON (no instances yet)
-    const lessonsWithDates: {
-      displayIndex: number;
-      lessonNumber: number;
-      effectiveDate: string;
-      startTime: string;
-      endTime: string;
-      isCompleted: boolean;
-      isCancelled: boolean;
-      isOverridden: boolean;
-      instanceId?: string;
-    }[] = [];
-
-    for (let i = 1; i <= totalLessons; i++) {
-      const originalDate = lessonDates[i.toString()];
-      lessonsWithDates.push({
-        displayIndex: i,
-        lessonNumber: i,
-        effectiveDate: originalDate || "",
-        startTime: "",
-        endTime: "",
-        isCompleted: false,
-        isCancelled: false,
-        isOverridden: false,
-      });
-    }
-
-    const withDates = lessonsWithDates.filter(l => l.effectiveDate);
-    const withoutDates = lessonsWithDates.filter(l => !l.effectiveDate);
-    withDates.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
-    return [...withDates, ...withoutDates].map((l, idx) => ({ ...l, displayIndex: idx + 1 }));
   })();
 
   return (
