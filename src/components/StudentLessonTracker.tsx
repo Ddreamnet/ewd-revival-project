@@ -130,7 +130,8 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
   const totalLessonsPerMonth = templateCount * 4;
   const rowConfig = getRowConfig(templateCount);
   const completedCount = instances.filter((i) => i.status === "completed").length;
-  const displayInstances = instances.slice(0, totalLessonsPerMonth);
+  // Cycle-filtered data is already correctly scoped — no slice needed
+  const displayInstances = instances;
 
   if (loading) {
     return (

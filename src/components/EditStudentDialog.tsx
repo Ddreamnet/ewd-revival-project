@@ -668,16 +668,14 @@ export function EditStudentDialog({
 
   const sortedLessonsForDisplay = (() => {
     // Sort instances by date+time for chronological "Ders N" labels
+    // Cycle-filtered data is already correctly scoped — no slice needed
     const sorted = [...instances].sort((a, b) => {
       const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
       if (dateCompare !== 0) return dateCompare;
       return a.start_time.localeCompare(b.start_time);
     });
 
-    // Take only first totalLessons entries
-    const capped = sorted.slice(0, totalLessons);
-
-    const result = capped.map((inst, idx) => ({
+    const result = sorted.map((inst, idx) => ({
       displayIndex: idx + 1,
       lessonNumber: inst.lesson_number,
       effectiveDate: inst.lesson_date,

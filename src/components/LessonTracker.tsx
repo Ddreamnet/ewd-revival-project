@@ -189,8 +189,8 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const totalLessonsPerMonth = templateCount * 4;
   const rowConfig = getRowConfig(templateCount);
 
-  // Cap display at totalLessonsPerMonth, sorted chronologically
-  const displayInstances = instances.slice(0, totalLessonsPerMonth);
+  // Cycle-filtered data is already correctly scoped — no slice needed
+  const displayInstances = instances;
 
   if (loading) {
     return <div className="animate-pulse h-40 bg-muted rounded-lg"></div>;
