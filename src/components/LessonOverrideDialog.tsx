@@ -121,58 +121,60 @@ export function LessonOverrideDialog({
     }
   };
 
-  // "Sonraki Derse Aktar" - uses lesson_instances if instanceId provided, else legacy JSON
+  // "Sonraki Derse Aktar" - instance-based shift
   const handlePostponeToNextLesson = async () => {
     setSaving(true);
     setConflicts([]);
     try {
-      if (instanceId) {
-        // Instance-based: shift forward using template slots
-        const { data: templateSlots } = await supabase
-          .from("student_lessons")
-          .select("day_of_week, start_time, end_time")
-          .eq("student_id", studentId)
-          .eq("teacher_id", teacherId);
-
-        if (!templateSlots || templateSlots.length === 0) {
-          toast({ title: "Hata", description: "Ders programı bulunamadı", variant: "destructive" });
-          setSaving(false);
-          setShowPostponeConfirm(false);
-          return;
-        }
-
-        const slots: TemplateSlot[] = templateSlots.map((s) => ({
-          dayOfWeek: s.day_of_week,
-          startTime: s.start_time,
-          endTime: s.end_time,
-        }));
-
-        const result = await shiftLessonsForward(studentId, teacherId, instanceId, slots);
-
-        if (result.conflicts.length > 0) {
-          setConflicts(result.conflicts);
-          setSaving(false);
-          setShowPostponeConfirm(false);
-          return;
-        }
-
-        if (!result.success) {
-          toast({ title: "Hata", description: "Dersler kaydırılamadı", variant: "destructive" });
-          setSaving(false);
-          setShowPostponeConfirm(false);
-          return;
-        }
-
-        // Rebuild legacy JSON from instances (canonical sync)
-        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-
-        toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
-        onSuccess();
-        onOpenChange(false);
-      } else {
-        // Legacy JSON-based path
-        await handlePostponeToNextLessonLegacy();
+      if (!instanceId) {
+        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
       }
+
+      // Instance-based: shift forward using template slots
+      const { data: templateSlots } = await supabase
+        .from("student_lessons")
+        .select("day_of_week, start_time, end_time")
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId);
+
+      if (!templateSlots || templateSlots.length === 0) {
+        toast({ title: "Hata", description: "Ders programı bulunamadı", variant: "destructive" });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      const slots: TemplateSlot[] = templateSlots.map((s) => ({
+        dayOfWeek: s.day_of_week,
+        startTime: s.start_time,
+        endTime: s.end_time,
+      }));
+
+      const result = await shiftLessonsForward(studentId, teacherId, instanceId, slots);
+
+      if (result.conflicts.length > 0) {
+        setConflicts(result.conflicts);
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      if (!result.success) {
+        toast({ title: "Hata", description: "Dersler kaydırılamadı", variant: "destructive" });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
+      }
+
+      // Rebuild legacy JSON from instances (compat-only, removed in Phase 6)
+      await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+      toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
+      onSuccess();
+      onOpenChange(false);
     } catch (error: any) {
       console.error("Error postponing lesson:", error);
       toast({ title: "Hata", description: error.message || "Ders ertelenemedi", variant: "destructive" });
