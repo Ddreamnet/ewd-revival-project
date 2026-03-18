@@ -1,7 +1,7 @@
 
 # Lesson Scheduling System — Refactoring Plan
 
-## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅
+## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅ + Phase 5 ✅
 
 ---
 
@@ -97,9 +97,15 @@ Stop writing to `lesson_overrides`. Instance-only reschedule.
 
 ---
 
-## Phase 5: Archive/Delete/Reset Safety
+## Phase 5: Archive/Delete/Reset Safety (DONE)
 
-Verify archive/delete flows use RPCs. Balance integrity checks.
+### Changes Made
+- ✅ **`rpc_delete_student`** RPC — Atomic permanent deletion of student + all related data (topics, resources, completions, tracking, lessons, instances, overrides, notifications, admin_notifications, profile)
+- ✅ **`rpc_restore_student`** RPC — Atomic unarchive + planned instance regeneration from template slots (cycle-aware, preserves completed history)
+- ✅ **EditStudentDialog** — `handleDeleteStudent` replaced multi-step client-side deletes with `deleteStudent()` RPC call
+- ✅ **AdminDashboard** — `handleRestoreStudent` replaced simple update with `restoreStudent()` RPC call that also regenerates planned instances
+- ✅ **lessonService.ts** — Added `deleteStudent()` and `restoreStudent()` wrapper functions
+- ✅ Balance integrity: teacher balances are never touched during delete/restore (earned minutes preserved)
 
 ---
 

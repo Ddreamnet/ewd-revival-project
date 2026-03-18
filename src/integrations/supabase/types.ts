@@ -914,6 +914,14 @@ export type Database = {
         Args: { p_teacher_id: string; p_trial_id: string }
         Returns: Json
       }
+      rpc_delete_student: {
+        Args: {
+          p_student_record_id: string
+          p_student_user_id: string
+          p_teacher_user_id: string
+        }
+        Returns: Json
+      }
       rpc_manual_balance_adjust: {
         Args: {
           p_amount_minutes: number
@@ -927,6 +935,14 @@ export type Database = {
           p_student_id: string
           p_teacher_id: string
           p_template_slots: Json
+        }
+        Returns: Json
+      }
+      rpc_restore_student: {
+        Args: {
+          p_student_record_id: string
+          p_student_user_id: string
+          p_teacher_user_id: string
         }
         Returns: Json
       }

@@ -130,6 +130,50 @@ export async function archiveStudent(
 }
 
 /**
+ * Permanently delete a student and all associated data.
+ */
+export async function deleteStudent(
+  studentRecordId: string,
+  studentUserId: string,
+  teacherUserId: string
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc("rpc_delete_student", {
+    p_student_record_id: studentRecordId,
+    p_student_user_id: studentUserId,
+    p_teacher_user_id: teacherUserId,
+  });
+
+  if (error) {
+    console.error("deleteStudent RPC error:", error);
+    return { success: false, error: error.message };
+  }
+
+  return data as unknown as RpcResult;
+}
+
+/**
+ * Restore an archived student and regenerate planned instances.
+ */
+export async function restoreStudent(
+  studentRecordId: string,
+  studentUserId: string,
+  teacherUserId: string
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc("rpc_restore_student", {
+    p_student_record_id: studentRecordId,
+    p_student_user_id: studentUserId,
+    p_teacher_user_id: teacherUserId,
+  });
+
+  if (error) {
+    console.error("restoreStudent RPC error:", error);
+    return { success: false, error: error.message };
+  }
+
+  return data as unknown as RpcResult;
+}
+
+/**
  * Manual balance adjustment (admin only).
  * Separate from lesson completion metrics.
  */
