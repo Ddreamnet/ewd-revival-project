@@ -17,7 +17,8 @@ import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from 
 import { format, startOfWeek, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
-import { addToTeacherBalance, subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
+import { completeTrialLesson } from "@/lib/lessonService";
+import { subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
 import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {

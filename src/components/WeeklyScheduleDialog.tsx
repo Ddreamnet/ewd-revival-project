@@ -13,7 +13,8 @@ import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { useLessonOverrides, getLessonDateForCurrentWeek, LessonOverride } from "@/hooks/useLessonOverrides";
 import { format, startOfWeek, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
-import { addToTeacherBalance, subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
+import { completeTrialLesson } from "@/lib/lessonService";
+import { subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
 import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
