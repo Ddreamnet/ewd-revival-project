@@ -188,6 +188,12 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   return (
     <>
       <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        {rights && (
+          <div className="flex flex-col items-center gap-0.5 shrink-0">
+            <span className="text-lg font-bold text-foreground">{rights.completed}/{rights.total}</span>
+            <span className="text-[10px] text-muted-foreground">Döngü {rights.cycle}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 border-2 border-primary/30 rounded-xl p-2 sm:p-2.5 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-sm w-full sm:w-auto overflow-x-auto">
           <div className="flex flex-col gap-1.5">
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (
