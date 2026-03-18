@@ -84,7 +84,6 @@ export function EditStudentDialog({
       );
       setConflicts([]);
       fetchStudentIds().then(() => {
-        fetchLessonTracking();
         fetchInstances();
       });
     }
