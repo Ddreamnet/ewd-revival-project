@@ -246,8 +246,8 @@ export function LessonOverrideDialog({
           })
           .eq("id", instanceId);
 
-        // Compat-only: rebuild legacy JSON (removed in Phase 6)
-        await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
+
+
 
         // Non-template weekday warning
         const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
