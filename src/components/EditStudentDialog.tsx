@@ -421,18 +421,8 @@ export function EditStudentDialog({
                 };
               }
             }
-          } else {
-            // Legacy fallback
-            const lessonDays = lessons.map((l) => l.dayOfWeek).sort((a, b) => a - b);
-            const totalLessons = lessonsPerWeek * 4;
-            finalDates = recalculateRemainingDates(
-              firstChangedLesson,
-              lessonDates[firstChangedLesson.toString()],
-              lessonDates,
-              lessonDays,
-              totalLessons
-            );
           }
+        }
         }
       } else {
         // OFF: only date changes, time stays the same
