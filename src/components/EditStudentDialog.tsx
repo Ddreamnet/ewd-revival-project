@@ -282,11 +282,10 @@ export function EditStudentDialog({
         return;
       }
 
-      setCompletedLessons([]);
       setLessonDates({});
       setOriginalLessonDates({});
       setShowResetConfirm(false);
-      fetchInstances();
+      await fetchInstances();
       
       toast({
         title: "Başarılı",
