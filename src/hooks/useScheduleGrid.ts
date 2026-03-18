@@ -224,6 +224,26 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
     package_cycle: number;
   }> = [];
 
+  // Get max completed lesson_date per student in their current cycle
+  // to prevent generating planned instances before last completed
+  const maxCompletedDateMap = new Map<string, string>();
+  for (const studentId of missingStudents) {
+    const tracking = trackingMap.get(studentId);
+    if (!tracking) continue;
+    const { data: maxCompleted } = await supabase
+      .from("lesson_instances")
+      .select("lesson_date")
+      .eq("student_id", studentId)
+      .eq("teacher_id", teacherId)
+      .eq("package_cycle", tracking.cycle)
+      .eq("status", "completed")
+      .order("lesson_date", { ascending: false })
+      .limit(1);
+    if (maxCompleted && maxCompleted.length > 0) {
+      maxCompletedDateMap.set(studentId, maxCompleted[0].lesson_date);
+    }
+  }
+
   for (const studentId of missingStudents) {
     const tracking = trackingMap.get(studentId);
     if (!tracking) continue; // No tracking record, skip
@@ -248,6 +268,7 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
     const studentTemplates = templates.filter((t) => t.student_id === studentId);
     let nextNum = (maxLessonMap.get(studentId) || 0) + 1;
     let generated = 0;
+    const lastCompletedDate = maxCompletedDateMap.get(studentId);
 
     for (const tmpl of studentTemplates) {
       if (generated >= remainingSlots) break;
@@ -255,6 +276,10 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
       const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
       const lessonDate = addDays(ws, dayIndex);
       const dateStr = format(lessonDate, "yyyy-MM-dd");
+
+      // Never generate planned instances on or before the last completed date
+      if (lastCompletedDate && dateStr <= lastCompletedDate) continue;
+
       instancesToInsert.push({
         student_id: studentId,
         teacher_id: teacherId,
