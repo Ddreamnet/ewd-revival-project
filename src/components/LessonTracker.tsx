@@ -39,6 +39,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const [undoInstanceId, setUndoInstanceId] = useState<string | null>(null);
   const [nextCompletableId, setNextCompletableId] = useState<string | null>(null);
   const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
+  const [rights, setRights] = useState<{ total: number; completed: number; remaining: number; cycle: number } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
