@@ -902,6 +902,18 @@ export type Database = {
         Args: { p_instance_id: string; p_teacher_id: string }
         Returns: Json
       }
+      rpc_reset_package: {
+        Args: {
+          p_student_id: string
+          p_teacher_id: string
+          p_template_slots: Json
+        }
+        Returns: Json
+      }
+      rpc_undo_complete_lesson: {
+        Args: { p_instance_id: string; p_teacher_id: string }
+        Returns: Json
+      }
       sync_missing_profiles: { Args: never; Returns: Json }
       teacher_owns_student: {
         Args: { _student_id: string; _teacher_id: string }
