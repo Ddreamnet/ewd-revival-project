@@ -932,7 +932,7 @@ export function EditStudentDialog({
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {completedLessons.length < lessonsPerWeek * 4 && (
+                {completedCount < lessonsPerWeek * 4 && (
                   <Button
                     type="button"
                     variant="default"
