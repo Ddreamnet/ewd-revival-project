@@ -36,9 +36,9 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
           filter: `student_id=eq.${studentId}`,
         },
         (payload) => {
-          if (payload.new && typeof payload.new === "object") {
+        if (payload.new && typeof payload.new === "object") {
             const data = payload.new as any;
-            setLessonsPerWeek(data.lessons_per_week || 1);
+            // Don't update lessonsPerWeek from tracking — use live template count
             setCompletedLessons(data.completed_lessons || []);
             setLessonDates(data.lesson_dates || {});
           }
