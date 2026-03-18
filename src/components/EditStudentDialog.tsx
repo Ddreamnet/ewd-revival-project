@@ -239,10 +239,8 @@ export function EditStudentDialog({
         return;
       }
 
-      // Refresh local state
-      const newCompletedLessons = [...completedLessons, instances.find(i => i.id === nextInst.id)?.lesson_number ?? (completedLessons.length + 1)].sort((a, b) => a - b);
-      setCompletedLessons(newCompletedLessons);
-      fetchInstances();
+      // Refresh instances (source of truth)
+      await fetchInstances();
       toast({ title: "Başarılı", description: `Ders işaretlendi` });
     } catch (error: any) {
       toast({ title: "Hata", description: error.message || "Ders işaretlenemedi", variant: "destructive" });
