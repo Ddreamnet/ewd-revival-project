@@ -22,7 +22,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { LessonDates, LessonOverrideInfo, LessonInstance, formatTime } from "@/lib/lessonTypes";
 import { recalculateRemainingDates } from "@/lib/lessonDateCalculation";
-import { addRegularLessonBalance, subtractRegularLessonBalance } from "@/lib/teacherBalance";
+import {
+  completeLesson,
+  undoCompleteLesson,
+  resetPackage,
+  archiveStudent,
+  getNextCompletableInstance,
+  getLastCompletedInstance,
+} from "@/lib/lessonService";
 import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { rebuildLegacyLessonDatesFromInstances, checkNonTemplateWeekday } from "@/lib/lessonSync";
