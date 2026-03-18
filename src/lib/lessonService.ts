@@ -63,11 +63,6 @@ export async function undoCompleteLesson(
   }
 
   const result = data as unknown as RpcResult;
-
-  if (result.success) {
-    await rebuildLegacyLessonDatesFromInstances(studentId, teacherId);
-  }
-
   return result;
 }
 
