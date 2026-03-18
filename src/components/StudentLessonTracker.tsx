@@ -141,7 +141,12 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
               <p className="text-lg sm:text-2xl font-bold">
                 {completedCount}/{totalLessonsPerMonth}
               </p>
-              <p className="text-xs sm:text-sm text-muted-foreground">İşlenen Dersler</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs sm:text-sm text-muted-foreground">İşlenen Dersler</p>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                  Döngü {packageCycle}
+                </Badge>
+              </div>
             </div>
           </div>
           <div className="flex flex-col gap-1.5 flex-1">
