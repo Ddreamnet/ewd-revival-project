@@ -13,6 +13,7 @@ interface StudentLessonTrackerProps {
 export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
   const [instances, setInstances] = useState<LessonInstance[]>([]);
   const [templateCount, setTemplateCount] = useState(0);
+  const [packageCycle, setPackageCycle] = useState(1);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
