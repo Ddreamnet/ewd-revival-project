@@ -1,52 +1,58 @@
 
 
-# Plan: Fix Students Not Appearing on Future Weeks Due to Instance Cap
+# Plan: Archived Student Cleanup + Lesson Tracker Consistency
 
-## Problem
+## Verified Root Causes
 
-The `lpw * 4` cap added in `ensureInstancesForWeek` prevents lazy generation for students whose total instance count already reaches the cap -- even when ALL those instances are from past weeks.
+### Issue 1: Archived students in schedule
+- **Confirmed**: `EditStudentDialog` archive handler (line 1195-1198) only sets `is_archived = true`. No cleanup of `lesson_instances` or `lesson_overrides`.
+- **Confirmed**: `fetchActualLessonsForWeek` (line 234-242) queries `lesson_instances` without filtering archived students. After `ensureInstancesForWeek` correctly skips archived students, pre-existing planned instances still show.
+- **Confirmed**: `checkTeacherConflicts` (line 46-51) queries `lesson_instances` without archive filter — archived students' planned instances cause false conflicts.
 
-**Affected students (Fatih's):**
-- **Nur**: 8/8 instances, all in February (cap = 8). Next week: 0 instances, invisible on grid.
-- **Hira**: 12/12 instances, all in past (cap = 12). Next week: 0 instances, invisible on grid.
+### Issue 2: Lesson tracker inconsistency
+- **Confirmed**: `StudentLessonTracker` reads `lessons_per_week` from `student_lesson_tracking` (line 123), while `LessonTracker` derives it from `studentLessonDays.length` (template count).
+- **Confirmed**: `StudentLessonTracker` does not fetch `lesson_instances` for `instanceStartTimes`, so `getSortedLessons` may sort differently than the teacher panel for same-day multi-lesson students.
 
-## Root Cause
+---
 
-The cap logic checks `remaining = cap - currentCount` globally. If a student has 8 total instances (all from February), `remaining = 0`, and no new instances are generated for March weeks. This makes the student invisible on the weekly grid.
+## Fix Strategy
 
-## Solution
+### Issue 1: Clean up at archive time
 
-**Remove the total-count cap from lazy generation entirely.** The cap was meant to limit the "Islenen Dersler" display list (which it already does via `sortedLessonsForDisplay`). Lazy generation should always create instances for a viewed week if the student has template slots and no instances for that week -- this was the original behavior before the cap was added.
+In `EditStudentDialog.tsx` archive handler (after line 1200), add:
 
-### Change: `src/hooks/useScheduleGrid.ts` -- `ensureInstancesForWeek`
+1. Delete all `planned` instances: `DELETE FROM lesson_instances WHERE student_id = X AND teacher_id = Y AND status = 'planned'`
+2. Delete all `lesson_overrides`: `DELETE FROM lesson_overrides WHERE student_id = X AND teacher_id = Y`
 
-1. **Remove the `lpw * 4` cap check** from the instance generation loop. The logic should return to: "if student has templates but no instances for this week, generate them."
+Keep `completed` instances for history. On unarchive, lazy generation auto-creates new planned instances.
 
-2. **Keep the excess cleanup logic** but modify it: instead of cleaning up based on total count, it should only clean up if there are duplicate instances for the same date/time slot (true duplicates from bugs), not legitimate instances across different weeks.
+Additionally, add an archived-student filter in `fetchActualLessonsForWeek` as a safety net: after fetching instances, filter out any whose `student_id` is not in the active students set. This handles edge cases where cleanup didn't run (e.g., students archived before this fix).
 
-3. The `lpwMap`, `allInstanceCounts`, and `remaining` variables and their queries become unnecessary and will be removed, simplifying the function.
+### Issue 2: Align lessonsPerWeek + sorting
 
-### What stays the same
+**A) `StudentLessonTracker.tsx`**: Fetch `student_lessons` count for the student and use that as `lessonsPerWeek` instead of `student_lesson_tracking.lessons_per_week`.
 
-- The "Islenen Dersler" display cap (`sortedLessonsForDisplay` showing only `totalLessons` rows) remains -- this is the correct place for the cap
-- The `datesUnassigned` logic for reset stays
-- The self-conflict fix stays
-- Template-based generation logic stays (only generates for template day slots)
+**B) `StudentLessonTracker.tsx`**: Fetch `lesson_instances` to get `instanceStartTimes`, pass to `getSortedLessons` for consistent same-day ordering.
 
-### Technical Detail
+---
 
-The simplified `ensureInstancesForWeek` will:
-1. Get templates for teacher
-2. Get active students
-3. Check which students already have instances for this specific week
-4. For students missing instances this week, generate from templates (no cap check)
-5. Remove: lpw fetch, total count fetch, remaining calculation, excess cleanup loop
-
-This brings the function back to its original purpose: ensuring every active student with templates has instances for the viewed week.
-
-### Files Changed
+## Files Changed
 
 | File | Change |
-|---|---|
-| `src/hooks/useScheduleGrid.ts` | Remove lpw cap from `ensureInstancesForWeek`, keep it simple: generate instances for any week where student has templates but no instances |
+|------|--------|
+| `src/components/EditStudentDialog.tsx` | Archive handler: add planned instance deletion + override deletion |
+| `src/hooks/useScheduleGrid.ts` | `fetchActualLessonsForWeek`: add safety-net filter for archived students |
+| `src/components/StudentLessonTracker.tsx` | Fetch `student_lessons` count for `lessonsPerWeek`; fetch `lesson_instances` for `instanceStartTimes` |
+
+## Implementation Order
+
+1. Archive cleanup in `EditStudentDialog` (data integrity, no UI change)
+2. Safety-net filter in `fetchActualLessonsForWeek` (defense in depth)
+3. `StudentLessonTracker` alignment (read-side consistency)
+
+## Risks
+
+- Deleting planned instances on archive is safe — unarchive triggers lazy regeneration
+- Safety-net filter adds one extra query (active students) — negligible cost
+- Changing `lessonsPerWeek` source in `StudentLessonTracker` may change grid size for students with stale tracking data — this is a correction
 
