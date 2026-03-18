@@ -87,12 +87,23 @@ export async function syncTemplateChange(
   newSlots: TemplateSlot[],
   totalLessons: number
 ): Promise<{ conflicts: ConflictInfo[]; success: boolean }> {
-  // Fetch existing instances
+  // Get current cycle
+  const { data: tracking } = await supabase
+    .from("student_lesson_tracking")
+    .select("package_cycle")
+    .eq("student_id", studentId)
+    .eq("teacher_id", teacherId)
+    .maybeSingle();
+
+  const currentCycle = tracking?.package_cycle ?? 1;
+
+  // Fetch existing instances for current cycle only
   const { data: existing } = await supabase
     .from("lesson_instances")
     .select("*")
     .eq("student_id", studentId)
     .eq("teacher_id", teacherId)
+    .eq("package_cycle", currentCycle)
     .order("lesson_number", { ascending: true });
 
   if (!existing) return { conflicts: [], success: false };
@@ -110,8 +121,8 @@ export async function syncTemplateChange(
     if (isBefore(startFrom, today)) startFrom = today;
   }
 
-  // Generate new dates for remaining planned lessons
-  const plannedCount = totalLessons - completed.length;
+  // Enforce total_rights cap
+  const plannedCount = Math.max(0, totalLessons - completed.length);
   const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom);
 
   // Check conflicts for each new date
@@ -148,7 +159,7 @@ export async function syncTemplateChange(
       .eq("id", planned[i].id);
   }
 
-  // If more planned lessons than before, insert new ones
+  // If more planned lessons than before, insert new ones with package_cycle
   if (newDates.length > planned.length) {
     const nextLessonNumber = Math.max(...existing.map((e) => e.lesson_number), 0) + 1;
     for (let i = planned.length; i < newDates.length; i++) {
@@ -160,6 +171,7 @@ export async function syncTemplateChange(
         start_time: newDates[i].startTime,
         end_time: newDates[i].endTime,
         status: "planned",
+        package_cycle: currentCycle,
       });
     }
   }
