@@ -673,7 +673,6 @@ export function EditStudentDialog({
       startTime: inst.start_time,
       endTime: inst.end_time,
       isCompleted: inst.status === "completed",
-      isCancelled: inst.status === "cancelled",
       isOverridden: inst.original_date !== null,
       instanceId: inst.id,
     }));
