@@ -898,6 +898,10 @@ export type Database = {
         Returns: boolean
       }
       is_teacher: { Args: { _user_id: string }; Returns: boolean }
+      rpc_complete_lesson: {
+        Args: { p_instance_id: string; p_teacher_id: string }
+        Returns: Json
+      }
       sync_missing_profiles: { Args: never; Returns: Json }
       teacher_owns_student: {
         Args: { _student_id: string; _teacher_id: string }
