@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { Link } from "react-router-dom";
 import { Instagram, MessageCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
