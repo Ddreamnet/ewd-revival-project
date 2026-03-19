@@ -174,6 +174,10 @@ Deno.serve(async (req) => {
       const studentName = nameMap.get(tr.student_id) || tr.student_id.substring(0, 8);
       const teacherName = nameMap.get(tr.teacher_id) || tr.teacher_id.substring(0, 8);
 
+      const templateSource = dbFallbackKeys.has(key) ? "current_db_fallback" as const
+        : templateMap.has(key) ? "restore_json" as const
+        : "none" as const;
+
       const base = {
         student_id: tr.student_id,
         teacher_id: tr.teacher_id,
@@ -181,6 +185,7 @@ Deno.serve(async (req) => {
         teacher_name: teacherName,
         instances_to_insert: [] as any[],
         current_delete_count: instanceCountMap.get(key) || 0,
+        template_source: templateSource,
       };
 
       // CHECK 1: Archived?
