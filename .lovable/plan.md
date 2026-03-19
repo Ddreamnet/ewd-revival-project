@@ -1,24 +1,49 @@
 
 
-# Tablet Layout Fixes — Teacher Panel
+# İşlenen Dersler Sadeleştirme
 
-## Problem 1: "Öğretmen Paneli" title wrapping
-The h1 text wraps to two lines on tablet because there's no width constraint preventing it.
+## Değişiklikler
 
-**Fix** (`src/components/TeacherDashboard.tsx` line 216):
-Add `whitespace-nowrap` to the h1 element.
+### 1. `src/components/LessonTracker.tsx` (Öğretmen paneli)
 
-## Problem 2: Student detail section overflowing on tablet portrait
-In `StudentTopics.tsx`, the header area uses `md:flex-row` (breakpoint 768px) to lay out the title, homework card, and LessonTracker side-by-side. On tablet portrait (~768–1024px), this causes content to overflow or get squished.
+**Kaldırılacaklar:**
+- "Döngü X" badge metni (satır 205)
+- "X/Y" sayaç metni (satır 203-206 arası tüm blok)
+- Ayrı Undo butonu (satır 256-266)
 
-**Fix** (`src/components/StudentTopics.tsx`):
-- Line 294: Change `md:flex-row md:justify-between md:items-center` to `lg:flex-row lg:justify-between lg:items-center` — keeps the three sections stacked in a single column until 1024px+.
-- Line 302: Change `sm:flex-row` to `lg:flex-row` and `md:w-auto` to `lg:w-auto` — prevents the homework card and LessonTracker from going side-by-side too early.
+**Yeni toggle davranışı:**
+- `handleLessonClick` fonksiyonu güncellenir: tıklanan kutu `completed` ise undo onay dialogu açılır, `planned` ve `nextCompletable` ise complete onay dialogu açılır
+- Completed kutular artık `disabled` olmaz, tıklanabilir olur (sadece `lastCompletedId` eşleşen kutu)
+- Kutu stilleri: completed + undoable olan kutuda hover efekti eklenir
 
-## Files Changed
+**Layout iyileştirmeleri:**
+- Dış container'a `justify-center w-full` eklenir
+- Kutuların `h-8 w-8` boyutu `h-9 w-9 sm:h-10 sm:w-10` olarak güncellenir
+- Kutular arası gap `gap-1.5` → `gap-2 sm:gap-2.5` olur
+- Container'a `mx-auto` eklenerek yatay ortalama sağlanır
 
-| File | Change |
+### 2. `src/components/StudentLessonTracker.tsx` (Öğrenci paneli)
+
+**Kaldırılacaklar:**
+- "Döngü X" badge (satır 158-160)
+- "X/Y" sayaç ve "İşlenen Dersler" metni (satır 150-163 arası sol bölüm), sadece `BookCheck` ikonu kalır veya o da kaldırılır
+- `packageCycle` state ve `fetchPackageCycle` fonksiyonu (artık kullanılmıyor)
+
+**Layout iyileştirmeleri:**
+- Kutu boyutları `h-8 w-8` → `h-9 w-9 sm:h-10 sm:w-10`
+- Gap `gap-1.5` → `gap-2 sm:gap-2.5`
+- Card content'e `flex justify-center` eklenir
+- Sol taraftaki ikon+sayaç alanı kaldırılınca kutular karta ortalanmış şekilde yerleşir
+
+### 3. `src/components/StudentTopics.tsx`
+
+- LessonTracker container'ına `w-full flex justify-center` eklenerek tablet/mobilde ortalanması sağlanır
+
+## Dosya Özeti
+
+| Dosya | Değişiklik |
 |---|---|
-| `src/components/TeacherDashboard.tsx` | Add `whitespace-nowrap` to "Öğretmen Paneli" h1 |
-| `src/components/StudentTopics.tsx` | Change `md:` breakpoints to `lg:` for the student detail header layout |
+| `LessonTracker.tsx` | Döngü/sayaç/undo butonu kaldır, toggle davranışı ekle, kutu boyutu ve spacing artır, ortalama |
+| `StudentLessonTracker.tsx` | Döngü/sayaç kaldır, packageCycle state temizle, kutu boyutu ve spacing artır, ortalama |
+| `StudentTopics.tsx` | LessonTracker wrapper'ına centering class ekle |
 
