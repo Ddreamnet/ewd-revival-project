@@ -582,6 +582,10 @@ Deno.serve(async (req) => {
     const safeInsertEstimate = safeList.reduce((sum, s) => sum + s.instances_to_insert.length, 0);
 
     // Strip instances_to_insert from response (too large)
+    const exactMatchCount = safeList.filter(s => s.mapping_mode === "exact_weekday_match").length;
+    const sequenceRecoveryCount = safeList.filter(s => s.mapping_mode === "sequence_based_recovery").length;
+    const dbFallbackCount = safeList.filter(s => s.template_source === "current_db_fallback").length;
+
     const safeApply = safeList.map(s => ({
       student_id: s.student_id,
       teacher_id: s.teacher_id,
@@ -596,6 +600,7 @@ Deno.serve(async (req) => {
       current_delete_count: s.current_delete_count,
       insert_count: s.instances_to_insert.length,
       template_source: s.template_source,
+      mapping_mode: s.mapping_mode,
     }));
 
     const manualReview = manualList.map(s => ({
