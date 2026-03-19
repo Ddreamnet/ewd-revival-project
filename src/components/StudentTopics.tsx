@@ -327,11 +327,13 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
               </Card>
               
               {/* İşlenen Dersler */}
-              <LessonTracker
-                studentId={student.student_id}
-                studentName={student.profiles.full_name}
-                teacherId={teacherId}
-              />
+              <div className="w-full flex justify-center">
+                <LessonTracker
+                  studentId={student.student_id}
+                  studentName={student.profiles.full_name}
+                  teacherId={teacherId}
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
