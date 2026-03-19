@@ -157,9 +157,12 @@
         html += `<div class="group-header group-safe">✅ SAFE_APPLY (${r.safeApply.length})</div>`;
         html += `<div class="section" style="padding:0; overflow-x:auto;">`;
         html += `<div class="student-row" style="font-weight:bold; color:#888; font-size:11px; border-bottom:1px solid #ffffff20;">
-          <div>#</div><div>Öğrenci</div><div>Öğretmen</div><div>UUID</div><div>Tamamlanan</div><div>Slot</div><div>LPW</div><div>İşlem</div>
+          <div>#</div><div>Öğrenci</div><div>Öğretmen</div><div>UUID</div><div>Tamamlanan</div><div>Slot</div><div>LPW</div><div>Kaynak</div><div>İşlem</div>
         </div>`;
         r.safeApply.forEach((s, i) => {
+          const srcTag = s.template_source === 'current_db_fallback'
+            ? '<span class="tag-source-db">🔄 DB</span>'
+            : '<span class="tag-source-json">📦 JSON</span>';
           html += `<div class="student-row">
             <div>${i + 1}</div>
             <div style="color:#2ecc71; font-weight:bold">${esc(s.student_name)}</div>
@@ -168,6 +171,7 @@
             <div><span style="color:#2ecc71; font-weight:bold">${s.completed_count}</span>/${s.total_lessons}</div>
             <div>${s.template_slot_count}</div>
             <div>${s.resolved_lpw}</div>
+            <div>${srcTag}</div>
             <div style="font-size:10px">DEL ${s.current_delete_count} → INS ${s.insert_count}</div>
           </div>`;
         });
