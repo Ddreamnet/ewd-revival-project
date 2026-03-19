@@ -571,6 +571,7 @@ Deno.serve(async (req) => {
       reason_code: s.reason_code,
       current_delete_count: s.current_delete_count,
       insert_count: s.instances_to_insert.length,
+      template_source: s.template_source,
     }));
 
     const manualReview = manualList.map(s => ({
@@ -582,6 +583,7 @@ Deno.serve(async (req) => {
       total_lessons: s.total_lessons,
       reason_code: s.reason_code,
       reason_detail: s.reason_detail,
+      template_source: s.template_source,
     }));
 
     const skippedArchived = archivedList.map(s => ({
