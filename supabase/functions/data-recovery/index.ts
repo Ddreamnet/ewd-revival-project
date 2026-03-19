@@ -54,6 +54,7 @@ interface ClassifiedStudent {
   instances_to_insert: any[];
   current_delete_count: number;
   template_source: "restore_json" | "current_db_fallback" | "none";
+  mapping_mode: "exact_weekday_match" | "sequence_based_recovery" | "none";
 }
 
 function getDayOfWeek(dateStr: string): number {
