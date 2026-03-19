@@ -13,7 +13,7 @@ export function Header({ children, rightActions }: HeaderProps) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <Logo size="lg" />
-            <div className="hidden sm:block">
+            <div className="hidden lg:block">
               <h1 className="text-lg sm:text-xl font-semibold text-foreground">English with Dilara</h1>
             </div>
           </div>
