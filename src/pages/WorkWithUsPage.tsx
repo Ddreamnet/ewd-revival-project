@@ -41,6 +41,7 @@ function WorkWithUsContent() {
   };
 
   return (
+    <BackSwipeWrapper>
     <div className="landing-body min-h-screen overflow-x-hidden">
       <LandingHeader />
       <main className="pt-28 md:pt-32 pb-16 px-4">
