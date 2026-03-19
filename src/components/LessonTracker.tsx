@@ -9,18 +9,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Ban, Undo2 } from "lucide-react";
 import { LessonInstance, getRowConfig } from "@/lib/lessonTypes";
 import {
   completeLesson,
   undoCompleteLesson,
   getNextCompletableInstance,
   getLastCompletedInstance,
-  getRemainingRights,
 } from "@/lib/lessonService";
 
 interface LessonTrackerProps {
@@ -39,7 +36,6 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   const [undoInstanceId, setUndoInstanceId] = useState<string | null>(null);
   const [nextCompletableId, setNextCompletableId] = useState<string | null>(null);
   const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
-  const [rights, setRights] = useState<{ total: number; completed: number; remaining: number; cycle: number } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,7 +54,6 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   const fetchInstances = async () => {
     try {
-      // Get current package_cycle
       const { data: tracking } = await supabase
         .from("student_lesson_tracking")
         .select("package_cycle")
@@ -95,26 +90,26 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
   };
 
   const refreshCompletionState = async () => {
-    const [next, last, rightsData] = await Promise.all([
+    const [next, last] = await Promise.all([
       getNextCompletableInstance(studentId, teacherId),
       getLastCompletedInstance(studentId, teacherId),
-      getRemainingRights(studentId, teacherId),
     ]);
     setNextCompletableId(next?.id ?? null);
     setLastCompletedId(last?.id ?? null);
-    setRights(rightsData);
   };
 
-  const handleLessonClick = (instanceId: string) => {
-    if (instanceId !== nextCompletableId) return;
-    setPendingInstanceId(instanceId);
-    setShowConfirm(true);
-  };
-
-  const handleUndoClick = () => {
-    if (!lastCompletedId) return;
-    setUndoInstanceId(lastCompletedId);
-    setShowUndoConfirm(true);
+  const handleLessonClick = (instanceId: string, isCompleted: boolean) => {
+    if (isCompleted) {
+      // Toggle: undo if this is the last completed
+      if (instanceId !== lastCompletedId) return;
+      setUndoInstanceId(instanceId);
+      setShowUndoConfirm(true);
+    } else {
+      // Complete if this is the next completable
+      if (instanceId !== nextCompletableId) return;
+      setPendingInstanceId(instanceId);
+      setShowConfirm(true);
+    }
   };
 
   const confirmLessonComplete = async () => {
@@ -188,8 +183,6 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   const totalLessonsPerMonth = templateCount * 4;
   const rowConfig = getRowConfig(templateCount);
-
-  // Cycle-filtered data is already correctly scoped — no slice needed
   const displayInstances = instances;
 
   if (loading) {
@@ -198,17 +191,11 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   return (
     <>
-      <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-        {rights && (
-          <div className="flex flex-col items-center gap-0.5 shrink-0">
-            <span className="text-lg font-bold text-foreground">{rights.completed}/{rights.total}</span>
-            <span className="text-[10px] text-muted-foreground">Döngü {rights.cycle}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2 border-2 border-primary/30 rounded-xl p-2 sm:p-2.5 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-sm w-full sm:w-auto overflow-x-auto">
-          <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-center w-full">
+        <div className="flex items-center border-2 border-primary/30 rounded-xl p-2 sm:p-2.5 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-sm mx-auto">
+          <div className="flex flex-col gap-2 sm:gap-2.5">
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (
-              <div key={rowIndex} className="flex gap-1.5">
+              <div key={rowIndex} className="flex gap-2 sm:gap-2.5 justify-center">
                 {Array.from({ length: rowConfig.buttonsPerRow }, (_, colIndex) => {
                   const displayPosition = rowIndex * rowConfig.buttonsPerRow + colIndex;
                   if (displayPosition >= totalLessonsPerMonth) return null;
@@ -218,25 +205,28 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
                   const isCompleted = inst.status === "completed";
                   const isNextCompletable = inst.id === nextCompletableId;
+                  const isUndoable = isCompleted && inst.id === lastCompletedId;
                   const timeInfo = `${inst.start_time.slice(0, 5)} - ${inst.end_time.slice(0, 5)}`;
 
                   return (
                     <div key={inst.id} className="flex flex-col items-center gap-0.5">
                       <button
-                        onClick={() => handleLessonClick(inst.id)}
-                        disabled={isCompleted || !isNextCompletable}
+                        onClick={() => handleLessonClick(inst.id, isCompleted)}
+                        disabled={!isNextCompletable && !isUndoable}
                         className={`
-                          h-8 w-8 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
+                          h-9 w-9 sm:h-10 sm:w-10 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
                           flex items-center justify-center shadow-sm relative
                           ${
                             isCompleted
-                              ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md"
+                              ? isUndoable
+                                ? "bg-primary text-primary-foreground border-primary scale-95 shadow-md hover:bg-primary/80 hover:scale-100 cursor-pointer"
+                                : "bg-primary text-primary-foreground border-primary scale-95 shadow-md cursor-default"
                               : isNextCompletable
                                 ? "bg-background border-primary hover:bg-primary/10 hover:scale-105 hover:shadow-md cursor-pointer"
                                 : "bg-background border-primary/30 opacity-60 cursor-not-allowed"
                           }
                         `}
-                        title={`Ders ${displayPosition + 1} - ${timeInfo}`}
+                        title={isUndoable ? `Ders ${displayPosition + 1} - Geri al` : `Ders ${displayPosition + 1} - ${timeInfo}`}
                       >
                         {displayPosition + 1}
                       </button>
@@ -252,18 +242,6 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
             ))}
           </div>
         </div>
-        {/* Undo button */}
-        {lastCompletedId && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleUndoClick}
-            className="h-8 w-8 shrink-0"
-            title="Son dersi geri al"
-          >
-            <Undo2 className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
       {/* Complete confirmation */}
