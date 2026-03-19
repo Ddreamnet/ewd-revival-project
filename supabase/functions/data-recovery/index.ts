@@ -10,8 +10,8 @@ interface TrackingRecord {
   student_id: string;
   teacher_id: string;
   lessons_per_week: number;
-  completed_lessons: string; // JSON string: '["1","2","3"]'
-  lesson_dates: string; // JSON string: '{"1":"2026-03-05",...}'
+  completed_lessons: string;
+  lesson_dates: string;
   month_start_date: string;
   created_at: string;
   updated_at: string;
@@ -36,11 +36,31 @@ interface BalanceRecord {
   trial_lessons_minutes: number;
 }
 
-// Returns day of week (0=Sun, 1=Mon, ... 6=Sat) for a date string 'YYYY-MM-DD'
+type Verdict = "SAFE_APPLY" | "MANUAL_REVIEW" | "SKIP_ARCHIVED" | "HARD_BLOCKER";
+
+interface ClassifiedStudent {
+  student_id: string;
+  teacher_id: string;
+  student_name: string;
+  teacher_name: string;
+  verdict: Verdict;
+  reason_code: string;
+  reason_detail: string;
+  completed_count: number;
+  total_lessons: number;
+  lesson_dates_count: number;
+  template_slot_count: number;
+  resolved_lpw: number;
+  instances_to_insert: any[];
+  current_delete_count: number;
+}
+
 function getDayOfWeek(dateStr: string): number {
   const d = new Date(dateStr + "T00:00:00Z");
   return d.getUTCDay();
 }
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -53,21 +73,24 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const body = await req.json();
-    const dryRun: boolean = body.dry_run !== false; // default to dry_run=true
+    const dryRun: boolean = body.dry_run !== false;
     const tracking: TrackingRecord[] = body.tracking || [];
     const lessons: LessonSlot[] = body.lessons || [];
     const balance: BalanceRecord[] = body.balance || [];
 
     const log: string[] = [];
-    const manualReview: string[] = [];
-    const errors: string[] = [];
 
-    log.push(`=== DATA RECOVERY ${dryRun ? "(DRY RUN)" : "(LIVE)"} ===`);
-    log.push(`Tracking records: ${tracking.length}`);
-    log.push(`Lesson slots: ${lessons.length}`);
-    log.push(`Balance records: ${balance.length}`);
+    // ---- Fetch profiles for name resolution ----
+    const { data: allProfiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, role");
+    
+    const nameMap = new Map<string, string>();
+    for (const p of allProfiles || []) {
+      nameMap.set(p.user_id, p.full_name);
+    }
 
-    // Step 0: Get archived students
+    // ---- Fetch archived students ----
     const { data: archivedStudents } = await supabase
       .from("students")
       .select("student_id, teacher_id")
@@ -76,17 +99,14 @@ Deno.serve(async (req) => {
     const archivedSet = new Set(
       (archivedStudents || []).map((s: any) => `${s.student_id}|${s.teacher_id}`)
     );
-    log.push(`Archived students: ${archivedSet.size}`);
 
-    // Build template lookup: student_id|teacher_id → slots[]
+    // ---- Build template lookup ----
     const templateMap = new Map<string, LessonSlot[]>();
     for (const slot of lessons) {
       const key = `${slot.student_id}|${slot.teacher_id}`;
       if (!templateMap.has(key)) templateMap.set(key, []);
       templateMap.get(key)!.push(slot);
     }
-
-    // Sort each template by day_of_week, then start_time
     for (const [, slots] of templateMap) {
       slots.sort((a, b) => {
         if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week;
@@ -94,39 +114,79 @@ Deno.serve(async (req) => {
       });
     }
 
-    // =============================================
-    // PHASE 1: Process lesson_instances rebuild
-    // =============================================
-    log.push("\n=== PHASE 1: LESSON INSTANCES REBUILD ===");
+    // ---- Fetch current instance counts for delete estimates ----
+    const { data: allInstances } = await supabase
+      .from("lesson_instances")
+      .select("student_id, teacher_id, package_cycle, id");
 
-    let totalDeleted = 0;
-    let totalInserted = 0;
-    let lpwUpdates = 0;
+    const instanceCountMap = new Map<string, number>();
+    for (const inst of allInstances || []) {
+      const key = `${inst.student_id}|${inst.teacher_id}`;
+      instanceCountMap.set(key, (instanceCountMap.get(key) || 0) + 1);
+    }
+
+    // =============================================
+    // PASS 1: CLASSIFY
+    // =============================================
+    const classified: ClassifiedStudent[] = [];
 
     for (const tr of tracking) {
-      const studentTeacherKey = `${tr.student_id}|${tr.teacher_id}`;
+      const key = `${tr.student_id}|${tr.teacher_id}`;
+      const studentName = nameMap.get(tr.student_id) || tr.student_id.substring(0, 8);
+      const teacherName = nameMap.get(tr.teacher_id) || tr.teacher_id.substring(0, 8);
 
-      // Skip archived
-      if (archivedSet.has(studentTeacherKey)) {
-        log.push(`SKIP archived: ${tr.student_id}`);
+      const base = {
+        student_id: tr.student_id,
+        teacher_id: tr.teacher_id,
+        student_name: studentName,
+        teacher_name: teacherName,
+        instances_to_insert: [] as any[],
+        current_delete_count: instanceCountMap.get(key) || 0,
+      };
+
+      // CHECK 1: Archived?
+      if (archivedSet.has(key)) {
+        classified.push({
+          ...base,
+          verdict: "SKIP_ARCHIVED",
+          reason_code: "ARCHIVED",
+          reason_detail: "Student is archived",
+          completed_count: 0,
+          total_lessons: 0,
+          lesson_dates_count: 0,
+          template_slot_count: 0,
+          resolved_lpw: 0,
+        });
         continue;
       }
 
-      // Parse completed_lessons and lesson_dates
+      // Parse data
       let completedLessons: string[] = [];
       let lessonDates: Record<string, string> = {};
 
       try {
         completedLessons = JSON.parse(tr.completed_lessons || "[]");
       } catch {
-        errors.push(`Failed to parse completed_lessons for ${tr.student_id}`);
+        classified.push({
+          ...base,
+          verdict: "HARD_BLOCKER",
+          reason_code: "PARSE_ERROR",
+          reason_detail: "Failed to parse completed_lessons JSON",
+          completed_count: 0, total_lessons: 0, lesson_dates_count: 0, template_slot_count: 0, resolved_lpw: 0,
+        });
         continue;
       }
 
       try {
         lessonDates = JSON.parse(tr.lesson_dates || "{}");
       } catch {
-        errors.push(`Failed to parse lesson_dates for ${tr.student_id}`);
+        classified.push({
+          ...base,
+          verdict: "HARD_BLOCKER",
+          reason_code: "PARSE_ERROR",
+          reason_detail: "Failed to parse lesson_dates JSON",
+          completed_count: 0, total_lessons: 0, lesson_dates_count: 0, template_slot_count: 0, resolved_lpw: 0,
+        });
         continue;
       }
 
@@ -135,46 +195,32 @@ Deno.serve(async (req) => {
         .map(([k, v]) => ({ lessonNumber: parseInt(k), date: v }))
         .sort((a, b) => a.lessonNumber - b.lessonNumber);
 
-      // If no lesson_dates, skip (nothing to rebuild)
+      // CHECK 2: Empty dates?
       if (lessonDateEntries.length === 0) {
-        // Check if there are completed lessons with no dates (edge case)
-        if (completedLessons.length > 0) {
-          manualReview.push(
-            `${tr.student_id}: has ${completedLessons.length} completed but empty lesson_dates`
-          );
-        }
-        log.push(`SKIP empty lesson_dates: ${tr.student_id}`);
+        const code = completedLessons.length > 0 ? "EMPTY_DATES_WITH_COMPLETED" : "EMPTY_DATES";
+        classified.push({
+          ...base,
+          verdict: "MANUAL_REVIEW",
+          reason_code: code,
+          reason_detail: `${completedLessons.length} completed but 0 lesson_dates`,
+          completed_count: completedLessons.length, total_lessons: 0,
+          lesson_dates_count: 0, template_slot_count: 0, resolved_lpw: 0,
+        });
         continue;
       }
 
-      // Get templates for this student
-      const templates = templateMap.get(studentTeacherKey) || [];
-
+      // CHECK 3: Template slots exist?
+      const templates = templateMap.get(key) || [];
       if (templates.length === 0) {
-        manualReview.push(
-          `${tr.student_id}: has ${lessonDateEntries.length} lesson_dates but NO template slots`
-        );
+        classified.push({
+          ...base,
+          verdict: "MANUAL_REVIEW",
+          reason_code: "NO_TEMPLATE",
+          reason_detail: `${lessonDateEntries.length} lesson_dates but no template slots in restore data`,
+          completed_count: completedLessons.length, total_lessons: lessonDateEntries.length,
+          lesson_dates_count: lessonDateEntries.length, template_slot_count: 0, resolved_lpw: 0,
+        });
         continue;
-      }
-
-      // ---- lessons_per_week resolution ----
-      const slotCount = templates.length;
-      const inferredLpw = Math.ceil(lessonDateEntries.length / 4);
-      const trackingLpw = tr.lessons_per_week;
-
-      let resolvedLpw: number;
-      if (slotCount === inferredLpw) {
-        resolvedLpw = slotCount; // unanimous
-      } else if (slotCount === trackingLpw) {
-        resolvedLpw = slotCount; // 2 of 3 agree
-      } else if (inferredLpw === trackingLpw) {
-        resolvedLpw = inferredLpw; // 2 of 3 agree
-      } else {
-        // All 3 differ
-        manualReview.push(
-          `${tr.student_id}: lpw conflict - slots=${slotCount}, inferred=${inferredLpw}, tracking=${trackingLpw}. Using slot_count.`
-        );
-        resolvedLpw = slotCount; // default to template slots
       }
 
       // Build template lookup by day_of_week
@@ -184,57 +230,101 @@ Deno.serve(async (req) => {
         templatesByDay.get(t.day_of_week)!.push(t);
       }
 
-      // ---- Map lesson_dates to instances ----
-      // Group lessons by date
+      // CHECK 4: Every lesson_date day-of-week matches a template slot
+      const dayMismatches: string[] = [];
       const lessonsByDate = new Map<string, number[]>();
       for (const entry of lessonDateEntries) {
         if (!lessonsByDate.has(entry.date)) lessonsByDate.set(entry.date, []);
         lessonsByDate.get(entry.date)!.push(entry.lessonNumber);
       }
 
+      for (const [dateStr, lessonNums] of lessonsByDate) {
+        const dow = getDayOfWeek(dateStr);
+        const daySlots = templatesByDay.get(dow) || [];
+        if (daySlots.length === 0) {
+          dayMismatches.push(`${dateStr}(${DAY_NAMES[dow]})`);
+        }
+      }
+
+      if (dayMismatches.length > 0) {
+        classified.push({
+          ...base,
+          verdict: "MANUAL_REVIEW",
+          reason_code: "DAY_MISMATCH",
+          reason_detail: `Dates not matching template days: ${dayMismatches.join(", ")}`,
+          completed_count: completedLessons.length, total_lessons: lessonDateEntries.length,
+          lesson_dates_count: lessonDateEntries.length, template_slot_count: templates.length,
+          resolved_lpw: 0,
+        });
+        continue;
+      }
+
+      // CHECK 5: Slot overflow — lessons on a date ≤ slots for that day
+      const overflows: string[] = [];
+      for (const [dateStr, lessonNums] of lessonsByDate) {
+        const dow = getDayOfWeek(dateStr);
+        const daySlots = templatesByDay.get(dow) || [];
+        if (lessonNums.length > daySlots.length) {
+          overflows.push(`${dateStr}(${DAY_NAMES[dow]}): ${lessonNums.length} lessons but ${daySlots.length} slots`);
+        }
+      }
+
+      if (overflows.length > 0) {
+        classified.push({
+          ...base,
+          verdict: "MANUAL_REVIEW",
+          reason_code: "SLOT_OVERFLOW",
+          reason_detail: overflows.join("; "),
+          completed_count: completedLessons.length, total_lessons: lessonDateEntries.length,
+          lesson_dates_count: lessonDateEntries.length, template_slot_count: templates.length,
+          resolved_lpw: 0,
+        });
+        continue;
+      }
+
+      // CHECK 6: LPW resolution
+      const slotCount = templates.length;
+      const inferredLpw = Math.ceil(lessonDateEntries.length / 4);
+      const trackingLpw = tr.lessons_per_week;
+
+      let resolvedLpw: number;
+      let lpwConflict = false;
+
+      if (slotCount === inferredLpw && inferredLpw === trackingLpw) {
+        resolvedLpw = slotCount; // unanimous
+      } else if (slotCount === inferredLpw) {
+        resolvedLpw = slotCount; // 2-of-3
+      } else if (slotCount === trackingLpw) {
+        resolvedLpw = slotCount; // 2-of-3
+      } else if (inferredLpw === trackingLpw) {
+        resolvedLpw = inferredLpw; // 2-of-3
+      } else {
+        // All 3 differ → hard conflict
+        classified.push({
+          ...base,
+          verdict: "MANUAL_REVIEW",
+          reason_code: "LPW_CONFLICT",
+          reason_detail: `slots=${slotCount}, inferred=${inferredLpw}, tracking=${trackingLpw} — all differ`,
+          completed_count: completedLessons.length, total_lessons: lessonDateEntries.length,
+          lesson_dates_count: lessonDateEntries.length, template_slot_count: slotCount,
+          resolved_lpw: 0,
+        });
+        continue;
+      }
+
+      // ---- Build instances (deterministic exact mapping only) ----
       const instancesForInsert: any[] = [];
-      const unmatchedSlots = [...templates].sort((a, b) => a.start_time.localeCompare(b.start_time));
-      let unmatchedIdx = 0;
 
       for (const [dateStr, lessonNums] of lessonsByDate) {
         lessonNums.sort((a, b) => a - b);
         const dow = getDayOfWeek(dateStr);
-        const daySlots = templatesByDay.get(dow) || [];
-
-        // Sort day slots by start_time ASC
-        const sortedDaySlots = [...daySlots].sort((a, b) =>
+        const daySlots = [...(templatesByDay.get(dow) || [])].sort((a, b) =>
           a.start_time.localeCompare(b.start_time)
         );
 
         for (let i = 0; i < lessonNums.length; i++) {
           const ln = lessonNums[i];
-          let startTime: string;
-          let endTime: string;
-
-          if (i < sortedDaySlots.length) {
-            // Direct match to day-of-week template slot
-            startTime = sortedDaySlots[i].start_time;
-            endTime = sortedDaySlots[i].end_time;
-          } else {
-            // No matching slot for this day → rescheduled lesson
-            // Use next unmatched template slot by global order
-            if (unmatchedIdx < unmatchedSlots.length) {
-              startTime = unmatchedSlots[unmatchedIdx].start_time;
-              endTime = unmatchedSlots[unmatchedIdx].end_time;
-              unmatchedIdx++;
-              manualReview.push(
-                `${tr.student_id}: lesson ${ln} on ${dateStr} (dow=${dow}) has no matching template slot for that day. Used fallback slot ${startTime}-${endTime}.`
-              );
-            } else {
-              // No more slots to assign, use first template
-              startTime = templates[0].start_time;
-              endTime = templates[0].end_time;
-              manualReview.push(
-                `${tr.student_id}: lesson ${ln} on ${dateStr} ran out of template slots. Used first slot.`
-              );
-            }
-          }
-
+          const slot = daySlots[i]; // guaranteed by slot overflow check
           const isCompleted = completedSet.has(String(ln));
 
           instancesForInsert.push({
@@ -242,16 +332,16 @@ Deno.serve(async (req) => {
             teacher_id: tr.teacher_id,
             lesson_number: ln,
             lesson_date: dateStr,
-            start_time: startTime,
-            end_time: endTime,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
             status: isCompleted ? "completed" : "planned",
-            package_cycle: 1, // all current data is cycle 1
+            package_cycle: 1,
             rescheduled_count: 0,
           });
         }
       }
 
-      // Renumber by chronological order
+      // Renumber chronologically
       instancesForInsert.sort((a, b) => {
         if (a.lesson_date !== b.lesson_date) return a.lesson_date.localeCompare(b.lesson_date);
         return a.start_time.localeCompare(b.start_time);
@@ -260,7 +350,7 @@ Deno.serve(async (req) => {
         instancesForInsert[i].lesson_number = i + 1;
       }
 
-      // Validate contiguous completion
+      // CHECK 7: Contiguous completion
       const completedCount = instancesForInsert.filter((x: any) => x.status === "completed").length;
       const firstNCompleted = instancesForInsert
         .slice(0, completedCount)
@@ -270,81 +360,97 @@ Deno.serve(async (req) => {
         .every((x: any) => x.status === "planned");
 
       if (!firstNCompleted || !restPlanned) {
-        manualReview.push(
-          `${tr.student_id}: non-contiguous completion after rebuild! completed=${completedCount}, total=${instancesForInsert.length}`
-        );
+        classified.push({
+          ...base,
+          verdict: "MANUAL_REVIEW",
+          reason_code: "NON_CONTIGUOUS",
+          reason_detail: `Completion not contiguous: ${completedCount} completed in ${instancesForInsert.length} total`,
+          completed_count: completedCount, total_lessons: instancesForInsert.length,
+          lesson_dates_count: lessonDateEntries.length, template_slot_count: templates.length,
+          resolved_lpw: resolvedLpw,
+          instances_to_insert: [],
+        });
+        continue;
       }
 
-      log.push(
-        `Student ${tr.student_id}: ${completedCount} completed / ${instancesForInsert.length} total, lpw=${resolvedLpw}`
-      );
+      // ---- ALL CHECKS PASSED → SAFE_APPLY ----
+      classified.push({
+        ...base,
+        verdict: "SAFE_APPLY",
+        reason_code: "OK_EXACT_MATCH",
+        reason_detail: `All ${lessonDateEntries.length} dates match template days exactly`,
+        completed_count: completedCount,
+        total_lessons: instancesForInsert.length,
+        lesson_dates_count: lessonDateEntries.length,
+        template_slot_count: templates.length,
+        resolved_lpw: resolvedLpw,
+        instances_to_insert: instancesForInsert,
+      });
+    }
 
-      if (!dryRun) {
-        // Get current package_cycle
+    // =============================================
+    // PASS 2: EXECUTE (only SAFE_APPLY, only in LIVE mode)
+    // =============================================
+    const safeList = classified.filter(c => c.verdict === "SAFE_APPLY");
+    const manualList = classified.filter(c => c.verdict === "MANUAL_REVIEW");
+    const archivedList = classified.filter(c => c.verdict === "SKIP_ARCHIVED");
+    const blockerList = classified.filter(c => c.verdict === "HARD_BLOCKER");
+
+    let totalDeleted = 0;
+    let totalInserted = 0;
+    let lpwUpdates = 0;
+    const executeLog: string[] = [];
+
+    if (!dryRun) {
+      for (const s of safeList) {
+        // Get current cycle
         const { data: currentTracking } = await supabase
           .from("student_lesson_tracking")
           .select("package_cycle, lessons_per_week")
-          .eq("student_id", tr.student_id)
-          .eq("teacher_id", tr.teacher_id)
+          .eq("student_id", s.student_id)
+          .eq("teacher_id", s.teacher_id)
           .maybeSingle();
 
         const currentCycle = currentTracking?.package_cycle || 1;
 
-        // Delete current instances for this student/teacher/cycle
+        // Delete
         const { count: deleteCount } = await supabase
           .from("lesson_instances")
           .delete({ count: "exact" })
-          .eq("student_id", tr.student_id)
-          .eq("teacher_id", tr.teacher_id)
+          .eq("student_id", s.student_id)
+          .eq("teacher_id", s.teacher_id)
           .eq("package_cycle", currentCycle);
 
         totalDeleted += deleteCount || 0;
-        log.push(`  Deleted ${deleteCount} existing instances`);
 
-        // Insert new instances
-        for (const inst of instancesForInsert) {
+        // Insert
+        for (const inst of s.instances_to_insert) {
           inst.package_cycle = currentCycle;
         }
-
         const { error: insertError } = await supabase
           .from("lesson_instances")
-          .insert(instancesForInsert);
+          .insert(s.instances_to_insert);
 
         if (insertError) {
-          errors.push(`Insert error for ${tr.student_id}: ${insertError.message}`);
+          executeLog.push(`❌ INSERT ERROR ${s.student_name}: ${insertError.message}`);
         } else {
-          totalInserted += instancesForInsert.length;
-          log.push(`  Inserted ${instancesForInsert.length} instances`);
+          totalInserted += s.instances_to_insert.length;
+          executeLog.push(`✅ ${s.student_name}: DEL ${deleteCount} → INS ${s.instances_to_insert.length}`);
         }
 
-        // Update lessons_per_week if different
-        if (currentTracking && currentTracking.lessons_per_week !== resolvedLpw) {
-          const { error: lpwError } = await supabase
+        // LPW update
+        if (currentTracking && currentTracking.lessons_per_week !== s.resolved_lpw) {
+          await supabase
             .from("student_lesson_tracking")
-            .update({ lessons_per_week: resolvedLpw, updated_at: new Date().toISOString() })
-            .eq("student_id", tr.student_id)
-            .eq("teacher_id", tr.teacher_id);
-
-          if (lpwError) {
-            errors.push(`LPW update error for ${tr.student_id}: ${lpwError.message}`);
-          } else {
-            lpwUpdates++;
-            log.push(`  Updated lessons_per_week: ${currentTracking.lessons_per_week} → ${resolvedLpw}`);
-          }
+            .update({ lessons_per_week: s.resolved_lpw, updated_at: new Date().toISOString() })
+            .eq("student_id", s.student_id)
+            .eq("teacher_id", s.teacher_id);
+          lpwUpdates++;
         }
       }
-    }
 
-    log.push(`\nTotal deleted: ${totalDeleted}, Total inserted: ${totalInserted}, LPW updates: ${lpwUpdates}`);
-
-    // =============================================
-    // PHASE 2: Teacher balance recovery
-    // =============================================
-    log.push("\n=== PHASE 2: TEACHER BALANCE RECOVERY ===");
-
-    for (const b of balance) {
-      if (!dryRun) {
-        // Get current balance
+      // Balance recovery
+      for (const b of balance) {
         const { data: currentBalance } = await supabase
           .from("teacher_balance")
           .select("*")
@@ -352,22 +458,18 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!currentBalance) {
-          log.push(`SKIP balance: teacher ${b.teacher_id} not found in current DB`);
+          executeLog.push(`SKIP balance: teacher ${nameMap.get(b.teacher_id) || b.teacher_id} not in DB`);
           continue;
         }
 
-        const oldTotal = currentBalance.total_minutes;
-        const newTotal = b.total_minutes;
-        const delta = newTotal - oldTotal;
-
+        const delta = b.total_minutes - currentBalance.total_minutes;
         if (delta === 0 &&
             currentBalance.completed_regular_lessons === b.completed_regular_lessons &&
             currentBalance.trial_lessons_minutes === b.trial_lessons_minutes) {
-          log.push(`Balance unchanged for teacher ${b.teacher_id}`);
+          executeLog.push(`Balance unchanged: ${nameMap.get(b.teacher_id) || b.teacher_id}`);
           continue;
         }
 
-        // Update balance
         const { error: balError } = await supabase
           .from("teacher_balance")
           .update({
@@ -382,42 +484,95 @@ Deno.serve(async (req) => {
           .eq("teacher_id", b.teacher_id);
 
         if (balError) {
-          errors.push(`Balance update error for ${b.teacher_id}: ${balError.message}`);
+          executeLog.push(`❌ Balance error ${nameMap.get(b.teacher_id)}: ${balError.message}`);
         } else {
-          log.push(
-            `Balance updated for ${b.teacher_id}: ${oldTotal}→${newTotal} min, ` +
-            `${currentBalance.completed_regular_lessons}→${b.completed_regular_lessons} lessons`
-          );
-
-          // Audit log
+          executeLog.push(`✅ Balance ${nameMap.get(b.teacher_id)}: ${currentBalance.total_minutes}→${b.total_minutes} min`);
           await supabase.from("balance_events").insert({
             teacher_id: b.teacher_id,
             event_type: "data_repair",
             amount_minutes: delta,
-            notes: `Recovery: restore truth applied. ${oldTotal}→${newTotal} min, ${currentBalance.completed_regular_lessons}→${b.completed_regular_lessons} completed.`,
+            notes: `Recovery: ${currentBalance.total_minutes}→${b.total_minutes} min`,
           });
         }
-      } else {
-        log.push(`[DRY] Would update balance for ${b.teacher_id}: total=${b.total_minutes}, completed=${b.completed_regular_lessons}`);
       }
     }
 
-    // =============================================
-    // Summary
-    // =============================================
-    log.push("\n=== MANUAL REVIEW ===");
-    if (manualReview.length === 0) {
-      log.push("None.");
-    } else {
-      for (const mr of manualReview) log.push(`⚠️ ${mr}`);
+    // Build balance dry-run info
+    const balanceDryRun: any[] = [];
+    for (const b of balance) {
+      balanceDryRun.push({
+        teacher_id: b.teacher_id,
+        teacher_name: nameMap.get(b.teacher_id) || b.teacher_id.substring(0, 8),
+        restore_total: b.total_minutes,
+        restore_regular: b.completed_regular_lessons,
+        restore_trial: b.completed_trial_lessons,
+      });
     }
 
-    if (errors.length > 0) {
-      log.push("\n=== ERRORS ===");
-      for (const e of errors) log.push(`❌ ${e}`);
-    }
+    // Compute estimates
+    const safeDeleteEstimate = safeList.reduce((sum, s) => sum + s.current_delete_count, 0);
+    const safeInsertEstimate = safeList.reduce((sum, s) => sum + s.instances_to_insert.length, 0);
 
-    return new Response(JSON.stringify({ log, manualReview, errors, dryRun }), {
+    // Strip instances_to_insert from response (too large)
+    const safeApply = safeList.map(s => ({
+      student_id: s.student_id,
+      teacher_id: s.teacher_id,
+      student_name: s.student_name,
+      teacher_name: s.teacher_name,
+      completed_count: s.completed_count,
+      total_lessons: s.total_lessons,
+      lesson_dates_count: s.lesson_dates_count,
+      template_slot_count: s.template_slot_count,
+      resolved_lpw: s.resolved_lpw,
+      reason_code: s.reason_code,
+      current_delete_count: s.current_delete_count,
+      insert_count: s.instances_to_insert.length,
+    }));
+
+    const manualReview = manualList.map(s => ({
+      student_id: s.student_id,
+      teacher_id: s.teacher_id,
+      student_name: s.student_name,
+      teacher_name: s.teacher_name,
+      completed_count: s.completed_count,
+      total_lessons: s.total_lessons,
+      reason_code: s.reason_code,
+      reason_detail: s.reason_detail,
+    }));
+
+    const skippedArchived = archivedList.map(s => ({
+      student_id: s.student_id,
+      student_name: s.student_name,
+      teacher_name: s.teacher_name,
+    }));
+
+    const hardBlocker = blockerList.map(s => ({
+      student_id: s.student_id,
+      student_name: s.student_name,
+      reason_code: s.reason_code,
+      reason_detail: s.reason_detail,
+    }));
+
+    return new Response(JSON.stringify({
+      dryRun,
+      summary: {
+        safeCount: safeList.length,
+        manualCount: manualList.length,
+        archivedCount: archivedList.length,
+        blockerCount: blockerList.length,
+        safeDeleteEstimate,
+        safeInsertEstimate,
+        totalDeleted: dryRun ? 0 : totalDeleted,
+        totalInserted: dryRun ? 0 : totalInserted,
+        lpwUpdates: dryRun ? 0 : lpwUpdates,
+      },
+      safeApply,
+      manualReview,
+      skippedArchived,
+      hardBlocker,
+      balanceDryRun,
+      executeLog: dryRun ? [] : executeLog,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
