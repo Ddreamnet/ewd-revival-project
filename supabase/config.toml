@@ -24,5 +24,3 @@ verify_jwt = false
 [functions.admin-notifications-push]
 verify_jwt = false
 
-[functions.data-recovery]
-verify_jwt = false
