@@ -292,40 +292,35 @@ Deno.serve(async (req) => {
         }
       }
 
+      // CHECK 4: Day mismatch → sequence-based recovery instead of rejection
+      let useSequenceMapping = false;
       if (dayMismatches.length > 0) {
-        classified.push({
-          ...base,
-          verdict: "MANUAL_REVIEW",
-          reason_code: "DAY_MISMATCH",
-          reason_detail: `Dates not matching template days: ${dayMismatches.join(", ")}`,
-          completed_count: completedLessons.length, total_lessons: lessonDateEntries.length,
-          lesson_dates_count: lessonDateEntries.length, template_slot_count: templates.length,
-          resolved_lpw: 0,
-        });
-        continue;
+        useSequenceMapping = true;
       }
 
-      // CHECK 5: Slot overflow — lessons on a date ≤ slots for that day
-      const overflows: string[] = [];
-      for (const [dateStr, lessonNums] of lessonsByDate) {
-        const dow = getDayOfWeek(dateStr);
-        const daySlots = templatesByDay.get(dow) || [];
-        if (lessonNums.length > daySlots.length) {
-          overflows.push(`${dateStr}(${DAY_NAMES[dow]}): ${lessonNums.length} lessons but ${daySlots.length} slots`);
+      // CHECK 5: Slot overflow (only for exact weekday mapping)
+      if (!useSequenceMapping) {
+        const overflows: string[] = [];
+        for (const [dateStr, lessonNums] of lessonsByDate) {
+          const dow = getDayOfWeek(dateStr);
+          const daySlots = templatesByDay.get(dow) || [];
+          if (lessonNums.length > daySlots.length) {
+            overflows.push(`${dateStr}(${DAY_NAMES[dow]}): ${lessonNums.length} lessons but ${daySlots.length} slots`);
+          }
         }
-      }
 
-      if (overflows.length > 0) {
-        classified.push({
-          ...base,
-          verdict: "MANUAL_REVIEW",
-          reason_code: "SLOT_OVERFLOW",
-          reason_detail: overflows.join("; "),
-          completed_count: completedLessons.length, total_lessons: lessonDateEntries.length,
-          lesson_dates_count: lessonDateEntries.length, template_slot_count: templates.length,
-          resolved_lpw: 0,
-        });
-        continue;
+        if (overflows.length > 0) {
+          classified.push({
+            ...base,
+            verdict: "MANUAL_REVIEW",
+            reason_code: "SLOT_OVERFLOW",
+            reason_detail: overflows.join("; "),
+            completed_count: completedLessons.length, total_lessons: lessonDateEntries.length,
+            lesson_dates_count: lessonDateEntries.length, template_slot_count: templates.length,
+            resolved_lpw: 0,
+          });
+          continue;
+        }
       }
 
       // CHECK 6: LPW resolution
@@ -358,32 +353,55 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ---- Build instances (deterministic exact mapping only) ----
+      // ---- Build instances ----
       const instancesForInsert: any[] = [];
 
-      for (const [dateStr, lessonNums] of lessonsByDate) {
-        lessonNums.sort((a, b) => a - b);
-        const dow = getDayOfWeek(dateStr);
-        const daySlots = [...(templatesByDay.get(dow) || [])].sort((a, b) =>
-          a.start_time.localeCompare(b.start_time)
-        );
-
-        for (let i = 0; i < lessonNums.length; i++) {
-          const ln = lessonNums[i];
-          const slot = daySlots[i]; // guaranteed by slot overflow check
-          const isCompleted = completedSet.has(String(ln));
+      if (useSequenceMapping) {
+        // SEQUENCE-BASED RECOVERY: date from restore truth, time from template sequence via lesson_number
+        // Templates already sorted by day_of_week ASC, start_time ASC
+        for (const entry of lessonDateEntries) {
+          const slotIndex = (entry.lessonNumber - 1) % templates.length;
+          const slot = templates[slotIndex];
+          const isCompleted = completedSet.has(String(entry.lessonNumber));
 
           instancesForInsert.push({
             student_id: tr.student_id,
             teacher_id: tr.teacher_id,
-            lesson_number: ln,
-            lesson_date: dateStr,
+            lesson_number: entry.lessonNumber,
+            lesson_date: entry.date,
             start_time: slot.start_time,
             end_time: slot.end_time,
             status: isCompleted ? "completed" : "planned",
             package_cycle: 1,
             rescheduled_count: 0,
           });
+        }
+      } else {
+        // EXACT WEEKDAY MAPPING: original deterministic logic
+        for (const [dateStr, lessonNums] of lessonsByDate) {
+          lessonNums.sort((a, b) => a - b);
+          const dow = getDayOfWeek(dateStr);
+          const daySlots = [...(templatesByDay.get(dow) || [])].sort((a, b) =>
+            a.start_time.localeCompare(b.start_time)
+          );
+
+          for (let i = 0; i < lessonNums.length; i++) {
+            const ln = lessonNums[i];
+            const slot = daySlots[i]; // guaranteed by slot overflow check
+            const isCompleted = completedSet.has(String(ln));
+
+            instancesForInsert.push({
+              student_id: tr.student_id,
+              teacher_id: tr.teacher_id,
+              lesson_number: ln,
+              lesson_date: dateStr,
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+              status: isCompleted ? "completed" : "planned",
+              package_cycle: 1,
+              rescheduled_count: 0,
+            });
+          }
         }
       }
 
@@ -420,17 +438,21 @@ Deno.serve(async (req) => {
       }
 
       // ---- ALL CHECKS PASSED → SAFE_APPLY ----
+      const mappingMode = useSequenceMapping ? "sequence_based_recovery" as const : "exact_weekday_match" as const;
       classified.push({
         ...base,
         verdict: "SAFE_APPLY",
-        reason_code: "OK_EXACT_MATCH",
-        reason_detail: `All ${lessonDateEntries.length} dates match template days exactly`,
+        reason_code: useSequenceMapping ? "OK_SEQUENCE_RECOVERY" : "OK_EXACT_MATCH",
+        reason_detail: useSequenceMapping
+          ? `${dayMismatches.length} day mismatches recovered via sequence-based mapping`
+          : `All ${lessonDateEntries.length} dates match template days exactly`,
         completed_count: completedCount,
         total_lessons: instancesForInsert.length,
         lesson_dates_count: lessonDateEntries.length,
         template_slot_count: templates.length,
         resolved_lpw: resolvedLpw,
         instances_to_insert: instancesForInsert,
+        mapping_mode: mappingMode,
       });
     }
 
