@@ -291,7 +291,7 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
             <div>
               <CardTitle>{student.profiles.full_name} için konular</CardTitle>
               <CardDescription>
@@ -299,7 +299,7 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
               </CardDescription>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full md:w-auto">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-3 w-full lg:w-auto">
               {/* Ödev Kartı */}
               <Card className="w-full sm:w-auto sm:min-w-[200px]">
                 <CardContent className="p-3">
