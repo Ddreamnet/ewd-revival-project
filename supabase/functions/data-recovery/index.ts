@@ -187,6 +187,7 @@ Deno.serve(async (req) => {
         instances_to_insert: [] as any[],
         current_delete_count: instanceCountMap.get(key) || 0,
         template_source: templateSource,
+        mapping_mode: "none" as const,
       };
 
       // CHECK 1: Archived?
