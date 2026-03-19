@@ -291,7 +291,7 @@ export function StudentTopics({ student, teacherId }: StudentTopicsProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
             <div>
               <CardTitle>{student.profiles.full_name} için konular</CardTitle>
               <CardDescription>
