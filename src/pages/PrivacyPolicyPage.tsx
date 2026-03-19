@@ -38,6 +38,7 @@ function PrivacyPolicyContent() {
       </main>
       <Footer />
     </div>
+    </BackSwipeWrapper>
   );
 }
 

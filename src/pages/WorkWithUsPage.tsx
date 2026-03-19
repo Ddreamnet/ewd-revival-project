@@ -164,6 +164,7 @@ function WorkWithUsContent() {
       </main>
       <Footer />
     </div>
+    </BackSwipeWrapper>
   );
 }
 

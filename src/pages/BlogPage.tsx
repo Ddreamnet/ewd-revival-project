@@ -82,6 +82,7 @@ function BlogContent() {
       </main>
       <Footer />
     </div>
+    </BackSwipeWrapper>
   );
 }
 
