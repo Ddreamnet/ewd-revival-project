@@ -193,7 +193,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     <>
       <div className="flex items-center justify-center w-full">
         <div className="flex items-center border-2 border-primary/30 rounded-xl p-2 sm:p-2.5 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-sm mx-auto">
-          <div className="flex flex-col gap-2 sm:gap-2.5">
+          <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-2">
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (
               <div key={rowIndex} className="flex gap-2 sm:gap-2.5 justify-center">
                 {Array.from({ length: rowConfig.buttonsPerRow }, (_, colIndex) => {
@@ -214,7 +214,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
                         onClick={() => handleLessonClick(inst.id, isCompleted)}
                         disabled={!isNextCompletable && !isUndoable}
                         className={`
-                          h-9 w-9 sm:h-10 sm:w-10 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
+                          h-8 w-8 sm:h-9 sm:w-9 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
                           flex items-center justify-center shadow-sm relative
                           ${
                             isCompleted

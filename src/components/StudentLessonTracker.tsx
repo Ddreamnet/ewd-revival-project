@@ -137,7 +137,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
                     <div key={inst.id} className="flex flex-col items-center gap-0.5">
                       <div
                         className={`
-                          h-9 w-9 sm:h-10 sm:w-10 rounded-lg border-2 transition-all duration-200
+                          h-8 w-8 sm:h-9 sm:w-9 rounded-lg border-2 transition-all duration-200
                           flex items-center justify-center text-xs font-semibold shadow-sm
                           ${
                             isCompleted
