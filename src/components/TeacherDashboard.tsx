@@ -213,7 +213,7 @@ export function TeacherDashboard() {
             </Button>
           </>}>
         <div className="text-center">
-          <h1 className="text-xl sm:text-2xl font-bold">Öğretmen Paneli</h1>
+          <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap">Öğretmen Paneli</h1>
           <p className="text-sm sm:text-lg text-muted-foreground hidden sm:block">Hoş geldin, {profile?.full_name}</p>
         </div>
       </Header>
