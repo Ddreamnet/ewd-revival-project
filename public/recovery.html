@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Data Recovery Tool v4</title>
+  <title>Data Recovery Tool v5</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: 'SF Mono', 'Fira Code', monospace; max-width: 1000px; margin: 40px auto; padding: 0 20px; background: #0f0f1a; color: #e0e0e0; }
@@ -22,6 +22,7 @@
     .summary-card { padding: 12px; border-radius: 6px; text-align: center; }
     .summary-card .count { font-size: 28px; font-weight: bold; }
     .summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    .summary-card .sub { font-size: 10px; margin-top: 4px; opacity: 0.8; }
     .card-safe { background: #1a3a2a; color: #2ecc71; border: 1px solid #2ecc7140; }
     .card-manual { background: #3a3a1a; color: #f39c12; border: 1px solid #f39c1240; }
     .card-archived { background: #2a2a2a; color: #888; border: 1px solid #88888840; }
@@ -37,7 +38,7 @@
     .group-execute { background: #1a2a3a; color: #3498db; }
     .group-balance { background: #2a1a3a; color: #a78bfa; }
 
-    .student-row { font-size: 12px; padding: 6px 12px; border-bottom: 1px solid #ffffff10; display: grid; grid-template-columns: 30px 120px 100px 200px 80px 60px 60px 70px 1fr; gap: 8px; align-items: center; }
+    .student-row { font-size: 12px; padding: 6px 12px; border-bottom: 1px solid #ffffff10; display: grid; grid-template-columns: 30px 120px 100px 180px 80px 60px 60px 55px 70px 1fr; gap: 8px; align-items: center; }
     .student-row:hover { background: #ffffff08; }
     .manual-row { font-size: 12px; padding: 6px 12px; border-bottom: 1px solid #ffffff10; }
     .archived-row { font-size: 12px; padding: 6px 12px; border-bottom: 1px solid #ffffff10; color: #666; }
@@ -49,6 +50,8 @@
     .tag-reason { background: #3498db20; color: #3498db; font-size: 10px; }
     .tag-source-json { background: #2ecc7125; color: #2ecc71; font-size: 9px; padding: 1px 5px; border-radius: 3px; }
     .tag-source-db { background: #3498db25; color: #3498db; font-size: 9px; padding: 1px 5px; border-radius: 3px; }
+    .tag-mode-exact { background: #2ecc7120; color: #2ecc71; font-size: 9px; padding: 1px 5px; border-radius: 3px; }
+    .tag-mode-seq { background: #9b59b620; color: #bb86fc; font-size: 9px; padding: 1px 5px; border-radius: 3px; }
 
     #output { display: none; }
     #loading { display: none; color: #00d4ff; padding: 20px; text-align: center; font-size: 16px; }
@@ -57,7 +60,7 @@
 </head>
 <body>
   <h1>🔧 Data Recovery Tool</h1>
-  <div class="version">v4 — SAFE_APPLY / MANUAL_REVIEW / SKIP_ARCHIVED architecture</div>
+  <div class="version">v5 — sequence-based DAY_MISMATCH recovery</div>
 
   <div class="section">
     <label>1. restore_student_lesson_tracking.json</label>
@@ -143,8 +146,16 @@
       </div>`;
 
       // Summary cards
+      const exactCount = s.exactMatchCount || 0;
+      const seqCount = s.sequenceRecoveryCount || 0;
+      const dbfCount = s.dbFallbackCount || 0;
+
       html += `<div class="summary-grid">
-        <div class="summary-card card-safe"><div class="count">${s.safeCount || 0}</div><div class="label">Safe Apply</div></div>
+        <div class="summary-card card-safe">
+          <div class="count">${s.safeCount || 0}</div>
+          <div class="label">Safe Apply</div>
+          <div class="sub">📐 Exact: ${exactCount} · 🔀 Seq: ${seqCount} · 🔄 DB: ${dbfCount}</div>
+        </div>
         <div class="summary-card card-manual"><div class="count">${s.manualCount || 0}</div><div class="label">Manual Review</div></div>
         <div class="summary-card card-archived"><div class="count">${s.archivedCount || 0}</div><div class="label">Archived (Skip)</div></div>
         <div class="summary-card card-blocker"><div class="count">${s.blockerCount || 0}</div><div class="label">Hard Blocker</div></div>
@@ -157,12 +168,15 @@
         html += `<div class="group-header group-safe">✅ SAFE_APPLY (${r.safeApply.length})</div>`;
         html += `<div class="section" style="padding:0; overflow-x:auto;">`;
         html += `<div class="student-row" style="font-weight:bold; color:#888; font-size:11px; border-bottom:1px solid #ffffff20;">
-          <div>#</div><div>Öğrenci</div><div>Öğretmen</div><div>UUID</div><div>Tamamlanan</div><div>Slot</div><div>LPW</div><div>Kaynak</div><div>İşlem</div>
+          <div>#</div><div>Öğrenci</div><div>Öğretmen</div><div>UUID</div><div>Tamamlanan</div><div>Slot</div><div>LPW</div><div>Mod</div><div>Kaynak</div><div>İşlem</div>
         </div>`;
         r.safeApply.forEach((s, i) => {
           const srcTag = s.template_source === 'current_db_fallback'
             ? '<span class="tag-source-db">🔄 DB</span>'
             : '<span class="tag-source-json">📦 JSON</span>';
+          const modeTag = s.mapping_mode === 'sequence_based_recovery'
+            ? '<span class="tag-mode-seq">🔀 Seq</span>'
+            : '<span class="tag-mode-exact">📐 Exact</span>';
           html += `<div class="student-row">
             <div>${i + 1}</div>
             <div style="color:#2ecc71; font-weight:bold">${esc(s.student_name)}</div>
@@ -171,6 +185,7 @@
             <div><span style="color:#2ecc71; font-weight:bold">${s.completed_count}</span>/${s.total_lessons}</div>
             <div>${s.template_slot_count}</div>
             <div>${s.resolved_lpw}</div>
+            <div>${modeTag}</div>
             <div>${srcTag}</div>
             <div style="font-size:10px">DEL ${s.current_delete_count} → INS ${s.insert_count}</div>
           </div>`;
