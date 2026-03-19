@@ -53,6 +53,7 @@ interface ClassifiedStudent {
   resolved_lpw: number;
   instances_to_insert: any[];
   current_delete_count: number;
+  template_source: "restore_json" | "current_db_fallback" | "none";
 }
 
 function getDayOfWeek(dateStr: string): number {
