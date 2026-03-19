@@ -1,32 +1,24 @@
 
 
-# Post-Recovery Cleanup & Hardening (Updated)
+# Tablet Layout Fixes — Teacher Panel
 
-## What Gets Removed
+## Problem 1: "Öğretmen Paneli" title wrapping
+The h1 text wraps to two lines on tablet because there's no width constraint preventing it.
 
-| Item | Action |
+**Fix** (`src/components/TeacherDashboard.tsx` line 216):
+Add `whitespace-nowrap` to the h1 element.
+
+## Problem 2: Student detail section overflowing on tablet portrait
+In `StudentTopics.tsx`, the header area uses `md:flex-row` (breakpoint 768px) to lay out the title, homework card, and LessonTracker side-by-side. On tablet portrait (~768–1024px), this causes content to overflow or get squished.
+
+**Fix** (`src/components/StudentTopics.tsx`):
+- Line 294: Change `md:flex-row md:justify-between md:items-center` to `lg:flex-row lg:justify-between lg:items-center` — keeps the three sections stacked in a single column until 1024px+.
+- Line 302: Change `sm:flex-row` to `lg:flex-row` and `md:w-auto` to `lg:w-auto` — prevents the homework card and LessonTracker from going side-by-side too early.
+
+## Files Changed
+
+| File | Change |
 |---|---|
-| `public/recovery.html` | Archive to `docs/archive/recovery.html`, then delete from public |
-| `supabase/functions/data-recovery/index.ts` | Archive to `docs/archive/data-recovery-index.ts`, then delete |
-| `supabase/config.toml` line 27-28 (`[functions.data-recovery]`) | Remove config entry |
-| Edge function deployment | Undeploy `data-recovery` from Supabase |
-
-## What Gets Preserved
-
-All production code stays untouched:
-- `package_cycle` filtering, cycle-aware instance generation
-- All dashboard components (Teacher, Student, Admin panels)
-- All data tables: `lesson_instances`, `student_lesson_tracking`, `student_lessons`, `teacher_balance` — zero mutations
-- All other edge functions remain deployed
-
-## Steps
-
-1. **Archive recovery artifacts** — copy `public/recovery.html` to `docs/archive/recovery.html` and `supabase/functions/data-recovery/index.ts` to `docs/archive/data-recovery-index.ts` (local backup before deletion)
-2. **Delete originals** — remove `public/recovery.html` and `supabase/functions/data-recovery/index.ts`
-3. **Remove config** — delete `[functions.data-recovery]` block from `supabase/config.toml`
-4. **Undeploy edge function** — use `supabase--delete_edge_functions` to remove `data-recovery` from Supabase
-5. **Post-cleanup verification**:
-   - Fetch `https://{preview-url}/recovery.html` and confirm it returns 404 / not found
-   - Call `supabase--curl_edge_functions` on `data-recovery` and confirm it no longer responds
-   - Verify no recovery references remain in `src/`
+| `src/components/TeacherDashboard.tsx` | Add `whitespace-nowrap` to "Öğretmen Paneli" h1 |
+| `src/components/StudentTopics.tsx` | Change `md:` breakpoints to `lg:` for the student detail header layout |
 
