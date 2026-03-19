@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { Footer } from '@/components/landing/Footer';
+import { BackSwipeWrapper } from '@/components/BackSwipeWrapper';
 import { toast } from 'sonner';
 
 const FORMSPREE_ENDPOINT = "https://formspree.io/f/mwvrbpvp";
