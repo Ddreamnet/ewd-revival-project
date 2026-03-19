@@ -1,156 +1,72 @@
 
-# Lesson Scheduling System — Refactoring Plan
 
-## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅ + Phase 5 ✅ + Phase 6 ✅ + Phase 7 ✅
+# DAY_MISMATCH Recovery: Sequence-Based Slot Mapping
 
----
+## Summary
+Remove `DAY_MISMATCH` as a rejection reason. Instead, use sequence-based slot mapping: dates come from restore truth, times come from template slots via `slot_index = (lesson_number - 1) % slot_count`.
 
-## Phase 0 Deliverables (DONE)
+## Edge Function Changes (`supabase/functions/data-recovery/index.ts`)
 
-### Schema Changes (Migration)
-- ✅ `lesson_instances.package_cycle` INTEGER NOT NULL DEFAULT 1
-- ✅ `student_lesson_tracking.package_cycle` INTEGER NOT NULL DEFAULT 1
-- ✅ `teacher_balance.manual_adjustment_minutes` INTEGER NOT NULL DEFAULT 0
-- ✅ `balance_events` table with CHECK constraint on event_type
-- ✅ RLS policies on balance_events (admin full, teacher view own)
-- ✅ Indexes on package_cycle columns
-- ✅ `teacher_balance_teacher_id_key` UNIQUE constraint for upsert support
+### 1. Add `mapping_mode` to `ClassifiedStudent` interface (line 57)
+Add field: `mapping_mode: "exact_weekday_match" | "sequence_based_recovery" | "none"`
 
-### RPC Functions (Atomic Transactions)
-- ✅ `rpc_complete_lesson(instance_id, teacher_id)` — sequential completion + balance + audit
-- ✅ `rpc_undo_complete_lesson(instance_id, teacher_id)` — last-completed undo + balance reversal + audit
-- ✅ `rpc_reset_package(student_id, teacher_id, template_slots)` — non-destructive cycle increment
-- ✅ `rpc_archive_student(record_id, student_user_id, teacher_user_id)` — atomic archive
-- ✅ `rpc_manual_balance_adjust(teacher_id, amount, notes)` — separate manual category
-- ✅ `rpc_complete_trial_lesson(trial_id, teacher_id)` — trial completion + balance + audit
+### 2. Replace DAY_MISMATCH rejection (lines 293-304)
+Instead of pushing MANUAL_REVIEW and `continue`, set a flag `useSequenceMapping = true` and skip the SLOT_OVERFLOW check (lines 306-327).
 
-### Frontend Service Layer
-- ✅ `src/lib/lessonService.ts` — thin wrapper around all RPCs
-  - `completeLesson()`, `undoCompleteLesson()`, `resetPackage()`
-  - `archiveStudent()`, `manualBalanceAdjust()`, `completeTrialLesson()`
-  - `getNextCompletableInstance()`, `getLastCompletedInstance()`, `getRemainingRights()`
+### 3. Add sequence-based instance building (after line 327)
+When `useSequenceMapping === true`:
+- Sort template slots by `day_of_week ASC`, `start_time ASC`
+- For each lesson in `lessonDateEntries`, use its `lessonNumber` to determine slot:
+  - `slot_index = (lessonNumber - 1) % templates.length`
+  - Assign that slot's `start_time` / `end_time`
+- Use restore date as-is (date is truth, time comes from template sequence)
+- Mark completed/planned from `completedSet`
 
----
+**Critical rule**: Slot assignment uses `lesson_number`, NOT chronological index `i`. This ensures deterministic mapping:
+- lesson_number 1 → slot 0
+- lesson_number 2 → slot 1
+- lesson_number 3 → slot 0
+- lesson_number 4 → slot 1
 
-## Phase 1: Write Path Consolidation (NEXT)
+When `useSequenceMapping === false` (exact match path): keep existing logic (lines 359-386).
 
-### Goal
-Wire all existing mutation call sites to use `lessonService.ts` instead of inline logic.
+Both paths then share CHECK 6 (LPW) and CHECK 7 (contiguity).
 
-### Changes Required
-1. **LessonTracker.tsx** — `confirmLessonComplete` → `lessonService.completeLesson()`
-   - Add undo button calling `lessonService.undoCompleteLesson()`
-   - Enforce sequential: only enable button for `getNextCompletableInstance()` result
-2. **EditStudentDialog.tsx** — `handleMarkLastLesson` → `lessonService.completeLesson()`
-   - `handleUndoLastLesson` → `lessonService.undoCompleteLesson()`
-   - `handleResetAllLessons` → `lessonService.resetPackage()`
-   - Archive handler → `lessonService.archiveStudent()`
-3. **LessonOverrideDialog.tsx** — stop writing to `lesson_overrides` in reschedule
-4. **AdminBalanceManager.tsx** — manual adjustments → `lessonService.manualBalanceAdjust()`
-5. **Trial lesson completion** → `lessonService.completeTrialLesson()`
+### 4. Updated flow
+```text
+CHECK 1: Archived → SKIP
+CHECK 2: Empty dates → MANUAL_REVIEW
+CHECK 3: No template → MANUAL_REVIEW
+CHECK 4: Day mismatch?
+  YES → useSequenceMapping = true (skip slot overflow)
+  NO  → useSequenceMapping = false → CHECK 5: Slot overflow
+CHECK 6: LPW resolution
+Build instances (exact OR sequence path)
+CHECK 7: Contiguity check
+ALL PASS → SAFE_APPLY
+```
 
-### Key Rule Changes
-- Teacher gets undo capability (same RPC as admin)
-- Completion becomes strictly sequential (first planned by date in current cycle)
-- Balance writes become atomic (no more multi-step client-side updates)
+### 5. Response payload additions
+- Add `mapping_mode` to safeApply response objects (line 561-575)
+- Add summary counts: `exactMatchCount`, `sequenceRecoveryCount`, `dbFallbackCount`
 
----
+## Recovery HTML Changes (`public/recovery.html`)
 
-## Phase 2: Read Path Unification (DONE)
+### 1. Version bump to v5
 
-All panels derive display data from `lesson_instances.status` instead of legacy `completed_lessons` array or `lesson_dates` JSON.
+### 2. Summary grid — add sub-counts
+Show exact match / sequence recovery / DB fallback breakdown below safe apply count.
 
-### Changes Made
-- ✅ **StudentLessonTracker.tsx** — Complete rewrite: removed `completed_lessons`, `lesson_dates`, `lesson_overrides` state; derives all display from `lesson_instances`; realtime subscription on `lesson_instances` table
-- ✅ **EditStudentDialog.tsx** — Removed `completedLessons` state; added `completedCount` derived from `instances.filter(i => i.status === 'completed')`; removed `lessonOverrides` state and fetch; legacy fallback simplified (no override lookup)
-- ✅ **LessonTracker.tsx** — Already instance-based from Phase 1
+### 3. SAFE_APPLY table — add "Mod" column
+- `📐 Exact` (green) for `exact_weekday_match`
+- `🔀 Seq` (purple) for `sequence_based_recovery`
 
----
+Grid template updated from 9 to 10 columns.
 
-## Phase 3: Reschedule/Postpone Cleanup (DONE)
+## Files Modified
 
-Stop writing to `lesson_overrides`. Instance-only reschedule.
+| File | Change |
+|---|---|
+| `supabase/functions/data-recovery/index.ts` | Sequence-based recovery path, mapping_mode field, updated summary |
+| `public/recovery.html` | Mapping mode column, expanded summary, v5 |
 
-### Changes Made
-- ✅ **LessonOverrideDialog.tsx** — Removed all `lesson_overrides` INSERT/UPDATE/DELETE writes
-  - `handleOneTimeChange`: writes only to `lesson_instances`, rebuilds legacy JSON (compat-only)
-  - `handlePostponeToNextLesson`: instance-based shift only, removed legacy JSON path
-  - `handleRevert`: reverts instance only, no override record deletion
-  - All three require `instanceId` (no legacy fallback)
-- ✅ **AdminWeeklySchedule.tsx** — Removed `useLessonOverrides` hook usage
-  - Template mode: pure template positions (no override adjustments)
-  - `handleLessonClick`: simplified, no override data
-  - `handleOverrideSuccess`: no `refetchOverrides` call
-- ✅ **WeeklyScheduleDialog.tsx** — Removed `useLessonOverrides` hook usage
-  - Template mode: pure template lookup by day_of_week + start_time
-- ✅ **Legacy postpone path** (JSON-based) removed from LessonOverrideDialog
-
----
-
-## Phase 4: Package/Rights Model (DONE)
-
-### Changes Made
-- ✅ **LessonTracker.tsx** — Added cycle-aware remaining rights display (completed/total + cycle badge) using `getRemainingRights()` service call
-- ✅ **StudentLessonTracker.tsx** — Added package cycle badge next to "İşlenen Dersler" label; fetches `package_cycle` from `student_lesson_tracking`
-- ✅ **EditStudentDialog.tsx** — Weekly count change validation: blocks `lessonsPerWeek` decrease when `newTotal < completedCount` in current cycle with user-friendly error toast
-- ✅ Non-destructive reset already implemented in `rpc_reset_package` (Phase 0)
-
----
-
-## Phase 5: Archive/Delete/Reset Safety (DONE)
-
-### Changes Made
-- ✅ **`rpc_delete_student`** RPC — Atomic permanent deletion of student + all related data (topics, resources, completions, tracking, lessons, instances, overrides, notifications, admin_notifications, profile)
-- ✅ **`rpc_restore_student`** RPC — Atomic unarchive + planned instance regeneration from template slots (cycle-aware, preserves completed history)
-- ✅ **EditStudentDialog** — `handleDeleteStudent` replaced multi-step client-side deletes with `deleteStudent()` RPC call
-- ✅ **AdminDashboard** — `handleRestoreStudent` replaced simple update with `restoreStudent()` RPC call that also regenerates planned instances
-- ✅ **lessonService.ts** — Added `deleteStudent()` and `restoreStudent()` wrapper functions
-- ✅ Balance integrity: teacher balances are never touched during delete/restore (earned minutes preserved)
-
----
-
-## Phase 6: Legacy Data Retirement (DONE — partial)
-
-### Changes Made
-- ✅ **lessonService.ts** — Removed all `rebuildLegacyLessonDatesFromInstances` calls
-- ✅ **LessonOverrideDialog.tsx** — Removed all legacy sync calls
-- ✅ **EditStudentDialog.tsx** — Derives `lessonDates` from instances; removed legacy JSON reads, legacy fallback display, `completed_lessons` writes
-- ✅ **lessonSync.ts** — Removed `rebuildLegacyLessonDatesFromInstances`; kept `checkNonTemplateWeekday`
-- ✅ **useLessonOverrides.ts** — Deleted (moved `getLessonDateForCurrentWeek` to `useScheduleGrid.ts`)
-- ✅ **lesson-reminder-cron** — Rewritten to use `lesson_instances` instead of `lesson_overrides` + `student_lessons`
-- ⏳ **DB column/table drops deferred** — `completed_lessons`, `lesson_dates` columns and `lesson_overrides` table still exist; RPCs reference them for legacy compat. Safe to drop after RPC cleanup pass.
-
----
-
-## Phase 7: Cancelled Status Removal (DONE)
-
-### Changes Made
-- ✅ **Deleted `src/lib/lessonSorting.ts`** — Dead code; no imports anywhere. Used legacy `LessonOverrideInfo` + `isCancelled` logic
-- ✅ **`src/lib/lessonTypes.ts`** — Removed `LessonOverrideInfo` interface, removed `isCancelled` from `SortedLesson` and `DisplayLessonData`, updated `LessonInstance.status` comment to `'planned' | 'completed'`
-- ✅ **`src/components/EditStudentDialog.tsx`** — Removed all `isCancelled` mapping, conditional styling, and "(İptal)" label from lesson list
-- ✅ **`src/hooks/useScheduleGrid.ts`** — Removed `is_cancelled` override logic from `getAllTimeSlots`; overrides param now unused
-
----
-
-## Key Design Decisions
-
-### Package Cycle
-- Lightweight `package_cycle` INTEGER on existing tables (no new join table)
-- Pragmatic choice: sufficient for current needs
-- Future migration path to `student_package_cycles` table if reporting needs grow
-
-### Balance Events
-- `event_type` uses CHECK constraint: `lesson_complete`, `lesson_undo`, `trial_complete`, `trial_undo`, `manual_adjust`, `balance_reset`
-- Append-only audit trail alongside accumulator
-- Manual adjustments tracked in separate `manual_adjustment_minutes` column
-
-### Legacy Fields Policy
-- `completed_lessons` array and `lesson_dates` JSON are **compatibility-only** from Phase 0 onward
-- No read path uses them for business logic
-- Writes continue during transition (Phases 0-5) for backward compat only
-- Permanently retired in Phase 6
-
-### Teacher Undo
-- Intentionally simple: only the chronologically last completed in current cycle
-- No selective historical undo
-- Same RPC for admin and teacher
