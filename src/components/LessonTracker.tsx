@@ -193,7 +193,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     <>
       <div className="flex items-center justify-center w-full">
         <div className="flex items-center border-2 border-primary/30 rounded-xl p-2 sm:p-2.5 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-sm mx-auto">
-          <div className="flex flex-col gap-2 sm:gap-2.5">
+          <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-2">
             {Array.from({ length: rowConfig.rows }, (_, rowIndex) => (
               <div key={rowIndex} className="flex gap-2 sm:gap-2.5 justify-center">
                 {Array.from({ length: rowConfig.buttonsPerRow }, (_, colIndex) => {
