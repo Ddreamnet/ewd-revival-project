@@ -1,184 +1,156 @@
 
+# Lesson Scheduling System — Refactoring Plan
 
-# Strengthened Data Recovery Plan (v2)
-
-Three corrections applied to the previous plan. Everything else remains unchanged.
-
----
-
-## Correction 1: `lessons_per_week` Resolution Rule
-
-**Previous rule (problematic)**: Blindly sync from `restore_student_lesson_tracking.lessons_per_week`.
-
-**New rule**:
-
-```text
-PRIMARY SOURCE:
-  Count distinct template slots from restore_student_lessons
-  WHERE student_id = X AND teacher_id = Y
-  → slot_count
-
-CROSS-CHECK:
-  Count keys in restore_student_lesson_tracking.lesson_dates / 4
-  → inferred_lpw = ceil(lesson_dates_count / 4)
-
-VALIDATION:
-  IF slot_count == inferred_lpw → use slot_count (unanimous)
-  IF slot_count != inferred_lpw AND slot_count == tracking.lessons_per_week → use slot_count (2 of 3 agree)
-  IF all 3 differ → flag for MANUAL REVIEW, do not auto-set
-```
-
-**Rationale**: `restore_student_lessons` is the actual template definition — it's structurally correct. `lesson_dates` count divided by 4 validates it. `tracking.lessons_per_week` is just a cached value that can go stale.
-
-**Known cases where this matters**:
-- `d3b35f77` (teacher Ogretmen): tracking says `lessons_per_week=1` but has 8 lesson_dates and 2 template slots → slot_count=2, inferred=2, tracking=1 → use 2
-- `27cfb6dc` (teacher Dilara): has 12 lesson_dates with 3/week cadence but tracking says `lessons_per_week=2` → slot_count from templates will determine truth
+## Current Status: Phase 0 ✅ + Phase 1 ✅ + Phase 2 ✅ + Phase 3 ✅ + Phase 4 ✅ + Phase 5 ✅ + Phase 6 ✅ + Phase 7 ✅
 
 ---
 
-## Correction 2: Same-Day Multi-Lesson Template Mapping
+## Phase 0 Deliverables (DONE)
 
-**Previous rule (incomplete)**: Match lesson_date day-of-week to template slot day_of_week.
+### Schema Changes (Migration)
+- ✅ `lesson_instances.package_cycle` INTEGER NOT NULL DEFAULT 1
+- ✅ `student_lesson_tracking.package_cycle` INTEGER NOT NULL DEFAULT 1
+- ✅ `teacher_balance.manual_adjustment_minutes` INTEGER NOT NULL DEFAULT 0
+- ✅ `balance_events` table with CHECK constraint on event_type
+- ✅ RLS policies on balance_events (admin full, teacher view own)
+- ✅ Indexes on package_cycle columns
+- ✅ `teacher_balance_teacher_id_key` UNIQUE constraint for upsert support
 
-**New rule**:
+### RPC Functions (Atomic Transactions)
+- ✅ `rpc_complete_lesson(instance_id, teacher_id)` — sequential completion + balance + audit
+- ✅ `rpc_undo_complete_lesson(instance_id, teacher_id)` — last-completed undo + balance reversal + audit
+- ✅ `rpc_reset_package(student_id, teacher_id, template_slots)` — non-destructive cycle increment
+- ✅ `rpc_archive_student(record_id, student_user_id, teacher_user_id)` — atomic archive
+- ✅ `rpc_manual_balance_adjust(teacher_id, amount, notes)` — separate manual category
+- ✅ `rpc_complete_trial_lesson(trial_id, teacher_id)` — trial completion + balance + audit
 
-```text
-When a single lesson_date has ONE lesson:
-  → Match day_of_week(lesson_date) to the template slot with that day_of_week.
-  → Use that slot's start_time and end_time.
-
-When a single lesson_date has MULTIPLE lessons (e.g., student has 2 slots on same day):
-  → Find ALL template slots for that day_of_week, sorted by start_time ASC.
-  → Find ALL lesson_numbers assigned to that date, sorted ASC.
-  → Match them 1:1 in order.
-  → Lesson_number[0] → slot with earliest start_time
-  → Lesson_number[1] → slot with next start_time
-  → etc.
-
-When a lesson_date falls on a day with NO matching template slot:
-  → This means the lesson was manually rescheduled.
-  → Use the next unmatched template slot (by start_time ASC across all slots).
-  → Flag for manual review if ambiguous.
-```
-
-**Example**: Student `556dcff9` (Eymen, teacher Fatih) has lesson_dates `"1": "2026-02-27", "2": "2026-02-27"` — both on the same date (Friday). Template has `Fri 11:00-11:30` and `Sat 11:00-11:30`. Since both lessons are on Friday (day 5), and template has only 1 Friday slot, the mapping falls into the "rescheduled" case — lesson 1 gets Fri 11:00 slot, lesson 2 gets the next available slot (Sat 11:00 by time order). This is flagged for manual review.
+### Frontend Service Layer
+- ✅ `src/lib/lessonService.ts` — thin wrapper around all RPCs
+  - `completeLesson()`, `undoCompleteLesson()`, `resetPackage()`
+  - `archiveStudent()`, `manualBalanceAdjust()`, `completeTrialLesson()`
+  - `getNextCompletableInstance()`, `getLastCompletedInstance()`, `getRemainingRights()`
 
 ---
 
-## Correction 3: Concrete Before/After for 3 Students
+## Phase 1: Write Path Consolidation (NEXT)
 
-### A. Doğukan (3cf78ec1, teacher Fatih/4e24dbea)
+### Goal
+Wire all existing mutation call sites to use `lessonService.ts` instead of inline logic.
 
-**Templates** (same in restore and current):
-- Wed (3): 18:00–18:30
-- Thu (4): 18:00–18:30
-- `slot_count = 2` → `lessons_per_week = 2` → `total_rights = 8`
+### Changes Required
+1. **LessonTracker.tsx** — `confirmLessonComplete` → `lessonService.completeLesson()`
+   - Add undo button calling `lessonService.undoCompleteLesson()`
+   - Enforce sequential: only enable button for `getNextCompletableInstance()` result
+2. **EditStudentDialog.tsx** — `handleMarkLastLesson` → `lessonService.completeLesson()`
+   - `handleUndoLastLesson` → `lessonService.undoCompleteLesson()`
+   - `handleResetAllLessons` → `lessonService.resetPackage()`
+   - Archive handler → `lessonService.archiveStudent()`
+3. **LessonOverrideDialog.tsx** — stop writing to `lesson_overrides` in reschedule
+4. **AdminBalanceManager.tsx** — manual adjustments → `lessonService.manualBalanceAdjust()`
+5. **Trial lesson completion** → `lessonService.completeTrialLesson()`
 
-**Current state (BEFORE)**:
-```text
-#1  2026-03-11 (Tue*)  18:00-18:30  completed  ← Wed, correct
-#2  2026-03-12 (Wed*)  18:00-18:30  planned
-#3  2026-03-18 (Wed)   18:00-18:30  planned
-#4  2026-03-19 (Thu)   18:00-18:30  planned
-#5  2026-03-25 (Tue*)  18:00-18:30  planned
-#6  2026-03-26 (Wed*)  18:00-18:30  planned
-#7  2026-04-01 (Wed)   18:00-18:30  planned
-#8  2026-04-02 (Thu)   18:00-18:30  planned
-* Mar 11 is actually a Wednesday, Mar 12 is Thursday — dates are correct
-```
-UI shows: 1/8 with first box filled. Dates and day mapping are consistent with the template.
-
-**Recovery action**: The migration will:
-1. Delete all current cycle instances for this student
-2. Read `completed_lessons` and `lesson_dates` from restore truth JSON
-3. For each lesson_date entry, determine day-of-week → match to Wed or Thu template slot → get start_time/end_time
-4. Insert instances: first N as `completed`, rest as `planned`
-5. Set `lesson_number = ROW_NUMBER() OVER (ORDER BY lesson_date, start_time)`
-
-**After**: Exact dates and completed count will come from the restore truth JSON embedded in the migration. The grid will show the first N boxes filled contiguously, with correct chronological dates.
-
-### B. Emir (ab6741ab, teacher Fatih/4e24dbea)
-
-**Templates** (same in restore and current):
-- Tue (2): 19:20–19:50
-- Thu (4): 18:40–19:10
-- `slot_count = 2` → `lessons_per_week = 2` → `total_rights = 8`
-
-**Current state (BEFORE)**:
-```text
-#1  2026-02-24 (Tue)  19:20-19:50  completed
-#2  2026-02-26 (Thu)  19:20-19:50  completed  ← WRONG time! Should be 18:40
-#3  2026-03-10 (Tue)  19:20-19:50  completed
-#4  2026-03-17 (Mon!) 19:20-19:50  completed  ← WRONG day! Mon is not in template
-#5  2026-03-19 (Wed!) 19:20-19:50  planned    ← WRONG day!
-#6  2026-03-24 (Tue)  19:20-19:50  planned
-#7  2026-03-26 (Thu)  18:40-19:10  planned    ← Correct time for Thu
-#8  2026-03-31 (Mon!) 19:20-19:50  planned    ← WRONG day!
-```
-**Bugs visible**: Instances #2, #4, #5, #8 have wrong day-of-week or wrong times. This is from previous broken migrations that didn't properly match templates.
-
-**Recovery action**: Same process as Doğukan — full rebuild from restore truth.
-
-**After**: 8 instances with correct Tue/Thu dates and matching start_time/end_time from templates. Completed count from restore truth. First N boxes filled contiguously.
-
-### C. Yiğit (dabfdf47-a24a-4e20-aacd-fa6b7587d6fb, teacher Eren/27ea08b6)
-
-**Templates** (same in restore and current):
-- Mon (1): 18:40–19:10
-- Tue (2): 18:40–19:10
-- `slot_count = 2` → `lessons_per_week = 2` → `total_rights = 8`
-
-**Current state (BEFORE)**:
-```text
-#1  2026-02-07 (Sat!)  16:00-16:30  completed  ← WRONG day & time!
-#2  2026-02-14 (Sat!)  16:00-16:30  completed  ← WRONG day & time!
-#3  2026-02-17 (Tue)   18:40-19:10  completed  ← Correct
-#4  2026-02-21 (Sat!)  16:00-16:30  completed  ← WRONG day & time!
-#5  2026-02-24 (Tue)   18:40-19:10  completed  ← Correct
-#6  2026-03-02 (Mon)   18:40-19:10  planned
-#7  2026-03-03 (Tue)   18:40-19:10  planned
-#8  2026-03-09 (Mon)   18:40-19:10  planned
-```
-**Bugs visible**: Instances #1, #2, #4 have 16:00-16:30 on Saturdays — these are from an old template that was changed. The previous migration kept these legacy times. Current template is Mon/Tue 18:40-19:10.
-
-**Recovery action**: Same process — full rebuild from restore truth. The restore truth will have lesson_dates that correspond to the correct Mon/Tue schedule.
-
-**After**: 8 instances with Mon/Tue dates and 18:40-19:10 times. Completed count from restore truth. First N boxes filled contiguously. No legacy Saturday/16:00 remnants.
-
-### Restore teacher_balance verification
-
-| Teacher | Current | Restore Truth | Delta |
-|---------|---------|---------------|-------|
-| Fatih | 21 completed, 648 min | 16 completed, 498 min | -5 completed, -150 min |
-| Eren | 7 completed, 210 min | 3 completed, 90 min | -4 completed, -120 min |
-
-After recovery, teacher_balance will be overwritten with restore truth values. The completed lesson counts across all students will match the restore truth total.
+### Key Rule Changes
+- Teacher gets undo capability (same RPC as admin)
+- Completion becomes strictly sequential (first planned by date in current cycle)
+- Balance writes become atomic (no more multi-step client-side updates)
 
 ---
 
-## Note on Restore Truth Extraction
+## Phase 2: Read Path Unification (DONE)
 
-The restore JSON files are single-line arrays (~35K chars each). The file viewer truncates at ~34K characters, which means the specific tracking entries for Doğukan, Emir, and Yiğit are in the unreadable tail portion. However:
+All panels derive display data from `lesson_instances.status` instead of legacy `completed_lessons` array or `lesson_dates` JSON.
 
-1. These students were created well before the restore snapshot (Feb-Mar 2026)
-2. They ARE present in the restore files
-3. The migration script will embed the **full JSON content** as a constant and parse it at execution time
-4. Every student will be processed by the same deterministic rules described above
-5. No ambiguity exists — the rules are fully defined
-
-The before/after examples above show the **current broken state** (known) and the **exact recovery rules** that will produce the after state. The specific completed_lessons count and lesson_dates for each student will be extracted from the embedded JSON during migration execution.
+### Changes Made
+- ✅ **StudentLessonTracker.tsx** — Complete rewrite: removed `completed_lessons`, `lesson_dates`, `lesson_overrides` state; derives all display from `lesson_instances`; realtime subscription on `lesson_instances` table
+- ✅ **EditStudentDialog.tsx** — Removed `completedLessons` state; added `completedCount` derived from `instances.filter(i => i.status === 'completed')`; removed `lessonOverrides` state and fetch; legacy fallback simplified (no override lookup)
+- ✅ **LessonTracker.tsx** — Already instance-based from Phase 1
 
 ---
 
-## Everything Else: Unchanged
+## Phase 3: Reschedule/Postpone Cleanup (DONE)
 
-The rest of the recovery plan from the previous version remains exactly the same:
-- Trust order: restore_student_lesson_tracking → restore_student_lessons → restore_teacher_balance
-- Full lesson_instances rebuild for all non-archived students
-- teacher_balance direct overwrite from restore truth
-- Archive exclusion (Murat, Ela, Sumeyye, Yusuf, Alex, Cihan, Ceylin, archived Yiğit/28c23ced)
-- Contiguous completion invariant enforced by construction
-- Validation queries post-rebuild
-- Manual review for Aysenur trial minutes and students not in restore truth
-- Audit logging to balance_events with event_type='data_repair'
+Stop writing to `lesson_overrides`. Instance-only reschedule.
 
+### Changes Made
+- ✅ **LessonOverrideDialog.tsx** — Removed all `lesson_overrides` INSERT/UPDATE/DELETE writes
+  - `handleOneTimeChange`: writes only to `lesson_instances`, rebuilds legacy JSON (compat-only)
+  - `handlePostponeToNextLesson`: instance-based shift only, removed legacy JSON path
+  - `handleRevert`: reverts instance only, no override record deletion
+  - All three require `instanceId` (no legacy fallback)
+- ✅ **AdminWeeklySchedule.tsx** — Removed `useLessonOverrides` hook usage
+  - Template mode: pure template positions (no override adjustments)
+  - `handleLessonClick`: simplified, no override data
+  - `handleOverrideSuccess`: no `refetchOverrides` call
+- ✅ **WeeklyScheduleDialog.tsx** — Removed `useLessonOverrides` hook usage
+  - Template mode: pure template lookup by day_of_week + start_time
+- ✅ **Legacy postpone path** (JSON-based) removed from LessonOverrideDialog
+
+---
+
+## Phase 4: Package/Rights Model (DONE)
+
+### Changes Made
+- ✅ **LessonTracker.tsx** — Added cycle-aware remaining rights display (completed/total + cycle badge) using `getRemainingRights()` service call
+- ✅ **StudentLessonTracker.tsx** — Added package cycle badge next to "İşlenen Dersler" label; fetches `package_cycle` from `student_lesson_tracking`
+- ✅ **EditStudentDialog.tsx** — Weekly count change validation: blocks `lessonsPerWeek` decrease when `newTotal < completedCount` in current cycle with user-friendly error toast
+- ✅ Non-destructive reset already implemented in `rpc_reset_package` (Phase 0)
+
+---
+
+## Phase 5: Archive/Delete/Reset Safety (DONE)
+
+### Changes Made
+- ✅ **`rpc_delete_student`** RPC — Atomic permanent deletion of student + all related data (topics, resources, completions, tracking, lessons, instances, overrides, notifications, admin_notifications, profile)
+- ✅ **`rpc_restore_student`** RPC — Atomic unarchive + planned instance regeneration from template slots (cycle-aware, preserves completed history)
+- ✅ **EditStudentDialog** — `handleDeleteStudent` replaced multi-step client-side deletes with `deleteStudent()` RPC call
+- ✅ **AdminDashboard** — `handleRestoreStudent` replaced simple update with `restoreStudent()` RPC call that also regenerates planned instances
+- ✅ **lessonService.ts** — Added `deleteStudent()` and `restoreStudent()` wrapper functions
+- ✅ Balance integrity: teacher balances are never touched during delete/restore (earned minutes preserved)
+
+---
+
+## Phase 6: Legacy Data Retirement (DONE — partial)
+
+### Changes Made
+- ✅ **lessonService.ts** — Removed all `rebuildLegacyLessonDatesFromInstances` calls
+- ✅ **LessonOverrideDialog.tsx** — Removed all legacy sync calls
+- ✅ **EditStudentDialog.tsx** — Derives `lessonDates` from instances; removed legacy JSON reads, legacy fallback display, `completed_lessons` writes
+- ✅ **lessonSync.ts** — Removed `rebuildLegacyLessonDatesFromInstances`; kept `checkNonTemplateWeekday`
+- ✅ **useLessonOverrides.ts** — Deleted (moved `getLessonDateForCurrentWeek` to `useScheduleGrid.ts`)
+- ✅ **lesson-reminder-cron** — Rewritten to use `lesson_instances` instead of `lesson_overrides` + `student_lessons`
+- ⏳ **DB column/table drops deferred** — `completed_lessons`, `lesson_dates` columns and `lesson_overrides` table still exist; RPCs reference them for legacy compat. Safe to drop after RPC cleanup pass.
+
+---
+
+## Phase 7: Cancelled Status Removal (DONE)
+
+### Changes Made
+- ✅ **Deleted `src/lib/lessonSorting.ts`** — Dead code; no imports anywhere. Used legacy `LessonOverrideInfo` + `isCancelled` logic
+- ✅ **`src/lib/lessonTypes.ts`** — Removed `LessonOverrideInfo` interface, removed `isCancelled` from `SortedLesson` and `DisplayLessonData`, updated `LessonInstance.status` comment to `'planned' | 'completed'`
+- ✅ **`src/components/EditStudentDialog.tsx`** — Removed all `isCancelled` mapping, conditional styling, and "(İptal)" label from lesson list
+- ✅ **`src/hooks/useScheduleGrid.ts`** — Removed `is_cancelled` override logic from `getAllTimeSlots`; overrides param now unused
+
+---
+
+## Key Design Decisions
+
+### Package Cycle
+- Lightweight `package_cycle` INTEGER on existing tables (no new join table)
+- Pragmatic choice: sufficient for current needs
+- Future migration path to `student_package_cycles` table if reporting needs grow
+
+### Balance Events
+- `event_type` uses CHECK constraint: `lesson_complete`, `lesson_undo`, `trial_complete`, `trial_undo`, `manual_adjust`, `balance_reset`
+- Append-only audit trail alongside accumulator
+- Manual adjustments tracked in separate `manual_adjustment_minutes` column
+
+### Legacy Fields Policy
+- `completed_lessons` array and `lesson_dates` JSON are **compatibility-only** from Phase 0 onward
+- No read path uses them for business logic
+- Writes continue during transition (Phases 0-5) for backward compat only
+- Permanently retired in Phase 6
+
+### Teacher Undo
+- Intentionally simple: only the chronologically last completed in current cycle
+- No selective historical undo
+- Same RPC for admin and teacher

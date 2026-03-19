@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Data Recovery Tool</title>
+  <style>
+    body { font-family: monospace; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #1a1a2e; color: #e0e0e0; }
+    h1 { color: #00d4ff; }
+    .section { margin: 20px 0; padding: 15px; background: #16213e; border-radius: 8px; }
+    label { display: block; margin: 10px 0 5px; color: #00d4ff; font-weight: bold; }
+    input[type="file"] { margin: 5px 0; }
+    button { padding: 12px 24px; margin: 10px 5px; font-size: 16px; cursor: pointer; border: none; border-radius: 6px; font-family: monospace; }
+    .btn-dry { background: #f39c12; color: #000; }
+    .btn-live { background: #e74c3c; color: #fff; }
+    .btn-dry:hover { background: #e67e22; }
+    .btn-live:hover { background: #c0392b; }
+    #output { white-space: pre-wrap; background: #0a0a1a; padding: 15px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 13px; }
+    .warning { color: #f39c12; }
+    .error { color: #e74c3c; }
+    .success { color: #2ecc71; }
+  </style>
+</head>
+<body>
+  <h1>🔧 English With Dilara - Data Recovery</h1>
+  
+  <div class="section">
+    <label>1. restore_student_lesson_tracking.json</label>
+    <input type="file" id="file-tracking" accept=".json">
+    
+    <label>2. restore_student_lessons.json</label>
+    <input type="file" id="file-lessons" accept=".json">
+    
+    <label>3. restore_teacher_balance.json</label>
+    <input type="file" id="file-balance" accept=".json">
+  </div>
+
+  <div class="section">
+    <button class="btn-dry" onclick="run(true)">🔍 DRY RUN (Sadece raporla)</button>
+    <button class="btn-live" onclick="run(false)">🚀 LIVE RUN (Uygula)</button>
+  </div>
+
+  <div class="section">
+    <h3>Output:</h3>
+    <div id="output">Dosyaları seçin ve çalıştırın...</div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://hwwpbtcgppzuscbvjkde.supabase.co';
+    const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3d3BidGNncHB6dXNjYnZqa2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2MDg3ODMsImV4cCI6MjA3MDE4NDc4M30.JGRXEpY7HI4CfRJnKqlYLCDovBbZUzkEp8Jx0Jr2NYw';
+
+    async function readFile(inputId) {
+      const input = document.getElementById(inputId);
+      if (!input.files || !input.files[0]) throw new Error(`${inputId}: dosya seçilmedi`);
+      const text = await input.files[0].text();
+      return JSON.parse(text);
+    }
+
+    async function run(dryRun) {
+      const output = document.getElementById('output');
+      output.textContent = 'Yükleniyor...\n';
+
+      try {
+        const tracking = await readFile('file-tracking');
+        const lessons = await readFile('file-lessons');
+        const balance = await readFile('file-balance');
+
+        output.textContent += `Tracking: ${tracking.length} kayıt\n`;
+        output.textContent += `Lessons: ${lessons.length} kayıt\n`;
+        output.textContent += `Balance: ${balance.length} kayıt\n`;
+        output.textContent += `Mode: ${dryRun ? 'DRY RUN' : '🚨 LIVE RUN'}\n\n`;
+        output.textContent += 'Edge function çağrılıyor...\n\n';
+
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/data-recovery`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            dry_run: dryRun,
+            tracking,
+            lessons,
+            balance,
+          }),
+        });
+
+        const result = await resp.json();
+
+        if (result.error) {
+          output.textContent += `❌ ERROR: ${result.error}\n`;
+          return;
+        }
+
+        output.textContent = '';
+        for (const line of (result.log || [])) {
+          output.textContent += line + '\n';
+        }
+
+        if (result.manualReview && result.manualReview.length > 0) {
+          output.textContent += '\n--- MANUAL REVIEW ---\n';
+          for (const mr of result.manualReview) {
+            output.textContent += `⚠️ ${mr}\n`;
+          }
+        }
+
+        if (result.errors && result.errors.length > 0) {
+          output.textContent += '\n--- ERRORS ---\n';
+          for (const e of result.errors) {
+            output.textContent += `❌ ${e}\n`;
+          }
+        }
+
+        output.textContent += `\n✅ ${dryRun ? 'DRY RUN' : 'LIVE RUN'} tamamlandı.`;
+      } catch (err) {
+        output.textContent += `\n❌ Hata: ${err.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
