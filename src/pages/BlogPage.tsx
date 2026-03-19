@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Footer } from "@/components/landing/Footer";
+import { BackSwipeWrapper } from "@/components/BackSwipeWrapper";
 
 const PAGE_SIZE = 9;
 
@@ -18,6 +19,7 @@ function BlogContent() {
   const hasMore = (page + 1) * PAGE_SIZE < total;
 
   return (
+    <BackSwipeWrapper>
     <div className="landing-body min-h-screen overflow-x-hidden">
       <LandingHeader />
       <main className="pt-28 md:pt-32 pb-16 px-4">
@@ -80,6 +82,7 @@ function BlogContent() {
       </main>
       <Footer />
     </div>
+    </BackSwipeWrapper>
   );
 }
 

@@ -2,11 +2,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { Footer } from '@/components/landing/Footer';
+import { BackSwipeWrapper } from '@/components/BackSwipeWrapper';
 
 function PrivacyPolicyContent() {
   const { language, t } = useLanguage();
 
   return (
+    <BackSwipeWrapper>
     <div className="landing-body min-h-screen overflow-x-hidden">
       <LandingHeader />
       <main className="pt-28 md:pt-32 pb-16 px-4">
@@ -36,6 +38,7 @@ function PrivacyPolicyContent() {
       </main>
       <Footer />
     </div>
+    </BackSwipeWrapper>
   );
 }
 
