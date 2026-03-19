@@ -53,6 +53,7 @@ interface ClassifiedStudent {
   resolved_lpw: number;
   instances_to_insert: any[];
   current_delete_count: number;
+  template_source: "restore_json" | "current_db_fallback" | "none";
 }
 
 function getDayOfWeek(dateStr: string): number {
@@ -114,6 +115,44 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---- DB FALLBACK: fetch templates for students missing from restore JSON ----
+    const dbFallbackKeys = new Set<string>();
+    const missingPairs: { student_id: string; teacher_id: string }[] = [];
+    for (const tr of tracking) {
+      const key = `${tr.student_id}|${tr.teacher_id}`;
+      if (!templateMap.has(key) && !archivedSet.has(key)) {
+        missingPairs.push({ student_id: tr.student_id, teacher_id: tr.teacher_id });
+      }
+    }
+
+    if (missingPairs.length > 0) {
+      const missingStudentIds = [...new Set(missingPairs.map(p => p.student_id))];
+      const { data: dbSlots } = await supabase
+        .from("student_lessons")
+        .select("student_id, teacher_id, day_of_week, start_time, end_time, id")
+        .in("student_id", missingStudentIds);
+
+      // Only add slots for exact (student_id, teacher_id) pairs that were missing
+      const missingKeySet = new Set(missingPairs.map(p => `${p.student_id}|${p.teacher_id}`));
+      for (const slot of dbSlots || []) {
+        const key = `${slot.student_id}|${slot.teacher_id}`;
+        if (!missingKeySet.has(key)) continue;
+        if (!templateMap.has(key)) templateMap.set(key, []);
+        templateMap.get(key)!.push(slot as LessonSlot);
+        dbFallbackKeys.add(key);
+      }
+      // Sort newly added slots
+      for (const key of dbFallbackKeys) {
+        const slots = templateMap.get(key);
+        if (slots) {
+          slots.sort((a, b) => {
+            if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week;
+            return a.start_time.localeCompare(b.start_time);
+          });
+        }
+      }
+    }
+
     // ---- Fetch current instance counts for delete estimates ----
     const { data: allInstances } = await supabase
       .from("lesson_instances")
@@ -135,6 +174,10 @@ Deno.serve(async (req) => {
       const studentName = nameMap.get(tr.student_id) || tr.student_id.substring(0, 8);
       const teacherName = nameMap.get(tr.teacher_id) || tr.teacher_id.substring(0, 8);
 
+      const templateSource = dbFallbackKeys.has(key) ? "current_db_fallback" as const
+        : templateMap.has(key) ? "restore_json" as const
+        : "none" as const;
+
       const base = {
         student_id: tr.student_id,
         teacher_id: tr.teacher_id,
@@ -142,6 +185,7 @@ Deno.serve(async (req) => {
         teacher_name: teacherName,
         instances_to_insert: [] as any[],
         current_delete_count: instanceCountMap.get(key) || 0,
+        template_source: templateSource,
       };
 
       // CHECK 1: Archived?
@@ -527,6 +571,7 @@ Deno.serve(async (req) => {
       reason_code: s.reason_code,
       current_delete_count: s.current_delete_count,
       insert_count: s.instances_to_insert.length,
+      template_source: s.template_source,
     }));
 
     const manualReview = manualList.map(s => ({
@@ -538,6 +583,7 @@ Deno.serve(async (req) => {
       total_lessons: s.total_lessons,
       reason_code: s.reason_code,
       reason_detail: s.reason_detail,
+      template_source: s.template_source,
     }));
 
     const skippedArchived = archivedList.map(s => ({

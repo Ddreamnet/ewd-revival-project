@@ -37,7 +37,7 @@
     .group-execute { background: #1a2a3a; color: #3498db; }
     .group-balance { background: #2a1a3a; color: #a78bfa; }
 
-    .student-row { font-size: 12px; padding: 6px 12px; border-bottom: 1px solid #ffffff10; display: grid; grid-template-columns: 30px 120px 100px 200px 80px 60px 60px 1fr; gap: 8px; align-items: center; }
+    .student-row { font-size: 12px; padding: 6px 12px; border-bottom: 1px solid #ffffff10; display: grid; grid-template-columns: 30px 120px 100px 200px 80px 60px 60px 70px 1fr; gap: 8px; align-items: center; }
     .student-row:hover { background: #ffffff08; }
     .manual-row { font-size: 12px; padding: 6px 12px; border-bottom: 1px solid #ffffff10; }
     .archived-row { font-size: 12px; padding: 6px 12px; border-bottom: 1px solid #ffffff10; color: #666; }
@@ -47,6 +47,8 @@
     .tag-skip { background: #88888830; color: #888; }
     .tag-blocker { background: #e74c3c30; color: #e74c3c; }
     .tag-reason { background: #3498db20; color: #3498db; font-size: 10px; }
+    .tag-source-json { background: #2ecc7125; color: #2ecc71; font-size: 9px; padding: 1px 5px; border-radius: 3px; }
+    .tag-source-db { background: #3498db25; color: #3498db; font-size: 9px; padding: 1px 5px; border-radius: 3px; }
 
     #output { display: none; }
     #loading { display: none; color: #00d4ff; padding: 20px; text-align: center; font-size: 16px; }
@@ -155,9 +157,12 @@
         html += `<div class="group-header group-safe">✅ SAFE_APPLY (${r.safeApply.length})</div>`;
         html += `<div class="section" style="padding:0; overflow-x:auto;">`;
         html += `<div class="student-row" style="font-weight:bold; color:#888; font-size:11px; border-bottom:1px solid #ffffff20;">
-          <div>#</div><div>Öğrenci</div><div>Öğretmen</div><div>UUID</div><div>Tamamlanan</div><div>Slot</div><div>LPW</div><div>İşlem</div>
+          <div>#</div><div>Öğrenci</div><div>Öğretmen</div><div>UUID</div><div>Tamamlanan</div><div>Slot</div><div>LPW</div><div>Kaynak</div><div>İşlem</div>
         </div>`;
         r.safeApply.forEach((s, i) => {
+          const srcTag = s.template_source === 'current_db_fallback'
+            ? '<span class="tag-source-db">🔄 DB</span>'
+            : '<span class="tag-source-json">📦 JSON</span>';
           html += `<div class="student-row">
             <div>${i + 1}</div>
             <div style="color:#2ecc71; font-weight:bold">${esc(s.student_name)}</div>
@@ -166,6 +171,7 @@
             <div><span style="color:#2ecc71; font-weight:bold">${s.completed_count}</span>/${s.total_lessons}</div>
             <div>${s.template_slot_count}</div>
             <div>${s.resolved_lpw}</div>
+            <div>${srcTag}</div>
             <div style="font-size:10px">DEL ${s.current_delete_count} → INS ${s.insert_count}</div>
           </div>`;
         });
@@ -177,12 +183,17 @@
         html += `<div class="group-header group-manual">⚠️ MANUAL_REVIEW (${r.manualReview.length})</div>`;
         html += `<div class="section" style="padding:8px;">`;
         r.manualReview.forEach(s => {
+          const srcTag = s.template_source === 'current_db_fallback'
+            ? ' <span class="tag-source-db">🔄 DB</span>'
+            : s.template_source === 'restore_json'
+            ? ' <span class="tag-source-json">📦 JSON</span>'
+            : ' <span style="color:#555; font-size:9px">no template</span>';
           html += `<div class="manual-row">
             <span class="tag tag-manual">MANUAL</span>
             <strong style="color:#f39c12; margin:0 8px;">${esc(s.student_name)}</strong>
             <span style="color:#888">(${esc(s.teacher_name)})</span>
             <span style="color:#555; font-size:10px; margin-left:8px;">${s.student_id.substring(0, 8)}...</span>
-            <span class="tag tag-reason" style="margin-left:8px;">${esc(s.reason_code)}</span>
+            <span class="tag tag-reason" style="margin-left:8px;">${esc(s.reason_code)}</span>${srcTag}
             <div style="margin-left:24px; color:#888; font-size:11px; margin-top:2px;">${esc(s.reason_detail)}</div>
           </div>`;
         });
