@@ -214,7 +214,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
                         onClick={() => handleLessonClick(inst.id, isCompleted)}
                         disabled={!isNextCompletable && !isUndoable}
                         className={`
-                          h-9 w-9 sm:h-10 sm:w-10 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
+                          h-8 w-8 sm:h-9 sm:w-9 rounded-lg border-2 transition-all duration-200 font-semibold text-xs
                           flex items-center justify-center shadow-sm relative
                           ${
                             isCompleted
