@@ -212,11 +212,11 @@ export function TeacherDashboard() {
               <span className="hidden sm:inline ml-2">{signingOut ? "Çıkış..." : "Çıkış"}</span>
             </Button>
           </>}>
-        <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap">Öğretmen Paneli</h1>
+        <div className="text-center">
+          <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap">Öğretmen Paneli</h1>
+          <p className="text-sm sm:text-lg text-muted-foreground hidden sm:block">Hoş geldin, {profile?.full_name}</p>
+        </div>
       </Header>
-      <div className="border-b bg-card/50 dark:bg-card/70 backdrop-blur-sm">
-        <p className="text-center text-sm text-muted-foreground py-1">Hoş geldin, {profile?.full_name}</p>
-      </div>
 
       <div className="container mx-auto p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
