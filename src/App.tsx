@@ -5,7 +5,6 @@ import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, useRef, lazy, Suspense } from "react";
-import { captureSnapshot } from "@/lib/pageSnapshot";
 import { Capacitor } from "@capacitor/core";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
 import { AuthForm } from "@/components/AuthForm";
