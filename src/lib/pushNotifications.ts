@@ -77,6 +77,9 @@ export async function initPushNotifications(
  * Register for push and save the token to Supabase.
  */
 async function registerAndSaveToken(userId: string, role: string): Promise<void> {
+  // Remove any existing listeners to prevent accumulation on re-mounts
+  await PushNotifications.removeAllListeners();
+
   // Listen for registration success
   await PushNotifications.addListener('registration', async (token) => {
     const platform = Capacitor.getPlatform(); // 'android' | 'ios'

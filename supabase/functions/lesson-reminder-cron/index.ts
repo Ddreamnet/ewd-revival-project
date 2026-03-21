@@ -134,6 +134,7 @@ Deno.serve(async (req) => {
       title: string;
       body: string;
       channel_id?: string;
+      data?: Record<string, string>;
     }
 
     const pushRecipients: PushRecipient[] = [];
@@ -152,6 +153,7 @@ Deno.serve(async (req) => {
             title: "Ders Hatırlatma 📚",
             body: "Dersiniz 10 dakika sonra başlıyor!",
             channel_id: "lesson",
+            data: { type: "lesson_reminder", deep_link: "/dashboard" },
           });
         }
       }
@@ -166,6 +168,7 @@ Deno.serve(async (req) => {
           title: "Ders Hatırlatma 📚",
           body: `${studentName} ile dersiniz 10 dakika sonra!`,
           channel_id: "lesson",
+          data: { type: "lesson_reminder", deep_link: "/dashboard" },
         });
       }
     }
