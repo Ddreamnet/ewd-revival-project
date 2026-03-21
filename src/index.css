@@ -265,7 +265,6 @@ All colors MUST be HSL.
   body {
     @apply text-foreground;
     font-family: "Poppins", sans-serif;
-    overflow-x: hidden;
 
     /* Custom Scrollbar Variables */
     --sb-track-color: transparent;
