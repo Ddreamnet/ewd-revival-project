@@ -209,7 +209,7 @@ export function ContactSection() {
                       required
                     >
                       <SelectTrigger
-                        className="w-full min-w-0 h-9 bg-input border border-border rounded-xl text-sm sm:text-base
+                        className="w-full min-w-0 h-9 bg-input border border-border rounded-xl text-base md:text-sm
                            placeholder:text-muted-foreground
                            focus:ring-2 focus:ring-pink-400 focus:outline-none
                            [&>span]:text-muted-foreground [&>span]:data-[state=selected]:text-foreground"
