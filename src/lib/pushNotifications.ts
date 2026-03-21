@@ -35,7 +35,7 @@ async function createAndroidChannels(): Promise<void> {
  */
 export async function initPushNotifications(
   userId: string,
-  role: 'teacher' | 'student'
+  role: 'teacher' | 'student' | 'admin'
 ): Promise<void> {
   // Only run on native (Android/iOS)
   if (!Capacitor.isNativePlatform()) return;
