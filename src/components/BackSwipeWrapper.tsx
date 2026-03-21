@@ -2,20 +2,24 @@ import { type ReactNode } from 'react';
 import { useBackSwipe } from '@/hooks/useBackSwipe';
 
 export function BackSwipeWrapper({ children }: { children: ReactNode }) {
-  const { ref, swipeProgress } = useBackSwipe<HTMLDivElement>();
+  const { ref, contentRef, scrimRef } = useBackSwipe<HTMLDivElement>();
 
   return (
     <div ref={ref} className="relative">
-      {/* iOS-style left edge shadow indicator */}
-      {swipeProgress > 0 && (
-        <div
-          className="fixed inset-y-0 left-0 w-3 pointer-events-none z-50"
-          style={{
-            background: `linear-gradient(to right, rgba(0,0,0,${0.15 * swipeProgress}), transparent)`,
-          }}
-        />
-      )}
-      {children}
+      {/* Background scrim — simulates stacked page depth */}
+      <div
+        ref={scrimRef}
+        className="fixed inset-0 pointer-events-none z-[9998]"
+        style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          opacity: 0,
+          display: 'none',
+        }}
+      />
+      {/* Current page content — slides right during swipe */}
+      <div ref={contentRef} className="relative z-[9999]" style={{ backgroundColor: 'inherit' }}>
+        {children}
+      </div>
     </div>
   );
 }
