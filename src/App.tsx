@@ -77,7 +77,13 @@ function DashboardRoutes() {
 
 function ScrollToTop() {
   const { pathname } = useLocation();
+  const prevPathname = useRef(pathname);
   useEffect(() => {
+    if (prevPathname.current !== pathname) {
+      // Capture outgoing page's visual state BEFORE scroll reset
+      captureSnapshot();
+      prevPathname.current = pathname;
+    }
     window.scrollTo(0, 0);
   }, [pathname]);
   return null;
