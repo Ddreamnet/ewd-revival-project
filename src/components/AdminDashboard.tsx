@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, LogOut, FolderOpen, PenSquare } from "lucide-react";
 import { restoreStudent } from "@/lib/lessonService";
+import { initPushNotifications } from "@/lib/pushNotifications";
 import { Header } from "./Header";
 import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { AdminNotificationBell } from "./AdminNotificationBell";
@@ -58,6 +59,15 @@ export function AdminDashboard() {
 
   const { profile, signOut, signingOut } = useAuth();
   const { toast } = useToast();
+  const pushInitRef = useRef(false);
+
+  // Initialize push notifications for admin
+  useEffect(() => {
+    if (profile?.user_id && !pushInitRef.current) {
+      pushInitRef.current = true;
+      initPushNotifications(profile.user_id, 'admin');
+    }
+  }, [profile?.user_id]);
 
   const fetchStudentTopics = async (studentUserId: string, studentId: string) => {
     try {

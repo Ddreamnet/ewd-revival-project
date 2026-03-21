@@ -35,7 +35,7 @@ async function createAndroidChannels(): Promise<void> {
  */
 export async function initPushNotifications(
   userId: string,
-  role: 'teacher' | 'student'
+  role: 'teacher' | 'student' | 'admin'
 ): Promise<void> {
   // Only run on native (Android/iOS)
   if (!Capacitor.isNativePlatform()) return;
@@ -80,7 +80,18 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
   // Listen for registration success
   await PushNotifications.addListener('registration', async (token) => {
     const platform = Capacitor.getPlatform(); // 'android' | 'ios'
-    
+
+    // Clean up stale tokens from previous installs / builds
+    const { error: deleteError } = await supabase
+      .from('push_tokens')
+      .delete()
+      .eq('user_id', userId)
+      .neq('token', token.value);
+
+    if (deleteError) {
+      console.warn('[PUSH] Failed to cleanup stale tokens:', deleteError);
+    }
+
     const { error } = await supabase
       .from('push_tokens')
       .upsert(
@@ -97,6 +108,8 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
 
     if (error) {
       console.error('Failed to save push token:', error);
+    } else {
+      console.log(`[PUSH] Token registered for ${role}, stale tokens cleaned`);
     }
   });
 
