@@ -158,20 +158,21 @@ export function HomeworkListDialog({
 
       const objectUrl = URL.createObjectURL(data);
 
+      // Revoke previous URL if any (deferred to avoid blocking)
+      if (previewUrl) {
+        const oldUrl = previewUrl.url;
+        setTimeout(() => URL.revokeObjectURL(oldUrl), 0);
+      }
+
       if (fileType.startsWith('image/')) {
-        if (previewImage) URL.revokeObjectURL(previewImage);
-        if (previewPdf) { URL.revokeObjectURL(previewPdf); setPreviewPdf(null); }
-        setPreviewImage(objectUrl);
+        setPreviewUrl({ url: objectUrl, type: 'image' });
       } else if (fileType === 'application/pdf') {
-        if (previewPdf) URL.revokeObjectURL(previewPdf);
-        if (previewImage) { URL.revokeObjectURL(previewImage); setPreviewImage(null); }
-        // On native platforms, PDF blob URLs don't work in iframes — use share/download instead
         if (Capacitor.isNativePlatform()) {
           URL.revokeObjectURL(objectUrl);
           handleSaveShare(fileUrl, filePath.split('/').pop() || 'document.pdf');
           return;
         }
-        setPreviewPdf(objectUrl);
+        setPreviewUrl({ url: objectUrl, type: 'pdf' });
       }
     } catch {
       toast({ title: "Hata", description: "Dosya önizlemesi açılamadı", variant: "destructive" });
