@@ -432,14 +432,13 @@ export function HomeworkListDialog({
       {(previewImage || previewPdf) && createPortal(
         <div 
           className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
-          onClick={closePreview}
+          onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); closePreview(); } }}
         >
           {previewImage && (
             <img 
               src={previewImage} 
               className="max-w-full max-h-full object-contain p-4" 
               alt="Preview"
-              onClick={(e) => e.stopPropagation()}
             />
           )}
           {previewPdf && (
@@ -447,13 +446,12 @@ export function HomeworkListDialog({
               src={previewPdf}
               className="w-full h-full border-0"
               title="PDF Preview"
-              onClick={(e) => e.stopPropagation()}
             />
           )}
           <button
             type="button"
             className="absolute top-4 right-4 z-[201] w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white active:bg-white/30 transition-colors"
-            onClick={(e) => { e.stopPropagation(); closePreview(); }}
+            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); closePreview(); }}
             aria-label="Kapat"
           >
             <X className="h-7 w-7" />
