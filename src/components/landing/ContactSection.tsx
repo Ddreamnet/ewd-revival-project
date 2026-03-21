@@ -264,7 +264,7 @@ export function ContactSection() {
                       }
                       maxLength={1000}
                       className="w-full min-w-0 min-h-[80px] px-3 py-2 bg-input border border-border rounded-xl
-                         placeholder:text-muted-foreground text-sm sm:text-base text-foreground resize-none
+                         placeholder:text-muted-foreground text-base md:text-sm text-foreground resize-none
                          focus:ring-2 focus:ring-pink-400 focus:outline-none"
                     />
 
