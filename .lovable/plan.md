@@ -1,50 +1,73 @@
 
 
-# iOS-style Back Swipe Gesture
+# iOS Form Zoom & Scroll Fix
 
-## Approach
+## 1. Root Cause Analysis
 
-Create a `useBackSwipe` hook that detects left-edge swipe gestures and triggers `history.back()`. Apply it to the three target pages via a wrapper component.
+### Problem 1: Phone input zoom on WorkWithUsPage
+**Cause**: Line 137 — phone input uses `text-sm` only (no `text-base` mobile-first). On mobile, `text-sm` = 14px → iOS auto-zooms on focus when font-size < 16px.
+**Why other fields don't zoom**: Name/age inputs use `text-base md:text-sm` (16px on mobile) — correct pattern.
 
-## New file: `src/hooks/useBackSwipe.ts`
+### Problem 2: ContactSection form — zoom on ALL fields
+**Cause**: Lines 194-196, 249-251, 266-268 — all inputs/textarea use `text-sm sm:text-base` (wrong order). On mobile (< 640px), computed font = 14px → iOS zoom. Should be `text-base sm:text-sm` or `text-base md:text-sm`.
 
-Custom hook that:
-- Listens for `touchstart` / `touchmove` / `touchend`
-- Only activates when touch starts within 30px of left edge
-- Requires horizontal movement > 80px with angle < 30° from horizontal
-- Only runs on Capacitor native or mobile viewport (skip desktop)
-- Calls `window.history.back()` on successful swipe
-- Optional: shows a visual indicator during swipe (subtle opacity edge shadow)
+The SelectTrigger (line 212) also uses `text-sm sm:text-base` — same problem.
 
-## New file: `src/components/BackSwipeWrapper.tsx`
+### Problem 3: ContactSection scroll jump on focus
+**Cause**: `scroll-behavior: smooth` on `html` (index.css line 227) combined with iOS WKWebView keyboard resize causes the viewport to smooth-scroll to a wrong position. When keyboard opens, the viewport shrinks, and `scroll-behavior: smooth` creates an animated jump effect that overshoots.
 
-A thin wrapper component that:
-- Calls `useBackSwipe` on a ref
-- Renders children inside a div with the ref attached
-- Optionally renders a left-edge visual indicator (iOS-style shadow) during active swipe
+### Problem 4: Orientation change zoom persistence
+**Cause**: iOS Safari/WKWebView doesn't reset scale after orientation change if a focused input previously triggered auto-zoom. The zoom state "sticks."
 
-## Changes to existing pages
+### Why Android is fine
+Android Chrome doesn't auto-zoom on inputs regardless of font-size. This is purely an iOS Safari/WKWebView behavior.
 
-Each page's content component gets wrapped with `<BackSwipeWrapper>`:
-- `src/pages/WorkWithUsPage.tsx` — wrap `WorkWithUsContent` return
-- `src/pages/PrivacyPolicyPage.tsx` — wrap `PrivacyPolicyContent` return  
-- `src/pages/BlogPage.tsx` — wrap `BlogContent` return
+## 2. Fixes
 
-## Edge cases handled
+### Fix A: WorkWithUsPage phone input font-size
+**File**: `src/pages/WorkWithUsPage.tsx`, line 137
+**Change**: `text-sm` → `text-base md:text-sm`
 
-- Gesture only fires from left 30px edge strip — won't interfere with horizontal scrolling or carousels
-- Angle check prevents vertical scroll from triggering back
-- Desktop/non-touch devices: hook is a no-op
-- Android: Android already has native back gesture; hook checks `Capacitor.getPlatform() === 'ios'` and only activates on iOS + web mobile
-- React Router compatibility: `window.history.back()` works with React Router's BrowserRouter
+### Fix B: ContactSection — all form fields font-size
+**File**: `src/components/landing/ContactSection.tsx`
+- Line 195: `text-sm sm:text-base` → `text-base md:text-sm` (fullName input)
+- Line 212: `text-sm sm:text-base` → `text-base md:text-sm` (SelectTrigger)
+- Line 250: `text-sm sm:text-base` → `text-base md:text-sm` (phone input)
+- Line 267: `text-sm sm:text-base` → `text-base md:text-sm` (textarea)
 
-## Files
+### Fix C: SelectTrigger base component
+**File**: `src/components/ui/select.tsx`, line 20
+**Change**: `text-sm` → `text-base md:text-sm`
+This ensures ALL Select components across the app are iOS-safe by default.
 
-| File | Action |
-|---|---|
-| `src/hooks/useBackSwipe.ts` | New — gesture detection hook |
-| `src/components/BackSwipeWrapper.tsx` | New — wrapper with visual indicator |
-| `src/pages/WorkWithUsPage.tsx` | Wrap content |
-| `src/pages/PrivacyPolicyPage.tsx` | Wrap content |
-| `src/pages/BlogPage.tsx` | Wrap content |
+### Fix D: Scroll-behavior smooth → remove from html
+**File**: `src/index.css`, line 227
+**Change**: Remove `scroll-behavior: smooth` from `html`. The smooth scrolling is already handled by JS via `scrollIntoView({ behavior: 'smooth' })` where needed. Having it globally on `html` causes iOS keyboard open/close to trigger smooth scroll animations to wrong positions.
+
+## 3. Files to change
+
+| File | Change | Risk |
+|---|---|---|
+| `src/pages/WorkWithUsPage.tsx` | Phone input: `text-sm` → `text-base md:text-sm` | None |
+| `src/components/landing/ContactSection.tsx` | 4 fields: `text-sm sm:text-base` → `text-base md:text-sm` | None |
+| `src/components/ui/select.tsx` | SelectTrigger base: `text-sm` → `text-base md:text-sm` | Low — slightly larger select text on mobile across app, but consistent with Input/Textarea |
+| `src/index.css` | Remove `scroll-behavior: smooth` from `html` | Low — all smooth scrolls are already JS-based |
+
+## 4. Why this fixes everything
+
+- **No zoom**: All form fields will have computed font-size ≥ 16px on mobile → iOS won't auto-zoom
+- **No scroll jump**: Removing global `scroll-behavior: smooth` prevents iOS WKWebView from animating viewport adjustments when keyboard opens
+- **Orientation stable**: Without auto-zoom triggering, orientation changes won't have stuck zoom state
+- **Android unaffected**: These are CSS-only changes; Android already works fine
+- **No viewport hack needed**: No `user-scalable=no` or `maximum-scale=1` — accessibility preserved
+
+## 5. Test checklist
+- iPhone portrait: tap each form field → no zoom
+- iPhone landscape: same test
+- iPad portrait/landscape: same test
+- Landing page contact form: all 4 fields
+- Bizimle Çalışın: phone field specifically
+- Keyboard open/close: page shouldn't jump
+- Orientation change mid-form: no zoom persistence
+- Android: verify no regression
 
