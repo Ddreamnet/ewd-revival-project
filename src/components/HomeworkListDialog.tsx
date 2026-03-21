@@ -68,6 +68,7 @@ export function HomeworkListDialog({
   const [editHomework, setEditHomework] = useState<Homework | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [previewPdf, setPreviewPdf] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
