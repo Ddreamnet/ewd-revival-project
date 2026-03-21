@@ -247,7 +247,7 @@ export function ContactSection() {
                         autoComplete="tel"
                         maxLength={15}
                         className="min-w-0 flex-1 h-9 px-3 bg-input border border-border
-                           placeholder:text-muted-foreground text-sm sm:text-base text-foreground
+                           placeholder:text-muted-foreground text-base md:text-sm text-foreground
                            focus:ring-2 focus:ring-pink-400 focus:outline-none"
                       />
                     </div>
