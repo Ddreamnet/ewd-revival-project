@@ -225,7 +225,8 @@ All colors MUST be HSL.
     min-height: 100%;
     margin: 0;
     /* scroll-behavior: smooth removed — causes iOS WKWebView scroll jumps on keyboard open */
-    overflow-x: hidden;
+    /* overflow-x: hidden removed — causes iOS WKWebView scroll-to-top on input focus.
+       #root already has overflow-x: hidden which is sufficient. */
   }
 
   #root {
