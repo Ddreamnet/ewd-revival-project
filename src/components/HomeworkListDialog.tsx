@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,7 @@ export function HomeworkListDialog({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editHomework, setEditHomework] = useState<Homework | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewPdf, setPreviewPdf] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -158,17 +160,30 @@ export function HomeworkListDialog({
       const objectUrl = URL.createObjectURL(data);
 
       if (fileType.startsWith('image/')) {
-        // Cleanup previous blob URL before setting new one
         if (previewImage) URL.revokeObjectURL(previewImage);
+        if (previewPdf) { URL.revokeObjectURL(previewPdf); setPreviewPdf(null); }
         setPreviewImage(objectUrl);
       } else if (fileType === 'application/pdf') {
-        window.open(objectUrl, '_blank');
-        // Cleanup PDF blob URL after browser has had time to load it
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+        if (previewPdf) URL.revokeObjectURL(previewPdf);
+        if (previewImage) { URL.revokeObjectURL(previewImage); setPreviewImage(null); }
+        // On native platforms, PDF blob URLs don't work in iframes — use share/download instead
+        if (Capacitor.isNativePlatform()) {
+          URL.revokeObjectURL(objectUrl);
+          handleSaveShare(fileUrl, filePath.split('/').pop() || 'document.pdf');
+          return;
+        }
+        setPreviewPdf(objectUrl);
       }
     } catch {
       toast({ title: "Hata", description: "Dosya önizlemesi açılamadı", variant: "destructive" });
     }
+  };
+
+  const closePreview = () => {
+    if (previewImage) URL.revokeObjectURL(previewImage);
+    if (previewPdf) URL.revokeObjectURL(previewPdf);
+    setPreviewImage(null);
+    setPreviewPdf(null);
   };
 
   const handleSaveShare = async (fileUrl: string, fileName: string) => {
@@ -413,27 +428,38 @@ export function HomeworkListDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Fullscreen image preview overlay */}
-      {previewImage && (
+      {/* Fullscreen preview overlay — rendered via portal to escape Dialog z-index */}
+      {(previewImage || previewPdf) && createPortal(
         <div 
-          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center cursor-pointer"
-          onClick={() => { if (previewImage) URL.revokeObjectURL(previewImage); setPreviewImage(null); }}
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
+          onClick={closePreview}
         >
-          <img 
-            src={previewImage} 
-            className="max-w-full max-h-full object-contain p-4" 
-            alt="Preview"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 text-white hover:bg-white/20"
-            onClick={() => { if (previewImage) URL.revokeObjectURL(previewImage); setPreviewImage(null); }}
+          {previewImage && (
+            <img 
+              src={previewImage} 
+              className="max-w-full max-h-full object-contain p-4" 
+              alt="Preview"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+          {previewPdf && (
+            <iframe
+              src={previewPdf}
+              className="w-full h-full border-0"
+              title="PDF Preview"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+          <button
+            type="button"
+            className="absolute top-4 right-4 z-[201] w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white active:bg-white/30 transition-colors"
+            onClick={(e) => { e.stopPropagation(); closePreview(); }}
+            aria-label="Kapat"
           >
-            <X className="h-6 w-6" />
-          </Button>
-        </div>
+            <X className="h-7 w-7" />
+          </button>
+        </div>,
+        document.body
       )}
 
       {/* Edit Dialog */}
