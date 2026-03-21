@@ -192,7 +192,7 @@ export function ContactSection() {
                         autoComplete="name"
                         maxLength={100}
                         className="w-full min-w-0 h-9 px-3 pr-10 bg-input border border-border rounded-xl
-                           placeholder:text-muted-foreground text-sm sm:text-base text-foreground
+                           placeholder:text-muted-foreground text-base md:text-sm text-foreground
                            focus:ring-2 focus:ring-pink-400 focus:outline-none"
                       />
                       <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
