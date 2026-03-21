@@ -258,13 +258,13 @@ All colors MUST be HSL.
     min-height: 100%;
     margin: 0;
     background: transparent;
-    overflow-x: hidden;
+    /* overflow-x: hidden removed from body — #root handles it.
+       Having it on body breaks iOS WKWebView scroll-into-view on input focus. */
   }
 
   body {
     @apply text-foreground;
     font-family: "Poppins", sans-serif;
-    overflow-x: hidden;
 
     /* Custom Scrollbar Variables */
     --sb-track-color: transparent;

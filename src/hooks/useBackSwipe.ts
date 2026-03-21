@@ -1,20 +1,25 @@
 import { useEffect, useRef, useCallback, type RefObject } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-const EDGE_THRESHOLD = 30;      // px from left edge to start
-const SWIPE_THRESHOLD = 100;    // px horizontal distance to trigger
-const MAX_ANGLE = 30;           // degrees from horizontal
-const VELOCITY_THRESHOLD = 0.5; // px/ms — fast flick triggers regardless of distance
-const COMPLETE_DURATION = 300;  // ms for completion animation
-const CANCEL_DURATION = 250;    // ms for cancel animation
-const MAX_SCRIM_OPACITY = 0.3;
+const EDGE_THRESHOLD = 30;
+const SWIPE_THRESHOLD = 100;
+const MAX_ANGLE = 30;
+const VELOCITY_THRESHOLD = 0.5;
+const COMPLETE_DURATION = 300;
+const CANCEL_DURATION = 250;
+const MAX_SCRIM_OPACITY = 0.4;
 
-export interface SwipeCallbacks {
-  onSwipeStart?: () => void;
-  onSwipeEnd?: () => void;
-}
+/**
+ * Track navigation depth so we know if there's a real previous page.
+ * Only count forward pushes; replaces don't add depth.
+ * On back navigation, depth decreases.
+ */
+let navDepth = 0;
 
-export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks): {
+// Routes where swipe-back should NOT trigger (auth, dashboard)
+const DISABLED_ROUTES = ['/login', '/dashboard'];
+
+export function useBackSwipe<T extends HTMLElement>(): {
   ref: RefObject<T>;
   contentRef: RefObject<HTMLDivElement>;
   scrimRef: RefObject<HTMLDivElement>;
@@ -23,10 +28,31 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
   const contentRef = useRef<HTMLDivElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const callbacksRef = useRef(callbacks);
-  callbacksRef.current = callbacks;
+  const location = useLocation();
 
-  // Mutable tracking state (no React re-renders during gesture)
+  // Track navigation depth via history length changes
+  const lastHistoryLength = useRef(window.history.length);
+  const lastPathname = useRef(location.pathname);
+
+  useEffect(() => {
+    const currentLength = window.history.length;
+    const pathname = location.pathname;
+
+    if (pathname !== lastPathname.current) {
+      if (currentLength > lastHistoryLength.current) {
+        // Forward navigation (push)
+        navDepth++;
+      } else if (currentLength < lastHistoryLength.current) {
+        // Back navigation
+        navDepth = Math.max(0, navDepth - 1);
+      }
+      // If length is same, it's a replace — depth stays the same
+    }
+
+    lastHistoryLength.current = currentLength;
+    lastPathname.current = pathname;
+  }, [location.pathname]);
+
   const state = useRef({
     tracking: false,
     startX: 0,
@@ -36,7 +62,7 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
     lastTime: 0,
     dx: 0,
     angleLocked: false,
-    swipeActive: false, // true once we've committed to the gesture (called onSwipeStart)
+    animating: false, // prevents interactions during completion/cancel animation
   });
 
   const applyTransform = useCallback((dx: number) => {
@@ -46,14 +72,13 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
 
     const progress = Math.min(dx / window.innerWidth, 1);
 
-    // Current page slides right with left-edge shadow
     content.style.transform = `translateX(${dx}px)`;
     content.style.boxShadow = dx > 0
       ? `-8px 0 30px rgba(0, 0, 0, ${0.15 * (1 - progress)})`
       : 'none';
 
-    // Scrim fades out as page slides away
     if (scrim) {
+      // Show themed background behind with decreasing opacity
       scrim.style.opacity = String(MAX_SCRIM_OPACITY * (1 - progress));
       scrim.style.display = dx > 0 ? 'block' : 'none';
     }
@@ -64,14 +89,9 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
     const scrim = scrimRef.current;
     const s = state.current;
 
-    // Notify swipe ended
-    if (s.swipeActive) {
-      s.swipeActive = false;
-      callbacksRef.current?.onSwipeEnd?.();
-    }
-
     if (content) {
       if (animated) {
+        s.animating = true;
         content.style.transition = `transform ${CANCEL_DURATION}ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow ${CANCEL_DURATION}ms ease-out`;
       }
       content.style.transform = 'translateX(0)';
@@ -84,6 +104,7 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
           if (cleaned) return;
           cleaned = true;
           content.style.transition = '';
+          s.animating = false;
         };
         content.addEventListener('transitionend', cleanup, { once: true });
         setTimeout(cleanup, CANCEL_DURATION + 50);
@@ -111,23 +132,31 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
     const content = contentRef.current;
     const scrim = scrimRef.current;
     const s = state.current;
+
+    // History safety: don't navigate if there's no real previous page
+    if (navDepth <= 0) {
+      resetTransform(true);
+      return;
+    }
+
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (prefersReduced) {
-      // Instant navigation
       if (content) { content.style.transform = ''; content.style.boxShadow = ''; content.style.willChange = ''; }
       if (scrim) { scrim.style.display = 'none'; scrim.style.opacity = '0'; }
-      if (s.swipeActive) { s.swipeActive = false; callbacksRef.current?.onSwipeEnd?.(); }
+      navDepth = Math.max(0, navDepth - 1);
       navigate(-1);
       return;
     }
+
+    s.animating = true;
 
     if (content) {
       content.style.transition = `transform ${COMPLETE_DURATION}ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow ${COMPLETE_DURATION}ms ease-out`;
       content.style.transform = 'translateX(100vw)';
       content.style.boxShadow = 'none';
 
-      // *** CRITICAL FIX: Guard against double navigate(-1) ***
+      // CRITICAL: single-fire guard prevents double navigate(-1)
       let navigated = false;
       const onEnd = () => {
         if (navigated) return;
@@ -135,14 +164,14 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
         content.style.transition = '';
         content.style.transform = '';
         content.style.willChange = '';
-        if (s.swipeActive) { s.swipeActive = false; callbacksRef.current?.onSwipeEnd?.(); }
+        s.animating = false;
+        navDepth = Math.max(0, navDepth - 1);
         navigate(-1);
       };
       content.addEventListener('transitionend', onEnd, { once: true });
-      // Fallback in case transitionend doesn't fire
       setTimeout(onEnd, COMPLETE_DURATION + 50);
     } else {
-      if (s.swipeActive) { s.swipeActive = false; callbacksRef.current?.onSwipeEnd?.(); }
+      navDepth = Math.max(0, navDepth - 1);
       navigate(-1);
     }
 
@@ -150,10 +179,9 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
       scrim.style.transition = `opacity ${COMPLETE_DURATION}ms ease-out`;
       scrim.style.opacity = '0';
     }
-  }, [navigate]);
+  }, [navigate, resetTransform]);
 
   useEffect(() => {
-    // Enable on mobile only (both iOS and Android)
     const isMobile = 'ontouchstart' in window && window.innerWidth < 1024;
     if (!isMobile) return;
 
@@ -163,6 +191,10 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
     const s = state.current;
 
     const onTouchStart = (e: TouchEvent) => {
+      // Don't start gesture if animation is running or on disabled routes
+      if (s.animating) return;
+      if (DISABLED_ROUTES.some(r => location.pathname.startsWith(r))) return;
+
       const touch = e.touches[0];
       if (touch.clientX <= EDGE_THRESHOLD) {
         s.tracking = true;
@@ -190,7 +222,6 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
       const dx = touch.clientX - s.startX;
       const dy = Math.abs(touch.clientY - s.startY);
 
-      // Angle check — if too vertical, cancel tracking
       if (!s.angleLocked && dy > 10) {
         const angle = Math.atan2(dy, Math.abs(dx)) * (180 / Math.PI);
         if (angle > MAX_ANGLE) {
@@ -201,13 +232,7 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
         if (Math.abs(dx) > 10) s.angleLocked = true;
       }
 
-      // Only allow rightward movement
       if (dx > 0) {
-        // Notify swipe started (first meaningful move)
-        if (!s.swipeActive) {
-          s.swipeActive = true;
-          callbacksRef.current?.onSwipeStart?.();
-        }
         s.dx = dx;
         s.lastX = touch.clientX;
         s.lastTime = Date.now();
@@ -224,8 +249,7 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
       const elapsed = Date.now() - s.startTime;
       const velocity = elapsed > 0 ? dx / elapsed : 0;
 
-      // Decide: complete or cancel
-      if (dx >= SWIPE_THRESHOLD || velocity >= VELOCITY_THRESHOLD) {
+      if ((dx >= SWIPE_THRESHOLD || velocity >= VELOCITY_THRESHOLD) && navDepth > 0) {
         completeTransition();
       } else {
         resetTransform(true);
@@ -250,7 +274,7 @@ export function useBackSwipe<T extends HTMLElement>(callbacks?: SwipeCallbacks):
       el.removeEventListener('touchend', onTouchEnd);
       el.removeEventListener('touchcancel', onTouchCancel);
     };
-  }, [applyTransform, resetTransform, completeTransition]);
+  }, [applyTransform, resetTransform, completeTransition, location.pathname]);
 
   return { ref, contentRef, scrimRef };
 }

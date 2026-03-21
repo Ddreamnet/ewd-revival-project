@@ -66,8 +66,7 @@ export function HomeworkListDialog({
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editHomework, setEditHomework] = useState<Homework | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [previewPdf, setPreviewPdf] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<{ url: string; type: 'image' | 'pdf' } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -159,20 +158,21 @@ export function HomeworkListDialog({
 
       const objectUrl = URL.createObjectURL(data);
 
+      // Revoke previous URL if any (deferred to avoid blocking)
+      if (previewUrl) {
+        const oldUrl = previewUrl.url;
+        setTimeout(() => URL.revokeObjectURL(oldUrl), 0);
+      }
+
       if (fileType.startsWith('image/')) {
-        if (previewImage) URL.revokeObjectURL(previewImage);
-        if (previewPdf) { URL.revokeObjectURL(previewPdf); setPreviewPdf(null); }
-        setPreviewImage(objectUrl);
+        setPreviewUrl({ url: objectUrl, type: 'image' });
       } else if (fileType === 'application/pdf') {
-        if (previewPdf) URL.revokeObjectURL(previewPdf);
-        if (previewImage) { URL.revokeObjectURL(previewImage); setPreviewImage(null); }
-        // On native platforms, PDF blob URLs don't work in iframes — use share/download instead
         if (Capacitor.isNativePlatform()) {
           URL.revokeObjectURL(objectUrl);
           handleSaveShare(fileUrl, filePath.split('/').pop() || 'document.pdf');
           return;
         }
-        setPreviewPdf(objectUrl);
+        setPreviewUrl({ url: objectUrl, type: 'pdf' });
       }
     } catch {
       toast({ title: "Hata", description: "Dosya önizlemesi açılamadı", variant: "destructive" });
@@ -180,10 +180,12 @@ export function HomeworkListDialog({
   };
 
   const closePreview = () => {
-    if (previewImage) URL.revokeObjectURL(previewImage);
-    if (previewPdf) URL.revokeObjectURL(previewPdf);
-    setPreviewImage(null);
-    setPreviewPdf(null);
+    // Close UI immediately, defer expensive blob cleanup
+    const urlToRevoke = previewUrl?.url;
+    setPreviewUrl(null);
+    if (urlToRevoke) {
+      requestAnimationFrame(() => URL.revokeObjectURL(urlToRevoke));
+    }
   };
 
   const handleSaveShare = async (fileUrl: string, fileName: string) => {
@@ -429,21 +431,21 @@ export function HomeworkListDialog({
       </Dialog>
 
       {/* Fullscreen preview overlay — rendered via portal to escape Dialog z-index */}
-      {(previewImage || previewPdf) && createPortal(
+      {previewUrl && createPortal(
         <div 
           className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
-          onPointerDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); closePreview(); } }}
+          onClick={(e) => { if (e.target === e.currentTarget) closePreview(); }}
         >
-          {previewImage && (
+          {previewUrl.type === 'image' && (
             <img 
-              src={previewImage} 
+              src={previewUrl.url} 
               className="max-w-full max-h-full object-contain p-4" 
               alt="Preview"
             />
           )}
-          {previewPdf && (
+          {previewUrl.type === 'pdf' && (
             <iframe
-              src={previewPdf}
+              src={previewUrl.url}
               className="w-full h-full border-0"
               title="PDF Preview"
             />
@@ -451,7 +453,7 @@ export function HomeworkListDialog({
           <button
             type="button"
             className="absolute top-4 right-4 z-[201] w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white active:bg-white/30 transition-colors"
-            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); closePreview(); }}
+            onClick={closePreview}
             aria-label="Kapat"
           >
             <X className="h-7 w-7" />
