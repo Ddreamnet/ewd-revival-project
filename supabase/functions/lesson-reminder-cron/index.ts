@@ -153,6 +153,7 @@ Deno.serve(async (req) => {
             title: "Ders Hatırlatma 📚",
             body: "Dersiniz 10 dakika sonra başlıyor!",
             channel_id: "lesson",
+            data: { type: "lesson_reminder", deep_link: "/dashboard" },
           });
         }
       }
