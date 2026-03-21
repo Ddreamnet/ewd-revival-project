@@ -224,7 +224,7 @@ All colors MUST be HSL.
   html {
     min-height: 100%;
     margin: 0;
-    scroll-behavior: smooth;
+    /* scroll-behavior: smooth removed — causes iOS WKWebView scroll jumps on keyboard open */
     overflow-x: hidden;
   }
 
