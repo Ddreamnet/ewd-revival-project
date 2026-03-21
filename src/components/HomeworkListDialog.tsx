@@ -428,27 +428,38 @@ export function HomeworkListDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Fullscreen image preview overlay */}
-      {previewImage && (
+      {/* Fullscreen preview overlay — rendered via portal to escape Dialog z-index */}
+      {(previewImage || previewPdf) && createPortal(
         <div 
-          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center cursor-pointer"
-          onClick={() => { if (previewImage) URL.revokeObjectURL(previewImage); setPreviewImage(null); }}
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
+          onClick={closePreview}
         >
-          <img 
-            src={previewImage} 
-            className="max-w-full max-h-full object-contain p-4" 
-            alt="Preview"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 text-white hover:bg-white/20"
-            onClick={() => { if (previewImage) URL.revokeObjectURL(previewImage); setPreviewImage(null); }}
+          {previewImage && (
+            <img 
+              src={previewImage} 
+              className="max-w-full max-h-full object-contain p-4" 
+              alt="Preview"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+          {previewPdf && (
+            <iframe
+              src={previewPdf}
+              className="w-full h-full border-0"
+              title="PDF Preview"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+          <button
+            type="button"
+            className="absolute top-4 right-4 z-[201] w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white active:bg-white/30 transition-colors"
+            onClick={(e) => { e.stopPropagation(); closePreview(); }}
+            aria-label="Kapat"
           >
-            <X className="h-6 w-6" />
-          </Button>
-        </div>
+            <X className="h-7 w-7" />
+          </button>
+        </div>,
+        document.body
       )}
 
       {/* Edit Dialog */}
