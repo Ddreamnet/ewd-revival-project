@@ -59,6 +59,15 @@ export function AdminDashboard() {
 
   const { profile, signOut, signingOut } = useAuth();
   const { toast } = useToast();
+  const pushInitRef = useRef(false);
+
+  // Initialize push notifications for admin
+  useEffect(() => {
+    if (profile?.user_id && !pushInitRef.current) {
+      pushInitRef.current = true;
+      initPushNotifications(profile.user_id, 'admin');
+    }
+  }, [profile?.user_id]);
 
   const fetchStudentTopics = async (studentUserId: string, studentId: string) => {
     try {
