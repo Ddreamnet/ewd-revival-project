@@ -4,7 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, useRef, lazy, Suspense } from "react";
+import { captureSnapshot } from "@/lib/pageSnapshot";
 import { Capacitor } from "@capacitor/core";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
 import { AuthForm } from "@/components/AuthForm";
@@ -76,7 +77,13 @@ function DashboardRoutes() {
 
 function ScrollToTop() {
   const { pathname } = useLocation();
+  const prevPathname = useRef(pathname);
   useEffect(() => {
+    if (prevPathname.current !== pathname) {
+      // Capture outgoing page's visual state BEFORE scroll reset
+      captureSnapshot();
+      prevPathname.current = pathname;
+    }
     window.scrollTo(0, 0);
   }, [pathname]);
   return null;
