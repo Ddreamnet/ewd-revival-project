@@ -69,6 +69,51 @@ export function AdminDashboard() {
     }
   }, [profile?.user_id]);
 
+  // Handle notification tap deep link (student_settings action)
+  useEffect(() => {
+    const handleNotificationNav = () => {
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get('action');
+      const studentId = params.get('student_id');
+      const teacherId = params.get('teacher_id');
+
+      if (action === 'student_settings' && studentId && teacherId) {
+        // Clean URL immediately
+        window.history.replaceState({}, '', '/dashboard');
+
+        // Wait for teachers data to be loaded
+        const tryOpenDialog = () => {
+          const teacher = teachers.find(t => t.user_id === teacherId);
+          if (teacher) {
+            setSelectedTeacher(teacher);
+            const student = teacher.students.find(s => s.student_id === studentId);
+            if (student) {
+              setEditingStudent(student);
+              setShowEditStudent(true);
+            }
+          }
+        };
+
+        if (teachers.length > 0) {
+          tryOpenDialog();
+        } else {
+          // Retry after data loads
+          const interval = setInterval(() => {
+            if (teachers.length > 0) {
+              clearInterval(interval);
+              tryOpenDialog();
+            }
+          }, 300);
+          setTimeout(() => clearInterval(interval), 5000);
+        }
+      }
+    };
+
+    handleNotificationNav();
+    window.addEventListener('popstate', handleNotificationNav);
+    return () => window.removeEventListener('popstate', handleNotificationNav);
+  }, [teachers]);
+
   const fetchStudentTopics = async (studentUserId: string, studentId: string) => {
     try {
       const [studentTopicsResponse, globalTopicsResponse, completionResponse] = await Promise.all([
