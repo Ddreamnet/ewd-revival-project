@@ -84,7 +84,7 @@ export function AuthForm() {
   return (
     <div className="login-board-wrap">
       {/* Logo - same position as landing page */}
-      <Link to="/" className="fixed left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
+      <Link to="/" className="login-logo fixed left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
         <img
           src="/uploads/logo.webp"
           alt="English with Dilara"
