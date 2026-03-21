@@ -180,10 +180,12 @@ export function HomeworkListDialog({
   };
 
   const closePreview = () => {
-    if (previewImage) URL.revokeObjectURL(previewImage);
-    if (previewPdf) URL.revokeObjectURL(previewPdf);
-    setPreviewImage(null);
-    setPreviewPdf(null);
+    // Close UI immediately, defer expensive blob cleanup
+    const urlToRevoke = previewUrl?.url;
+    setPreviewUrl(null);
+    if (urlToRevoke) {
+      requestAnimationFrame(() => URL.revokeObjectURL(urlToRevoke));
+    }
   };
 
   const handleSaveShare = async (fileUrl: string, fileName: string) => {
