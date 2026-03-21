@@ -134,6 +134,7 @@ Deno.serve(async (req) => {
       title: string;
       body: string;
       channel_id?: string;
+      data?: Record<string, string>;
     }
 
     const pushRecipients: PushRecipient[] = [];
