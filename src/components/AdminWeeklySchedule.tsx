@@ -100,6 +100,9 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   useEffect(() => {
     if (!showTemplate) {
       fetchActualSchedule();
+      // Prefetch adjacent weeks
+      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
+      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
     }
   }, [showTemplate, teacherId, weekOffset]);
 

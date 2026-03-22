@@ -77,6 +77,9 @@ export function WeeklyScheduleDialog({
   useEffect(() => {
     if (open && !showTemplate && teacherId) {
       fetchActualSchedule();
+      // Prefetch adjacent weeks
+      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
+      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
     }
   }, [open, showTemplate, teacherId, weekOffset]);
 
