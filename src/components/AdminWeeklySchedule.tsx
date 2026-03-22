@@ -603,7 +603,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                               <Button
                                 variant="outline"
                                 className={`w-full justify-center py-2 relative ${
-                                  actualLesson.isGhost ? "opacity-50 cursor-default" : "cursor-pointer"
+                                  actualLesson.isGhost ? "cursor-default" : "cursor-pointer"
                                 } ${
                                   !actualLesson.isGhost && actualLesson.status === "completed" ? "opacity-40" : ""
                                 } ${!actualLesson.isGhost && actualLesson.rescheduled_count > 0 ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
