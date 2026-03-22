@@ -326,9 +326,9 @@ export function WeeklyScheduleDialog({
                             </div>
                           ) : actualLesson ? (
                             <div className={`p-2 rounded border-2 transition-opacity relative ${
-                              actualLesson.isGhost ? "opacity-50" : ""
+                              ""
                             } ${
-                              !actualLesson.isGhost && actualLesson.status === "completed" ? "opacity-40" : !actualLesson.isGhost ? "opacity-100" : ""
+                              actualLesson.status === "completed" && !actualLesson.isGhost ? "opacity-40" : "opacity-100"
                             } ${!actualLesson.isGhost && actualLesson.rescheduled_count > 0 ? "ring-2 ring-yellow-400" : ""} ${
                               studentColors[actualLesson.student_id] || "bg-gray-100 border-gray-300"
                             }`}>
