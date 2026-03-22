@@ -158,6 +158,10 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
   const startStr = format(ws, "yyyy-MM-dd");
   const endStr = format(weekEnd, "yyyy-MM-dd");
 
+  // Skip if already ensured this session (cleared on mutations)
+  const ensureKey = `${teacherId}-${startStr}`;
+  if (ensuredWeeks.has(ensureKey)) return;
+
   // Get all templates for this teacher
   const { data: templates } = await supabase
     .from("student_lessons")
