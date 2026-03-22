@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban, X, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
@@ -599,19 +599,24 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                                 </PopoverContent>
                               </Popover>
                             ) : actualLesson ? (
-                              // Single actual lesson
+                              // Single actual lesson (or ghost)
                               <Button
                                 variant="outline"
-                                className={`w-full justify-center py-2 cursor-pointer relative ${
-                                  actualLesson.status === "completed" ? "opacity-40" : ""
-                                } ${actualLesson.rescheduled_count > 0 ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
+                                className={`w-full justify-center py-2 relative ${
+                                  actualLesson.isGhost ? "opacity-50 cursor-default" : "cursor-pointer"
+                                } ${
+                                  !actualLesson.isGhost && actualLesson.status === "completed" ? "opacity-40" : ""
+                                } ${!actualLesson.isGhost && actualLesson.rescheduled_count > 0 ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
                                   studentColors.get(actualLesson.student_id) || "bg-gray-100 text-gray-800"
                                 }`}
-                                onClick={() => handleActualLessonClick(actualLesson)}
+                                onClick={() => !actualLesson.isGhost && handleActualLessonClick(actualLesson)}
                               >
+                                {actualLesson.isGhost && (
+                                  <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />
+                                )}
                                 <div className="text-center">
                                   <div className="font-medium flex items-center justify-center gap-1">
-                                    {actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-amber-600" />}
+                                    {!actualLesson.isGhost && actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-amber-600" />}
                                     {actualLesson.student_name}
                                   </div>
                                   <div className="text-xs mt-1">

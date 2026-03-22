@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Calendar, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { getLessonDateForCurrentWeek } from "@/hooks/useScheduleGrid";
 import { format, startOfWeek, addDays } from "date-fns";
@@ -325,13 +325,18 @@ export function WeeklyScheduleDialog({
                               ))}
                             </div>
                           ) : actualLesson ? (
-                            <div className={`p-2 rounded border-2 transition-opacity ${
-                              actualLesson.status === "completed" ? "opacity-40" : "opacity-100"
-                            } ${actualLesson.rescheduled_count > 0 ? "ring-2 ring-yellow-400" : ""} ${
+                            <div className={`p-2 rounded border-2 transition-opacity relative ${
+                              actualLesson.isGhost ? "opacity-50" : ""
+                            } ${
+                              !actualLesson.isGhost && actualLesson.status === "completed" ? "opacity-40" : !actualLesson.isGhost ? "opacity-100" : ""
+                            } ${!actualLesson.isGhost && actualLesson.rescheduled_count > 0 ? "ring-2 ring-yellow-400" : ""} ${
                               studentColors[actualLesson.student_id] || "bg-gray-100 border-gray-300"
                             }`}>
+                              {actualLesson.isGhost && (
+                                <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />
+                              )}
                               <div className="font-medium text-xs mb-1 flex items-center gap-1">
-                                {actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-yellow-600" />}
+                                {!actualLesson.isGhost && actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-yellow-600" />}
                                 {actualLesson.student_name}
                               </div>
                               <div className="text-[10px] font-mono">
