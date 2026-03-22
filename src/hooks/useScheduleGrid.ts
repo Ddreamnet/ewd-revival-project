@@ -326,34 +326,108 @@ export async function fetchActualLessonsForWeek(
     .order("lesson_date")
     .order("start_time");
 
-  if (error || !instances) return [];
+  if (error) return [];
 
-  // Safety-net: filter out archived students' instances
-  const allStudentIds = [...new Set(instances.map((i) => i.student_id))];
-  if (allStudentIds.length === 0) return [];
+  const realInstances = instances || [];
 
-  const { data: activeStudents } = await supabase
+  // Get ALL active (non-archived) students for this teacher
+  const { data: allActiveStudents } = await supabase
     .from("students")
     .select("student_id")
     .eq("teacher_id", teacherId)
-    .eq("is_archived", false)
-    .in("student_id", allStudentIds);
+    .eq("is_archived", false);
 
-  const activeStudentIds = new Set((activeStudents || []).map((s) => s.student_id));
-  const filteredInstances = instances.filter((i) => activeStudentIds.has(i.student_id));
+  const allActiveStudentIds = new Set((allActiveStudents || []).map((s) => s.student_id));
 
-  // Fetch student names
-  const studentIds = [...new Set(filteredInstances.map((i) => i.student_id))];
-  if (studentIds.length === 0) return [];
+  // Filter real instances to active students only
+  const filteredInstances = realInstances.filter((i) => allActiveStudentIds.has(i.student_id));
+
+  // Determine which active students have NO instances this week → candidates for ghost
+  const studentsWithInstances = new Set(filteredInstances.map((i) => i.student_id));
+  const studentsWithoutInstances = [...allActiveStudentIds].filter((id) => !studentsWithInstances.has(id));
+
+  // Generate ghost entries for students with exhausted packages
+  const ghostEntries: ActualLesson[] = [];
+
+  if (studentsWithoutInstances.length > 0) {
+    // Get templates for these students
+    const { data: templates } = await supabase
+      .from("student_lessons")
+      .select("student_id, day_of_week, start_time, end_time")
+      .eq("teacher_id", teacherId)
+      .in("student_id", studentsWithoutInstances);
+
+    if (templates && templates.length > 0) {
+      // Get tracking info to confirm package is exhausted
+      const templateStudentIds = [...new Set(templates.map((t) => t.student_id))];
+      const { data: trackingData } = await supabase
+        .from("student_lesson_tracking")
+        .select("student_id, package_cycle, lessons_per_week")
+        .eq("teacher_id", teacherId)
+        .in("student_id", templateStudentIds);
+
+      const trackingMap = new Map<string, { cycle: number; lpw: number }>();
+      (trackingData || []).forEach((t) => {
+        trackingMap.set(t.student_id, { cycle: t.package_cycle, lpw: t.lessons_per_week });
+      });
+
+      // For each student, check if package is truly exhausted
+      for (const studentId of templateStudentIds) {
+        const tracking = trackingMap.get(studentId);
+        if (!tracking) continue;
+
+        const totalRights = tracking.lpw * 4;
+        const { count: existingInCycleCount } = await supabase
+          .from("lesson_instances")
+          .select("id", { count: "exact", head: true })
+          .eq("student_id", studentId)
+          .eq("teacher_id", teacherId)
+          .eq("package_cycle", tracking.cycle);
+
+        const existingInCycle = existingInCycleCount ?? 0;
+        if (existingInCycle < totalRights) continue; // Not exhausted, skip
+
+        // Package exhausted — generate ghost entries from template
+        const studentTemplates = templates.filter((t) => t.student_id === studentId);
+        for (const tmpl of studentTemplates) {
+          const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
+          const lessonDate = addDays(ws, dayIndex);
+          const dateStr = format(lessonDate, "yyyy-MM-dd");
+
+          ghostEntries.push({
+            id: `ghost-${studentId}-${dateStr}-${tmpl.start_time}`,
+            student_id: studentId,
+            student_name: "", // will be filled below
+            lesson_number: 0,
+            lesson_date: dateStr,
+            start_time: tmpl.start_time,
+            end_time: tmpl.end_time,
+            status: "planned",
+            original_date: null,
+            original_start_time: null,
+            original_end_time: null,
+            rescheduled_count: 0,
+            isGhost: true,
+          });
+        }
+      }
+    }
+  }
+
+  const allResults = [...filteredInstances.map((inst) => ({ ...inst, isGhost: false })), ...ghostEntries];
+
+  // Fetch student names for all unique student IDs
+  const allStudentIds = [...new Set(allResults.map((i) => i.student_id))];
+  if (allStudentIds.length === 0) return [];
 
   const { data: profiles } = await supabase
     .from("profiles")
     .select("user_id, full_name")
-    .in("user_id", studentIds);
+    .in("user_id", allStudentIds);
 
   const nameMap = new Map((profiles || []).map((p) => [p.user_id, p.full_name]));
 
-  return filteredInstances.map((inst) => ({
+  return allResults.map((inst) => ({
     ...inst,
     student_name: nameMap.get(inst.student_id) || "Bilinmeyen",
   }));
