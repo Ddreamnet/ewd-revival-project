@@ -262,6 +262,7 @@ export type Database = {
           original_start_time: string | null
           package_cycle: number
           rescheduled_count: number
+          shift_group_id: string | null
           start_time: string
           status: string
           student_id: string
@@ -279,6 +280,7 @@ export type Database = {
           original_start_time?: string | null
           package_cycle?: number
           rescheduled_count?: number
+          shift_group_id?: string | null
           start_time: string
           status?: string
           student_id: string
@@ -296,6 +298,7 @@ export type Database = {
           original_start_time?: string | null
           package_cycle?: number
           rescheduled_count?: number
+          shift_group_id?: string | null
           start_time?: string
           status?: string
           student_id?: string
