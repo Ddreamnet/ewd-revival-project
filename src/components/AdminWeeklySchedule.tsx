@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Download, Trash2, CheckCircle, Undo2, Calendar, Ban, X, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
