@@ -249,7 +249,8 @@ export async function shiftLessonsForward(
       check.date,
       check.startTime,
       check.endTime,
-      check.id
+      check.id,
+      studentId
     );
     allConflicts.push(...c);
   }
