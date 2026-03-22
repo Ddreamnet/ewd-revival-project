@@ -51,13 +51,17 @@ export interface ActualLesson {
 const weekCache = new Map<string, { data: ActualLesson[]; ts: number }>();
 const CACHE_TTL = 60_000; // 1 minute
 
+// ─── Ensure Cache — skip redundant ensureInstancesForWeek calls ──
+const ensuredWeeks = new Set<string>();
+
 function getCacheKey(teacherId: string, weekStartStr: string): string {
   return `${teacherId}-${weekStartStr}`;
 }
 
-/** Clear all cached weeks — call after mutations (shift/revert/complete/reschedule). */
+/** Clear all cached weeks + ensured set — call after mutations (shift/revert/complete/reschedule). */
 export function clearWeekCache(): void {
   weekCache.clear();
+  ensuredWeeks.clear();
 }
 
 /** Prefetch a specific week in the background (no-op if already cached and fresh). */
