@@ -1,84 +1,63 @@
 
 
-# "Sonraki Derse Aktar" False Conflict Bug — Analysis & Fix Plan
+# "Sonraki Derse Aktar" Geri Al — Zincir Geri Alma Düzeltmesi
 
-## Root Cause (Confirmed)
+## Kök Neden
 
-The bug is in `src/lib/instanceGeneration.ts`, function `shiftLessonsForward()`, lines 245-255.
+**Shift (ileri kaydırma)** batch bir işlem: `shiftLessonsForward()` hedef instance'dan itibaren TÜM planned instance'ları bir slot ileri kaydırıyor. Her birine `original_date/time` kaydediyor.
 
-When "Sonraki Derse Aktar" runs, it shifts the target instance AND all subsequent planned instances forward by one template slot. The conflict check runs **before any DB updates**, checking each instance's NEW position against the current DB state.
+**Revert (geri alma)** tekil bir işlem: `handleRevert()` in `LessonOverrideDialog.tsx` yalnızca tıklanan TEK instance'ı `original_date`'ine geri döndürüyor. Aynı batch'te kaymış diğer instance'lara dokunmuyor.
 
-The problem: `checkTeacherConflicts` is called with only `excludeInstanceId` (the single instance being checked), but **NOT** `excludeStudentId`. The other instances of the **same student** that are also part of the shift batch are still sitting at their OLD positions in the DB.
+Sorun: shift sırasında hangi instance'ların birlikte kaydırıldığını gösteren hiçbir bağ/grup bilgisi saklanmıyor. Bu yüzden revert hangi instance'ları birlikte geri alması gerektiğini bilemiyor.
 
-**Concrete example:**
-- Student has lessons on Monday (instance A) and Wednesday (instance B)
-- Admin clicks "Sonraki Derse Aktar" on Monday's lesson
-- System plans: A moves Mon→Wed, B moves Wed→next Mon
-- Conflict check for A's new position (Wed): finds instance B still at Wed → **false conflict reported**
-- The system doesn't know that B will also be moved
+## Eski Davranış
+- Shift: 5 ders birlikte kayıyor
+- Geri Al: sadece tıklanan 1 ders eski yerine dönüyor, diğer 4 kaymış kalıyor
 
-The `checkTeacherConflicts` function already has an `excludeStudentId` parameter (line 41) specifically for this purpose, but `shiftLessonsForward` never passes it.
+## Yeni Davranış
+- Shift: 5 ders birlikte kayıyor, hepsi aynı grup ID'si ile işaretleniyor
+- Geri Al: tıklanan dersin grup ID'sine bakılıyor, aynı gruptaki tüm dersler birlikte eski yerlerine dönüyor
 
-## Why Previous Fixes Didn't Address This
+## Çözüm
 
-This is not a regression from recent changes. The `excludeStudentId` parameter was added to `checkTeacherConflicts` for use in `syncTemplateChange`, but was never wired into the shift logic. The shift function only passes `check.id` (single instance exclusion), which is insufficient for batch operations on the same student.
+### 1. Yeni kolon: `shift_group_id` (migration)
+`lesson_instances` tablosuna nullable `uuid` kolon eklenir. Yalnızca batch shift işlemlerinde set edilir. Manuel tekil reschedule'larda null kalır.
 
-## Fix
+### 2. `src/lib/instanceGeneration.ts` — `shiftLessonsForward()`
+Shift sırasında bir UUID üretilir, kaydırılan tüm instance'lara `shift_group_id` olarak yazılır.
 
-**File: `src/lib/instanceGeneration.ts`**
-**Function: `shiftLessonsForward()`**, lines 246-254
+### 3. `src/components/LessonOverrideDialog.tsx` — `handleRevert()`
+Revert sırasında:
+- Tıklanan instance'ın `shift_group_id`'si kontrol edilir
+- Eğer varsa, aynı `shift_group_id`'ye sahip TÜM instance'lar bulunur
+- Her biri `original_date/time`'ına geri döndürülür ve `shift_group_id` null yapılır
+- Eğer `shift_group_id` yoksa (tekil reschedule), mevcut davranış korunur
 
-Change the conflict check to pass `excludeStudentId`:
+### 4. UI değişikliği: YOK
+Tüm değişiklik veri modeli ve action mantığında. Ekranlara yeni buton, badge, kart düzeni eklenmeyecek.
 
-```typescript
-// Current (broken):
-const c = await checkTeacherConflicts(
-  teacherId,
-  check.date,
-  check.startTime,
-  check.endTime,
-  check.id        // only excludes this one instance
-);
+## Değişecek dosyalar
 
-// Fixed:
-const c = await checkTeacherConflicts(
-  teacherId,
-  check.date,
-  check.startTime,
-  check.endTime,
-  check.id,
-  studentId        // excludes ALL instances of this student
-);
-```
+| Dosya | Değişiklik |
+|-------|-----------|
+| Migration SQL | `lesson_instances` tablosuna `shift_group_id uuid` kolon |
+| `src/lib/instanceGeneration.ts` | `shiftLessonsForward` içinde UUID üretip tüm shifted instance'lara yazma |
+| `src/components/LessonOverrideDialog.tsx` | `handleRevert` içinde `shift_group_id` varsa grup olarak geri alma |
 
-This is safe because:
-- All instances being shifted belong to the same student
-- The shift operation moves ALL of this student's planned instances from the target onward
-- Conflicts with OTHER students' lessons and trial lessons are still detected
-- `excludeStudentId` only filters `lesson_instances`, not `trial_lessons` (line 61-63 in conflictDetection.ts)
+## Güvenlik / Yan Etki
 
-## Files to Change
+- Tekil reschedule (LessonOverrideDialog'dan tarih/saat değiştirme) etkilenmez — `shift_group_id` null kalır, mevcut davranış devam eder
+- Mevcut verideki eski shifted instance'ların `shift_group_id`'si null olduğu için tekil geri alma davranışı korunur (geriye dönük uyumlu)
+- Paket/bakiye/döngü mantığı etkilenmez — revert yalnızca tarih/saat restore eder
+- Completed instance'lar shift'e dahil olmadığı için revert'te de dahil olmaz
 
-| File | Change |
-|------|--------|
-| `src/lib/instanceGeneration.ts` | Add `studentId` as 6th argument to `checkTeacherConflicts` call in `shiftLessonsForward` |
+## Test Senaryoları
 
-One line change. No other files affected.
-
-## Security & Side Effect Check
-
-- Real conflicts with OTHER students are still caught (different student_id not excluded)
-- Real conflicts with trial lessons are still caught (trial check doesn't use excludeStudentId)
-- Same student + same teacher + different cycle instances: not affected (query already filters by current cycle)
-- Package/balance/history: unaffected (conflict check is read-only gate)
-- Single vs multi-instance shift: both fixed since all shifted instances share the same student_id
-
-## Test Scenarios
-
-1. **Bug reproduction**: Student with 2+ lessons/week → click "Sonraki Derse Aktar" on first lesson → should succeed without false conflict
-2. **Real conflict**: Another student has a lesson at the shifted target time → should still block
-3. **Trial lesson conflict**: Trial lesson at shifted target time → should still block
-4. **3+ lessons/week**: Student with Mon/Wed/Fri → shift Mon → all three cascade correctly
-5. **Single lesson/week**: Student with 1 lesson → shift works (no self-conflict possible)
-6. **Back-to-back**: Two students at adjacent times → shift should allow (endA == startB is not conflict)
+1. **Zincir shift + zincir geri al**: Öğrencinin 4 planned dersi var → ilkine "Sonraki Derse Aktar" → 4'ü de kayar → birine tıklayıp "Geri Al" → 4'ü de eski yerine döner
+2. **Tekil reschedule + tekil geri al**: Bir dersi manuel olarak başka tarihe taşı → "Geri Al" → sadece o ders döner (mevcut davranış korunur)
+3. **Eski veri uyumluluğu**: `shift_group_id` null olan eski shifted dersler → tekil geri alma davranışı korunur
+4. **Admin panelinden işlem**: Ders programında shift + revert → UI değişmez, davranış doğru
+5. **Öğretmen panelinde görünüm**: İşlenen dersler alanı aynen kalır
+6. **Öğrenci panelinde görünüm**: Ders kutuları aynen kalır
+7. **Conflict kontrolü**: Grup geri alınırken orijinal slotlarda başka öğrencinin dersi varsa conflict hata verir
 
