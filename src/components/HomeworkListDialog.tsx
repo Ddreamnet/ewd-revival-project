@@ -461,7 +461,7 @@ export function HomeworkListDialog({
           {/* Close button — always on top, always clickable */}
           <button
             type="button"
-            className="absolute top-4 right-4 z-[210] w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-white/20 active:bg-white/30 transition-colors"
+            className="absolute top-10 right-4 z-[210] w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-white/20 active:bg-white/30 transition-colors"
             onClick={closePreview}
             aria-label="Kapat"
           >

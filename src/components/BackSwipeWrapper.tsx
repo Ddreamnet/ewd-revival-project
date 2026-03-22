@@ -9,7 +9,7 @@ export function BackSwipeWrapper({ children }: { children: ReactNode }) {
       {/* Scrim overlay — themed background behind sliding page */}
       <div
         ref={scrimRef}
-        className="fixed inset-0 pointer-events-none z-[9998]"
+        className="fixed inset-0 pointer-events-none z-[40]"
         style={{
           backgroundColor: 'hsl(var(--background))',
           opacity: 0,
@@ -17,7 +17,7 @@ export function BackSwipeWrapper({ children }: { children: ReactNode }) {
         }}
       />
       {/* Current page content — slides right during gesture */}
-      <div ref={contentRef} className="relative z-[9999] bg-background">
+      <div ref={contentRef} className="relative z-[41]">
         {children}
       </div>
     </div>
