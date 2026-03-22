@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Footer } from "@/components/landing/Footer";
+import { BackSwipeWrapper } from "@/components/BackSwipeWrapper";
 
 function BlogPostContent() {
   const { slug } = useParams<{ slug: string }>();
@@ -39,6 +40,7 @@ function BlogPostContent() {
   }
 
   return (
+    <BackSwipeWrapper>
     <div className="landing-body min-h-screen overflow-x-hidden">
       <LandingHeader />
       <main className="pt-28 md:pt-32 pb-16 px-4">
@@ -80,6 +82,7 @@ function BlogPostContent() {
       </main>
       <Footer />
     </div>
+    </BackSwipeWrapper>
   );
 }
 
