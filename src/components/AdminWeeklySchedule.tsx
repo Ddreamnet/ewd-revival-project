@@ -687,6 +687,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         onOpenChange={setShowAddTrial}
         teacherId={teacherId}
         onSuccess={() => {
+          clearWeekCache();
           fetchSchedule();
           if (!showTemplate) fetchActualSchedule();
         }}
