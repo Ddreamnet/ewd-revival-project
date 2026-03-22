@@ -1,63 +1,81 @@
 
 
-# "Sonraki Derse Aktar" Geri Al — Zincir Geri Alma Düzeltmesi
+# Paket Biten Öğrencilerin Ders Programında Görünmeye Devam Etmesi
 
 ## Kök Neden
 
-**Shift (ileri kaydırma)** batch bir işlem: `shiftLessonsForward()` hedef instance'dan itibaren TÜM planned instance'ları bir slot ileri kaydırıyor. Her birine `original_date/time` kaydediyor.
+`useScheduleGrid.ts` dosyasındaki `ensureInstancesForWeek()` fonksiyonu, satır 265'te paketi dolan öğrencileri atlıyor:
 
-**Revert (geri alma)** tekil bir işlem: `handleRevert()` in `LessonOverrideDialog.tsx` yalnızca tıklanan TEK instance'ı `original_date`'ine geri döndürüyor. Aynı batch'te kaymış diğer instance'lara dokunmuyor.
+```typescript
+if (existingInCycle >= totalRights) continue; // Package exhausted
+```
 
-Sorun: shift sırasında hangi instance'ların birlikte kaydırıldığını gösteren hiçbir bağ/grup bilgisi saklanmıyor. Bu yüzden revert hangi instance'ları birlikte geri alması gerektiğini bilemiyor.
+Bu yüzden paketi biten öğrenci için gelecek haftalara yeni `lesson_instances` üretilmiyor. "Güncel" mod yalnızca `lesson_instances` tablosundan okuyarak grid'i doldurduğu için bu öğrenciler programdan düşüyor.
 
-## Eski Davranış
-- Shift: 5 ders birlikte kayıyor
-- Geri Al: sadece tıklanan 1 ders eski yerine dönüyor, diğer 4 kaymış kalıyor
+## Mevcut Akış
 
-## Yeni Davranış
-- Shift: 5 ders birlikte kayıyor, hepsi aynı grup ID'si ile işaretleniyor
-- Geri Al: tıklanan dersin grup ID'sine bakılıyor, aynı gruptaki tüm dersler birlikte eski yerlerine dönüyor
+1. Hafta navigasyonu yapılınca `fetchActualLessonsForWeek()` çağrılıyor
+2. Bu fonksiyon önce `ensureInstancesForWeek()` ile eksik instance'ları üretiyor
+3. Paketi dolan öğrenciler bu üretimden atlanıyor
+4. Sonra sadece mevcut `lesson_instances` sorgulanıyor → paketi biten öğrenci yok
 
-## Çözüm
+## Çözüm Yaklaşımı
 
-### 1. Yeni kolon: `shift_group_id` (migration)
-`lesson_instances` tablosuna nullable `uuid` kolon eklenir. Yalnızca batch shift işlemlerinde set edilir. Manuel tekil reschedule'larda null kalır.
+Veritabanına sahte instance üretmeden, **fetch seviyesinde** template slotlarından "ghost" girdiler oluşturup bunları gerçek instance'larla birlikte döndürmek. Ghost girdiler yalnızca görsel amaçlı; DB'ye yazılmayacak.
 
-### 2. `src/lib/instanceGeneration.ts` — `shiftLessonsForward()`
-Shift sırasında bir UUID üretilir, kaydırılan tüm instance'lara `shift_group_id` olarak yazılır.
-
-### 3. `src/components/LessonOverrideDialog.tsx` — `handleRevert()`
-Revert sırasında:
-- Tıklanan instance'ın `shift_group_id`'si kontrol edilir
-- Eğer varsa, aynı `shift_group_id`'ye sahip TÜM instance'lar bulunur
-- Her biri `original_date/time`'ına geri döndürülür ve `shift_group_id` null yapılır
-- Eğer `shift_group_id` yoksa (tekil reschedule), mevcut davranış korunur
-
-### 4. UI değişikliği: YOK
-Tüm değişiklik veri modeli ve action mantığında. Ekranlara yeni buton, badge, kart düzeni eklenmeyecek.
-
-## Değişecek dosyalar
+### Değişecek Dosyalar
 
 | Dosya | Değişiklik |
 |-------|-----------|
-| Migration SQL | `lesson_instances` tablosuna `shift_group_id uuid` kolon |
-| `src/lib/instanceGeneration.ts` | `shiftLessonsForward` içinde UUID üretip tüm shifted instance'lara yazma |
-| `src/components/LessonOverrideDialog.tsx` | `handleRevert` içinde `shift_group_id` varsa grup olarak geri alma |
+| `src/hooks/useScheduleGrid.ts` | `ActualLesson` interface'ine `isGhost?: boolean` ekle; `fetchActualLessonsForWeek` içinde paketi dolan aktif öğrencilerin template slotlarından ghost entry üret |
+| `src/components/AdminWeeklySchedule.tsx` | Ghost ders kartında sağ üstte küçük ikon göster; ghost derse tıklamayı engelle |
+| `src/components/WeeklyScheduleDialog.tsx` | Aynı ghost ikon mantığı |
 
-## Güvenlik / Yan Etki
+### Teknik Detay
 
-- Tekil reschedule (LessonOverrideDialog'dan tarih/saat değiştirme) etkilenmez — `shift_group_id` null kalır, mevcut davranış devam eder
-- Mevcut verideki eski shifted instance'ların `shift_group_id`'si null olduğu için tekil geri alma davranışı korunur (geriye dönük uyumlu)
-- Paket/bakiye/döngü mantığı etkilenmez — revert yalnızca tarih/saat restore eder
-- Completed instance'lar shift'e dahil olmadığı için revert'te de dahil olmaz
+**`useScheduleGrid.ts` — `fetchActualLessonsForWeek`:**
+
+1. Mevcut akışla gerçek instance'ları getir
+2. Aktif öğrencilerin template slotlarını (`student_lessons`) ve tracking bilgilerini (`student_lesson_tracking`) al
+3. Bu haftada instance'ı olmayan ve paketi dolan (`existingInCycle >= totalRights`) öğrenciler için template'den sanal `ActualLesson` girdileri üret:
+   - `id`: `ghost-{studentId}-{date}-{time}` (geçici, DB'de yok)
+   - `isGhost: true`
+   - `status: "planned"`, `rescheduled_count: 0`
+   - `lesson_date`: template day_of_week'ten o haftanın tarihine çevrilmiş
+4. Bunları gerçek instance'larla birleştirip döndür
+
+**`AdminWeeklySchedule.tsx` + `WeeklyScheduleDialog.tsx`:**
+
+- Ghost kart rendering: mevcut kart yapısı korunacak, sadece `isGhost === true` ise:
+  - Sağ üstte küçük `AlertCircle` (lucide) ikonu, `text-amber-500`, 12px
+  - Karta `opacity-60` eklenir
+  - `onClick` devre dışı (tıklanamaz, override/shift açılmaz)
+- Karşılık gelen renk sistemi aynen kullanılır
+- Tüm mevcut kart düzeni, grid, spacing korunur
+
+### Arşivli/Silinmiş Öğrenci Ayrımı
+
+Mevcut `is_archived = false` filtresi korunacak. Ghost üretimi yalnızca aktif öğrenciler için yapılır. Arşivli veya silinmiş öğrenci hiçbir şekilde görünmez.
+
+### Paket Yenilenince İkon Kalkması
+
+Paket yenilendiğinde (`rpc_reset_package`) yeni cycle başlar ve yeni planned instance'lar üretilir. Bu durumda `ensureInstancesForWeek` normal instance üretir → ghost koşulu sağlanmaz → ikon otomatik olarak yok.
+
+### UI Değişikliği Kapsamı
+
+- Yeni buton, badge, kart düzeni, modal, filtre YOK
+- Sadece mevcut kartın sağ üstüne koşullu küçük ikon
+- Mevcut opacity/renk sistemiyle uyumlu
 
 ## Test Senaryoları
 
-1. **Zincir shift + zincir geri al**: Öğrencinin 4 planned dersi var → ilkine "Sonraki Derse Aktar" → 4'ü de kayar → birine tıklayıp "Geri Al" → 4'ü de eski yerine döner
-2. **Tekil reschedule + tekil geri al**: Bir dersi manuel olarak başka tarihe taşı → "Geri Al" → sadece o ders döner (mevcut davranış korunur)
-3. **Eski veri uyumluluğu**: `shift_group_id` null olan eski shifted dersler → tekil geri alma davranışı korunur
-4. **Admin panelinden işlem**: Ders programında shift + revert → UI değişmez, davranış doğru
-5. **Öğretmen panelinde görünüm**: İşlenen dersler alanı aynen kalır
-6. **Öğrenci panelinde görünüm**: Ders kutuları aynen kalır
-7. **Conflict kontrolü**: Grup geri alınırken orijinal slotlarda başka öğrencinin dersi varsa conflict hata verir
+1. Aktif öğrenci, paketi bitmiş → gelecek haftalarda ghost kart + ikon görünür
+2. Aynı öğrenci paketi yenilenince → normal kart, ikon yok
+3. Arşivli öğrenci → hiç görünmez
+4. Silinmiş öğrenci → hiç görünmez
+5. Aktif + paketli öğrenci → normal kart, regresyon yok
+6. Admin paneli ve öğretmen paneli aynı davranış
+7. Template (Kalıcı) modda değişiklik yok
+8. Ghost karta tıklayınca override dialog açılmaz
+9. İşlenen dersler alanında değişiklik yok
 
