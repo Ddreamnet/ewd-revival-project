@@ -93,18 +93,28 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   
   const { toast } = useToast();
 
+  // Parallel initial fetch: template + actual together on mount
   useEffect(() => {
-    fetchSchedule();
+    if (!showTemplate) {
+      // Fetch template and actual in parallel on initial load
+      Promise.all([fetchSchedule(), fetchActualSchedule()]).then(() => {
+        // Prefetch adjacent weeks after current loads
+        prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
+        prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
+      });
+    } else {
+      fetchSchedule();
+    }
   }, [teacherId]);
 
+  // Fetch actual schedule on week change or mode toggle
   useEffect(() => {
     if (!showTemplate) {
       fetchActualSchedule();
-      // Prefetch adjacent weeks
       prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
       prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
     }
-  }, [showTemplate, teacherId, weekOffset]);
+  }, [showTemplate, weekOffset]);
 
   // Real-time listener for trial lesson updates
   useEffect(() => {

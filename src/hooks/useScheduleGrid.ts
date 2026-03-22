@@ -51,13 +51,17 @@ export interface ActualLesson {
 const weekCache = new Map<string, { data: ActualLesson[]; ts: number }>();
 const CACHE_TTL = 60_000; // 1 minute
 
+// ─── Ensure Cache — skip redundant ensureInstancesForWeek calls ──
+const ensuredWeeks = new Set<string>();
+
 function getCacheKey(teacherId: string, weekStartStr: string): string {
   return `${teacherId}-${weekStartStr}`;
 }
 
-/** Clear all cached weeks — call after mutations (shift/revert/complete/reschedule). */
+/** Clear all cached weeks + ensured set — call after mutations (shift/revert/complete/reschedule). */
 export function clearWeekCache(): void {
   weekCache.clear();
+  ensuredWeeks.clear();
 }
 
 /** Prefetch a specific week in the background (no-op if already cached and fresh). */
@@ -153,6 +157,10 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
 
   const startStr = format(ws, "yyyy-MM-dd");
   const endStr = format(weekEnd, "yyyy-MM-dd");
+
+  // Skip if already ensured this session (cleared on mutations)
+  const ensureKey = `${teacherId}-${startStr}`;
+  if (ensuredWeeks.has(ensureKey)) return;
 
   // Get all templates for this teacher
   const { data: templates } = await supabase
@@ -291,6 +299,10 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
   if (instancesToInsert.length > 0) {
     await supabase.from("lesson_instances").insert(instancesToInsert);
   }
+
+  // Mark this week as ensured for the session
+  ensuredWeeks.add(ensureKey);
+
 }
 
 /**
