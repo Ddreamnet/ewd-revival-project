@@ -121,6 +121,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           filter: `teacher_id=eq.${teacherId}`,
         },
         () => {
+          clearWeekCache();
           fetchSchedule();
           if (!showTemplate) fetchActualSchedule();
         }
