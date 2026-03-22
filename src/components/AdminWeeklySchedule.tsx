@@ -292,6 +292,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const handleOverrideSuccess = () => {
+    clearWeekCache();
     fetchSchedule();
     if (!showTemplate) fetchActualSchedule();
   };
