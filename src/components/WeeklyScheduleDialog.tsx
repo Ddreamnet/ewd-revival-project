@@ -92,6 +92,7 @@ export function WeeklyScheduleDialog({
       table: 'trial_lessons',
       filter: `teacher_id=eq.${teacherId}`
     }, () => {
+      clearWeekCache();
       fetchSchedule();
       if (!showTemplate) fetchActualSchedule();
     }).subscribe();
