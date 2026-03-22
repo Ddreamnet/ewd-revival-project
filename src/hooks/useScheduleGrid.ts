@@ -299,6 +299,10 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
   if (instancesToInsert.length > 0) {
     await supabase.from("lesson_instances").insert(instancesToInsert);
   }
+
+  // Mark this week as ensured for the session
+  ensuredWeeks.add(ensureKey);
+
 }
 
 /**
