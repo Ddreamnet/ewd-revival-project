@@ -1,187 +1,160 @@
 
-# 1) Landing page contact form — iOS scroll jump
 
-## Gerçek kök neden
-Sorun yalnızca font-size değil. `src/index.css` içindeki `html` kuralı düzeltilmiş olsa da `index.html` satır 2’de hâlâ inline `style="overflow-x:hidden"` var. Bu, iOS WKWebView tarafında `html` scroll container’ını yine bozmaya devam ediyor. Yani önceki CSS düzeltmesi fiilen override edilmiyor, bug bu yüzden sürüyor.
+## 1) Back-swipe / soldan sağa geri gelme
 
-Ek olarak:
-- `body` üzerinde çift `overflow-x: hidden` var
-- landing yapısında `fixed` header (`LandingHeader`) ve `fixed` bubble (`StickyBubble`) bulunuyor
-- `window.scrollTo(0, 0)` route değişiminde global çalışıyor
-- keyboard resize `body` modunda (`capacitor.config.ts`) çalışıyor
+### 1. Gerçek root cause
+Mevcut gesture sistemi birkaç ayrı sebeple pratikte kilitlenmiş:
+- `navDepth` mantığı `window.history.length` üzerinden türetiliyor; SPA + `replace` + auth redirect akışlarında bu güvenilir değil.
+- `LandingPage` içinde `/ -> /dashboard` redirect ve aynı sayfada `navigate(..., { replace: true })` kullanımı var; bu yüzden “gerçekten geri gidilebilir mi?” hesabı bozuluyor.
+- `useBackSwipe` içindeki `complete` kararı hem `navDepth > 0` koşuluna hem de sert threshold’a bağlı. `navDepth` yanlış 0’da kaldığında kullanıcı en sağa çekse bile hiç geri gitmiyor.
+- Hook route bilgisini kendi içinde tahmin etmeye çalışıyor; gesture state ile navigation history state birbirine fazla bağlanmış.
 
-Bunların kombinasyonunda asıl tetikleyici yine root scroll container’ın iOS tarafından farklı yorumlanması. `select` için de aynı risk var çünkü trigger button focus alıyor; `textarea` ve `input` ile aynı familyadan etkileniyor.
+### 2. Neden sorun hâlâ devam ediyor
+Önceki fix “double navigate” kısmını iyileştirmiş ama asıl gating mekanizması bozuk kalmış. Yani artık yanlış route’a atlama azalmış olabilir, fakat bu kez gesture çoğu durumda hiç complete olmuyor.
 
-## Neden hâlâ devam ediyor
-Önceki düzeltme yalnızca `src/index.css` içindeki `html { overflow-x: hidden; }` satırını kaldırmış. Ama `index.html` içindeki inline style daha güçlü kaldığı için iOS hâlâ `html` üzerinde overflow görüyor.
+### 3. Önceki fix neden yetersiz kaldı
+- `window.history.length` tabanlı depth hesabı React Router için yeterince deterministik değil.
+- Disabled route + navDepth + threshold kombinasyonu gereğinden karmaşık hale gelmiş.
+- Gesture’ın çalışıp çalışmaması gerçek route state yerine tahmini global sayaçlara bağlanmış.
 
-## Değiştirilecek dosyalar
-- `index.html`
-- `src/index.css`
-- `src/components/landing/ContactSection.tsx`
-- gerekirse `src/components/landing/LandingHeader.tsx` (yalnızca iOS-safe küçük stabilite düzeltmesi gerekiyorsa)
-
-## Yapılacak düzeltmeler
-1. `index.html` içinden `html` inline `overflow-x:hidden` tamamen kaldırılacak.
-2. `src/index.css` içinde root scroll ownership sadeleştirilecek:
-   - `html`, `body`, `#root` için yatay overflow yalnızca güvenli katmanda tutulacak
-   - `body`’de tekrarlı `overflow-x: hidden` sadeleştirilecek
-3. Landing contact form container’ında iOS keyboard ile çakışabilecek gereksiz clipping/overflow kombinasyonları azaltılacak:
-   - form kartında sadece gereken seviyede `overflow-hidden` bırakılacak
-   - focus alanlarında layout shift yaratabilecek container zinciri sadeleştirilecek
-4. `ContactSection` içinde input/textarea/select focus olduğunda custom scroll çalışan bir kod var mı diye baktım; doğrudan yok. Bu yüzden çözüm scroll container seviyesinde yapılacak, workaround event hack’i eklenmeyecek.
-5. iPhone + iPad için özellikle `select`, `textarea`, `input[type=tel]` ve `input[type=text]` birlikte hedeflenecek.
-
-## Neden kalıcı çözüm
-Bu çözüm semptomu değil, iOS’un yanlış gördüğü scroll root sebebini temizliyor. Inline html overflow kaldırılmadan bu bug kalıcı kapanmaz.
-
-## Test checklist
-- iPhone Safari/WKWebView: Contact form içindeki ad alanına tıkla → sayfa üste fırlamamalı
-- telefon alanı → aynı
-- textarea → aynı
-- select trigger → aynı
-- iPad portrait/landscape → aynı
-- landing page yatay scroll oluşturmamalı
-- header ve sticky bubble yerleşimi bozulmamalı
-
-# 2) Geri swipe gesture — snapshot tamamen kaldırılacak
-
-## Gerçek kök neden
-İki ayrı problem var:
-
-### A. Yanlış sayfaya gitme
-`useBackSwipe.ts` içinde double-navigate koruması eklenmiş görünüyor; ama mevcut gesture hâlâ history güvenli değil çünkü:
-- gesture, her touch cihazda yalnızca `window.innerWidth < 1024` ile açılıyor
-- route gerçekten geri gidilebilir mi kontrol edilmiyor
-- `navigate(-1)` koşulsuz çağrılıyor
-- login/landing tarafında `replace: true` redirect’ler var (`LandingPage.tsx`)
-- auth akışında `/login -> /dashboard` ve sonra landing/public page geçişlerinde history stack beklenenden farklı olabiliyor
-
-Yani bug sadece “iki kere navigate” değildi; history entry’nin gerçekten ne olduğu da doğrulanmıyor.
-
-### B. Snapshot sisteminin kendisi
-Snapshot yaklaşımı:
-- `App.tsx` içinde her route değişiminde DOM clone alıyor
-- `BackSwipeWrapper` içinde `innerHTML` basıyor
-- route değişiminden sonra `window.scrollTo(0, 0)` ile birlikte çalışıyor
-
-Bu yapı:
-- ağır sayfalarda clone maliyeti oluşturuyor
-- görsel olarak stale/fake layer üretiyor
-- gerçek route state’i korumuyor
-- “önceki sayfa canlı” hissi vermek yerine fake DOM gösteriyor
-- kullanıcı özellikle kaldırılmasını istiyor
-
-## Neden hâlâ devam ediyor
-Çünkü snapshot eklendi ama gerçek sorun olan history güvenliği, “geri gidilebilir route var mı”, “gesture hangi sayfalarda aktif olmalı”, “cancel/complete akışı ve cleanup” bunları tam çözmedi. Ayrıca snapshot sahte previous-page verdiği için hissi daha da kötüleştirmiş.
-
-## Değiştirilecek dosyalar
-- `src/lib/pageSnapshot.ts` — tamamen kaldırılacak
-- `src/App.tsx`
-- `src/components/BackSwipeWrapper.tsx`
+### 4. Değiştirilecek dosyalar
 - `src/hooks/useBackSwipe.ts`
-- gerekirse swipe kullanılan page dosyaları:
-  - `src/pages/PrivacyPolicyPage.tsx`
-  - `src/pages/BlogPage.tsx`
-  - `src/pages/WorkWithUsPage.tsx`
+- `src/components/BackSwipeWrapper.tsx`
+- `src/App.tsx`
+- gerekirse `src/pages/BlogPage.tsx`
+- gerekirse `src/pages/PrivacyPolicyPage.tsx`
+- gerekirse `src/pages/WorkWithUsPage.tsx`
 
-## Yapılacak düzeltmeler
-1. Snapshot sistemi tamamen sökülecek:
-   - `captureSnapshot/getSnapshot/clearSnapshot` import ve kullanımını kaldır
-   - `BackSwipeWrapper` içindeki snapshot layer sil
-2. `useBackSwipe.ts` refactor:
-   - `navigate(-1)` tek sefer garantisi korunacak
-   - transitionend + timeout cleanup akışı tek guard ile merkezileştirilecek
-   - gesture sırasında route değişimi yalnızca completion sonunda olacak
-   - cancel akışı navigation’a hiç dokunmayacak
-3. History güvenliği eklenecek:
-   - yalnızca gerçekten geri dönülebilir route varsa swipe complete edilecek
-   - public page’lerde “fallback to wrong route” riskini azaltmak için history depth / referrer-safe yaklaşımı kullanılacak
-   - no-history durumda gesture cancel olacak veya disabled olacak
-4. Gesture scope daraltılacak:
-   - sadece gerçekten istenen public content page’lerde aktif kalacak
-   - auth/dashboard gibi stack’i bozabilecek alanlarda etkisi olmayacak
-5. Görsel kalite snapshot olmadan iyileştirilecek:
-   - scrim + transform + shadow sadeleştirilecek
-   - easing ve threshold daha doğal hale getirilecek
-   - içerik katmanında re-render tetiklemeyen doğrudan DOM transform korunacak
-6. “yeniden mount hissi” için güvenli yaklaşım:
-   - fake page yerine animation timing optimize edilecek
-   - gereksiz will-change / transition kalıntıları temizlenecek
-   - özellikle completion sonrası ani flash etkisi azaltılacak
+### 5. Neyi neden değiştireceğim
+Daha sade ve güvenli bir mimariye geçeceğim:
 
-## Neden kalıcı çözüm
-Bu yaklaşım fake DOM yerine doğru history mantığını düzeltiyor. Gesture stack’i kandırmak yerine history ile uyumlu çalışıyor. Snapshot söküldüğü için performans ve stale-state riskleri de ortadan kalkıyor.
+1. **History-safe route state yaklaşımı**
+   - Global `navDepth` yaklaşımını kaldıracağım.
+   - Bunun yerine route transition sırasında `location.key`, `useNavigationType()` ve route bazlı “gesture allowed” mantığını kullanacağım.
+   - Swipe yalnızca gerçekten geri dönülebilir public content page’lerde aktif olacak.
 
-## Test checklist
-- login → dashboard → privacy policy → swipe back = yalnızca bir önceki gerçek route
-- landing → blog → swipe back = landing
-- landing → work with us → swipe back = landing
-- kısa swipe = cancel
-- hızlı flick = tek geri
-- çift navigate olmamalı
-- boş/fake snapshot görünmemeli
-- iOS/Android’de animasyon stabil olmalı
-- dashboard ve auth akışında regression olmamalı
+2. **Gesture state’i sadeleştirme**
+   - `touchstart / move / end / cancel` akışını tek bir state machine gibi yeniden kuracağım:
+     - idle
+     - tracking
+     - settling(cancel)
+     - settling(complete)
+   - Complete/cancel sonrası reset garantisi olacak.
 
-# 3) Ödev preview kapanışı kasıyor
+3. **Threshold ve direction detection refactor**
+   - Edge start daha güvenilir ama gereksiz sert olmayacak.
+   - Horizontal intent lock daha erken ve daha net yapılacak.
+   - Velocity ve distance kararları daha doğal hale getirilecek.
 
-## Gerçek kök neden
-`HomeworkListDialog.tsx` içinde preview overlay kapanışı sırasında iki kritik sorun var:
+4. **Navigation only at final complete**
+   - Route değişimi gesture bitmeden asla olmayacak.
+   - `navigate(-1)` tek merkezden, tek guard ile çalışacak.
 
-### A. Ağır cleanup click event’in içinde senkron çalışıyor
-`closePreview()` içinde:
-- aktif object URL’ler hemen `URL.revokeObjectURL(...)` ile iptal ediliyor
-- sonra state null’lanıyor
+5. **Visual layer sadeleştirme**
+   - Snapshot olmayacak.
+   - Sadece current page transform + scrim + hafif shadow kalacak.
+   - Transition cleanup deterministik olacak; sonraki swipe’ı bloke eden artık transition state kalmayacak.
 
-Bu işlem özellikle PDF/iframe preview veya büyük image blob’larda close interaction anında ana thread’i bloklayabiliyor. Kullanıcı “kapat”a basıyor ama önce cleanup oluyor, UI sonra kapanıyor. Bu tam tarif edilen “ilk tıklamada kapanmıyor / 2-3 saniye bekliyor” hissiyle uyumlu.
+### 6. Neden bu çözüm kalıcı
+Bu çözüm mevcut patch’leri yamamak yerine gesture’ı history tahmini yapan kırılgan yapıdan çıkarıp, daha sade bir state machine’e indiriyor. Böylece:
+- gesture tekrar çalışır
+- wrong route riski düşer
+- maintainability artar
+- snapshot gibi kırılgan yan katmanlara ihtiyaç kalmaz
 
-### B. Close handler `onPointerDown` üzerinde
-Overlay ve close button `onPointerDown` ile kapanıyor. Bu:
-- iframe/image üstünde pointer event sıralamasıyla çakışabiliyor
-- bazı cihazlarda pointerdown anında focus/pointer capture ve portal katmanı yüzünden beklenmeyen davranış üretebiliyor
-- React/Radix dialog katmanıyla birlikte ilk etkileşimin swallow edilmesine neden olabiliyor
+### 7. iOS + Android test checklist
+- Landing → Privacy Policy → soldan sağa swipe = Landing’e tek adım geri
+- Landing → Work With Us → soldan sağa swipe = Landing’e tek adım geri
+- Landing → Blog → soldan sağa swipe = Landing’e tek adım geri
+- Login → Dashboard → Privacy Policy akışında swipe = sadece bir önceki gerçek sayfa
+- kısa çekiş = cancel
+- hızlı flick = complete
+- complete sonrası ikinci swipe hemen çalışmalı
+- cancel sonrası swipe kilitlenmemeli
+- iOS Safari/WKWebView + Android Chrome/WebView’da aynı davranış
+- desktop’ta gesture tetiklenmemeli
 
-Özellikle portal + iframe + pointerdown kombinasyonu close reliability için kırılgan.
+---
 
-## Neden hâlâ devam ediyor
-Şu an kapanış “önce cleanup, sonra UI kapanış state’i” mantığında. Oysa doğru sıralama tam tersi olmalı: önce UI hemen kapansın, ağır cleanup sonra çalışsın.
+## 2) Ödev görüntüleme / preview kapatma
 
-## Değiştirilecek dosyalar
+### 1. Gerçek root cause
+Sorun yalnızca cleanup gecikmesi değil; asıl problem birden fazla katmanın çakışması:
+- Preview overlay, `Dialog` dışında `createPortal(document.body)` ile ayrı bir katman olarak render ediliyor.
+- Altta Radix `Dialog` hâlâ açık ve kendi overlay/focus-lock/scroll-lock sistemini çalıştırıyor.
+- Üstteki preview overlay ise kendi başına scroll-lock uygulamıyor.
+- PDF `iframe` tam ekranı kaplıyor; close butonu dışında kalan alanlarda iframe pointer olaylarını yutabiliyor.
+- Overlay container `fixed inset-0` olsa da içeriğin düzeni yüzünden üst/alt bölgelerde body scroll etkisi hissediliyor; çünkü preview katmanı scroll’u aktif olarak kilitlemiyor, sadece görsel overlay sağlıyor.
+
+### 2. Neden sorun hâlâ devam ediyor
+Önceki çözüm sadece `revokeObjectURL` zamanlamasına odaklanmış. Ama close interaction problemi tek başına cleanup maliyeti değil:
+- modal mimarisi iki ayrı overlay sistemi kullanıyor
+- preview görünürlük state’i ile gerçek interaction layer aynı şey değil
+- arka sayfanın scroll lock’u preview için ayrıca yönetilmiyor
+- iframe/image preview üst katmanı dismiss davranışını tam kontrol etmiyor
+
+### 3. Önceki fix neden yetersiz kaldı
+- `requestAnimationFrame` ile cleanup ertelemek iyi ama tek başına yeterli değil.
+- Ayrı portal overlay yapısı korununca close ve scroll-lock sorunları devam ediyor.
+- Preview halen “dialog üstüne bindirilmiş bağımsız fullscreen layer” olarak durduğu için davranış parçalı kalıyor.
+
+### 4. Değiştirilecek dosyalar
 - `src/components/HomeworkListDialog.tsx`
+- gerekirse `src/components/ui/dialog.tsx` (yalnızca reusable bir fullscreen variant gerekiyorsa)
 
-## Yapılacak düzeltmeler
-1. Preview state tek objede merkezileştirilecek:
-   - `previewImage` / `previewPdf` ikili state yerine tek preview state
-   - race condition azaltılacak
-2. Kapanış akışı değişecek:
-   - ilk adımda preview state hemen `null`
-   - object URL revoke işlemi effect cleanup veya microtask/requestIdleCallback benzeri deferred cleanup ile sonra yapılacak
-3. `onPointerDown` yerine daha stabil close handling:
-   - close button için `onClick`
-   - backdrop close için güvenli target kontrolü korunarak `onClick`
-4. Iframe/image unmount blocking azaltılacak:
-   - revoke, component unmount sonrasına alınacak
-   - kapanış sırasında synchronous blob revoke yapılmayacak
-5. Preview açma sırasında da eski URL cleanup düzenlenecek:
-   - stale closure riskleri azaltılacak
-   - state bazlı cleanup tek yerden yönetilecek
+### 5. Neyi neden değiştireceğim
+Bu kısmı daha temiz kuracağım:
 
-## Neden kalıcı çözüm
-Bu çözüm semptomu değil interaction sıralamasını düzeltiyor: kullanıcı aksiyonu önce UI’ı kapatır, pahalı cleanup arkadan gelir. Bu yüzden ilk tıklamada stabil kapanış sağlar ve blob/iframe maliyeti UI thread’i bloke etmez.
+1. **Preview’ı bağımsız portal hack’i olmaktan çıkaracağım**
+   - Ayrı `createPortal(body)` katmanı yerine controlled, tek kaynaklı bir preview dialog/overlay akışına taşıyacağım.
+   - Homework dialog açıkken preview için ikinci ama düzgün controlled fullscreen dialog kullanılacak ya da tek component içinde gerçek modal layer kurulacak.
 
-## Test checklist
-- image preview aç → close butonu tek tıkta kapansın
-- backdrop click ile tek tıkta kapansın
-- art arda aç/kapat yap → gecikme olmamalı
-- büyük görsel dosyada da close anı takılmamalı
-- PDF preview web’de tek tıkta kapanmalı
-- native platformda PDF share/download akışı bozulmamalı
-- object URL leak oluşmamalı
-- homework dialog ana akışı bozulmamalı
+2. **Open state ve görünürlük state’ini merkezileştirme**
+   - Preview state tek obje olacak: tür, url, dosya adı, visible.
+   - “close” aksiyonu ilk tıklamada görünürlüğü hemen kapatacak.
 
-# Son özet
+3. **Gerçek scroll lock**
+   - Preview açıkken body/root scroll kesin kilitlenecek.
+   - Üst/alt siyah alanlardan arka ekran scroll edilebilmesi tamamen kapatılacak.
 
-- Sorun 1: sebep = `index.html` içindeki inline html overflow ve iOS scroll root bozulması / çözüm = root scroll container yapısını gerçekten temizlemek, inline overflow’u kaldırmak, landing form wrapper zincirini sadeleştirmek / durum = kök neden net bulundu, önceki düzeltme bu yüzden yetersiz kalmış
-- Sorun 2: sebep = snapshot’ın fake previous-page üretmesi ve history güvenliğini tam çözmemesi / çözüm = snapshot sistemini tamamen söküp history-safe, tek navigate’li, sade swipe mimarisi / durum = snapshot’sız kalıcı refactor gerekli
-- Sorun 3: sebep = preview kapanışında senkron blob revoke + pointerdown tabanlı kırılgan close handling / çözüm = önce UI state kapanışı, sonra deferred cleanup; onClick tabanlı stabil close / durum = close lag’ın gerçek nedeni net bulundu
+4. **Dismiss logic güvenli hale getirme**
+   - Close button tek tıkta çalışacak.
+   - Overlay click yalnızca gerçekten backdrop’a tıklanırsa kapanacak.
+   - iframe/image alanı close event’i swallow etse bile close butonu her zaman en üstte ve güvenilir olacak.
+
+5. **Cleanup’ı görünürlükten ayırma**
+   - UI anında kapanacak.
+   - `URL.revokeObjectURL` ve benzeri cleanup sonraya bırakılacak.
+   - unmount öncesi ağır iş yapılmayacak.
+
+6. **PDF/image için stabil fullscreen layout**
+   - Preview container viewport’u tamamen kaplayacak.
+   - Close butonu sabit, yüksek z-index’li ve iframe’den bağımsız olacak.
+   - pointer-events zinciri netleştirilecek.
+
+### 6. Neden bu çözüm kalıcı
+Bu çözüm, semptomu değil modal mimarisini düzeltiyor. Preview artık “ana dialog üstüne aceleyle eklenmiş ekstra katman” olmayacak. Tek kaynaklı, controlled, scroll-lock’lu, dismiss davranışı net bir yapıya taşınınca:
+- tek tıkta kapanma
+- scroll lock
+- stabil overlay
+aynı anda çözülmüş olacak.
+
+### 7. iOS + Android test checklist
+- Göz ikonuna bas → image preview aç
+- Close’a tek tık → preview anında kaybolmalı
+- Büyük image’da da aynı
+- PDF preview aç → close’a tek tık → anında kapanmalı
+- Preview açıkken arka sayfa scroll edilememeli
+- Üst/alt siyah alanlardan scroll yapılamamalı
+- Backdrop click doğru çalışmalı
+- Close butonu her zaman tıklanabilir kalmalı
+- Art arda aç/kapat döngüsünde donma olmamalı
+- Teacher dashboard / student dashboard / student topics içinden açılan tüm varyantlarda aynı davranış
+- iOS ve Android’de regression olmamalı
+
+---
+
+## Kesin kapatmayı hedeflediğim bug’lar
+- **Back-swipe bugı:** gesture’ın hiç complete olmaması, yanlış threshold davranışı, state reset sorunları
+- **Homework preview bugı:** close’un birden fazla tık istemesi, preview görünürken arka sayfanın scroll olması, overlay/dismiss akışının güvenilmez olması
+
