@@ -1,41 +1,84 @@
 
 
-# Fix Plan: 3 Issues
+# "Sonraki Derse Aktar" False Conflict Bug — Analysis & Fix Plan
 
-## Issue 1: Sub-page backgrounds killed + hamburger menu broken
+## Root Cause (Confirmed)
 
-**Root cause:** `BackSwipeWrapper.tsx` still has `z-[9999]` on the content div and `bg-background`. The previous fix was planned but never applied to this file.
+The bug is in `src/lib/instanceGeneration.ts`, function `shiftLessonsForward()`, lines 245-255.
 
-- `z-[9999]` creates a stacking context above `MobileNavPanel`'s Popover (portaled at `z-[70]`), making hamburger menu unclickable
-- `bg-background` paints an opaque solid color over child page gradients/backgrounds
+When "Sonraki Derse Aktar" runs, it shifts the target instance AND all subsequent planned instances forward by one template slot. The conflict check runs **before any DB updates**, checking each instance's NEW position against the current DB state.
 
-**Fix in `src/components/BackSwipeWrapper.tsx`:**
-- Remove `bg-background` from content div
-- Change scrim z-index from `z-[9998]` to `z-[40]`
-- Change content z-index from `z-[9999]` to `z-[41]`
+The problem: `checkTeacherConflicts` is called with only `excludeInstanceId` (the single instance being checked), but **NOT** `excludeStudentId`. The other instances of the **same student** that are also part of the shift batch are still sitting at their OLD positions in the DB.
 
-## Issue 2: Homework preview close button position
+**Concrete example:**
+- Student has lessons on Monday (instance A) and Wednesday (instance B)
+- Admin clicks "Sonraki Derse Aktar" on Monday's lesson
+- System plans: A moves Mon→Wed, B moves Wed→next Mon
+- Conflict check for A's new position (Wed): finds instance B still at Wed → **false conflict reported**
+- The system doesn't know that B will also be moved
 
-**Fix in `src/components/HomeworkListDialog.tsx`:**
-- Move close button from `top-4` to `top-10` for more clearance on notch devices
+The `checkTeacherConflicts` function already has an `excludeStudentId` parameter (line 41) specifically for this purpose, but `shiftLessonsForward` never passes it.
 
-## Issue 3: Screen rotation zoom-in not resetting
+## Why Previous Fixes Didn't Address This
 
-**Root cause:** The viewport meta tag in `index.html` has no `maximum-scale=1` constraint. When the device rotates, mobile browsers (especially iOS Safari) zoom in to fit content and don't zoom back out.
+This is not a regression from recent changes. The `excludeStudentId` parameter was added to `checkTeacherConflicts` for use in `syncTemplateChange`, but was never wired into the shift logic. The shift function only passes `check.id` (single instance exclusion), which is insufficient for batch operations on the same student.
 
-**Fix in `index.html`:**
-- Add `maximum-scale=1` to the viewport meta tag:
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+## Fix
+
+**File: `src/lib/instanceGeneration.ts`**
+**Function: `shiftLessonsForward()`**, lines 246-254
+
+Change the conflict check to pass `excludeStudentId`:
+
+```typescript
+// Current (broken):
+const c = await checkTeacherConflicts(
+  teacherId,
+  check.date,
+  check.startTime,
+  check.endTime,
+  check.id        // only excludes this one instance
+);
+
+// Fixed:
+const c = await checkTeacherConflicts(
+  teacherId,
+  check.date,
+  check.startTime,
+  check.endTime,
+  check.id,
+  studentId        // excludes ALL instances of this student
+);
 ```
 
-This prevents the browser from zooming on rotation. Combined with the existing `text-base` (16px) font-size on form inputs, iOS won't trigger auto-zoom on focus either.
+This is safe because:
+- All instances being shifted belong to the same student
+- The shift operation moves ALL of this student's planned instances from the target onward
+- Conflicts with OTHER students' lessons and trial lessons are still detected
+- `excludeStudentId` only filters `lesson_instances`, not `trial_lessons` (line 61-63 in conflictDetection.ts)
 
-## Files to change
+## Files to Change
 
 | File | Change |
 |------|--------|
-| `src/components/BackSwipeWrapper.tsx` | Remove `bg-background`, lower z-indexes to 40/41 |
-| `src/components/HomeworkListDialog.tsx` | Close button `top-4` → `top-10` |
-| `index.html` | Add `maximum-scale=1.0` to viewport meta |
+| `src/lib/instanceGeneration.ts` | Add `studentId` as 6th argument to `checkTeacherConflicts` call in `shiftLessonsForward` |
+
+One line change. No other files affected.
+
+## Security & Side Effect Check
+
+- Real conflicts with OTHER students are still caught (different student_id not excluded)
+- Real conflicts with trial lessons are still caught (trial check doesn't use excludeStudentId)
+- Same student + same teacher + different cycle instances: not affected (query already filters by current cycle)
+- Package/balance/history: unaffected (conflict check is read-only gate)
+- Single vs multi-instance shift: both fixed since all shifted instances share the same student_id
+
+## Test Scenarios
+
+1. **Bug reproduction**: Student with 2+ lessons/week → click "Sonraki Derse Aktar" on first lesson → should succeed without false conflict
+2. **Real conflict**: Another student has a lesson at the shifted target time → should still block
+3. **Trial lesson conflict**: Trial lesson at shifted target time → should still block
+4. **3+ lessons/week**: Student with Mon/Wed/Fri → shift Mon → all three cascade correctly
+5. **Single lesson/week**: Student with 1 lesson → shift works (no self-conflict possible)
+6. **Back-to-back**: Two students at adjacent times → shift should allow (endA == startB is not conflict)
 
