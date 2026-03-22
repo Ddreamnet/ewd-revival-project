@@ -19,7 +19,7 @@ import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
 import { completeTrialLesson } from "@/lib/lessonService";
 import { subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, ActualLesson } from "@/hooks/useScheduleGrid";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -100,6 +100,9 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   useEffect(() => {
     if (!showTemplate) {
       fetchActualSchedule();
+      // Prefetch adjacent weeks
+      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
+      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
     }
   }, [showTemplate, teacherId, weekOffset]);
 
@@ -118,6 +121,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
           filter: `teacher_id=eq.${teacherId}`,
         },
         () => {
+          clearWeekCache();
           fetchSchedule();
           if (!showTemplate) fetchActualSchedule();
         }
@@ -289,6 +293,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const handleOverrideSuccess = () => {
+    clearWeekCache();
     fetchSchedule();
     if (!showTemplate) fetchActualSchedule();
   };
@@ -683,6 +688,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
         onOpenChange={setShowAddTrial}
         teacherId={teacherId}
         onSuccess={() => {
+          clearWeekCache();
           fetchSchedule();
           if (!showTemplate) fetchActualSchedule();
         }}

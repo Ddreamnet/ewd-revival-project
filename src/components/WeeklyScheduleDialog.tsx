@@ -15,7 +15,7 @@ import { format, startOfWeek, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
 import { completeTrialLesson } from "@/lib/lessonService";
 import { subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, ActualLesson } from "@/hooks/useScheduleGrid";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -77,6 +77,9 @@ export function WeeklyScheduleDialog({
   useEffect(() => {
     if (open && !showTemplate && teacherId) {
       fetchActualSchedule();
+      // Prefetch adjacent weeks
+      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
+      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
     }
   }, [open, showTemplate, teacherId, weekOffset]);
 
@@ -89,6 +92,7 @@ export function WeeklyScheduleDialog({
       table: 'trial_lessons',
       filter: `teacher_id=eq.${teacherId}`
     }, () => {
+      clearWeekCache();
       fetchSchedule();
       if (!showTemplate) fetchActualSchedule();
     }).subscribe();
