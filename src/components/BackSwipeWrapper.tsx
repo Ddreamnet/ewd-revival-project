@@ -6,7 +6,7 @@ export function BackSwipeWrapper({ children }: { children: ReactNode }) {
 
   return (
     <div ref={ref} className="relative">
-      {/* Scrim overlay — simulates stacked page depth */}
+      {/* Scrim overlay — themed background behind sliding page */}
       <div
         ref={scrimRef}
         className="fixed inset-0 pointer-events-none z-[9998]"
@@ -16,8 +16,8 @@ export function BackSwipeWrapper({ children }: { children: ReactNode }) {
           display: 'none',
         }}
       />
-      {/* Current page content — slides right during swipe */}
-      <div ref={contentRef} className="relative z-[9999]" style={{ backgroundColor: 'inherit' }}>
+      {/* Current page content — slides right during gesture */}
+      <div ref={contentRef} className="relative z-[9999] bg-background">
         {children}
       </div>
     </div>
