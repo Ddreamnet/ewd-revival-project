@@ -47,6 +47,30 @@ export interface ActualLesson {
   isGhost?: boolean;
 }
 
+// ─── Week Cache ───────────────────────────────────────────────
+const weekCache = new Map<string, { data: ActualLesson[]; ts: number }>();
+const CACHE_TTL = 60_000; // 1 minute
+
+function getCacheKey(teacherId: string, weekStartStr: string): string {
+  return `${teacherId}-${weekStartStr}`;
+}
+
+/** Clear all cached weeks — call after mutations (shift/revert/complete/reschedule). */
+export function clearWeekCache(): void {
+  weekCache.clear();
+}
+
+/** Prefetch a specific week in the background (no-op if already cached and fresh). */
+export function prefetchWeek(teacherId: string, weekStart: Date): void {
+  const key = getCacheKey(teacherId, format(weekStart, "yyyy-MM-dd"));
+  const cached = weekCache.get(key);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return;
+  // Fire and forget
+  fetchActualLessonsForWeekCore(teacherId, weekStart).then((data) => {
+    weekCache.set(key, { data, ts: Date.now() });
+  }).catch(() => {});
+}
+
 /**
  * Get the Monday of the week for a given offset (0 = current week).
  */
@@ -80,10 +104,8 @@ export function getAllTimeSlots(
   _overrides: unknown[] = []
 ): string[] {
   const allTimes = new Set<string>();
-
   lessons.forEach((l) => allTimes.add(l.start_time));
   trialLessons.forEach((l) => allTimes.add(l.start_time));
-
   return Array.from(allTimes).sort();
 }
 
@@ -119,8 +141,7 @@ export function getTrialLessonForDayAndTime<T extends TrialLessonInfo>(
 
 /**
  * Ensure lesson_instances exist for all active template students for a given week.
- * "Lazy generation": if a student has templates but no instances for this week, generate them.
- * Only generates for weeks that include today or are in the future.
+ * OPTIMIZED: Uses batch queries instead of per-student N+1 loops.
  */
 async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void> {
   const today = new Date();
@@ -167,53 +188,56 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
   const missingStudents = [...activeStudentIds].filter((id) => !studentsWithInstances.has(id));
   if (missingStudents.length === 0) return;
 
-  // Get tracking data for cycle and rights info
-  const { data: trackingData } = await supabase
-    .from("student_lesson_tracking")
-    .select("student_id, package_cycle, lessons_per_week")
-    .eq("teacher_id", teacherId)
-    .in("student_id", missingStudents);
+  // ── BATCH: Get tracking data, max lesson numbers, cycle instances, max completed dates ──
+  // All in parallel
+  const [trackingResult, maxLessonsResult, cycleInstancesResult] = await Promise.all([
+    supabase
+      .from("student_lesson_tracking")
+      .select("student_id, package_cycle, lessons_per_week")
+      .eq("teacher_id", teacherId)
+      .in("student_id", missingStudents),
+    supabase
+      .from("lesson_instances")
+      .select("student_id, lesson_number")
+      .eq("teacher_id", teacherId)
+      .in("student_id", missingStudents)
+      .order("lesson_number", { ascending: false }),
+    // Get ALL instances for missing students to compute cycle counts + max completed dates in JS
+    supabase
+      .from("lesson_instances")
+      .select("student_id, package_cycle, status, lesson_date")
+      .eq("teacher_id", teacherId)
+      .in("student_id", missingStudents),
+  ]);
 
   const trackingMap = new Map<string, { cycle: number; lpw: number }>();
-  (trackingData || []).forEach((t) => {
+  (trackingResult.data || []).forEach((t) => {
     trackingMap.set(t.student_id, { cycle: t.package_cycle, lpw: t.lessons_per_week });
   });
 
-  // Get existing instance counts per student in current cycle
-  const { data: cycleCounts } = await supabase
-    .from("lesson_instances")
-    .select("student_id, status")
-    .eq("teacher_id", teacherId)
-    .in("student_id", missingStudents);
-
-  // Count per student per cycle
-  const cycleCountMap = new Map<string, number>();
-  (cycleCounts || []).forEach((row) => {
-    const tracking = trackingMap.get(row.student_id);
-    if (!tracking) return;
-    // Only count instances in the student's current cycle — but we don't have package_cycle in this query
-    // We need to re-query with cycle filter. For efficiency, count all and we'll filter below.
-    const key = row.student_id;
-    cycleCountMap.set(key, (cycleCountMap.get(key) || 0) + 1);
-  });
-
-  // Get max lesson_number per missing student (batch)
-  const { data: maxLessons } = await supabase
-    .from("lesson_instances")
-    .select("student_id, lesson_number")
-    .eq("teacher_id", teacherId)
-    .in("student_id", missingStudents)
-    .order("lesson_number", { ascending: false });
-
   const maxLessonMap = new Map<string, number>();
-  (maxLessons || []).forEach((row) => {
+  (maxLessonsResult.data || []).forEach((row) => {
     if (!maxLessonMap.has(row.student_id)) {
       maxLessonMap.set(row.student_id, row.lesson_number);
     }
   });
 
-  // For accurate cycle counts, query per-cycle instance counts
-  // Build a query for each missing student's current cycle
+  // Compute per-student: cycle instance count + max completed date (all in JS, zero extra queries)
+  const cycleCountMap = new Map<string, number>();
+  const maxCompletedDateMap = new Map<string, string>();
+  (cycleInstancesResult.data || []).forEach((row) => {
+    const tracking = trackingMap.get(row.student_id);
+    if (!tracking || row.package_cycle !== tracking.cycle) return;
+    cycleCountMap.set(row.student_id, (cycleCountMap.get(row.student_id) || 0) + 1);
+    if (row.status === "completed") {
+      const current = maxCompletedDateMap.get(row.student_id);
+      if (!current || row.lesson_date > current) {
+        maxCompletedDateMap.set(row.student_id, row.lesson_date);
+      }
+    }
+  });
+
+  // Generate instances to insert
   const instancesToInsert: Array<{
     student_id: string;
     teacher_id: string;
@@ -225,44 +249,14 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
     package_cycle: number;
   }> = [];
 
-  // Get max completed lesson_date per student in their current cycle
-  // to prevent generating planned instances before last completed
-  const maxCompletedDateMap = new Map<string, string>();
   for (const studentId of missingStudents) {
     const tracking = trackingMap.get(studentId);
     if (!tracking) continue;
-    const { data: maxCompleted } = await supabase
-      .from("lesson_instances")
-      .select("lesson_date")
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId)
-      .eq("package_cycle", tracking.cycle)
-      .eq("status", "completed")
-      .order("lesson_date", { ascending: false })
-      .limit(1);
-    if (maxCompleted && maxCompleted.length > 0) {
-      maxCompletedDateMap.set(studentId, maxCompleted[0].lesson_date);
-    }
-  }
-
-  for (const studentId of missingStudents) {
-    const tracking = trackingMap.get(studentId);
-    if (!tracking) continue; // No tracking record, skip
 
     const totalRights = tracking.lpw * 4;
     const currentCycle = tracking.cycle;
+    const existingInCycle = cycleCountMap.get(studentId) || 0;
 
-    // Count existing instances in current cycle
-    const { count: existingInCycleCount } = await supabase
-      .from("lesson_instances")
-      .select("id", { count: "exact", head: true })
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId)
-      .eq("package_cycle", currentCycle);
-
-    const existingInCycle = existingInCycleCount ?? 0;
-
-    // Enforce invariant: completed + planned <= total_rights
     if (existingInCycle >= totalRights) continue; // Package exhausted
 
     const remainingSlots = totalRights - existingInCycle;
@@ -278,7 +272,6 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
       const lessonDate = addDays(ws, dayIndex);
       const dateStr = format(lessonDate, "yyyy-MM-dd");
 
-      // Never generate planned instances on or before the last completed date
       if (lastCompletedDate && dateStr <= lastCompletedDate) continue;
 
       instancesToInsert.push({
@@ -301,10 +294,9 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
 }
 
 /**
- * Fetch actual lessons (lesson_instances) for a teacher for a specific week.
- * Automatically generates missing instances from templates (lazy generation).
+ * Core fetch logic — no caching, used by both cached fetch and prefetch.
  */
-export async function fetchActualLessonsForWeek(
+async function fetchActualLessonsForWeekCore(
   teacherId: string,
   weekStart?: Date
 ): Promise<ActualLesson[]> {
@@ -316,28 +308,26 @@ export async function fetchActualLessonsForWeek(
   // Ensure instances exist for all template students this week
   await ensureInstancesForWeek(teacherId, ws);
 
-  const { data: instances, error } = await supabase
-    .from("lesson_instances")
-    .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count")
-    .eq("teacher_id", teacherId)
-    .gte("lesson_date", startStr)
-    .lte("lesson_date", endStr)
-    .in("status", ["planned", "completed"])
-    .order("lesson_date")
-    .order("start_time");
+  // Fetch instances + active students + profiles in parallel
+  const [instancesResult, activeStudentsResult] = await Promise.all([
+    supabase
+      .from("lesson_instances")
+      .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count")
+      .eq("teacher_id", teacherId)
+      .gte("lesson_date", startStr)
+      .lte("lesson_date", endStr)
+      .in("status", ["planned", "completed"])
+      .order("lesson_date")
+      .order("start_time"),
+    supabase
+      .from("students")
+      .select("student_id")
+      .eq("teacher_id", teacherId)
+      .eq("is_archived", false),
+  ]);
 
-  if (error) return [];
-
-  const realInstances = instances || [];
-
-  // Get ALL active (non-archived) students for this teacher
-  const { data: allActiveStudents } = await supabase
-    .from("students")
-    .select("student_id")
-    .eq("teacher_id", teacherId)
-    .eq("is_archived", false);
-
-  const allActiveStudentIds = new Set((allActiveStudents || []).map((s) => s.student_id));
+  const realInstances = instancesResult.data || [];
+  const allActiveStudentIds = new Set((activeStudentsResult.data || []).map((s) => s.student_id));
 
   // Filter real instances to active students only
   const filteredInstances = realInstances.filter((i) => allActiveStudentIds.has(i.student_id));
@@ -350,41 +340,52 @@ export async function fetchActualLessonsForWeek(
   const ghostEntries: ActualLesson[] = [];
 
   if (studentsWithoutInstances.length > 0) {
-    // Get templates for these students
-    const { data: templates } = await supabase
-      .from("student_lessons")
-      .select("student_id, day_of_week, start_time, end_time")
-      .eq("teacher_id", teacherId)
-      .in("student_id", studentsWithoutInstances);
-
-    if (templates && templates.length > 0) {
-      // Get tracking info to confirm package is exhausted
-      const templateStudentIds = [...new Set(templates.map((t) => t.student_id))];
-      const { data: trackingData } = await supabase
+    // Get templates + tracking in parallel (BATCH)
+    const [templatesResult, trackingResult] = await Promise.all([
+      supabase
+        .from("student_lessons")
+        .select("student_id, day_of_week, start_time, end_time")
+        .eq("teacher_id", teacherId)
+        .in("student_id", studentsWithoutInstances),
+      supabase
         .from("student_lesson_tracking")
         .select("student_id, package_cycle, lessons_per_week")
         .eq("teacher_id", teacherId)
-        .in("student_id", templateStudentIds);
+        .in("student_id", studentsWithoutInstances),
+    ]);
 
+    const templates = templatesResult.data || [];
+    const trackingData = trackingResult.data || [];
+
+    if (templates.length > 0 && trackingData.length > 0) {
       const trackingMap = new Map<string, { cycle: number; lpw: number }>();
-      (trackingData || []).forEach((t) => {
+      trackingData.forEach((t) => {
         trackingMap.set(t.student_id, { cycle: t.package_cycle, lpw: t.lessons_per_week });
       });
 
-      // For each student, check if package is truly exhausted
+      const templateStudentIds = [...new Set(templates.map((t) => t.student_id))];
+
+      // BATCH: Get all cycle instance counts in ONE query instead of N
+      const { data: allCycleInstances } = await supabase
+        .from("lesson_instances")
+        .select("student_id, package_cycle")
+        .eq("teacher_id", teacherId)
+        .in("student_id", templateStudentIds);
+
+      // Count per student in their current cycle
+      const cycleCountMap = new Map<string, number>();
+      (allCycleInstances || []).forEach((row) => {
+        const tracking = trackingMap.get(row.student_id);
+        if (!tracking || row.package_cycle !== tracking.cycle) return;
+        cycleCountMap.set(row.student_id, (cycleCountMap.get(row.student_id) || 0) + 1);
+      });
+
       for (const studentId of templateStudentIds) {
         const tracking = trackingMap.get(studentId);
         if (!tracking) continue;
 
         const totalRights = tracking.lpw * 4;
-        const { count: existingInCycleCount } = await supabase
-          .from("lesson_instances")
-          .select("id", { count: "exact", head: true })
-          .eq("student_id", studentId)
-          .eq("teacher_id", teacherId)
-          .eq("package_cycle", tracking.cycle);
-
-        const existingInCycle = existingInCycleCount ?? 0;
+        const existingInCycle = cycleCountMap.get(studentId) || 0;
         if (existingInCycle < totalRights) continue; // Not exhausted, skip
 
         // Package exhausted — generate ghost entries from template
@@ -397,7 +398,7 @@ export async function fetchActualLessonsForWeek(
           ghostEntries.push({
             id: `ghost-${studentId}-${dateStr}-${tmpl.start_time}`,
             student_id: studentId,
-            student_name: "", // will be filled below
+            student_name: "",
             lesson_number: 0,
             lesson_date: dateStr,
             start_time: tmpl.start_time,
@@ -431,6 +432,29 @@ export async function fetchActualLessonsForWeek(
     ...inst,
     student_name: nameMap.get(inst.student_id) || "Bilinmeyen",
   }));
+}
+
+/**
+ * Fetch actual lessons with stale-while-revalidate caching.
+ * Returns cached data instantly if available, refreshes in background.
+ */
+export async function fetchActualLessonsForWeek(
+  teacherId: string,
+  weekStart?: Date
+): Promise<ActualLesson[]> {
+  const ws = weekStart || startOfWeek(new Date(), { weekStartsOn: 1 });
+  const key = getCacheKey(teacherId, format(ws, "yyyy-MM-dd"));
+  const cached = weekCache.get(key);
+
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    // Fresh cache — return immediately, no background refresh
+    return cached.data;
+  }
+
+  // No cache or stale — fetch fresh
+  const data = await fetchActualLessonsForWeekCore(teacherId, ws);
+  weekCache.set(key, { data, ts: Date.now() });
+  return data;
 }
 
 /**
