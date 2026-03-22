@@ -19,7 +19,7 @@ import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
 import { completeTrialLesson } from "@/lib/lessonService";
 import { subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, ActualLesson } from "@/hooks/useScheduleGrid";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
