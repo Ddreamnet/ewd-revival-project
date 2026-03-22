@@ -273,7 +273,7 @@ export function LessonOverrideDialog({
     }
   };
 
-  // "Geri Al" - reverts instance to original date/time
+  // "Geri Al" - reverts instance (and shift group if applicable) to original date/time
   const handleRevert = async () => {
     setSaving(true);
     setConflicts([]);
@@ -285,47 +285,93 @@ export function LessonOverrideDialog({
         return;
       }
 
+      // Fetch the clicked instance to check for shift_group_id
       const { data: inst } = await supabase
         .from("lesson_instances")
-        .select("original_date, original_start_time, original_end_time")
+        .select("original_date, original_start_time, original_end_time, shift_group_id")
         .eq("id", instanceId)
         .single();
 
-      if (inst?.original_date) {
-        // Conflict check on original slot before reverting
-        const revertConflicts = await checkTeacherConflicts(
+      if (!inst?.original_date) {
+        toast({ title: "Bilgi", description: "Geri alınacak değişiklik bulunamadı" });
+        setSaving(false);
+        setShowRevertConfirm(false);
+        return;
+      }
+
+      // Determine all instances to revert
+      let instancesToRevert: { id: string; original_date: string; original_start_time: string | null; original_end_time: string | null }[] = [];
+
+      if (inst.shift_group_id) {
+        // Batch revert: find all instances in the same shift group
+        const { data: groupInstances } = await supabase
+          .from("lesson_instances")
+          .select("id, original_date, original_start_time, original_end_time")
+          .eq("shift_group_id", inst.shift_group_id)
+          .not("original_date", "is", null);
+
+        instancesToRevert = (groupInstances || []).map((gi) => ({
+          id: gi.id,
+          original_date: gi.original_date!,
+          original_start_time: gi.original_start_time,
+          original_end_time: gi.original_end_time,
+        }));
+      } else {
+        // Single revert (manual reschedule or old data without shift_group_id)
+        instancesToRevert = [{
+          id: instanceId,
+          original_date: inst.original_date,
+          original_start_time: inst.original_start_time,
+          original_end_time: inst.original_end_time,
+        }];
+      }
+
+      // Conflict check for all instances reverting to their original slots
+      // Exclude all instances in this student's lessons to avoid self-conflicts
+      const allRevertConflicts: ConflictInfo[] = [];
+      for (const ri of instancesToRevert) {
+        const c = await checkTeacherConflicts(
           teacherId,
-          inst.original_date,
-          inst.original_start_time || originalStartTime,
-          inst.original_end_time || originalEndTime,
-          instanceId
+          ri.original_date,
+          ri.original_start_time || originalStartTime,
+          ri.original_end_time || originalEndTime,
+          ri.id,
+          studentId
         );
+        allRevertConflicts.push(...c);
+      }
 
-        if (revertConflicts.length > 0) {
-          setConflicts(revertConflicts);
-          setSaving(false);
-          setShowRevertConfirm(false);
-          return;
-        }
+      if (allRevertConflicts.length > 0) {
+        setConflicts(allRevertConflicts);
+        setSaving(false);
+        setShowRevertConfirm(false);
+        return;
+      }
 
+      // Apply revert to all instances
+      for (const ri of instancesToRevert) {
         await supabase
           .from("lesson_instances")
           .update({
-            lesson_date: inst.original_date,
-            start_time: inst.original_start_time || originalStartTime,
-            end_time: inst.original_end_time || originalEndTime,
+            lesson_date: ri.original_date,
+            start_time: ri.original_start_time || originalStartTime,
+            end_time: ri.original_end_time || originalEndTime,
             original_date: null,
             original_start_time: null,
             original_end_time: null,
             rescheduled_count: 0,
+            shift_group_id: null,
           })
-          .eq("id", instanceId);
-
-
-
+          .eq("id", ri.id);
       }
 
-      toast({ title: "Başarılı", description: "Ders orijinal tarih ve saatine döndürüldü" });
+      const revertCount = instancesToRevert.length;
+      toast({
+        title: "Başarılı",
+        description: revertCount > 1
+          ? `${revertCount} ders orijinal tarih ve saatine döndürüldü`
+          : "Ders orijinal tarih ve saatine döndürüldü",
+      });
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {

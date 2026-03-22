@@ -1,0 +1,1 @@
+ALTER TABLE public.lesson_instances ADD COLUMN shift_group_id uuid DEFAULT NULL;
