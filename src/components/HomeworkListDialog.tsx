@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +52,11 @@ interface GroupedHomework {
   }[];
 }
 
+interface PreviewState {
+  url: string;
+  type: 'image' | 'pdf';
+}
+
 export function HomeworkListDialog({ 
   open, 
   onOpenChange, 
@@ -66,7 +70,7 @@ export function HomeworkListDialog({
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editHomework, setEditHomework] = useState<Homework | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<{ url: string; type: 'image' | 'pdf' } | null>(null);
+  const [preview, setPreview] = useState<PreviewState | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -74,6 +78,24 @@ export function HomeworkListDialog({
       fetchHomeworks();
     }
   }, [open, studentId, teacherId]);
+
+  // Cleanup object URL on unmount or when preview changes
+  useEffect(() => {
+    return () => {
+      if (preview?.url) {
+        URL.revokeObjectURL(preview.url);
+      }
+    };
+  }, [preview?.url]);
+
+  // Lock body scroll when preview is open
+  useEffect(() => {
+    if (preview) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [preview]);
 
   const fetchHomeworks = async () => {
     try {
@@ -158,35 +180,31 @@ export function HomeworkListDialog({
 
       const objectUrl = URL.createObjectURL(data);
 
-      // Revoke previous URL if any (deferred to avoid blocking)
-      if (previewUrl) {
-        const oldUrl = previewUrl.url;
-        setTimeout(() => URL.revokeObjectURL(oldUrl), 0);
-      }
-
       if (fileType.startsWith('image/')) {
-        setPreviewUrl({ url: objectUrl, type: 'image' });
+        setPreview({ url: objectUrl, type: 'image' });
       } else if (fileType === 'application/pdf') {
         if (Capacitor.isNativePlatform()) {
           URL.revokeObjectURL(objectUrl);
           handleSaveShare(fileUrl, filePath.split('/').pop() || 'document.pdf');
           return;
         }
-        setPreviewUrl({ url: objectUrl, type: 'pdf' });
+        setPreview({ url: objectUrl, type: 'pdf' });
       }
     } catch {
       toast({ title: "Hata", description: "Dosya önizlemesi açılamadı", variant: "destructive" });
     }
   };
 
-  const closePreview = () => {
-    // Close UI immediately, defer expensive blob cleanup
-    const urlToRevoke = previewUrl?.url;
-    setPreviewUrl(null);
-    if (urlToRevoke) {
-      requestAnimationFrame(() => URL.revokeObjectURL(urlToRevoke));
-    }
-  };
+  const closePreview = useCallback(() => {
+    setPreview(prev => {
+      if (prev?.url) {
+        // Defer revoke so React can unmount first
+        const u = prev.url;
+        setTimeout(() => URL.revokeObjectURL(u), 100);
+      }
+      return null;
+    });
+  }, []);
 
   const handleSaveShare = async (fileUrl: string, fileName: string) => {
     try {
@@ -216,7 +234,6 @@ export function HomeworkListDialog({
             variant: "destructive",
           });
         }
-        // success=true → file written & share sheet opened (or user cancelled) — no error
         return;
       }
 
@@ -430,37 +447,47 @@ export function HomeworkListDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Fullscreen preview overlay — rendered via portal to escape Dialog z-index */}
-      {previewUrl && createPortal(
-        <div 
-          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
-          onClick={(e) => { if (e.target === e.currentTarget) closePreview(); }}
+      {/* Fullscreen preview — proper Dialog with scroll-lock and focus-trap */}
+      <Dialog open={!!preview} onOpenChange={(isOpen) => { if (!isOpen) closePreview(); }}>
+        <DialogContent
+          className="fixed inset-0 w-screen h-screen max-w-none max-h-none translate-x-0 translate-y-0 left-0 top-0 p-0 border-0 rounded-none bg-black/95 z-[200] data-[state=open]:slide-in-from-bottom-0 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+          style={{ transform: 'none' }}
+          onInteractOutside={(e) => e.preventDefault()}
         >
-          {previewUrl.type === 'image' && (
-            <img 
-              src={previewUrl.url} 
-              className="max-w-full max-h-full object-contain p-4" 
-              alt="Preview"
-            />
-          )}
-          {previewUrl.type === 'pdf' && (
-            <iframe
-              src={previewUrl.url}
-              className="w-full h-full border-0"
-              title="PDF Preview"
-            />
-          )}
+          {/* Hidden title for accessibility */}
+          <DialogTitle className="sr-only">Dosya Önizleme</DialogTitle>
+          <DialogDescription className="sr-only">Dosya önizleme görünümü</DialogDescription>
+
+          {/* Close button — always on top, always clickable */}
           <button
             type="button"
-            className="absolute top-4 right-4 z-[201] w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white active:bg-white/30 transition-colors"
+            className="absolute top-4 right-4 z-[210] w-12 h-12 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-white/20 active:bg-white/30 transition-colors"
             onClick={closePreview}
             aria-label="Kapat"
           >
             <X className="h-7 w-7" />
           </button>
-        </div>,
-        document.body
-      )}
+
+          {/* Content area */}
+          <div className="w-full h-full flex items-center justify-center">
+            {preview?.type === 'image' && (
+              <img
+                src={preview.url}
+                className="max-w-full max-h-full object-contain p-4"
+                alt="Preview"
+              />
+            )}
+            {preview?.type === 'pdf' && (
+              <iframe
+                src={preview.url}
+                className="w-full h-full border-0"
+                title="PDF Preview"
+                style={{ pointerEvents: 'auto' }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       {editHomework && (
