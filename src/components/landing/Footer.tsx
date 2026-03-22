@@ -101,8 +101,9 @@ export function Footer() {
 
                 {/* App Store Badge */}
                 <a
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
+                  href="https://apps.apple.com/tr/app/english-with-dilara/id6760347669?l=tr"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="group relative flex items-center gap-2.5 rounded-lg bg-[#1a1a2e] px-4 py-2 min-w-[170px] hover:bg-[#2a2a3e] transition-colors duration-200 cursor-pointer opacity-80 hover:opacity-100"
                   aria-label={t.footer.downloadAppStore[language]}
                 >
