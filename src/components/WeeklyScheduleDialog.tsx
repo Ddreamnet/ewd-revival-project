@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Calendar, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { getLessonDateForCurrentWeek } from "@/hooks/useScheduleGrid";
 import { format, startOfWeek, addDays } from "date-fns";
