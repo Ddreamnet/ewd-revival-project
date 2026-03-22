@@ -17,7 +17,7 @@ export function BackSwipeWrapper({ children }: { children: ReactNode }) {
         }}
       />
       {/* Current page content — slides right during gesture */}
-      <div ref={contentRef} className="relative z-[9999] bg-background">
+      <div ref={contentRef} className="relative z-[41]">
         {children}
       </div>
     </div>
