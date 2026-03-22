@@ -259,7 +259,8 @@ export async function shiftLessonsForward(
     return { conflicts: allConflicts, success: false };
   }
 
-  // Apply shifts
+  // Apply shifts with a shared group ID for batch revert
+  const shiftGroupId = crypto.randomUUID();
   for (let i = 0; i < toShift.length && i < newDates.length; i++) {
     const inst = toShift[i];
     await supabase
@@ -272,6 +273,7 @@ export async function shiftLessonsForward(
         start_time: newDates[i].startTime,
         end_time: newDates[i].endTime,
         rescheduled_count: inst.rescheduled_count + 1,
+        shift_group_id: shiftGroupId,
       })
       .eq("id", inst.id);
   }
