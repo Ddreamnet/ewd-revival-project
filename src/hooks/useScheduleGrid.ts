@@ -44,6 +44,7 @@ export interface ActualLesson {
   original_start_time: string | null;
   original_end_time: string | null;
   rescheduled_count: number;
+  isGhost?: boolean;
 }
 
 /**
