@@ -83,9 +83,7 @@ export function EditStudentDialog({
           : [{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]
       );
       setConflicts([]);
-      fetchStudentIds().then(() => {
-        fetchInstances();
-      });
+      initializeDialog();
     }
   }, [open, currentName, currentLessons]);
 
