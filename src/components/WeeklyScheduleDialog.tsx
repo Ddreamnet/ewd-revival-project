@@ -202,15 +202,10 @@ export function WeeklyScheduleDialog({
     if (!selectedTrialLesson || processing) return;
     setProcessing(true);
     try {
-      const { error } = await supabase.from("trial_lessons").update({ is_completed: false }).eq("id", selectedTrialLesson.id);
-      if (error) throw error;
-
-      await subtractBalanceFn({
-        teacherId,
-        lessonType: "trial",
-        startTime: selectedTrialLesson.start_time,
-        endTime: selectedTrialLesson.end_time,
-      });
+      const result = await undoTrialLesson(selectedTrialLesson.id, teacherId);
+      if (!result.success) {
+        throw new Error(result.error || "İşlem başarısız");
+      }
       toast({ title: "Başarılı", description: "Deneme dersi işlenmedi olarak işaretlendi" });
       await fetchSchedule();
     } catch (error: any) {

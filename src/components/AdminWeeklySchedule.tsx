@@ -373,19 +373,10 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     if (!selectedTrialLesson) return;
 
     try {
-      const { error } = await supabase
-        .from("trial_lessons")
-        .update({ is_completed: false })
-        .eq("id", selectedTrialLesson.id);
-
-      if (error) throw error;
-
-      await subtractBalance({
-        teacherId,
-        lessonType: "trial",
-        startTime: selectedTrialLesson.start_time,
-        endTime: selectedTrialLesson.end_time,
-      });
+      const result = await undoTrialLesson(selectedTrialLesson.id, teacherId);
+      if (!result.success) {
+        throw new Error(result.error || "İşlem başarısız");
+      }
 
       toast({
         title: "Başarılı",
