@@ -622,18 +622,17 @@ export function EditStudentDialog({
         }
 
         if (futureDates.length > 0) {
-          for (let i = 0; i < futureDates.length; i++) {
-            await supabase.from("lesson_instances").insert({
-              student_id: studentUserId,
-              teacher_id: teacherUserId,
-              lesson_number: i + 1,
-              lesson_date: futureDates[i].lessonDate,
-              start_time: futureDates[i].startTime,
-              end_time: futureDates[i].endTime,
-              status: "planned",
-              package_cycle: currentCycle,
-            });
-          }
+          const toInsert = futureDates.map((fd, i) => ({
+            student_id: studentUserId,
+            teacher_id: teacherUserId,
+            lesson_number: i + 1,
+            lesson_date: fd.lessonDate,
+            start_time: fd.startTime,
+            end_time: fd.endTime,
+            status: "planned",
+            package_cycle: currentCycle,
+          }));
+          await supabase.from("lesson_instances").insert(toInsert);
         }
       }
 
