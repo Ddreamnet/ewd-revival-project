@@ -421,6 +421,7 @@ async function fetchActualLessonsForWeekCore(
             original_start_time: null,
             original_end_time: null,
             rescheduled_count: 0,
+            is_manual_override: false,
             isGhost: true,
           });
         }
