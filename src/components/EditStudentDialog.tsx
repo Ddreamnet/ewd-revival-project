@@ -409,20 +409,23 @@ export function EditStudentDialog({
                 setConflicts(futureConflicts);
               }
 
-              // Apply to instances
-              for (let i = 0; i < plannedAfterChanged.length && i < futureDates.length; i++) {
-                await supabase
-                  .from("lesson_instances")
-                  .update({
-                    lesson_date: futureDates[i].lessonDate,
-                    start_time: futureDates[i].startTime,
-                    end_time: futureDates[i].endTime,
-                  })
-                  .eq("id", plannedAfterChanged[i].id);
-              }
+              // Batch update instances in parallel
+              const updateCount = Math.min(plannedAfterChanged.length, futureDates.length);
+              await Promise.all(
+                Array.from({ length: updateCount }, (_, i) =>
+                  supabase
+                    .from("lesson_instances")
+                    .update({
+                      lesson_date: futureDates[i].lessonDate,
+                      start_time: futureDates[i].startTime,
+                      end_time: futureDates[i].endTime,
+                    })
+                    .eq("id", plannedAfterChanged[i].id)
+                )
+              );
 
               // Update finalDates from instances
-              for (let i = 0; i < plannedAfterChanged.length && i < futureDates.length; i++) {
+              for (let i = 0; i < updateCount; i++) {
                 finalDates = {
                   ...finalDates,
                   [plannedAfterChanged[i].lesson_number.toString()]: futureDates[i].lessonDate,
