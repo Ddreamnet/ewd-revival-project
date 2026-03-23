@@ -473,7 +473,7 @@ export function LessonOverrideDialog({
               variant="outline"
               size="sm"
               onClick={() => setShowPostponeConfirm(true)}
-              disabled={saving || conflicts.length > 0}
+              disabled={saving}
               className="text-xs px-2"
             >
               <ArrowRight className="h-3.5 w-3.5 mr-1 shrink-0" />
