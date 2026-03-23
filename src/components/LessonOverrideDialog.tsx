@@ -342,9 +342,7 @@ export function LessonOverrideDialog({
 
       if (allRevertConflicts.length > 0) {
         setConflicts(allRevertConflicts);
-        setSaving(false);
-        setShowRevertConfirm(false);
-        return;
+        // Warning only — don't block revert
       }
 
       // Apply revert to all instances
