@@ -488,6 +488,22 @@ export function getActualLessonForDayAndTime(
 }
 
 /**
+ * Get ALL actual lessons for a specific day and time slot (supports multiple students in same slot).
+ */
+export function getActualLessonsForDayAndTime(
+  actualLessons: ActualLesson[],
+  dayIndex: number,
+  timeSlot: string,
+  weekStart?: Date
+): ActualLesson[] {
+  const dateForDay = getDateForDayIndex(dayIndex, weekStart);
+  const dateStr = format(dateForDay, "yyyy-MM-dd");
+  return actualLessons.filter(
+    (l) => l.lesson_date === dateStr && l.start_time === timeSlot
+  );
+}
+
+/**
  * Detect back-to-back lesson groups for a specific day.
  */
 export function getBackToBackGroups(
