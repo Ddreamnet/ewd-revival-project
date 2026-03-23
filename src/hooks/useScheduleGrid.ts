@@ -471,22 +471,6 @@ export async function fetchActualLessonsForWeek(
 }
 
 /**
- * Get actual lesson for a specific day and time slot.
- */
-export function getActualLessonForDayAndTime(
-  actualLessons: ActualLesson[],
-  dayIndex: number,
-  timeSlot: string,
-  weekStart?: Date
-): ActualLesson | null {
-  const dateForDay = getDateForDayIndex(dayIndex, weekStart);
-  const dateStr = format(dateForDay, "yyyy-MM-dd");
-  return actualLessons.find(
-    (l) => l.lesson_date === dateStr && l.start_time === timeSlot
-  ) || null;
-}
-
-/**
  * Get ALL actual lessons for a specific day and time slot (supports multiple students in same slot).
  */
 export function getActualLessonsForDayAndTime(

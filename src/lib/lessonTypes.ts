@@ -9,21 +9,6 @@ export interface LessonDates {
   [key: string]: string;
 }
 
-/** A single lesson with its dates and override status, used for display */
-export interface SortedLesson {
-  lessonNumber: number;
-  originalDate: string;
-  effectiveDate: string;
-  isOverridden: boolean;
-}
-
-/** Display data for a single lesson position in the tracker grid */
-export interface DisplayLessonData {
-  lessonNumber: number;
-  displayDate: string | null;
-  isOverridden: boolean;
-}
-
 /** Full lesson instance row from the lesson_instances table */
 export interface LessonInstance {
   id: string;
