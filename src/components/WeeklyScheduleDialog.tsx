@@ -15,7 +15,7 @@ import { format, startOfWeek, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
 import { completeTrialLesson } from "@/lib/lessonService";
 import { subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getActualLessonsForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
