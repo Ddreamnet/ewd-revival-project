@@ -241,6 +241,7 @@ export function LessonOverrideDialog({
             original_start_time: currentInst.original_date ? undefined : currentInst.start_time,
             original_end_time: currentInst.original_date ? undefined : currentInst.end_time,
             rescheduled_count: currentInst.rescheduled_count + 1,
+            is_manual_override: true,
           })
           .eq("id", instanceId);
 
