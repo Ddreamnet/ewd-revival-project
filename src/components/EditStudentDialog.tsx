@@ -142,27 +142,27 @@ export function EditStudentDialog({
   const fetchInstances = async () => {
     if (!studentUserId || !teacherUserId) return;
     try {
-      const { data: tracking } = await supabase
-        .from("student_lesson_tracking")
-        .select("package_cycle")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .maybeSingle();
+      // Parallel fetch tracking + instances
+      const [trackingResult, instanceResult] = await Promise.all([
+        supabase
+          .from("student_lesson_tracking")
+          .select("package_cycle")
+          .eq("student_id", studentUserId)
+          .eq("teacher_id", teacherUserId)
+          .maybeSingle(),
+        supabase
+          .from("lesson_instances")
+          .select("*")
+          .eq("student_id", studentUserId)
+          .eq("teacher_id", teacherUserId)
+          .in("status", ["planned", "completed"])
+          .order("lesson_date", { ascending: true })
+          .order("start_time", { ascending: true }),
+      ]);
 
-      const currentCycle = tracking?.package_cycle ?? 1;
-
-      const { data, error } = await supabase
-        .from("lesson_instances")
-        .select("*")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .eq("package_cycle", currentCycle)
-        .in("status", ["planned", "completed"])
-        .order("lesson_date", { ascending: true })
-        .order("start_time", { ascending: true });
-
-      if (error) throw error;
-      const fetchedInstances = (data as LessonInstance[]) || [];
+      const currentCycle = trackingResult.data?.package_cycle ?? 1;
+      const allInstances = (instanceResult.data || []) as LessonInstance[];
+      const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
       setInstances(fetchedInstances);
 
       const dates: LessonDates = {};
