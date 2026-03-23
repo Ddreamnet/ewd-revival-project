@@ -329,33 +329,37 @@ export function EditStudentDialog({
               endTime: l.endTime,
             }));
 
-            // First, update the directly-changed instances (including completed ones)
-            for (const key of changedKeys) {
+            // Batch conflict checks in parallel + batch updates
+            const changeEntries = changedKeys.map((key) => {
               const instId = instanceIdMap[key];
               const inst = instId ? instances.find((i) => i.id === instId) : findInstanceForLesson(parseInt(key));
-              if (inst) {
-                const c = await checkTeacherConflicts(
-                  teacherUserId,
-                  lessonDates[key],
-                  inst.start_time,
-                  inst.end_time,
-                  inst.id,
-                  studentUserId
-                );
-                if (c.length > 0) {
-                  setConflicts(c);
-                  // Warning only — don't block save
-                }
-                await supabase
+              return { key, inst };
+            }).filter((e) => e.inst != null);
+
+            // Parallel conflict checks (warning-only)
+            const conflictResults = await Promise.all(
+              changeEntries.map((e) =>
+                checkTeacherConflicts(teacherUserId, lessonDates[e.key], e.inst!.start_time, e.inst!.end_time, e.inst!.id, studentUserId)
+              )
+            );
+            const allConflicts = conflictResults.flat();
+            if (allConflicts.length > 0) {
+              setConflicts(allConflicts);
+            }
+
+            // Batch updates in parallel
+            await Promise.all(
+              changeEntries.map((e) =>
+                supabase
                   .from("lesson_instances")
                   .update({
-                    lesson_date: lessonDates[key],
-                    original_date: inst.original_date || inst.lesson_date,
-                    rescheduled_count: inst.rescheduled_count + 1,
+                    lesson_date: lessonDates[e.key],
+                    original_date: e.inst!.original_date || e.inst!.lesson_date,
+                    rescheduled_count: e.inst!.rescheduled_count + 1,
                   })
-                  .eq("id", inst.id);
-              }
-            }
+                  .eq("id", e.inst!.id)
+              )
+            );
 
             // Then regenerate planned instances AFTER the last changed one
             // Sort all instances chronologically to find the right starting point
