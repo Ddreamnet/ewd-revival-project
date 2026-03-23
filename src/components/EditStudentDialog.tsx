@@ -397,23 +397,16 @@ export function EditStudentDialog({
                 startDate
               );
 
-              // Check conflicts for new dates
-              const allConflicts: ConflictInfo[] = [];
-              for (let i = 0; i < futureDates.length; i++) {
-                const c = await checkTeacherConflicts(
-                  teacherUserId,
-                  futureDates[i].lessonDate,
-                  futureDates[i].startTime,
-                  futureDates[i].endTime,
-                  plannedAfterChanged[i]?.id,
-                  studentUserId
-                );
-                allConflicts.push(...c);
-              }
+              // Parallel conflict checks (warning-only)
+              const conflictResults = await Promise.all(
+                futureDates.map((fd, i) =>
+                  checkTeacherConflicts(teacherUserId, fd.lessonDate, fd.startTime, fd.endTime, plannedAfterChanged[i]?.id, studentUserId)
+                )
+              );
+              const futureConflicts = conflictResults.flat();
 
-              if (allConflicts.length > 0) {
-                setConflicts(allConflicts);
-                // Warning only — don't block save
+              if (futureConflicts.length > 0) {
+                setConflicts(futureConflicts);
               }
 
               // Apply to instances
