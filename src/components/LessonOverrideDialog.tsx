@@ -358,6 +358,7 @@ export function LessonOverrideDialog({
             original_end_time: null,
             rescheduled_count: 0,
             shift_group_id: null,
+            is_manual_override: false,
           })
           .eq("id", ri.id);
       }
