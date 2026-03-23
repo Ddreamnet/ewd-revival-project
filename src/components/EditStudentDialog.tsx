@@ -61,7 +61,7 @@ export function EditStudentDialog({
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
   const [instances, setInstances] = useState<LessonInstance[]>([]);
-  const [trackingRecordId, setTrackingRecordId] = useState<string | null>(null);
+  // trackingRecordId state removed — was unused
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
