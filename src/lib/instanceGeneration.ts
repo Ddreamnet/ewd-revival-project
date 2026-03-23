@@ -43,7 +43,8 @@ export interface LessonInstanceRow {
 export function generateFutureInstanceDates(
   templateSlots: TemplateSlot[],
   count: number,
-  startFromDate: Date
+  startFromDate: Date,
+  afterTime?: string
 ): { lessonDate: string; startTime: string; endTime: string }[] {
   if (count <= 0 || templateSlots.length === 0) return [];
 
@@ -66,6 +67,8 @@ export function generateFutureInstanceDates(
 
     for (const slot of matchingSlots) {
       if (results.length >= count) break;
+      // On the first day (offset=0), skip slots at or before afterTime
+      if (offset === 0 && afterTime && slot.startTime <= afterTime) continue;
       results.push({
         lessonDate: format(candidate, "yyyy-MM-dd"),
         startTime: slot.startTime,
