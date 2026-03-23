@@ -142,8 +142,9 @@ export async function syncTemplateChange(
     allConflicts.push(...conflicts);
   }
 
+  // Warning only — log conflicts but proceed with instance generation
   if (allConflicts.length > 0) {
-    return { conflicts: allConflicts, success: false };
+    console.warn("syncTemplateChange: conflicts detected (warning-only):", allConflicts);
   }
 
   // Update planned instances with new dates/times
