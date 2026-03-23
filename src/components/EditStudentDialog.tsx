@@ -410,7 +410,7 @@ export function EditStudentDialog({
 
               if (allConflicts.length > 0) {
                 setConflicts(allConflicts);
-                return;
+                // Warning only — don't block save
               }
 
               // Apply to instances
