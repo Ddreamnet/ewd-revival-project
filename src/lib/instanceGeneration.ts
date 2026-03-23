@@ -257,8 +257,9 @@ export async function shiftLessonsForward(
     allConflicts.push(...c);
   }
 
+  // Warning only — log conflicts but proceed with shift
   if (allConflicts.length > 0) {
-    return { conflicts: allConflicts, success: false };
+    console.warn("shiftLessonsForward: conflicts detected (warning-only):", allConflicts);
   }
 
   // Apply shifts with a shared group ID for batch revert

@@ -159,7 +159,7 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
             <Button variant="outline" onClick={() => { setConflicts([]); onOpenChange(false); }}>
               İptal
             </Button>
-            <Button onClick={handleSubmit} disabled={loading || conflicts.length > 0}>
+            <Button onClick={handleSubmit} disabled={loading}>
               {loading ? "Ekleniyor..." : "Onayla"}
             </Button>
           </div>

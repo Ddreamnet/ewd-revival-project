@@ -458,7 +458,7 @@ export function EditStudentDialog({
             );
             if (c.length > 0) {
               setConflicts(c);
-              return;
+              // Warning only — don't block save
             }
 
             await supabase
