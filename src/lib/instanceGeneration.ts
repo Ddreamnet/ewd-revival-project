@@ -128,60 +128,53 @@ export async function syncTemplateChange(
   const plannedCount = Math.max(0, totalLessons - completed.length);
   const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom);
 
-  // Check conflicts for each new date (excludeStudentId prevents self-conflicts)
-  const allConflicts: ConflictInfo[] = [];
-  for (const nd of newDates) {
-    const conflicts = await checkTeacherConflicts(
-      teacherId,
-      nd.lessonDate,
-      nd.startTime,
-      nd.endTime,
-      undefined,
-      studentId
-    );
-    allConflicts.push(...conflicts);
-  }
+  // Check conflicts in parallel (warning-only)
+  const conflictResults = await Promise.all(
+    newDates.map((nd) =>
+      checkTeacherConflicts(teacherId, nd.lessonDate, nd.startTime, nd.endTime, undefined, studentId)
+    )
+  );
+  const allConflicts = conflictResults.flat();
 
-  // Warning only — log conflicts but proceed with instance generation
   if (allConflicts.length > 0) {
     console.warn("syncTemplateChange: conflicts detected (warning-only):", allConflicts);
   }
 
-  // Update planned instances with new dates/times
-  for (let i = 0; i < planned.length && i < newDates.length; i++) {
-    await supabase
-      .from("lesson_instances")
-      .update({
-        lesson_date: newDates[i].lessonDate,
-        start_time: newDates[i].startTime,
-        end_time: newDates[i].endTime,
-      })
-      .eq("id", planned[i].id);
+  // Batch update planned instances
+  if (planned.length > 0 && newDates.length > 0) {
+    const updatePromises = planned.slice(0, Math.min(planned.length, newDates.length)).map((p, i) =>
+      supabase
+        .from("lesson_instances")
+        .update({
+          lesson_date: newDates[i].lessonDate,
+          start_time: newDates[i].startTime,
+          end_time: newDates[i].endTime,
+        })
+        .eq("id", p.id)
+    );
+    await Promise.all(updatePromises);
   }
 
-  // If more planned lessons than before, insert new ones with package_cycle
+  // If more planned lessons than before, batch insert
   if (newDates.length > planned.length) {
     const nextLessonNumber = Math.max(...existing.map((e) => e.lesson_number), 0) + 1;
-    for (let i = planned.length; i < newDates.length; i++) {
-      await supabase.from("lesson_instances").insert({
-        student_id: studentId,
-        teacher_id: teacherId,
-        lesson_number: nextLessonNumber + (i - planned.length),
-        lesson_date: newDates[i].lessonDate,
-        start_time: newDates[i].startTime,
-        end_time: newDates[i].endTime,
-        status: "planned",
-        package_cycle: currentCycle,
-      });
-    }
+    const toInsert = newDates.slice(planned.length).map((nd, i) => ({
+      student_id: studentId,
+      teacher_id: teacherId,
+      lesson_number: nextLessonNumber + i,
+      lesson_date: nd.lessonDate,
+      start_time: nd.startTime,
+      end_time: nd.endTime,
+      status: "planned",
+      package_cycle: currentCycle,
+    }));
+    await supabase.from("lesson_instances").insert(toInsert);
   }
 
-  // If fewer planned lessons, delete excess
+  // If fewer planned lessons, batch delete
   if (newDates.length < planned.length) {
     const excessIds = planned.slice(newDates.length).map((p) => p.id);
-    for (const id of excessIds) {
-      await supabase.from("lesson_instances").delete().eq("id", id);
-    }
+    await supabase.from("lesson_instances").delete().in("id", excessIds);
   }
 
   return { conflicts: [], success: true };
