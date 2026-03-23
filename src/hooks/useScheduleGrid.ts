@@ -105,8 +105,7 @@ export function dayIndexToDbDayOfWeek(dayIndex: number): number {
  */
 export function getAllTimeSlots(
   lessons: BaseLessonInfo[],
-  trialLessons: TrialLessonInfo[],
-  _overrides: unknown[] = []
+  trialLessons: TrialLessonInfo[]
 ): string[] {
   const allTimes = new Set<string>();
   lessons.forEach((l) => allTimes.add(l.start_time));
