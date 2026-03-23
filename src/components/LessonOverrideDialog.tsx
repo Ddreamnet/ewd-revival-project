@@ -508,7 +508,7 @@ export function LessonOverrideDialog({
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={saving || conflicts.length > 0}
+              disabled={saving}
               className="text-xs px-2"
             >
               <Save className="h-3.5 w-3.5 mr-1 shrink-0" />
