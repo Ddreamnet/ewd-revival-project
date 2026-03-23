@@ -163,7 +163,7 @@ export function WeeklyScheduleDialog({
   };
 
   const computedTimeSlots = showTemplate
-    ? getAllTimeSlots(lessons, [], [])  // Kalıcı: template only, no trials, no overrides
+    ? getAllTimeSlots(lessons, [])  // Kalıcı: template only, no trials, no overrides
     : getAllTimeSlotsActual(actualLessons, trialLessons); // Güncel: actual + trials
 
   // Template mode: pure template positions (no override adjustments)
