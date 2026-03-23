@@ -229,9 +229,11 @@ export async function shiftLessonsForward(
 
   if (toShift.length === 0) return { conflicts: [], success: false };
 
-  // Generate new dates starting from the day after the target's current date
-  const startDate = addDays(new Date(toShift[0].lesson_date), 1);
-  const newDates = generateFutureInstanceDates(templateSlots, toShift.length, startDate);
+  // Generate new dates starting from the SAME day but after the current slot's time
+  // This enables same-day cascade: Mon 10:00 shifts to Mon 11:00 if available
+  const startDate = new Date(toShift[0].lesson_date);
+  const afterTime = toShift[0].start_time;
+  const newDates = generateFutureInstanceDates(templateSlots, toShift.length, startDate, afterTime);
 
   // Check conflicts
   const conflictChecks = newDates.map((nd, i) => ({
