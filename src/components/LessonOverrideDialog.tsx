@@ -325,43 +325,44 @@ export function LessonOverrideDialog({
         }];
       }
 
-      // Conflict check for all instances reverting to their original slots
-      // Exclude all instances in this student's lessons to avoid self-conflicts
-      const allRevertConflicts: ConflictInfo[] = [];
-      for (const ri of instancesToRevert) {
-        const c = await checkTeacherConflicts(
-          teacherId,
-          ri.original_date,
-          ri.original_start_time || originalStartTime,
-          ri.original_end_time || originalEndTime,
-          ri.id,
-          studentId
-        );
-        allRevertConflicts.push(...c);
-      }
+      // Conflict check for all instances in parallel (warning-only)
+      const conflictResults = await Promise.all(
+        instancesToRevert.map((ri) =>
+          checkTeacherConflicts(
+            teacherId,
+            ri.original_date,
+            ri.original_start_time || originalStartTime,
+            ri.original_end_time || originalEndTime,
+            ri.id,
+            studentId
+          )
+        )
+      );
+      const allRevertConflicts = conflictResults.flat();
 
       if (allRevertConflicts.length > 0) {
         setConflicts(allRevertConflicts);
-        // Warning only — don't block revert
       }
 
-      // Apply revert to all instances
-      for (const ri of instancesToRevert) {
-        await supabase
-          .from("lesson_instances")
-          .update({
-            lesson_date: ri.original_date,
-            start_time: ri.original_start_time || originalStartTime,
-            end_time: ri.original_end_time || originalEndTime,
-            original_date: null,
-            original_start_time: null,
-            original_end_time: null,
-            rescheduled_count: 0,
-            shift_group_id: null,
-            is_manual_override: false,
-          })
-          .eq("id", ri.id);
-      }
+      // Batch revert all instances in parallel
+      await Promise.all(
+        instancesToRevert.map((ri) =>
+          supabase
+            .from("lesson_instances")
+            .update({
+              lesson_date: ri.original_date,
+              start_time: ri.original_start_time || originalStartTime,
+              end_time: ri.original_end_time || originalEndTime,
+              original_date: null,
+              original_start_time: null,
+              original_end_time: null,
+              rescheduled_count: 0,
+              shift_group_id: null,
+              is_manual_override: false,
+            })
+            .eq("id", ri.id)
+        )
+      );
 
       const revertCount = instancesToRevert.length;
       toast({

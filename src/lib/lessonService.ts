@@ -268,6 +268,26 @@ export async function getLastCompletedInstance(
 }
 
 /**
+ * Undo a completed trial lesson (atomic RPC).
+ */
+export async function undoTrialLesson(
+  trialId: string,
+  teacherId: string
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc("rpc_undo_trial_lesson", {
+    p_trial_id: trialId,
+    p_teacher_id: teacherId,
+  });
+
+  if (error) {
+    console.error("undoTrialLesson RPC error:", error);
+    return { success: false, error: error.message };
+  }
+
+  return data as unknown as RpcResult;
+}
+
+/**
  * Get remaining rights for a student in current cycle.
  */
 export async function getRemainingRights(

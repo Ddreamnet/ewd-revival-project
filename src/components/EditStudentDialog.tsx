@@ -103,31 +103,30 @@ export function EditStudentDialog({
       setStudentUserId(sUserId);
       setTeacherUserId(tUserId);
 
-      // Get current package_cycle
-      const { data: tracking } = await supabase
-        .from("student_lesson_tracking")
-        .select("package_cycle")
-        .eq("student_id", sUserId)
-        .eq("teacher_id", tUserId)
-        .maybeSingle();
+      // Parallel fetch: tracking + instances at the same time
+      const [trackingResult, instanceResult] = await Promise.all([
+        supabase
+          .from("student_lesson_tracking")
+          .select("package_cycle")
+          .eq("student_id", sUserId)
+          .eq("teacher_id", tUserId)
+          .maybeSingle(),
+        // Pre-fetch all instances (will filter by cycle below)
+        supabase
+          .from("lesson_instances")
+          .select("*")
+          .eq("student_id", sUserId)
+          .eq("teacher_id", tUserId)
+          .in("status", ["planned", "completed"])
+          .order("lesson_date", { ascending: true })
+          .order("start_time", { ascending: true }),
+      ]);
 
-      const currentCycle = tracking?.package_cycle ?? 1;
-
-      const { data: instanceData, error: instanceError } = await supabase
-        .from("lesson_instances")
-        .select("*")
-        .eq("student_id", sUserId)
-        .eq("teacher_id", tUserId)
-        .eq("package_cycle", currentCycle)
-        .in("status", ["planned", "completed"])
-        .order("lesson_date", { ascending: true })
-        .order("start_time", { ascending: true });
-
-      if (instanceError) throw instanceError;
-      const fetchedInstances = (instanceData as LessonInstance[]) || [];
+      const currentCycle = trackingResult.data?.package_cycle ?? 1;
+      const allInstances = (instanceResult.data || []) as LessonInstance[];
+      const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
       setInstances(fetchedInstances);
 
-      // Derive lessonDates from instances
       const dates: LessonDates = {};
       fetchedInstances.forEach((inst) => {
         dates[inst.lesson_number.toString()] = inst.lesson_date;
@@ -143,27 +142,27 @@ export function EditStudentDialog({
   const fetchInstances = async () => {
     if (!studentUserId || !teacherUserId) return;
     try {
-      const { data: tracking } = await supabase
-        .from("student_lesson_tracking")
-        .select("package_cycle")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .maybeSingle();
+      // Parallel fetch tracking + instances
+      const [trackingResult, instanceResult] = await Promise.all([
+        supabase
+          .from("student_lesson_tracking")
+          .select("package_cycle")
+          .eq("student_id", studentUserId)
+          .eq("teacher_id", teacherUserId)
+          .maybeSingle(),
+        supabase
+          .from("lesson_instances")
+          .select("*")
+          .eq("student_id", studentUserId)
+          .eq("teacher_id", teacherUserId)
+          .in("status", ["planned", "completed"])
+          .order("lesson_date", { ascending: true })
+          .order("start_time", { ascending: true }),
+      ]);
 
-      const currentCycle = tracking?.package_cycle ?? 1;
-
-      const { data, error } = await supabase
-        .from("lesson_instances")
-        .select("*")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .eq("package_cycle", currentCycle)
-        .in("status", ["planned", "completed"])
-        .order("lesson_date", { ascending: true })
-        .order("start_time", { ascending: true });
-
-      if (error) throw error;
-      const fetchedInstances = (data as LessonInstance[]) || [];
+      const currentCycle = trackingResult.data?.package_cycle ?? 1;
+      const allInstances = (instanceResult.data || []) as LessonInstance[];
+      const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
       setInstances(fetchedInstances);
 
       const dates: LessonDates = {};
@@ -330,33 +329,37 @@ export function EditStudentDialog({
               endTime: l.endTime,
             }));
 
-            // First, update the directly-changed instances (including completed ones)
-            for (const key of changedKeys) {
+            // Batch conflict checks in parallel + batch updates
+            const changeEntries = changedKeys.map((key) => {
               const instId = instanceIdMap[key];
               const inst = instId ? instances.find((i) => i.id === instId) : findInstanceForLesson(parseInt(key));
-              if (inst) {
-                const c = await checkTeacherConflicts(
-                  teacherUserId,
-                  lessonDates[key],
-                  inst.start_time,
-                  inst.end_time,
-                  inst.id,
-                  studentUserId
-                );
-                if (c.length > 0) {
-                  setConflicts(c);
-                  // Warning only — don't block save
-                }
-                await supabase
+              return { key, inst };
+            }).filter((e) => e.inst != null);
+
+            // Parallel conflict checks (warning-only)
+            const conflictResults = await Promise.all(
+              changeEntries.map((e) =>
+                checkTeacherConflicts(teacherUserId, lessonDates[e.key], e.inst!.start_time, e.inst!.end_time, e.inst!.id, studentUserId)
+              )
+            );
+            const allConflicts = conflictResults.flat();
+            if (allConflicts.length > 0) {
+              setConflicts(allConflicts);
+            }
+
+            // Batch updates in parallel
+            await Promise.all(
+              changeEntries.map((e) =>
+                supabase
                   .from("lesson_instances")
                   .update({
-                    lesson_date: lessonDates[key],
-                    original_date: inst.original_date || inst.lesson_date,
-                    rescheduled_count: inst.rescheduled_count + 1,
+                    lesson_date: lessonDates[e.key],
+                    original_date: e.inst!.original_date || e.inst!.lesson_date,
+                    rescheduled_count: e.inst!.rescheduled_count + 1,
                   })
-                  .eq("id", inst.id);
-              }
-            }
+                  .eq("id", e.inst!.id)
+              )
+            );
 
             // Then regenerate planned instances AFTER the last changed one
             // Sort all instances chronologically to find the right starting point
@@ -394,39 +397,35 @@ export function EditStudentDialog({
                 startDate
               );
 
-              // Check conflicts for new dates
-              const allConflicts: ConflictInfo[] = [];
-              for (let i = 0; i < futureDates.length; i++) {
-                const c = await checkTeacherConflicts(
-                  teacherUserId,
-                  futureDates[i].lessonDate,
-                  futureDates[i].startTime,
-                  futureDates[i].endTime,
-                  plannedAfterChanged[i]?.id,
-                  studentUserId
-                );
-                allConflicts.push(...c);
+              // Parallel conflict checks (warning-only)
+              const conflictResults = await Promise.all(
+                futureDates.map((fd, i) =>
+                  checkTeacherConflicts(teacherUserId, fd.lessonDate, fd.startTime, fd.endTime, plannedAfterChanged[i]?.id, studentUserId)
+                )
+              );
+              const futureConflicts = conflictResults.flat();
+
+              if (futureConflicts.length > 0) {
+                setConflicts(futureConflicts);
               }
 
-              if (allConflicts.length > 0) {
-                setConflicts(allConflicts);
-                // Warning only — don't block save
-              }
-
-              // Apply to instances
-              for (let i = 0; i < plannedAfterChanged.length && i < futureDates.length; i++) {
-                await supabase
-                  .from("lesson_instances")
-                  .update({
-                    lesson_date: futureDates[i].lessonDate,
-                    start_time: futureDates[i].startTime,
-                    end_time: futureDates[i].endTime,
-                  })
-                  .eq("id", plannedAfterChanged[i].id);
-              }
+              // Batch update instances in parallel
+              const updateCount = Math.min(plannedAfterChanged.length, futureDates.length);
+              await Promise.all(
+                Array.from({ length: updateCount }, (_, i) =>
+                  supabase
+                    .from("lesson_instances")
+                    .update({
+                      lesson_date: futureDates[i].lessonDate,
+                      start_time: futureDates[i].startTime,
+                      end_time: futureDates[i].endTime,
+                    })
+                    .eq("id", plannedAfterChanged[i].id)
+                )
+              );
 
               // Update finalDates from instances
-              for (let i = 0; i < plannedAfterChanged.length && i < futureDates.length; i++) {
+              for (let i = 0; i < updateCount; i++) {
                 finalDates = {
                   ...finalDates,
                   [plannedAfterChanged[i].lesson_number.toString()]: futureDates[i].lessonDate,
@@ -442,35 +441,36 @@ export function EditStudentDialog({
           (key) => lessonDates[key] !== originalLessonDates[key]
         );
 
-        for (const key of changedKeys) {
-          // Use instanceIdMap for direct matching instead of lesson_number lookup
+        const changeEntries = changedKeys.map((key) => {
           const instId = instanceIdMap[key];
           const inst = instId ? instances.find((i) => i.id === instId) : findInstanceForLesson(parseInt(key));
-          if (inst) {
-            // Conflict check
-            const c = await checkTeacherConflicts(
-              teacherUserId,
-              lessonDates[key],
-              inst.start_time,
-              inst.end_time,
-              inst.id,
-              studentUserId
-            );
-            if (c.length > 0) {
-              setConflicts(c);
-              // Warning only — don't block save
-            }
+          return { key, inst };
+        }).filter((e) => e.inst != null);
 
-            await supabase
+        // Parallel conflict checks (warning-only)
+        const conflictResults = await Promise.all(
+          changeEntries.map((e) =>
+            checkTeacherConflicts(teacherUserId, lessonDates[e.key], e.inst!.start_time, e.inst!.end_time, e.inst!.id, studentUserId)
+          )
+        );
+        const allConflicts = conflictResults.flat();
+        if (allConflicts.length > 0) {
+          setConflicts(allConflicts);
+        }
+
+        // Batch updates in parallel
+        await Promise.all(
+          changeEntries.map((e) =>
+            supabase
               .from("lesson_instances")
               .update({
-                lesson_date: lessonDates[key],
-                original_date: inst.original_date || inst.lesson_date,
-                rescheduled_count: inst.rescheduled_count + 1,
+                lesson_date: lessonDates[e.key],
+                original_date: e.inst!.original_date || e.inst!.lesson_date,
+                rescheduled_count: e.inst!.rescheduled_count + 1,
               })
-              .eq("id", inst.id);
-          }
-        }
+              .eq("id", e.inst!.id)
+          )
+        );
       }
 
       // Re-fetch instances to get synced dates
@@ -622,18 +622,17 @@ export function EditStudentDialog({
         }
 
         if (futureDates.length > 0) {
-          for (let i = 0; i < futureDates.length; i++) {
-            await supabase.from("lesson_instances").insert({
-              student_id: studentUserId,
-              teacher_id: teacherUserId,
-              lesson_number: i + 1,
-              lesson_date: futureDates[i].lessonDate,
-              start_time: futureDates[i].startTime,
-              end_time: futureDates[i].endTime,
-              status: "planned",
-              package_cycle: currentCycle,
-            });
-          }
+          const toInsert = futureDates.map((fd, i) => ({
+            student_id: studentUserId,
+            teacher_id: teacherUserId,
+            lesson_number: i + 1,
+            lesson_date: fd.lessonDate,
+            start_time: fd.startTime,
+            end_time: fd.endTime,
+            status: "planned",
+            package_cycle: currentCycle,
+          }));
+          await supabase.from("lesson_instances").insert(toInsert);
         }
       }
 

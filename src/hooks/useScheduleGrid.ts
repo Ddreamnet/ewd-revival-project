@@ -105,8 +105,7 @@ export function dayIndexToDbDayOfWeek(dayIndex: number): number {
  */
 export function getAllTimeSlots(
   lessons: BaseLessonInfo[],
-  trialLessons: TrialLessonInfo[],
-  _overrides: unknown[] = []
+  trialLessons: TrialLessonInfo[]
 ): string[] {
   const allTimes = new Set<string>();
   lessons.forEach((l) => allTimes.add(l.start_time));
@@ -469,22 +468,6 @@ export async function fetchActualLessonsForWeek(
   const data = await fetchActualLessonsForWeekCore(teacherId, ws);
   weekCache.set(key, { data, ts: Date.now() });
   return data;
-}
-
-/**
- * Get actual lesson for a specific day and time slot.
- */
-export function getActualLessonForDayAndTime(
-  actualLessons: ActualLesson[],
-  dayIndex: number,
-  timeSlot: string,
-  weekStart?: Date
-): ActualLesson | null {
-  const dateForDay = getDateForDayIndex(dayIndex, weekStart);
-  const dateStr = format(dateForDay, "yyyy-MM-dd");
-  return actualLessons.find(
-    (l) => l.lesson_date === dateStr && l.start_time === timeSlot
-  ) || null;
 }
 
 /**

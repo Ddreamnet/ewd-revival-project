@@ -13,9 +13,8 @@ import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { getLessonDateForCurrentWeek } from "@/hooks/useScheduleGrid";
 import { format, startOfWeek, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
-import { completeTrialLesson } from "@/lib/lessonService";
-import { subtractFromTeacherBalance as subtractBalanceFn } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getActualLessonsForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
+import { completeTrialLesson, undoTrialLesson } from "@/lib/lessonService";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonsForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -164,7 +163,7 @@ export function WeeklyScheduleDialog({
   };
 
   const computedTimeSlots = showTemplate
-    ? getAllTimeSlots(lessons, [], [])  // Kalıcı: template only, no trials, no overrides
+    ? getAllTimeSlots(lessons, [])  // Kalıcı: template only, no trials, no overrides
     : getAllTimeSlotsActual(actualLessons, trialLessons); // Güncel: actual + trials
 
   // Template mode: pure template positions (no override adjustments)
@@ -203,15 +202,10 @@ export function WeeklyScheduleDialog({
     if (!selectedTrialLesson || processing) return;
     setProcessing(true);
     try {
-      const { error } = await supabase.from("trial_lessons").update({ is_completed: false }).eq("id", selectedTrialLesson.id);
-      if (error) throw error;
-
-      await subtractBalanceFn({
-        teacherId,
-        lessonType: "trial",
-        startTime: selectedTrialLesson.start_time,
-        endTime: selectedTrialLesson.end_time,
-      });
+      const result = await undoTrialLesson(selectedTrialLesson.id, teacherId);
+      if (!result.success) {
+        throw new Error(result.error || "İşlem başarısız");
+      }
       toast({ title: "Başarılı", description: "Deneme dersi işlenmedi olarak işaretlendi" });
       await fetchSchedule();
     } catch (error: any) {

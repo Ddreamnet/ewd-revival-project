@@ -17,9 +17,8 @@ import { getLessonDateForCurrentWeek } from "@/hooks/useScheduleGrid";
 import { format, startOfWeek, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
-import { completeTrialLesson } from "@/lib/lessonService";
-import { subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getActualLessonsForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
+import { completeTrialLesson, undoTrialLesson } from "@/lib/lessonService";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonsForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -234,7 +233,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const computedTimeSlots = showTemplate
-    ? getAllTimeSlots(lessons, [], [])
+    ? getAllTimeSlots(lessons, [])
     : getAllTimeSlotsActual(actualLessons, trialLessons);
 
   // Week navigation label
@@ -374,19 +373,10 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
     if (!selectedTrialLesson) return;
 
     try {
-      const { error } = await supabase
-        .from("trial_lessons")
-        .update({ is_completed: false })
-        .eq("id", selectedTrialLesson.id);
-
-      if (error) throw error;
-
-      await subtractBalance({
-        teacherId,
-        lessonType: "trial",
-        startTime: selectedTrialLesson.start_time,
-        endTime: selectedTrialLesson.end_time,
-      });
+      const result = await undoTrialLesson(selectedTrialLesson.id, teacherId);
+      if (!result.success) {
+        throw new Error(result.error || "İşlem başarısız");
+      }
 
       toast({
         title: "Başarılı",
