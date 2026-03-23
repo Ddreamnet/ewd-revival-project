@@ -32,7 +32,7 @@ import {
 } from "@/lib/lessonService";
 import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
-import { checkNonTemplateWeekday } from "@/lib/lessonSync";
+import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
 import type { StudentLessonBase } from "@/lib/types";
 import { DAYS_OF_WEEK } from "@/lib/types";
 
@@ -61,7 +61,7 @@ export function EditStudentDialog({
   const [lessonDates, setLessonDates] = useState<LessonDates>({});
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
   const [instances, setInstances] = useState<LessonInstance[]>([]);
-  const [trackingRecordId, setTrackingRecordId] = useState<string | null>(null);
+  // trackingRecordId state removed — was unused
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -83,69 +83,71 @@ export function EditStudentDialog({
           : [{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]
       );
       setConflicts([]);
-      fetchStudentIds().then(() => {
-        fetchInstances();
-      });
+      initializeDialog();
     }
   }, [open, currentName, currentLessons]);
 
-  const fetchStudentIds = async () => {
-    const { data, error } = await supabase
-      .from("students")
-      .select("student_id, teacher_id")
-      .eq("id", studentId)
-      .single();
-    if (!error && data) {
-      setStudentUserId(data.student_id);
-      setTeacherUserId(data.teacher_id);
-    }
-  };
-
-  const fetchTrackingRecordId = async () => {
+  // Consolidated initialization: fetch student IDs + instances in a single flow
+  const initializeDialog = async () => {
     try {
-      const { data: studentData, error: studentError } = await supabase
+      const { data, error } = await supabase
         .from("students")
         .select("student_id, teacher_id")
         .eq("id", studentId)
         .single();
 
-      if (studentError) throw studentError;
+      if (error || !data) return;
 
-      const { data: records, error } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
-        .limit(1);
-
-      if (error) throw error;
-
-      if (records && records.length > 0) {
-        setTrackingRecordId(records[0].id);
-      } else {
-        setTrackingRecordId(null);
-      }
-    } catch (error: any) {
-      console.error("Failed to fetch tracking record:", error);
-    }
-  };
-
-  const fetchInstances = async () => {
-    try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
+      const sUserId = data.student_id;
+      const tUserId = data.teacher_id;
+      setStudentUserId(sUserId);
+      setTeacherUserId(tUserId);
 
       // Get current package_cycle
       const { data: tracking } = await supabase
         .from("student_lesson_tracking")
         .select("package_cycle")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
+        .eq("student_id", sUserId)
+        .eq("teacher_id", tUserId)
+        .maybeSingle();
+
+      const currentCycle = tracking?.package_cycle ?? 1;
+
+      const { data: instanceData, error: instanceError } = await supabase
+        .from("lesson_instances")
+        .select("*")
+        .eq("student_id", sUserId)
+        .eq("teacher_id", tUserId)
+        .eq("package_cycle", currentCycle)
+        .in("status", ["planned", "completed"])
+        .order("lesson_date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      if (instanceError) throw instanceError;
+      const fetchedInstances = (instanceData as LessonInstance[]) || [];
+      setInstances(fetchedInstances);
+
+      // Derive lessonDates from instances
+      const dates: LessonDates = {};
+      fetchedInstances.forEach((inst) => {
+        dates[inst.lesson_number.toString()] = inst.lesson_date;
+      });
+      setLessonDates(dates);
+      setOriginalLessonDates(dates);
+    } catch (error: any) {
+      console.error("Failed to initialize dialog:", error);
+    }
+  };
+
+  // Re-fetch instances only (used after mutations within the dialog)
+  const fetchInstances = async () => {
+    if (!studentUserId || !teacherUserId) return;
+    try {
+      const { data: tracking } = await supabase
+        .from("student_lesson_tracking")
+        .select("package_cycle")
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId)
         .maybeSingle();
 
       const currentCycle = tracking?.package_cycle ?? 1;
@@ -153,8 +155,8 @@ export function EditStudentDialog({
       const { data, error } = await supabase
         .from("lesson_instances")
         .select("*")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherUserId)
         .eq("package_cycle", currentCycle)
         .in("status", ["planned", "completed"])
         .order("lesson_date", { ascending: true })
@@ -164,7 +166,6 @@ export function EditStudentDialog({
       const fetchedInstances = (data as LessonInstance[]) || [];
       setInstances(fetchedInstances);
 
-      // Derive lessonDates from instances (replaces legacy lesson_dates JSON)
       const dates: LessonDates = {};
       fetchedInstances.forEach((inst) => {
         dates[inst.lesson_number.toString()] = inst.lesson_date;
