@@ -101,34 +101,7 @@ export function EditStudentDialog({
     }
   };
 
-  const fetchTrackingRecordId = async () => {
-    try {
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (studentError) throw studentError;
-
-      const { data: records, error } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentData.student_id)
-        .eq("teacher_id", studentData.teacher_id)
-        .limit(1);
-
-      if (error) throw error;
-
-      if (records && records.length > 0) {
-        setTrackingRecordId(records[0].id);
-      } else {
-        setTrackingRecordId(null);
-      }
-    } catch (error: any) {
-      console.error("Failed to fetch tracking record:", error);
-    }
-  };
+  // fetchTrackingRecordId removed — was never called, trackingRecordId state unused
 
   const fetchInstances = async () => {
     try {
