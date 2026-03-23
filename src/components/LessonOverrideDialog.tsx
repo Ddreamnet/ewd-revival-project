@@ -483,10 +483,10 @@ export function LessonOverrideDialog({
               variant="outline"
               size="sm"
               onClick={handleOneTimeChange}
-              disabled={saving || !hasDateTimeChanges() || conflicts.length > 0}
+              disabled={saving || !hasDateTimeChanges()}
               className={cn(
                 "text-xs px-2",
-                (!hasDateTimeChanges() || conflicts.length > 0) && "opacity-50"
+                !hasDateTimeChanges() && "opacity-50"
               )}
             >
               <CalendarClock className="h-3.5 w-3.5 mr-1 shrink-0" />
