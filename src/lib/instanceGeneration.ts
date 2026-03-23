@@ -128,22 +128,18 @@ export async function syncTemplateChange(
   const plannedCount = Math.max(0, totalLessons - completed.length);
   const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom);
 
-  // Check conflicts for each new date
+  // Check conflicts for each new date (excludeStudentId prevents self-conflicts)
   const allConflicts: ConflictInfo[] = [];
   for (const nd of newDates) {
     const conflicts = await checkTeacherConflicts(
       teacherId,
       nd.lessonDate,
       nd.startTime,
-      nd.endTime
+      nd.endTime,
+      undefined,
+      studentId
     );
-    // Filter out self-conflicts (same student)
-    const externalConflicts = conflicts.filter(
-      (c) => c.type === "trial" || !existing.some(
-        (e) => e.lesson_date === nd.lessonDate && e.start_time === nd.startTime
-      )
-    );
-    allConflicts.push(...externalConflicts);
+    allConflicts.push(...conflicts);
   }
 
   if (allConflicts.length > 0) {
