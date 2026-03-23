@@ -111,27 +111,3 @@ export async function checkTeacherConflicts(
 
   return conflicts;
 }
-
-/**
- * Check conflicts for multiple instances at once (batch).
- * Used when shifting multiple lessons (e.g., "move to next lesson" cascading).
- */
-export async function checkTeacherConflictsBatch(
-  teacherId: string,
-  instances: { id?: string; date: string; startTime: string; endTime: string }[]
-): Promise<ConflictInfo[]> {
-  const allConflicts: ConflictInfo[] = [];
-
-  for (const inst of instances) {
-    const conflicts = await checkTeacherConflicts(
-      teacherId,
-      inst.date,
-      inst.startTime,
-      inst.endTime,
-      inst.id
-    );
-    allConflicts.push(...conflicts);
-  }
-
-  return allConflicts;
-}

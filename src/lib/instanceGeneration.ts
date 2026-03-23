@@ -43,7 +43,8 @@ export interface LessonInstanceRow {
 export function generateFutureInstanceDates(
   templateSlots: TemplateSlot[],
   count: number,
-  startFromDate: Date
+  startFromDate: Date,
+  afterTime?: string
 ): { lessonDate: string; startTime: string; endTime: string }[] {
   if (count <= 0 || templateSlots.length === 0) return [];
 
@@ -66,6 +67,8 @@ export function generateFutureInstanceDates(
 
     for (const slot of matchingSlots) {
       if (results.length >= count) break;
+      // On the first day (offset=0), skip slots at or before afterTime
+      if (offset === 0 && afterTime && slot.startTime <= afterTime) continue;
       results.push({
         lessonDate: format(candidate, "yyyy-MM-dd"),
         startTime: slot.startTime,
@@ -125,22 +128,18 @@ export async function syncTemplateChange(
   const plannedCount = Math.max(0, totalLessons - completed.length);
   const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom);
 
-  // Check conflicts for each new date
+  // Check conflicts for each new date (excludeStudentId prevents self-conflicts)
   const allConflicts: ConflictInfo[] = [];
   for (const nd of newDates) {
     const conflicts = await checkTeacherConflicts(
       teacherId,
       nd.lessonDate,
       nd.startTime,
-      nd.endTime
+      nd.endTime,
+      undefined,
+      studentId
     );
-    // Filter out self-conflicts (same student)
-    const externalConflicts = conflicts.filter(
-      (c) => c.type === "trial" || !existing.some(
-        (e) => e.lesson_date === nd.lessonDate && e.start_time === nd.startTime
-      )
-    );
-    allConflicts.push(...externalConflicts);
+    allConflicts.push(...conflicts);
   }
 
   if (allConflicts.length > 0) {
@@ -230,9 +229,11 @@ export async function shiftLessonsForward(
 
   if (toShift.length === 0) return { conflicts: [], success: false };
 
-  // Generate new dates starting from the day after the target's current date
-  const startDate = addDays(new Date(toShift[0].lesson_date), 1);
-  const newDates = generateFutureInstanceDates(templateSlots, toShift.length, startDate);
+  // Generate new dates starting from the SAME day but after the current slot's time
+  // This enables same-day cascade: Mon 10:00 shifts to Mon 11:00 if available
+  const startDate = new Date(toShift[0].lesson_date);
+  const afterTime = toShift[0].start_time;
+  const newDates = generateFutureInstanceDates(templateSlots, toShift.length, startDate, afterTime);
 
   // Check conflicts
   const conflictChecks = newDates.map((nd, i) => ({
