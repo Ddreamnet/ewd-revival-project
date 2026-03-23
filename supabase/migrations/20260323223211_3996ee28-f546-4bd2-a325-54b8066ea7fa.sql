@@ -1,0 +1,1 @@
+ALTER TABLE public.lesson_instances ADD COLUMN is_manual_override boolean NOT NULL DEFAULT false;
