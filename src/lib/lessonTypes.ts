@@ -23,6 +23,9 @@ export interface LessonInstance {
   original_start_time: string | null;
   original_end_time: string | null;
   rescheduled_count: number;
+  package_cycle: number;
+  is_manual_override?: boolean;
+  shift_group_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
