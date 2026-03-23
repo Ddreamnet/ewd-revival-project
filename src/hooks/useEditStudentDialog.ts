@@ -527,6 +527,7 @@ export function useEditStudentDialog({
       const result = await deleteStudent(studentId, studentUserId, teacherUserId);
       if (!result.success) throw new Error(result.error || "Öğrenci silinemedi");
       toast({ title: "Başarılı", description: "Öğrenci ve tüm verileri silindi" });
+      clearWeekCache();
       onStudentUpdated();
       onOpenChange(false);
     } catch (error: any) {
