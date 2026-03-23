@@ -325,7 +325,7 @@ async function fetchActualLessonsForWeekCore(
   const [instancesResult, activeStudentsResult] = await Promise.all([
     supabase
       .from("lesson_instances")
-      .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count")
+      .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count, is_manual_override")
       .eq("teacher_id", teacherId)
       .gte("lesson_date", startStr)
       .lte("lesson_date", endStr)
