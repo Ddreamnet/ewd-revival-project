@@ -345,7 +345,7 @@ export function EditStudentDialog({
                 );
                 if (c.length > 0) {
                   setConflicts(c);
-                  return;
+                  // Warning only — don't block save
                 }
                 await supabase
                   .from("lesson_instances")
@@ -410,7 +410,7 @@ export function EditStudentDialog({
 
               if (allConflicts.length > 0) {
                 setConflicts(allConflicts);
-                return;
+                // Warning only — don't block save
               }
 
               // Apply to instances
@@ -458,7 +458,7 @@ export function EditStudentDialog({
             );
             if (c.length > 0) {
               setConflicts(c);
-              return;
+              // Warning only — don't block save
             }
 
             await supabase

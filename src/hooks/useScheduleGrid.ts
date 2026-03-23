@@ -44,6 +44,7 @@ export interface ActualLesson {
   original_start_time: string | null;
   original_end_time: string | null;
   rescheduled_count: number;
+  is_manual_override: boolean;
   isGhost?: boolean;
 }
 
@@ -324,7 +325,7 @@ async function fetchActualLessonsForWeekCore(
   const [instancesResult, activeStudentsResult] = await Promise.all([
     supabase
       .from("lesson_instances")
-      .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count")
+      .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count, is_manual_override")
       .eq("teacher_id", teacherId)
       .gte("lesson_date", startStr)
       .lte("lesson_date", endStr)
@@ -420,6 +421,7 @@ async function fetchActualLessonsForWeekCore(
             original_start_time: null,
             original_end_time: null,
             rescheduled_count: 0,
+            is_manual_override: false,
             isGhost: true,
           });
         }
@@ -483,6 +485,22 @@ export function getActualLessonForDayAndTime(
   return actualLessons.find(
     (l) => l.lesson_date === dateStr && l.start_time === timeSlot
   ) || null;
+}
+
+/**
+ * Get ALL actual lessons for a specific day and time slot (supports multiple students in same slot).
+ */
+export function getActualLessonsForDayAndTime(
+  actualLessons: ActualLesson[],
+  dayIndex: number,
+  timeSlot: string,
+  weekStart?: Date
+): ActualLesson[] {
+  const dateForDay = getDateForDayIndex(dayIndex, weekStart);
+  const dateStr = format(dateForDay, "yyyy-MM-dd");
+  return actualLessons.filter(
+    (l) => l.lesson_date === dateStr && l.start_time === timeSlot
+  );
 }
 
 /**

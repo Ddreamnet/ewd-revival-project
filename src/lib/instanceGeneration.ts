@@ -142,8 +142,9 @@ export async function syncTemplateChange(
     allConflicts.push(...conflicts);
   }
 
+  // Warning only — log conflicts but proceed with instance generation
   if (allConflicts.length > 0) {
-    return { conflicts: allConflicts, success: false };
+    console.warn("syncTemplateChange: conflicts detected (warning-only):", allConflicts);
   }
 
   // Update planned instances with new dates/times
@@ -256,8 +257,9 @@ export async function shiftLessonsForward(
     allConflicts.push(...c);
   }
 
+  // Warning only — log conflicts but proceed with shift
   if (allConflicts.length > 0) {
-    return { conflicts: allConflicts, success: false };
+    console.warn("shiftLessonsForward: conflicts detected (warning-only):", allConflicts);
   }
 
   // Apply shifts with a shared group ID for batch revert

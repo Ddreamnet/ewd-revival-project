@@ -19,7 +19,7 @@ import { tr } from "date-fns/locale";
 import { formatTime } from "@/lib/lessonTypes";
 import { completeTrialLesson } from "@/lib/lessonService";
 import { subtractFromTeacherBalance as subtractBalance } from "@/lib/teacherBalance";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
+import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonForDayAndTime, getActualLessonsForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -556,107 +556,137 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
                     {DAYS.map((_, dayIndex) => {
                       if (!showTemplate) {
                         // GÜNCEL MODE: render from lesson_instances + trials
-                        const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
+                        const slotLessons = getActualLessonsForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
                         const trialLesson = findTrialLessonForDayAndTime(dayIndex, timeSlot);
                         
-                        // Skip if this lesson is secondary in a back-to-back group
-                        if (actualLesson && isSecondaryInBackToBack(actualLessons, dayIndex, actualLesson.id, weekStart)) {
+                        // Filter out secondary back-to-back lessons
+                        const visibleLessons = slotLessons.filter(
+                          (l) => !isSecondaryInBackToBack(actualLessons, dayIndex, l.id, weekStart)
+                        );
+                        
+                        if (visibleLessons.length === 0 && !trialLesson) {
                           return <td key={dayIndex} className="border border-border p-2"></td>;
                         }
+
+                        // Check for back-to-back groups
+                        const renderItems: { type: 'b2b' | 'single' | 'trial'; lesson?: ActualLesson; group?: ActualLesson[]; trial?: typeof trialLesson }[] = [];
                         
-                        // Check for back-to-back group
-                        const b2bGroup = actualLesson
-                          ? getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id, weekStart)
-                          : null;
+                        for (const lesson of visibleLessons) {
+                          const b2bGroup = getBackToBackGroupForLesson(actualLessons, dayIndex, lesson.id, weekStart);
+                          if (b2bGroup) {
+                            renderItems.push({ type: 'b2b', lesson, group: b2bGroup });
+                          } else {
+                            renderItems.push({ type: 'single', lesson });
+                          }
+                        }
+                        if (trialLesson && visibleLessons.length === 0) {
+                          renderItems.push({ type: 'trial', trial: trialLesson });
+                        }
+
+                        const isMulti = renderItems.length > 1;
                         
                         return (
-                          <td key={dayIndex} className="border border-border p-2">
-                            {actualLesson && b2bGroup ? (
-                              // Back-to-back grouped card
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    className={`w-full justify-center py-2 cursor-pointer relative ${
-                                      actualLesson.status === "completed" ? "opacity-40" : ""
-                                    } ${actualLesson.rescheduled_count > 0 ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
-                                      studentColors.get(actualLesson.student_id) || "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    <div className="text-center">
-                                      <div className="font-medium flex items-center justify-center gap-1">
-                                        {actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-amber-600" />}
-                                        {actualLesson.student_name}
-                                        <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">{b2bGroup.length} ders</Badge>
-                                      </div>
-                                      {b2bGroup.map((l, idx) => (
-                                        <div key={l.id} className="text-xs mt-0.5 font-mono">
-                                          {formatTime(l.start_time)} - {formatTime(l.end_time)}
+                          <td key={dayIndex} className="border border-border p-1">
+                            <div className={`flex gap-0.5 h-full ${isMulti ? '' : ''}`}>
+                              {renderItems.map((item, idx) => {
+                                if (item.type === 'b2b' && item.lesson && item.group) {
+                                  const al = item.lesson;
+                                  return (
+                                    <Popover key={al.id}>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          className={`${isMulti ? 'flex-1 min-w-0 px-1 py-1' : 'w-full py-2'} justify-center cursor-pointer relative ${
+                                            al.status === "completed" ? "opacity-40" : ""
+                                          } ${al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
+                                            studentColors.get(al.student_id) || "bg-gray-100 text-gray-800"
+                                          }`}
+                                        >
+                                          <div className="text-center truncate">
+                                            <div className={`font-medium flex items-center justify-center gap-1 ${isMulti ? 'text-[10px]' : ''}`}>
+                                              {al.is_manual_override && <Calendar className="h-3 w-3 text-amber-600 shrink-0" />}
+                                              <span className="truncate">{al.student_name}</span>
+                                              <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">{item.group.length} ders</Badge>
+                                            </div>
+                                            {!isMulti && item.group.map((l) => (
+                                              <div key={l.id} className="text-xs mt-0.5 font-mono">
+                                                {formatTime(l.start_time)} - {formatTime(l.end_time)}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-2">
+                                        <div className="flex flex-col gap-1">
+                                          {item.group.map((l) => (
+                                            <Button
+                                              key={l.id}
+                                              variant="ghost"
+                                              size="sm"
+                                              className="justify-start text-xs"
+                                              onClick={() => handleActualLessonClick(l)}
+                                            >
+                                              {formatTime(l.start_time)} - {formatTime(l.end_time)}
+                                            </Button>
+                                          ))}
                                         </div>
-                                      ))}
-                                    </div>
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-2">
-                                  <div className="flex flex-col gap-1">
-                                    {b2bGroup.map((l) => (
-                                      <Button
-                                        key={l.id}
-                                        variant="ghost"
-                                        size="sm"
-                                        className="justify-start text-xs"
-                                        onClick={() => handleActualLessonClick(l)}
-                                      >
-                                        {formatTime(l.start_time)} - {formatTime(l.end_time)}
-                                      </Button>
-                                    ))}
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            ) : actualLesson ? (
-                              // Single actual lesson (or ghost)
-                              <Button
-                                variant="outline"
-                                className={`w-full justify-center py-2 relative ${
-                                  actualLesson.isGhost ? "cursor-default" : "cursor-pointer"
-                                } ${
-                                  !actualLesson.isGhost && actualLesson.status === "completed" ? "opacity-40" : ""
-                                } ${!actualLesson.isGhost && actualLesson.rescheduled_count > 0 ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
-                                  studentColors.get(actualLesson.student_id) || "bg-gray-100 text-gray-800"
-                                }`}
-                                onClick={() => !actualLesson.isGhost && handleActualLessonClick(actualLesson)}
-                              >
-                                {actualLesson.isGhost && (
-                                  <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />
-                                )}
-                                <div className="text-center">
-                                  <div className="font-medium flex items-center justify-center gap-1">
-                                    {!actualLesson.isGhost && actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-amber-600" />}
-                                    {actualLesson.student_name}
-                                  </div>
-                                  <div className="text-xs mt-1">
-                                    {formatTime(actualLesson.start_time)} - {formatTime(actualLesson.end_time)}
-                                  </div>
-                                </div>
-                              </Button>
-                            ) : trialLesson ? (
-                              <Button
-                                variant="outline"
-                                className={`w-full py-2 border-2 transition-all ${
-                                  trialLesson.is_completed
-                                    ? "bg-red-50/30 text-red-300 border-red-100 hover:bg-red-50/50 opacity-40"
-                                    : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
-                                }`}
-                                onClick={() => handleTrialLessonClick(trialLesson)}
-                              >
-                                <div className="text-center w-full">
-                                  <div className="font-medium">Deneme Dersi</div>
-                                  <div className="text-xs mt-1">
-                                    {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
-                                  </div>
-                                </div>
-                              </Button>
-                            ) : null}
+                                      </PopoverContent>
+                                    </Popover>
+                                  );
+                                } else if (item.type === 'single' && item.lesson) {
+                                  const al = item.lesson;
+                                  return (
+                                    <Button
+                                      key={al.id}
+                                      variant="outline"
+                                      className={`${isMulti ? 'flex-1 min-w-0 px-1 py-1' : 'w-full py-2'} justify-center relative ${
+                                        al.isGhost ? "cursor-default" : "cursor-pointer"
+                                      } ${
+                                        !al.isGhost && al.status === "completed" ? "opacity-40" : ""
+                                      } ${!al.isGhost && al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
+                                        studentColors.get(al.student_id) || "bg-gray-100 text-gray-800"
+                                      }`}
+                                      onClick={() => !al.isGhost && handleActualLessonClick(al)}
+                                    >
+                                      {al.isGhost && (
+                                        <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />
+                                      )}
+                                      <div className="text-center truncate">
+                                        <div className={`font-medium flex items-center justify-center gap-1 ${isMulti ? 'text-[10px]' : ''}`}>
+                                          {!al.isGhost && al.is_manual_override && <Calendar className="h-3 w-3 text-amber-600 shrink-0" />}
+                                          <span className="truncate">{al.student_name}</span>
+                                        </div>
+                                        <div className={`${isMulti ? 'text-[9px]' : 'text-xs'} mt-0.5 font-mono`}>
+                                          {formatTime(al.start_time)} - {formatTime(al.end_time)}
+                                        </div>
+                                      </div>
+                                    </Button>
+                                  );
+                                } else if (item.type === 'trial' && item.trial) {
+                                  const tl = item.trial;
+                                  return (
+                                    <Button
+                                      key={tl.id}
+                                      variant="outline"
+                                      className={`${isMulti ? 'flex-1 min-w-0 px-1 py-1' : 'w-full py-2'} border-2 transition-all ${
+                                        tl.is_completed
+                                          ? "bg-red-50/30 text-red-300 border-red-100 hover:bg-red-50/50 opacity-40"
+                                          : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
+                                      }`}
+                                      onClick={() => handleTrialLessonClick(tl)}
+                                    >
+                                      <div className="text-center w-full truncate">
+                                        <div className={`font-medium ${isMulti ? 'text-[10px]' : ''}`}>Deneme</div>
+                                        <div className={`${isMulti ? 'text-[9px]' : 'text-xs'} mt-0.5 font-mono`}>
+                                          {formatTime(tl.start_time)} - {formatTime(tl.end_time)}
+                                        </div>
+                                      </div>
+                                    </Button>
+                                  );
+                                }
+                                return null;
+                              })}
+                            </div>
                           </td>
                         );
                       } else {

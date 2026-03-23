@@ -255,6 +255,7 @@ export type Database = {
           created_at: string | null
           end_time: string
           id: string
+          is_manual_override: boolean
           lesson_date: string
           lesson_number: number
           original_date: string | null
@@ -273,6 +274,7 @@ export type Database = {
           created_at?: string | null
           end_time: string
           id?: string
+          is_manual_override?: boolean
           lesson_date: string
           lesson_number: number
           original_date?: string | null
@@ -291,6 +293,7 @@ export type Database = {
           created_at?: string | null
           end_time?: string
           id?: string
+          is_manual_override?: boolean
           lesson_date?: string
           lesson_number?: number
           original_date?: string | null

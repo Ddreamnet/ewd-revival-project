@@ -157,9 +157,7 @@ export function LessonOverrideDialog({
 
       if (result.conflicts.length > 0) {
         setConflicts(result.conflicts);
-        setSaving(false);
-        setShowPostponeConfirm(false);
-        return;
+        // Warning only — don't block, just inform
       }
 
       if (!result.success) {
@@ -216,8 +214,7 @@ export function LessonOverrideDialog({
 
       if (foundConflicts.length > 0) {
         setConflicts(foundConflicts);
-        setSaving(false);
-        return;
+        // Warning only — don't block save
       }
 
       // Update lesson_instances (source of truth)
@@ -244,6 +241,7 @@ export function LessonOverrideDialog({
             original_start_time: currentInst.original_date ? undefined : currentInst.start_time,
             original_end_time: currentInst.original_date ? undefined : currentInst.end_time,
             rescheduled_count: currentInst.rescheduled_count + 1,
+            is_manual_override: true,
           })
           .eq("id", instanceId);
 
@@ -344,9 +342,7 @@ export function LessonOverrideDialog({
 
       if (allRevertConflicts.length > 0) {
         setConflicts(allRevertConflicts);
-        setSaving(false);
-        setShowRevertConfirm(false);
-        return;
+        // Warning only — don't block revert
       }
 
       // Apply revert to all instances
@@ -362,6 +358,7 @@ export function LessonOverrideDialog({
             original_end_time: null,
             rescheduled_count: 0,
             shift_group_id: null,
+            is_manual_override: false,
           })
           .eq("id", ri.id);
       }
@@ -476,7 +473,7 @@ export function LessonOverrideDialog({
               variant="outline"
               size="sm"
               onClick={() => setShowPostponeConfirm(true)}
-              disabled={saving || conflicts.length > 0}
+              disabled={saving}
               className="text-xs px-2"
             >
               <ArrowRight className="h-3.5 w-3.5 mr-1 shrink-0" />
@@ -486,10 +483,10 @@ export function LessonOverrideDialog({
               variant="outline"
               size="sm"
               onClick={handleOneTimeChange}
-              disabled={saving || !hasDateTimeChanges() || conflicts.length > 0}
+              disabled={saving || !hasDateTimeChanges()}
               className={cn(
                 "text-xs px-2",
-                (!hasDateTimeChanges() || conflicts.length > 0) && "opacity-50"
+                !hasDateTimeChanges() && "opacity-50"
               )}
             >
               <CalendarClock className="h-3.5 w-3.5 mr-1 shrink-0" />
@@ -511,7 +508,7 @@ export function LessonOverrideDialog({
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={saving || conflicts.length > 0}
+              disabled={saving}
               className="text-xs px-2"
             >
               <Save className="h-3.5 w-3.5 mr-1 shrink-0" />
