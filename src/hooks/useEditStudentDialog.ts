@@ -511,6 +511,7 @@ export function useEditStudentDialog({
       }
 
       toast({ title: "Başarılı", description: "Öğrenci ayarları güncellendi" });
+      clearWeekCache();
       onStudentUpdated();
       onOpenChange(false);
     } catch (error: any) {
