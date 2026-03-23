@@ -72,8 +72,7 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
 
       if (foundConflicts.length > 0) {
         setConflicts(foundConflicts);
-        setLoading(false);
-        return;
+        // Warning only — don't block save
       }
 
       const { error } = await supabase.from("trial_lessons").insert({
