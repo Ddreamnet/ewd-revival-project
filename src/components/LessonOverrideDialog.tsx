@@ -214,8 +214,7 @@ export function LessonOverrideDialog({
 
       if (foundConflicts.length > 0) {
         setConflicts(foundConflicts);
-        setSaving(false);
-        return;
+        // Warning only — don't block save
       }
 
       // Update lesson_instances (source of truth)
