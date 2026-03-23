@@ -14,6 +14,7 @@ import {
 import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
+import { clearWeekCache } from "@/hooks/useScheduleGrid";
 import type { StudentLessonBase } from "@/lib/types";
 
 interface UseEditStudentDialogProps {
