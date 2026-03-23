@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,25 +15,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash2, Archive, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
-import { LessonDates, LessonInstance, formatTime } from "@/lib/lessonTypes";
-import {
-  completeLesson,
-  undoCompleteLesson,
-  resetPackage,
-  archiveStudent,
-  deleteStudent,
-  getNextCompletableInstance,
-  getLastCompletedInstance,
-} from "@/lib/lessonService";
-import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
-import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
-import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
-import type { StudentLessonBase } from "@/lib/types";
+import { formatTime } from "@/lib/lessonTypes";
 import { DAYS_OF_WEEK } from "@/lib/types";
+import type { StudentLessonBase } from "@/lib/types";
+import { useEditStudentDialog } from "@/hooks/useEditStudentDialog";
 
 interface EditStudentDialogProps {
   open: boolean;
@@ -47,683 +32,25 @@ interface EditStudentDialogProps {
 
 const daysOfWeek = DAYS_OF_WEEK;
 
-export function EditStudentDialog({
-  open,
-  onOpenChange,
-  onStudentUpdated,
-  studentId,
-  currentName,
-  currentLessons,
-}: EditStudentDialogProps) {
-  const [name, setName] = useState("");
-  const [lessonsPerWeek, setLessonsPerWeek] = useState(1);
-  const [lessons, setLessons] = useState<StudentLessonBase[]>([{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]);
-  const [lessonDates, setLessonDates] = useState<LessonDates>({});
-  const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
-  const [instances, setInstances] = useState<LessonInstance[]>([]);
-  // trackingRecordId state removed — was unused
-  const [loading, setLoading] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
-  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
-  const { toast } = useToast();
-
-  // Student's user_id and teacher_id for DB queries
-  const [studentUserId, setStudentUserId] = useState<string>("");
-  const [teacherUserId, setTeacherUserId] = useState<string>("");
-
-  useEffect(() => {
-    if (open) {
-      setName(currentName);
-      setLessonsPerWeek(currentLessons.length || 1);
-      setLessons(
-        currentLessons.length > 0
-          ? currentLessons
-          : [{ dayOfWeek: 1, startTime: "", endTime: "", note: "" }]
-      );
-      setConflicts([]);
-      initializeDialog();
-    }
-  }, [open, currentName, currentLessons]);
-
-  // Consolidated initialization: fetch student IDs + instances in a single flow
-  const initializeDialog = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("students")
-        .select("student_id, teacher_id")
-        .eq("id", studentId)
-        .single();
-
-      if (error || !data) return;
-
-      const sUserId = data.student_id;
-      const tUserId = data.teacher_id;
-      setStudentUserId(sUserId);
-      setTeacherUserId(tUserId);
-
-      // Parallel fetch: tracking + instances at the same time
-      const [trackingResult, instanceResult] = await Promise.all([
-        supabase
-          .from("student_lesson_tracking")
-          .select("package_cycle")
-          .eq("student_id", sUserId)
-          .eq("teacher_id", tUserId)
-          .maybeSingle(),
-        // Pre-fetch all instances (will filter by cycle below)
-        supabase
-          .from("lesson_instances")
-          .select("*")
-          .eq("student_id", sUserId)
-          .eq("teacher_id", tUserId)
-          .in("status", ["planned", "completed"])
-          .order("lesson_date", { ascending: true })
-          .order("start_time", { ascending: true }),
-      ]);
-
-      const currentCycle = trackingResult.data?.package_cycle ?? 1;
-      const allInstances = (instanceResult.data || []) as LessonInstance[];
-      const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
-      setInstances(fetchedInstances);
-
-      const dates: LessonDates = {};
-      fetchedInstances.forEach((inst) => {
-        dates[inst.lesson_number.toString()] = inst.lesson_date;
-      });
-      setLessonDates(dates);
-      setOriginalLessonDates(dates);
-    } catch (error: any) {
-      console.error("Failed to initialize dialog:", error);
-    }
-  };
-
-  // Re-fetch instances only (used after mutations within the dialog)
-  const fetchInstances = async () => {
-    if (!studentUserId || !teacherUserId) return;
-    try {
-      // Parallel fetch tracking + instances
-      const [trackingResult, instanceResult] = await Promise.all([
-        supabase
-          .from("student_lesson_tracking")
-          .select("package_cycle")
-          .eq("student_id", studentUserId)
-          .eq("teacher_id", teacherUserId)
-          .maybeSingle(),
-        supabase
-          .from("lesson_instances")
-          .select("*")
-          .eq("student_id", studentUserId)
-          .eq("teacher_id", teacherUserId)
-          .in("status", ["planned", "completed"])
-          .order("lesson_date", { ascending: true })
-          .order("start_time", { ascending: true }),
-      ]);
-
-      const currentCycle = trackingResult.data?.package_cycle ?? 1;
-      const allInstances = (instanceResult.data || []) as LessonInstance[];
-      const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
-      setInstances(fetchedInstances);
-
-      const dates: LessonDates = {};
-      fetchedInstances.forEach((inst) => {
-        dates[inst.lesson_number.toString()] = inst.lesson_date;
-      });
-      setLessonDates(dates);
-      setOriginalLessonDates(dates);
-    } catch (error: any) {
-      console.error("Failed to fetch lesson instances:", error);
-    }
-  };
-
-  useEffect(() => {
-    if (lessonsPerWeek > lessons.length) {
-      const newLessons = [...lessons];
-      for (let i = lessons.length; i < lessonsPerWeek; i++) {
-        newLessons.push({ dayOfWeek: 1, startTime: "", endTime: "", note: "" });
-      }
-      setLessons(newLessons);
-    } else if (lessonsPerWeek < lessons.length) {
-      setLessons(lessons.slice(0, lessonsPerWeek));
-    }
-  }, [lessonsPerWeek]);
-
-  const updateLesson = (index: number, field: keyof StudentLessonBase, value: string | number) => {
-    const updatedLessons = [...lessons];
-    updatedLessons[index] = { ...updatedLessons[index], [field]: value };
-    setLessons(updatedLessons);
-  };
-
-  // Map from display key (lessonNumber string) to instanceId for direct DB updates
-  const instanceIdMap: Record<string, string> = {};
-  if (instances.length > 0) {
-    const sorted = [...instances].sort((a, b) => {
-      const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
-      if (dateCompare !== 0) return dateCompare;
-      return a.start_time.localeCompare(b.start_time);
-    });
-    sorted.forEach((inst) => {
-      instanceIdMap[inst.lesson_number.toString()] = inst.id;
-    });
-  }
-
-  const updateLessonDate = (lessonNumber: number, dateStr: string) => {
-    setLessonDates({
-      ...lessonDates,
-      [lessonNumber.toString()]: dateStr,
-    });
-  };
-
-  const handleDateSubmit = () => {
-    const hasChanges = Object.keys(lessonDates).some(
-      (key) => lessonDates[key] !== originalLessonDates[key]
-    );
-
-    if (hasChanges) {
-      setShowConfirm(true);
-    } else {
-      toast({
-        title: "Bilgi",
-        description: "Hiçbir değişiklik yapılmadı",
-      });
-    }
-  };
-
-  // Find the instance for a given lesson number (for balance operations)
-  const findInstanceForLesson = (lessonNumber: number): LessonInstance | undefined => {
-    return instances.find((inst) => inst.lesson_number === lessonNumber);
-  };
-
-  const handleMarkLastLesson = async () => {
-    try {
-      const nextInst = await getNextCompletableInstance(studentUserId, teacherUserId);
-      if (!nextInst) {
-        toast({ title: "Bilgi", description: "İşlenecek ders kalmadı" });
-        return;
-      }
-
-      const result = await completeLesson(nextInst.id, teacherUserId, studentUserId);
-      if (!result.success) {
-        toast({ title: "Hata", description: result.error || "Ders işaretlenemedi", variant: "destructive" });
-        return;
-      }
-
-      // Refresh instances (source of truth)
-      await fetchInstances();
-      toast({ title: "Başarılı", description: `Ders işaretlendi` });
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message || "Ders işaretlenemedi", variant: "destructive" });
-    }
-  };
-
-  const handleUndoLastLesson = async () => {
-    try {
-      const lastInst = await getLastCompletedInstance(studentUserId, teacherUserId);
-      if (!lastInst) {
-        toast({ title: "Bilgi", description: "Geri alınacak ders yok" });
-        return;
-      }
-
-      const result = await undoCompleteLesson(lastInst.id, teacherUserId, studentUserId);
-      if (!result.success) {
-        toast({ title: "Hata", description: result.error || "Ders geri alınamadı", variant: "destructive" });
-        return;
-      }
-
-      await fetchInstances();
-      toast({ title: "Başarılı", description: "Son ders geri alındı" });
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message || "Ders geri alınamadı", variant: "destructive" });
-    }
-  };
-
-  const handleResetAllLessons = async () => {
-    try {
-      const templateSlots: TemplateSlot[] = lessons.map((l) => ({
-        dayOfWeek: l.dayOfWeek,
-        startTime: l.startTime,
-        endTime: l.endTime,
-      }));
-
-      const result = await resetPackage(studentUserId, teacherUserId, templateSlots);
-      if (!result.success) {
-        toast({ title: "Hata", description: result.error || "Dersler sıfırlanamadı", variant: "destructive" });
-        return;
-      }
-
-      setLessonDates({});
-      setOriginalLessonDates({});
-      setShowResetConfirm(false);
-      await fetchInstances();
-      
-      toast({
-        title: "Başarılı",
-        description: `Paket sıfırlandı (Yeni döngü: ${result.new_cycle}). ${result.instances_created} ders planlandı.`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Dersler sıfırlanamadı",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const confirmDateUpdate = async () => {
-    try {
-      let finalDates = lessonDates;
-
-      if (updateRemainingDays) {
-        const changedKeys = Object.keys(lessonDates).filter(
-          (key) => lessonDates[key] !== originalLessonDates[key]
-        );
-
-        if (changedKeys.length > 0) {
-          const firstChangedLesson = Math.min(...changedKeys.map(Number));
-
-          // Instance-based: regenerate from template slots
-          if (instances.length > 0) {
-            const templateSlots: TemplateSlot[] = lessons.map((l) => ({
-              dayOfWeek: l.dayOfWeek,
-              startTime: l.startTime,
-              endTime: l.endTime,
-            }));
-
-            // Batch conflict checks in parallel + batch updates
-            const changeEntries = changedKeys.map((key) => {
-              const instId = instanceIdMap[key];
-              const inst = instId ? instances.find((i) => i.id === instId) : findInstanceForLesson(parseInt(key));
-              return { key, inst };
-            }).filter((e) => e.inst != null);
-
-            // Parallel conflict checks (warning-only)
-            const conflictResults = await Promise.all(
-              changeEntries.map((e) =>
-                checkTeacherConflicts(teacherUserId, lessonDates[e.key], e.inst!.start_time, e.inst!.end_time, e.inst!.id, studentUserId)
-              )
-            );
-            const allConflicts = conflictResults.flat();
-            if (allConflicts.length > 0) {
-              setConflicts(allConflicts);
-            }
-
-            // Batch updates in parallel
-            await Promise.all(
-              changeEntries.map((e) =>
-                supabase
-                  .from("lesson_instances")
-                  .update({
-                    lesson_date: lessonDates[e.key],
-                    original_date: e.inst!.original_date || e.inst!.lesson_date,
-                    rescheduled_count: e.inst!.rescheduled_count + 1,
-                  })
-                  .eq("id", e.inst!.id)
-              )
-            );
-
-            // Then regenerate planned instances AFTER the last changed one
-            // Sort all instances chronologically to find the right starting point
-            const allSorted = [...instances].sort((a, b) => {
-              const dc = a.lesson_date.localeCompare(b.lesson_date);
-              return dc !== 0 ? dc : a.start_time.localeCompare(b.start_time);
-            });
-
-            // Find the last changed instance's position
-            const changedInstanceIds = new Set(
-              changedKeys.map((k) => instanceIdMap[k]).filter(Boolean)
-            );
-            let lastChangedIdx = -1;
-            allSorted.forEach((inst, idx) => {
-              if (changedInstanceIds.has(inst.id)) lastChangedIdx = idx;
-            });
-
-            // Get planned instances after the last changed one
-            const plannedAfterChanged = allSorted
-              .slice(lastChangedIdx + 1)
-              .filter((inst) => inst.status === "planned");
-
-            if (plannedAfterChanged.length > 0) {
-              // Start from the day after the last changed instance's new date
-              const lastChangedKey = changedKeys.reduce((a, b) => 
-                Number(a) > Number(b) ? a : b
-              );
-              const lastChangedDate = new Date(lessonDates[lastChangedKey]);
-              const startDate = new Date(lastChangedDate);
-              startDate.setDate(startDate.getDate() + 1);
-
-              const futureDates = generateFutureInstanceDates(
-                templateSlots,
-                plannedAfterChanged.length,
-                startDate
-              );
-
-              // Parallel conflict checks (warning-only)
-              const conflictResults = await Promise.all(
-                futureDates.map((fd, i) =>
-                  checkTeacherConflicts(teacherUserId, fd.lessonDate, fd.startTime, fd.endTime, plannedAfterChanged[i]?.id, studentUserId)
-                )
-              );
-              const futureConflicts = conflictResults.flat();
-
-              if (futureConflicts.length > 0) {
-                setConflicts(futureConflicts);
-              }
-
-              // Batch update instances in parallel
-              const updateCount = Math.min(plannedAfterChanged.length, futureDates.length);
-              await Promise.all(
-                Array.from({ length: updateCount }, (_, i) =>
-                  supabase
-                    .from("lesson_instances")
-                    .update({
-                      lesson_date: futureDates[i].lessonDate,
-                      start_time: futureDates[i].startTime,
-                      end_time: futureDates[i].endTime,
-                    })
-                    .eq("id", plannedAfterChanged[i].id)
-                )
-              );
-
-              // Update finalDates from instances
-              for (let i = 0; i < updateCount; i++) {
-                finalDates = {
-                  ...finalDates,
-                  [plannedAfterChanged[i].lesson_number.toString()]: futureDates[i].lessonDate,
-                };
-              }
-            }
-          }
-        }
-      } else {
-        // OFF: only date changes, time stays the same
-        // Update individual instance dates without changing times
-        const changedKeys = Object.keys(lessonDates).filter(
-          (key) => lessonDates[key] !== originalLessonDates[key]
-        );
-
-        const changeEntries = changedKeys.map((key) => {
-          const instId = instanceIdMap[key];
-          const inst = instId ? instances.find((i) => i.id === instId) : findInstanceForLesson(parseInt(key));
-          return { key, inst };
-        }).filter((e) => e.inst != null);
-
-        // Parallel conflict checks (warning-only)
-        const conflictResults = await Promise.all(
-          changeEntries.map((e) =>
-            checkTeacherConflicts(teacherUserId, lessonDates[e.key], e.inst!.start_time, e.inst!.end_time, e.inst!.id, studentUserId)
-          )
-        );
-        const allConflicts = conflictResults.flat();
-        if (allConflicts.length > 0) {
-          setConflicts(allConflicts);
-        }
-
-        // Batch updates in parallel
-        await Promise.all(
-          changeEntries.map((e) =>
-            supabase
-              .from("lesson_instances")
-              .update({
-                lesson_date: lessonDates[e.key],
-                original_date: e.inst!.original_date || e.inst!.lesson_date,
-                rescheduled_count: e.inst!.rescheduled_count + 1,
-              })
-              .eq("id", e.inst!.id)
-          )
-        );
-      }
-
-      // Re-fetch instances to get synced dates
-      await fetchInstances();
-
-      toast({
-        title: "Başarılı",
-        description: "Ders tarihleri güncellendi",
-      });
-
-      // Non-template weekday warning
-      const changedKeysForWarning = Object.keys(lessonDates).filter(
-        (key) => lessonDates[key] !== originalLessonDates[key]
-      );
-      for (const key of changedKeysForWarning) {
-        const check = await checkNonTemplateWeekday(studentUserId, teacherUserId, lessonDates[key]);
-        if (check.isNonTemplate) {
-          toast({
-            title: "Bilgi",
-            description: `Seçilen tarih (${lessonDates[key]}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
-          });
-          break;
-        }
-      }
-
-      setShowConfirm(false);
-      setUpdateRemainingDays(false);
-      setConflicts([]);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Tarihler güncellenemedi",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!name.trim()) {
-      toast({
-        title: "Hata",
-        description: "Öğrenci adı gereklidir",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!lessons.every((lesson) => lesson.dayOfWeek !== undefined && lesson.startTime && lesson.endTime)) {
-      toast({
-        title: "Hata",
-        description: "Tüm ders programı alanlarını doldurun",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    setConflicts([]);
-
-    try {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ full_name: name.trim() })
-        .eq("user_id", studentUserId);
-
-      if (profileError) throw profileError;
-
-      const { error: deleteError } = await supabase
-        .from("student_lessons")
-        .delete()
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-
-      if (deleteError) throw deleteError;
-
-      const lessonsToInsert = lessons.map((lesson) => ({
-        student_id: studentUserId,
-        teacher_id: teacherUserId,
-        day_of_week: lesson.dayOfWeek,
-        start_time: lesson.startTime,
-        end_time: lesson.endTime,
-        note: lesson.note || null,
-      }));
-
-      const { error: insertError } = await supabase.from("student_lessons").insert(lessonsToInsert);
-
-      if (insertError) throw insertError;
-
-      // Always sync lessons_per_week to tracking table
-      const { data: existingTrackingSync } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .limit(1);
-
-      if (existingTrackingSync && existingTrackingSync.length > 0) {
-        await supabase
-          .from("student_lesson_tracking")
-          .update({ lessons_per_week: lessonsPerWeek })
-          .eq("id", existingTrackingSync[0].id);
-      }
-
-      // Sync template change to instances (regenerate planned)
-      const newSlots: TemplateSlot[] = lessons.map((l) => ({
-        dayOfWeek: l.dayOfWeek,
-        startTime: l.startTime,
-        endTime: l.endTime,
-      }));
-      const totalLessonsCount = lessonsPerWeek * 4;
-
-      if (instances.length > 0) {
-        const result = await syncTemplateChange(studentUserId, teacherUserId, newSlots, totalLessonsCount);
-
-        if (result.conflicts.length > 0) {
-          setConflicts(result.conflicts);
-          setLoading(false);
-          return;
-        }
-
-      } else {
-        // No instances exist yet — generate fresh instances with package_cycle
-        const today = new Date();
-        const futureDates = generateFutureInstanceDates(newSlots, totalLessonsCount, today);
-
-        // Get or create tracking record to know cycle
-        const { data: existingTracking } = await supabase
-          .from("student_lesson_tracking")
-          .select("id, package_cycle")
-          .eq("student_id", studentUserId)
-          .eq("teacher_id", teacherUserId)
-          .limit(1);
-
-        let currentCycle = 1;
-        if (existingTracking && existingTracking.length > 0) {
-          currentCycle = existingTracking[0].package_cycle ?? 1;
-          await supabase
-            .from("student_lesson_tracking")
-            .update({ lessons_per_week: lessonsPerWeek })
-            .eq("id", existingTracking[0].id);
-        } else {
-          await supabase.from("student_lesson_tracking").insert({
-            student_id: studentUserId,
-            teacher_id: teacherUserId,
-            lessons_per_week: lessonsPerWeek,
-          });
-        }
-
-        if (futureDates.length > 0) {
-          const toInsert = futureDates.map((fd, i) => ({
-            student_id: studentUserId,
-            teacher_id: teacherUserId,
-            lesson_number: i + 1,
-            lesson_date: fd.lessonDate,
-            start_time: fd.startTime,
-            end_time: fd.endTime,
-            status: "planned",
-            package_cycle: currentCycle,
-          }));
-          await supabase.from("lesson_instances").insert(toInsert);
-        }
-      }
-
-      toast({
-        title: "Başarılı",
-        description: "Öğrenci ayarları güncellendi",
-      });
-
-      onStudentUpdated();
-      onOpenChange(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Öğrenci ayarları güncellenemedi",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteStudent = async () => {
-    setLoading(true);
-    try {
-      const result = await deleteStudent(studentId, studentUserId, teacherUserId);
-      if (!result.success) {
-        throw new Error(result.error || "Öğrenci silinemedi");
-      }
-
-      toast({
-        title: "Başarılı",
-        description: "Öğrenci ve tüm verileri silindi",
-      });
-
-      onStudentUpdated();
-      onOpenChange(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Öğrenci silinemedi",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Derive completed count from instances (source of truth)
-  const completedCount = instances.filter((i) => i.status === "completed").length;
-  const totalLessons = lessonsPerWeek * 4;
-
-  const sortedLessonsForDisplay = (() => {
-    // Sort instances by date+time for chronological "Ders N" labels
-    // Cycle-filtered data is already correctly scoped — no slice needed
-    const sorted = [...instances].sort((a, b) => {
-      const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
-      if (dateCompare !== 0) return dateCompare;
-      return a.start_time.localeCompare(b.start_time);
-    });
-
-    const result = sorted.map((inst, idx) => ({
-      displayIndex: idx + 1,
-      lessonNumber: inst.lesson_number,
-      effectiveDate: inst.lesson_date,
-      startTime: inst.start_time,
-      endTime: inst.end_time,
-      isCompleted: inst.status === "completed",
-      isOverridden: inst.original_date !== null,
-      instanceId: inst.id,
-    }));
-
-    // Fill empty rows if fewer instances than totalLessons
-    for (let i = result.length; i < totalLessons; i++) {
-      result.push({
-        displayIndex: i + 1,
-        lessonNumber: i + 1,
-        effectiveDate: "",
-        startTime: "",
-        endTime: "",
-        isCompleted: false,
-        isOverridden: false,
-        instanceId: undefined,
-      });
-    }
-
-    return result;
-  })();
+export function EditStudentDialog(props: EditStudentDialogProps) {
+  const {
+    name, setName,
+    lessonsPerWeek, lessons,
+    lessonDates, originalLessonDates,
+    loading, showConfirm, setShowConfirm,
+    showResetConfirm, setShowResetConfirm,
+    updateRemainingDays, setUpdateRemainingDays,
+    conflicts, completedCount, totalLessons,
+    sortedLessonsForDisplay,
+    handleLessonsPerWeekChange, updateLesson, updateLessonDate,
+    handleDateSubmit, handleMarkLastLesson, handleUndoLastLesson,
+    handleResetAllLessons, confirmDateUpdate, handleSubmit,
+    handleDeleteStudent, handleArchiveStudent,
+  } = useEditStudentDialog(props);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] w-[calc(100%-1rem)] w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Öğrenci Ayarları</DialogTitle>
         </DialogHeader>
@@ -745,19 +72,7 @@ export function EditStudentDialog({
             <Label htmlFor="lessonsPerWeek">Haftalık Ders Sayısı</Label>
             <Select
               value={lessonsPerWeek.toString()}
-              onValueChange={(value) => {
-                const newCount = Number(value);
-                const newTotal = newCount * 4;
-                if (newTotal < completedCount) {
-                  toast({
-                    title: "Uyarı",
-                    description: `Haftalık ders sayısı ${newCount}'e düşürülemez çünkü bu döngüde zaten ${completedCount} ders tamamlanmış (toplam hak: ${newTotal}).`,
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                setLessonsPerWeek(newCount);
-              }}
+              onValueChange={(value) => handleLessonsPerWeekChange(Number(value))}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -794,7 +109,6 @@ export function EditStudentDialog({
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="space-y-2">
                   <Label>Başlangıç</Label>
                   <Input
@@ -804,7 +118,6 @@ export function EditStudentDialog({
                     required
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label>Bitiş</Label>
                   <Input
@@ -814,7 +127,6 @@ export function EditStudentDialog({
                     required
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label>Not</Label>
                   <Input
@@ -845,7 +157,7 @@ export function EditStudentDialog({
 
           <Separator className="my-4" />
 
-          {/* İşlenen Dersler Bölümü */}
+          {/* İşlenen Dersler */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
@@ -856,34 +168,16 @@ export function EditStudentDialog({
               </div>
               <div className="flex flex-wrap gap-2">
                 {completedCount < lessonsPerWeek * 4 && (
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={handleMarkLastLesson}
-                    disabled={loading}
-                  >
+                  <Button type="button" variant="default" size="sm" onClick={handleMarkLastLesson} disabled={loading}>
                     Son Dersi İşaretle
                   </Button>
                 )}
                 {completedCount > 0 && (
                   <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleUndoLastLesson}
-                      disabled={loading}
-                    >
+                    <Button type="button" variant="outline" size="sm" onClick={handleUndoLastLesson} disabled={loading}>
                       Son Dersi Geri Al
                     </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setShowResetConfirm(true)}
-                      disabled={loading}
-                    >
+                    <Button type="button" variant="destructive" size="sm" onClick={() => setShowResetConfirm(true)} disabled={loading}>
                       Sıfırla
                     </Button>
                   </>
@@ -892,20 +186,13 @@ export function EditStudentDialog({
             </div>
             <div className="space-y-2">
               {sortedLessonsForDisplay.map((lesson) => (
-                <div key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border rounded-lg ${lesson.isOverridden ? "border-amber-500" : ""}`}>
+                <div
+                  key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`}
+                  className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border rounded-lg ${lesson.isOverridden ? "border-amber-500" : ""}`}
+                >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div 
-                      className={`h-4 w-4 rounded-full shrink-0 ${
-                        lesson.isCompleted
-                          ? "bg-primary" 
-                          : "bg-muted"
-                      }`} 
-                    />
-                    <span className={`font-medium text-sm ${
-                      lesson.isCompleted
-                        ? "text-foreground" 
-                        : "text-muted-foreground"
-                    }`}>
+                    <div className={`h-4 w-4 rounded-full shrink-0 ${lesson.isCompleted ? "bg-primary" : "bg-muted"}`} />
+                    <span className={`font-medium text-sm ${lesson.isCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                       Ders {lesson.displayIndex}
                     </span>
                     {lesson.startTime && lesson.endTime && (
@@ -923,7 +210,6 @@ export function EditStudentDialog({
                       value={lessonDates[lesson.lessonNumber.toString()] || lesson.effectiveDate || ""}
                       onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
                       className={`w-full sm:w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
-                      disabled={false}
                     />
                   </div>
                 </div>
@@ -932,9 +218,7 @@ export function EditStudentDialog({
                 type="button"
                 variant="default"
                 onClick={handleDateSubmit}
-                disabled={loading || Object.keys(lessonDates).every(
-                  (key) => lessonDates[key] === originalLessonDates[key]
-                )}
+                disabled={loading || Object.keys(lessonDates).every((key) => lessonDates[key] === originalLessonDates[key])}
                 className="w-full"
               >
                 Tarihleri Onayla
@@ -944,49 +228,23 @@ export function EditStudentDialog({
 
           <Separator className="my-4" />
 
-          {/* Öğrenci Silme Bölümü */}
+          {/* Tehlikeli Alan */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-base font-medium text-destructive">Tehlikeli Alan</Label>
-                <p className="text-sm text-muted-foreground">
-                  Öğrenciyi arşivleyin veya kalıcı olarak silin.
-                </p>
+                <p className="text-sm text-muted-foreground">Öğrenciyi arşivleyin veya kalıcı olarak silin.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={async () => {
+                onClick={() => {
                   const confirmed = window.confirm(
-                    `${currentName} adlı öğrenciyi arşivlemek istediğinize emin misiniz? Öğrenci ders programından ve listeden kaldırılacak, ancak tüm verileri korunacaktır. İstediğiniz zaman geri alabilirsiniz.`
+                    `${props.currentName} adlı öğrenciyi arşivlemek istediğinize emin misiniz? Öğrenci ders programından ve listeden kaldırılacak, ancak tüm verileri korunacaktır. İstediğiniz zaman geri alabilirsiniz.`
                   );
-                  if (confirmed) {
-                    setLoading(true);
-                    try {
-                      const result = await archiveStudent(studentId, studentUserId, teacherUserId);
-                      if (!result.success) {
-                        throw new Error(result.error || "Arşivleme başarısız");
-                      }
-
-                      toast({
-                        title: "Başarılı",
-                        description: "Öğrenci arşivlendi",
-                      });
-
-                      onStudentUpdated();
-                      onOpenChange(false);
-                    } catch (error: any) {
-                      toast({
-                        title: "Hata",
-                        description: error.message,
-                        variant: "destructive",
-                      });
-                    } finally {
-                      setLoading(false);
-                    }
-                  }
+                  if (confirmed) handleArchiveStudent();
                 }}
                 className="flex items-center gap-2"
               >
@@ -998,11 +256,9 @@ export function EditStudentDialog({
                 variant="destructive"
                 onClick={() => {
                   const confirmed = window.confirm(
-                    `${currentName} adlı öğrenciyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm verileri silinecektir.`
+                    `${props.currentName} adlı öğrenciyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm verileri silinecektir.`
                   );
-                  if (confirmed) {
-                    handleDeleteStudent();
-                  }
+                  if (confirmed) handleDeleteStudent();
                 }}
                 className="flex items-center gap-2"
               >
@@ -1019,12 +275,7 @@ export function EditStudentDialog({
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Kaydet
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
+            <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)} disabled={loading}>
               İptal
             </Button>
           </div>
@@ -1035,9 +286,7 @@ export function EditStudentDialog({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Ders Tarihlerini Güncelle</AlertDialogTitle>
-              <AlertDialogDescription>
-                Ders tarihlerini güncellemek istediğinize emin misiniz?
-              </AlertDialogDescription>
+              <AlertDialogDescription>Ders tarihlerini güncellemek istediğinize emin misiniz?</AlertDialogDescription>
             </AlertDialogHeader>
             <div className="flex items-center space-x-2 py-4">
               <Checkbox
@@ -1045,10 +294,7 @@ export function EditStudentDialog({
                 checked={updateRemainingDays}
                 onCheckedChange={(checked) => setUpdateRemainingDays(!!checked)}
               />
-              <label
-                htmlFor="updateRemaining"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
+              <label htmlFor="updateRemaining" className="text-sm font-medium leading-none">
                 Kalan günleri de güncelle
               </label>
             </div>
@@ -1065,8 +311,7 @@ export function EditStudentDialog({
             <AlertDialogHeader>
               <AlertDialogTitle>Tüm Dersleri Sıfırla</AlertDialogTitle>
               <AlertDialogDescription>
-                Tüm işlenen dersleri ve tarihleri sıfırlamak istediğinize emin misiniz? 
-                Bu işlem öğretmen bakiyesini etkilemez.
+                Tüm işlenen dersleri ve tarihleri sıfırlamak istediğinize emin misiniz? Bu işlem öğretmen bakiyesini etkilemez.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

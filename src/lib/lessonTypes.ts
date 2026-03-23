@@ -56,15 +56,6 @@ export function formatTime(time: string): string {
 }
 
 /**
- * Calculates lesson duration in minutes from start and end time strings.
- */
-export function calculateDurationMinutes(startTime: string, endTime: string): number {
-  const start = new Date(`2000-01-01T${startTime}`);
-  const end = new Date(`2000-01-01T${endTime}`);
-  return Math.round((end.getTime() - start.getTime()) / 60000);
-}
-
-/**
  * Returns the Turkish name for a day of week (0=Pazar, 1=Pazartesi, ..., 6=Cumartesi).
  * Previously duplicated in AdminDashboard and TeacherDashboard.
  */

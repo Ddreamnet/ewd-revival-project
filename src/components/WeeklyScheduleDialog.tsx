@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Download, Calendar, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { getLessonDateForCurrentWeek } from "@/hooks/useScheduleGrid";
-import { format, startOfWeek, addDays } from "date-fns";
+import { format, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
 import { completeTrialLesson, undoTrialLesson } from "@/lib/lessonService";
 import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonsForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";

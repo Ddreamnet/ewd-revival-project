@@ -245,9 +245,6 @@ export function LessonOverrideDialog({
           })
           .eq("id", instanceId);
 
-
-
-
         // Non-template weekday warning
         const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
         if (check.isNonTemplate) {
