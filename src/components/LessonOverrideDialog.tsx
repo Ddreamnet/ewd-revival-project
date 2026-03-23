@@ -210,7 +210,8 @@ export function LessonOverrideDialog({
         newDateStr,
         newStartFull,
         newEndFull,
-        instanceId
+        instanceId,
+        studentId
       );
 
       if (foundConflicts.length > 0) {

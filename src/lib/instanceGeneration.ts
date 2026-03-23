@@ -2,9 +2,13 @@
  * Generate/regenerate lesson instances from template slots.
  * Handles template changes, future instance regeneration, and
  * "move to next lesson" cascading shift logic.
+ * 
+ * IMPORTANT: All generation functions support multiple slots on the same day
+ * (e.g., a student with Mon 10:00 AND Mon 11:00). Slots on the same day are
+ * sorted by startTime and each produces a separate instance.
  */
 
-import { addDays, format, startOfDay, isBefore, isEqual } from "date-fns";
+import { addDays, format, startOfDay, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { checkTeacherConflicts, ConflictInfo } from "./conflictDetection";
 
@@ -30,48 +34,44 @@ export interface LessonInstanceRow {
 }
 
 /**
- * Convert JS Date.getDay() (0=Sun) to match student_lessons.day_of_week convention.
- */
-function getNextDateForSlots(
-  slots: TemplateSlot[],
-  afterDate: Date
-): { date: Date; slot: TemplateSlot } | null {
-  // Sort slots by day of week for predictable iteration
-  const sortedSlots = [...slots].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
-
-  // Try up to 14 days ahead to find next matching slot
-  for (let offset = 0; offset <= 13; offset++) {
-    const candidate = addDays(afterDate, offset);
-    const dow = candidate.getDay();
-    const matchingSlot = sortedSlots.find((s) => s.dayOfWeek === dow);
-    if (matchingSlot) {
-      return { date: candidate, slot: matchingSlot };
-    }
-  }
-  return null;
-}
-
-/**
  * Generate future instances starting from a given date, using template slots.
  * Returns instance data ready for upsert (no DB call).
+ * 
+ * Supports multiple slots on the same day: slots sharing a dayOfWeek are
+ * sorted by startTime and each produces a separate entry in the results.
  */
 export function generateFutureInstanceDates(
   templateSlots: TemplateSlot[],
   count: number,
   startFromDate: Date
 ): { lessonDate: string; startTime: string; endTime: string }[] {
-  const results: { lessonDate: string; startTime: string; endTime: string }[] = [];
-  let currentDate = startOfDay(startFromDate);
+  if (count <= 0 || templateSlots.length === 0) return [];
 
-  for (let i = 0; i < count; i++) {
-    const next = getNextDateForSlots(templateSlots, currentDate);
-    if (!next) break;
-    results.push({
-      lessonDate: format(next.date, "yyyy-MM-dd"),
-      startTime: next.slot.startTime,
-      endTime: next.slot.endTime,
-    });
-    currentDate = addDays(next.date, 1);
+  const results: { lessonDate: string; startTime: string; endTime: string }[] = [];
+  // Sort slots by dayOfWeek then startTime for predictable iteration
+  const sortedSlots = [...templateSlots].sort((a, b) => {
+    if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
+    return a.startTime.localeCompare(b.startTime);
+  });
+
+  let currentDate = startOfDay(startFromDate);
+  const maxDays = 200; // Safety limit
+
+  for (let offset = 0; offset < maxDays && results.length < count; offset++) {
+    const candidate = addDays(currentDate, offset);
+    const dow = candidate.getDay();
+
+    // Find ALL slots matching this day of week (not just the first)
+    const matchingSlots = sortedSlots.filter((s) => s.dayOfWeek === dow);
+
+    for (const slot of matchingSlots) {
+      if (results.length >= count) break;
+      results.push({
+        lessonDate: format(candidate, "yyyy-MM-dd"),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      });
+    }
   }
 
   return results;
