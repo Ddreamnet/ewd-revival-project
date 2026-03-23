@@ -543,6 +543,7 @@ export function useEditStudentDialog({
       const result = await archiveStudent(studentId, studentUserId, teacherUserId);
       if (!result.success) throw new Error(result.error || "Arşivleme başarısız");
       toast({ title: "Başarılı", description: "Öğrenci arşivlendi" });
+      clearWeekCache();
       onStudentUpdated();
       onOpenChange(false);
     } catch (error: any) {
