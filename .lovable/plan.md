@@ -1,160 +1,132 @@
 
 
-# Güncellenmiş Plan — Ders Programı Sistemi Temizlik ve Düzeltme
+# Plan: Rescheduled UI İşaretleri + Warning-Only Conflict + Aynı Slotta Çoklu Ders Render
 
-## Scope Kontrolü
+## İstek 1: Sarı Çerçeve + Takvim İkonu Sadece "1 Seferlik Değiştir" İçin
 
-- **Aynen korunan maddeler**: Phase 1 cleanup (ölü kod silme, lessonSync taşıma, EditStudentDialog fetch birleştirme), Phase 2 Düzeltme 1 (rpc_restore_student), Phase 2 Düzeltme 3 (excludeStudentId in handleOneTimeChange)
-- **Revize edilen maddeler**: Phase 2 Düzeltme 2 (multi-slot + shift mantığı — product beklentisine göre güncellendi), Phase 2 conflict detection başlığı (syncTemplateChange eklendi)
-- **Yeni eklenen maddeler**: `syncTemplateChange` conflict fix, `checkTeacherConflictsBatch` dead code temizliği, same-day cascade shift mantığı, ek audit noktaları
-- **Değişmeyen**: Phase 1 → Phase 2 sırası aynı kalıyor. Restore için ek scope açılmıyor.
+### Mevcut Durum
+Sarı ring (`ring-2 ring-amber-400`) ve `Calendar` ikonu `rescheduled_count > 0` koşuluna bağlı. Bu sayaç şu 3 akışta artırılıyor:
+1. **"1 seferlik değiştir"** — `LessonOverrideDialog.tsx` satır 246
+2. **"Sonraki derse aktar"** — `instanceGeneration.ts` satır 276 (`shiftLessonsForward`)
+3. **Öğrenci ayarları diyaloğundan değişiklik** — `EditStudentDialog.tsx` satır 355
+
+Kullanıcı yalnızca #1 için bu görselleri istiyor.
+
+### Çözüm: `is_manual_override` boolean sütunu
+
+Mevcut `rescheduled_count` ve `original_date` alanları revert akışı için hâlâ gerekli — dokunulmayacak. Yeni bir `is_manual_override boolean NOT NULL DEFAULT false` sütunu eklenerek ayrım yapılacak.
+
+**Yazma noktaları:**
+- `handleOneTimeChange` (LessonOverrideDialog): `is_manual_override: true` set et
+- `shiftLessonsForward` (instanceGeneration): dokunma, `false` kalır
+- `confirmDateUpdate` (EditStudentDialog): dokunma, `false` kalır
+- `handleRevert` (LessonOverrideDialog): `is_manual_override: false` geri al
+
+**Okuma noktaları (UI koşul değişikliği):**
+- `AdminWeeklySchedule.tsx` satır 582, 588, 624, 634: `rescheduled_count > 0` → `is_manual_override === true`
+- `WeeklyScheduleDialog.tsx` satır 317, 321, 336, 343: aynı değişiklik
+- `LessonTracker.tsx`: varsa aynı değişiklik
+
+**Veri modeli:**
+- `ActualLesson` interface'ine (`useScheduleGrid.ts` satır 34) `is_manual_override: boolean` ekle
+- `fetchActualLessonsForWeek` sorgusuna bu field'ı dahil et
+
+**Geçmiş veri etkisi:** Mevcut override edilmiş instance'lar `false` olarak kalacak — retrospektif sarı çerçeve kaybolur. Bu kabul edilebilir bir trade-off.
+
+### Değişecek Dosyalar
+| Dosya | Değişiklik |
+|-------|-----------|
+| Migration SQL | `ALTER TABLE lesson_instances ADD COLUMN is_manual_override boolean NOT NULL DEFAULT false` |
+| `useScheduleGrid.ts` | `ActualLesson` interface + fetch query |
+| `LessonOverrideDialog.tsx` | `handleOneTimeChange`: `is_manual_override: true`, `handleRevert`: `is_manual_override: false` |
+| `AdminWeeklySchedule.tsx` | 4 yerde koşul değişikliği |
+| `WeeklyScheduleDialog.tsx` | 4 yerde koşul değişikliği |
 
 ---
 
-## PHASE 1 — Kod Temizliği / Hazırlık (AYNEN KORUNUYOR)
+## İstek 2: Conflict Warning-Only + Aynı Slotta Çoklu Ders Render
 
-### 1. Ölü kodu temizle
-- `lessonDateCalculation.ts`: `calculateLessonDates` ve `recalculateRemainingDates` sil (hiçbir yerden import edilmiyor)
-- `calculateNextLessonDate` kalacak
+### A) Warning-Only Conflict
 
-### 2. `lessonSync.ts` dosyasını kaldır
-- `checkNonTemplateWeekday` fonksiyonunu `lessonDateCalculation.ts`'e taşı
-- `lessonSync.ts`'i sil
-- Import'ları güncelle (EditStudentDialog, LessonOverrideDialog)
+**Mevcut blocking noktaları (6 adet):**
 
-### 3. `EditStudentDialog.tsx` duplicate fetch temizliği
-- `fetchStudentIds`, `fetchTrackingRecordId`, `fetchInstances` → tek `initializeDialog` fonksiyonuna birleştir
-- `fetchTrackingRecordId` hiçbir yerden çağrılmıyor — kaldır
+| Dosya | Blocking Mekanizması |
+|-------|---------------------|
+| `LessonOverrideDialog.tsx` satır 217-221 | `if (conflicts.length > 0) { setConflicts(...); return; }` |
+| `LessonOverrideDialog.tsx` satır 479, 489, 514 | `disabled={conflicts.length > 0}` butonlarda |
+| `AddTrialLessonDialog.tsx` satır 73-76 | `if (conflicts.length > 0) { setConflicts(...); return; }` |
+| `AddTrialLessonDialog.tsx` satır 163 | `disabled={conflicts.length > 0}` |
+| `EditStudentDialog.tsx` satır 346-348 | `if (c.length > 0) { setConflicts(c); return; }` |
+| `instanceGeneration.ts` satır 258-261 | `shiftLessonsForward`: `if (allConflicts.length > 0) return { conflicts, success: false }` |
+| `instanceGeneration.ts` satır 146-148 | `syncTemplateChange`: conflict varsa `return { conflicts }` |
 
-### 4. `checkTeacherConflictsBatch` dead code temizliği *(YENİ)*
-- Bu fonksiyon hiçbir dosyadan import edilmiyor — `conflictDetection.ts`'den sil
-- Gelecekte gerekirse `excludeStudentId` destekli şekilde yeniden yazılır
+**Çözüm yaklaşımı:**
 
-### 5. Aynı gün iki ders audit noktaları (davranış değiştirmeden işaretle)
-- `instanceGeneration.ts:234` — `shiftLessonsForward` içinde `addDays(..., 1)` → aynı gündeki sonraki slotu atlıyor
-- `instanceGeneration.ts:131-143` — `syncTemplateChange` içinde kırılgan manuel conflict filtresi
+1. **`LessonOverrideDialog`**: Conflict bulunduğunda `return` yerine uyarı göster + "Yine de kaydet" butonu ekle. Mevcut conflict UI (kırmızı box) korunacak, altına `Button variant="destructive"` ile "Yine de Kaydet" eklenir. Butonlardaki `disabled={conflicts.length > 0}` kaldırılmaz ama "Yine de Kaydet" butonu disabled olmaz.
+2. **`AddTrialLessonDialog`**: Aynı pattern — conflict göster + "Yine de Onayla" butonu.
+3. **`EditStudentDialog`**: Aynı pattern — conflict göster + devam seçeneği.
+4. **`shiftLessonsForward`**: Conflict'leri caller'a döndür ama `success: true` ile. Caller uyarı gösterip devam edebilir. Veya daha basit: conflict check'i tamamen kaldır (shift zaten otomatik, kullanıcı zaten kabul etti).
+5. **`syncTemplateChange`**: Conflict'leri bilgilendirme olarak döndür ama instance'ları yine oluştur.
 
----
+**Önerilen en sade yaklaşım:** Her dialog'da conflict bulunduğunda `return` satırını kaldır, yerine state'e at. UI'da uyarıyı göster ama butonları disable etme. Kullanıcı isterse uyarıyı görmezden gelip kaydedebilir.
 
-## PHASE 2 — Düzeltmeleri Uygula
+### B) Aynı Slotta Çoklu Ders Render
 
-### Düzeltme 1: `rpc_restore_student` PL/pgSQL hatası (AYNEN KORUNUYOR)
+**Mevcut sorun:** `getActualLessonForDayAndTime` (satır 483) `.find()` kullanıyor — aynı slotta sadece ilk dersi döndürüyor.
 
-Migration ile `v_slot.s` → `v_slot` düzeltmesi. `AS s` kaldır. `rpc_reset_package` ile aynı pattern.
+**Çözüm:**
 
-**Restore notu**: Restore akışı için ek davranış değişikliği hedeflenmiyor. Veri bütünlüğü açısından bilinen artçı risk: `lesson_number` sıralaması completed instance'larla ardışık olmayabilir ama UI `lesson_date + start_time` sıralaması kullandığı için fonksiyonel etki yok.
-
-### Düzeltme 2: Multi-slot üretimi + Same-day cascade shift *(REVİZE EDİLDİ)*
-
-#### 2a. `generateFutureInstanceDates` çok-slot desteği (AYNEN KORUNUYOR)
-`.find()` yerine `.filter()` + `startTime` sıralama. Aynı gündeki tüm slotlar ayrı ayrı üretilir.
-
-#### 2b. `shiftLessonsForward` same-day cascade shift *(YENİ — product beklentisi)*
-
-**Mevcut sorun**: Satır 234'te `addDays(new Date(toShift[0].lesson_date), 1)` her zaman ertesi günden başlatıyor. Aynı günde sonraki slot varsa onu atlıyor.
-
-**Product beklentisi**:
-- Öğrencinin Pzt 10:00 ve Pzt 11:00 dersleri var
-- Pzt 10:00 "sonraki derse aktar" → ertelenen ders Pzt 11:00 slotuna kaymalı, mevcut 11:00 dersi de sonraki uygun slota kaymalı
-- Tekrar "sonraki derse aktar" → zincirleme devam etmeli
-
-**Çözüm**: `shiftLessonsForward` içindeki `startDate` hesabını değiştir:
+1. Yeni helper: `getActualLessonsForDayAndTime` (çoğul) — `.filter()` ile tüm eşleşenleri döndür
+2. Grid render değişikliği (`AdminWeeklySchedule.tsx` + `WeeklyScheduleDialog.tsx`):
 
 ```text
-Mevcut:  startDate = addDays(toShift[0].lesson_date, 1)  // her zaman ertesi gün
-Yeni:    startDate = toShift[0].lesson_date               // aynı günden başla
-         + startTime filtresi: aynı gündeki slotlardan sadece
-           mevcut slot'un startTime'ından SONRA gelenleri dahil et
+<td className="border border-border p-1">
+  <div className="flex gap-0.5 h-full">
+    {lessons.map(lesson => (
+      <Button className="flex-1 min-w-0 px-1 text-[10px] truncate">
+        {name} {time}
+      </Button>
+    ))}
+  </div>
+</td>
 ```
 
-Somut mantık:
-1. `startDate` = hedef instance'ın aynı günü (ertesi gün değil)
-2. `generateFutureInstanceDates`'e yeni bir `afterTime` parametresi ekle (opsiyonel)
-3. `afterTime` verildiğinde, `startDate` gününde sadece `startTime > afterTime` olan slotları dahil et
-4. Sonraki günlerde tüm slotları normal dahil et
-5. `shiftLessonsForward` çağrısında `afterTime = toShift[0].start_time` geç
+- `flex-1 min-w-0` ile kartlar eşit genişlikte sıkışır
+- `overflow-hidden text-ellipsis` ile taşan isim kesilir
+- `<td>` boyutu sabit kalır (mevcut CSS korunur)
+- 3+ ders olursa kartlar daha da sıkışır — pratikte 2 ders yeterli
 
-**Senaryo simülasyonu (doğrulama)**:
-- Pzt 10:00 shift → `startDate=Pzt, afterTime=10:00` → ilk bulunan: Pzt 11:00 ✅
-- Pzt 11:00 shift → `startDate=Pzt, afterTime=11:00` → aynı gün slot yok → sonraki hafta Pzt 10:00 ✅
-- Tek-slot öğrenci Pzt 10:00 shift → `afterTime=10:00` → aynı gün başka slot yok → sonraki Pzt 10:00 ✅ (davranış değişmedi)
+**Back-to-back gruplar:** Mevcut back-to-back mantığı `student_id` eşleşmesi yapıyor — farklı öğrencilerin aynı slottaki dersleri gruplanmaz. Bu doğru davranış, dokunulmayacak.
 
-**Etki analizi**:
-- `generateFutureInstanceDates` imzasına opsiyonel `afterTime` ekleniyor — mevcut çağrılar etkilenmez (parametre opsiyonel)
-- `syncTemplateChange` bu parametreyi kullanmaz — etkilenmez
-- `EditStudentDialog.confirmDateUpdate` bu parametreyi kullanmaz — etkilenmez
-- `rpc_reset_package` / `rpc_restore_student` server-side, etkilenmez
-- Remaining lessons update etkilenmez (shift sonrası doğru pozisyonlar üretilir)
+**Mobil/tablet:** Kartlar zaten `min-w-0` ile sıkışıyor. Küçük ekranlarda isim daha çok kesilir ama hücre boyutu değişmez.
 
-**Değişecek dosya**: `src/lib/instanceGeneration.ts` — `generateFutureInstanceDates` + `shiftLessonsForward`
-
-### Düzeltme 3: `handleOneTimeChange` eksik `excludeStudentId` (AYNEN KORUNUYOR)
-
-`LessonOverrideDialog.tsx` satır 208-214'teki `checkTeacherConflicts` çağrısına `studentId` ekle.
-
-### Düzeltme 4: `syncTemplateChange` conflict false positive *(YENİ)*
-
-**Mevcut sorun** (satır 131-143): `checkTeacherConflicts` `excludeStudentId` olmadan çağrılıyor. Ardından kırılgan bir manuel filtre uygulanıyor:
-
-```typescript
-// Mevcut — kırılgan:
-const externalConflicts = conflicts.filter(
-  (c) => c.type === "trial" || !existing.some(
-    (e) => e.lesson_date === nd.lessonDate && e.start_time === nd.startTime
-  )
-);
-```
-
-Bu filtre sadece tam eşleşmeye (date + startTime) bakıyor, overlap'e değil. Aynı gün farklı saatte instance varsa yakalanmıyor.
-
-**Çözüm**: Manuel filtreyi kaldır, `checkTeacherConflicts`'e doğrudan `excludeStudentId` parametresini geç:
-
-```typescript
-// Yeni — temiz:
-const conflicts = await checkTeacherConflicts(
-  teacherId, nd.lessonDate, nd.startTime, nd.endTime,
-  undefined,  // excludeInstanceId — gerekmiyor, tüm öğrenci exclude
-  studentId   // excludeStudentId — öğrencinin kendi instance'ları atlanır
-);
-allConflicts.push(...conflicts);
-```
-
-**Değişecek dosya**: `src/lib/instanceGeneration.ts` satır 130-143
-
-### Ek Audit Noktaları *(YENİ)*
-
-Aşağıdaki noktalar Phase 2 sırasında taranacak, sorun bulunursa düzeltilecek:
-
-| Dosya | Risk | Kontrol |
-|-------|------|---------|
-| `useScheduleGrid.ts` — `getActualLessonForDayAndTime` | `student+date+time` bazlı eşleşme | Aynı gün iki ders varsa ikisi de grid'de ayrı gösteriliyor mu |
-| `useScheduleGrid.ts` — `ensureInstancesForWeek` | Template loop | `for of studentTemplates` — çok-slot güvenli ✅ (ama doğrulanacak) |
-| `EditStudentDialog.tsx` — `confirmDateUpdate` | Instance sıralaması | Aynı gün iki slot varsa `plannedAfterChanged` doğru mu |
-| `LessonOverrideDialog.tsx` — shift sonrası UI state | Local state | Shift sonrası `fetchActualSchedule` tetikleniyor mu |
+### Değişecek Dosyalar (İstek 2)
+| Dosya | Değişiklik |
+|-------|-----------|
+| `useScheduleGrid.ts` | Yeni `getActualLessonsForDayAndTime` helper |
+| `AdminWeeklySchedule.tsx` | Grid render: tekil → çoklu ders, conflict UI: disabled kaldır |
+| `WeeklyScheduleDialog.tsx` | Aynı grid render değişikliği |
+| `LessonOverrideDialog.tsx` | Blocking → warning-only (return kaldır, "Yine de Kaydet" ekle) |
+| `AddTrialLessonDialog.tsx` | Blocking → warning-only |
+| `EditStudentDialog.tsx` | Blocking → warning-only |
+| `instanceGeneration.ts` | `shiftLessonsForward` ve `syncTemplateChange`: conflict'te devam et |
 
 ---
 
-## Phase 2 Uygulama Sırası
+## Riskler / Edge-case'ler
 
-1. **Düzeltme 1** — rpc_restore_student (izole, sıfır risk)
-2. **Düzeltme 4** — syncTemplateChange conflict fix (izole, düşük risk)
-3. **Düzeltme 2** — multi-slot üretimi + same-day cascade shift (en geniş etki)
-4. **Düzeltme 3** — excludeStudentId in handleOneTimeChange (tek satır)
+- **3+ ders aynı slotta**: Kartlar çok küçülür, isimler neredeyse okunamaz. Pratik limit 2-3. Tooltip ile tam isim gösterilebilir.
+- **Warning-only sonrası gerçek çakışmalar**: Öğretmen fiziksel olarak aynı anda iki derse giremez — bu artık kullanıcının sorumluluğu.
+- **Retrospektif veri**: Mevcut `rescheduled_count > 0` olan instance'lar artık sarı çerçeve göstermeyecek.
+- **Back-to-back + farklı öğrenci overlap**: Aynı slotta hem back-to-back grup hem farklı öğrenci varsa render karmaşıklaşabilir. Düşük olasılık ama ele alınmalı.
 
-## Regresyon Riskleri
+## Uygulama Sırası
 
-- **Düzeltme 2b (cascade shift)**: En riskli değişiklik. `afterTime` parametresi opsiyonel olduğu için mevcut çağrılar bozulmaz. Ama shift zincirinin edge-case'leri (3+ ders aynı gün, son ders shift, cycle sonu) dikkatle test edilmeli.
-- **Düzeltme 4 (syncTemplateChange)**: Manuel filtre kaldırılıyor — `excludeStudentId` bunun yerine geçiyor. Aynı pattern `shiftLessonsForward`'da zaten çalışıyor.
-- Diğer düzeltmeler sıfır risk.
-
-## Test Checklist
-
-1. Arşivlenmiş öğrenciyi geri al → hata vermemeli
-2. Aynı gün 2 dersi olan öğrenci → iki ayrı instance üretilmeli
-3. Pzt 10:00 shift → Pzt 11:00'e kaymalı (same-day cascade)
-4. Pzt 11:00 shift → sonraki hafta Pzt 10:00'e kaymalı
-5. Zincirleme shift → doğru sırayla devam etmeli
-6. Template sync → self-conflict false positive olmamalı
-7. Tek-slot öğrenci shift → mevcut davranış korunmalı
-8. "Kalan dersleri güncelle" çift-slot öğrencide → doğru tarihler
+1. **Migration**: `is_manual_override` sütunu ekle
+2. **Veri katmanı**: `ActualLesson` interface + fetch query + yeni çoğul helper
+3. **LessonOverrideDialog**: `is_manual_override` yazma + warning-only conflict
+4. **AddTrialLessonDialog**: Warning-only conflict
+5. **EditStudentDialog**: Warning-only conflict
+6. **instanceGeneration.ts**: `shiftLessonsForward` / `syncTemplateChange` conflict'te devam
+7. **AdminWeeklySchedule + WeeklyScheduleDialog**: `is_manual_override` koşulu + çoklu ders render
 
