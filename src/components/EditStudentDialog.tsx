@@ -103,31 +103,30 @@ export function EditStudentDialog({
       setStudentUserId(sUserId);
       setTeacherUserId(tUserId);
 
-      // Get current package_cycle
-      const { data: tracking } = await supabase
-        .from("student_lesson_tracking")
-        .select("package_cycle")
-        .eq("student_id", sUserId)
-        .eq("teacher_id", tUserId)
-        .maybeSingle();
+      // Parallel fetch: tracking + instances at the same time
+      const [trackingResult, instanceResult] = await Promise.all([
+        supabase
+          .from("student_lesson_tracking")
+          .select("package_cycle")
+          .eq("student_id", sUserId)
+          .eq("teacher_id", tUserId)
+          .maybeSingle(),
+        // Pre-fetch all instances (will filter by cycle below)
+        supabase
+          .from("lesson_instances")
+          .select("*")
+          .eq("student_id", sUserId)
+          .eq("teacher_id", tUserId)
+          .in("status", ["planned", "completed"])
+          .order("lesson_date", { ascending: true })
+          .order("start_time", { ascending: true }),
+      ]);
 
-      const currentCycle = tracking?.package_cycle ?? 1;
-
-      const { data: instanceData, error: instanceError } = await supabase
-        .from("lesson_instances")
-        .select("*")
-        .eq("student_id", sUserId)
-        .eq("teacher_id", tUserId)
-        .eq("package_cycle", currentCycle)
-        .in("status", ["planned", "completed"])
-        .order("lesson_date", { ascending: true })
-        .order("start_time", { ascending: true });
-
-      if (instanceError) throw instanceError;
-      const fetchedInstances = (instanceData as LessonInstance[]) || [];
+      const currentCycle = trackingResult.data?.package_cycle ?? 1;
+      const allInstances = (instanceResult.data || []) as LessonInstance[];
+      const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
       setInstances(fetchedInstances);
 
-      // Derive lessonDates from instances
       const dates: LessonDates = {};
       fetchedInstances.forEach((inst) => {
         dates[inst.lesson_number.toString()] = inst.lesson_date;
