@@ -231,7 +231,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
                         {displayPosition + 1}
                       </button>
                       <span className={`text-[10px] whitespace-nowrap ${
-                        inst.original_date ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"
+                        inst.original_date && (inst as any).is_manual_override ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"
                       }`}>
                         {format(new Date(inst.lesson_date), "dd.MM")}
                       </span>

@@ -299,64 +299,72 @@ export function WeeklyScheduleDialog({
                     {DAYS.map((day, dayIndex) => {
                       if (!showTemplate) {
                         // ACTUAL MODE
-                        const actualLesson = getActualLessonForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
+                        const slotLessons = getActualLessonsForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
                         const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
                         
-                        if (actualLesson && isSecondaryInBackToBack(actualLessons, dayIndex, actualLesson.id, weekStart)) {
+                        // Filter out secondary back-to-back
+                        const visibleLessons = slotLessons.filter(
+                          (l) => !isSecondaryInBackToBack(actualLessons, dayIndex, l.id, weekStart)
+                        );
+                        
+                        if (visibleLessons.length === 0 && !trialLesson) {
                           return <td key={day} className="border p-2"></td>;
                         }
-                        
-                        const b2bGroup = actualLesson
-                          ? getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id, weekStart)
-                          : null;
 
-                        return <td key={day} className="border p-2">
-                          {actualLesson && b2bGroup ? (
-                            <div className={`p-2 rounded border-2 transition-opacity ${
-                              actualLesson.status === "completed" ? "opacity-40" : "opacity-100"
-                            } ${actualLesson.rescheduled_count > 0 ? "ring-2 ring-yellow-400" : ""} ${
-                              studentColors[actualLesson.student_id] || "bg-gray-100 border-gray-300"
-                            }`}>
-                              <div className="font-medium text-xs mb-1 flex items-center gap-1">
-                                {actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-yellow-600" />}
-                                {actualLesson.student_name}
-                                <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">{b2bGroup.length} ders</Badge>
-                              </div>
-                              {b2bGroup.map(l => (
-                                <div key={l.id} className="text-[10px] font-mono">
-                                  {formatTime(l.start_time)} - {formatTime(l.end_time)}
+                        const isMulti = visibleLessons.length > 1 || (visibleLessons.length >= 1 && trialLesson);
+
+                        return <td key={day} className="border p-1">
+                          <div className="flex gap-0.5 h-full">
+                            {visibleLessons.map(actualLesson => {
+                              const b2bGroup = getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id, weekStart);
+                              
+                              if (b2bGroup) {
+                                return <div key={actualLesson.id} className={`${isMulti ? 'flex-1 min-w-0' : 'w-full'} p-2 rounded border-2 transition-opacity ${
+                                  actualLesson.status === "completed" ? "opacity-40" : "opacity-100"
+                                } ${actualLesson.is_manual_override ? "ring-2 ring-yellow-400" : ""} ${
+                                  studentColors[actualLesson.student_id] || "bg-gray-100 border-gray-300"
+                                }`}>
+                                  <div className={`font-medium ${isMulti ? 'text-[10px]' : 'text-xs'} mb-1 flex items-center gap-1`}>
+                                    {actualLesson.is_manual_override && <Calendar className="h-3 w-3 text-yellow-600 shrink-0" />}
+                                    <span className="truncate">{actualLesson.student_name}</span>
+                                    <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">{b2bGroup.length} ders</Badge>
+                                  </div>
+                                  {!isMulti && b2bGroup.map(l => (
+                                    <div key={l.id} className="text-[10px] font-mono">
+                                      {formatTime(l.start_time)} - {formatTime(l.end_time)}
+                                    </div>
+                                  ))}
+                                </div>;
+                              }
+                              
+                              return <div key={actualLesson.id} className={`${isMulti ? 'flex-1 min-w-0' : 'w-full'} p-2 rounded border-2 transition-opacity relative ${
+                                actualLesson.status === "completed" && !actualLesson.isGhost ? "opacity-40" : "opacity-100"
+                              } ${!actualLesson.isGhost && actualLesson.is_manual_override ? "ring-2 ring-yellow-400" : ""} ${
+                                studentColors[actualLesson.student_id] || "bg-gray-100 border-gray-300"
+                              }`}>
+                                {actualLesson.isGhost && (
+                                  <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />
+                                )}
+                                <div className={`font-medium ${isMulti ? 'text-[10px]' : 'text-xs'} mb-1 flex items-center gap-1`}>
+                                  {!actualLesson.isGhost && actualLesson.is_manual_override && <Calendar className="h-3 w-3 text-yellow-600 shrink-0" />}
+                                  <span className="truncate">{actualLesson.student_name}</span>
                                 </div>
-                              ))}
-                            </div>
-                          ) : actualLesson ? (
-                            <div className={`p-2 rounded border-2 transition-opacity relative ${
-                              ""
-                            } ${
-                              actualLesson.status === "completed" && !actualLesson.isGhost ? "opacity-40" : "opacity-100"
-                            } ${!actualLesson.isGhost && actualLesson.rescheduled_count > 0 ? "ring-2 ring-yellow-400" : ""} ${
-                              studentColors[actualLesson.student_id] || "bg-gray-100 border-gray-300"
-                            }`}>
-                              {actualLesson.isGhost && (
-                                <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />
-                              )}
-                              <div className="font-medium text-xs mb-1 flex items-center gap-1">
-                                {!actualLesson.isGhost && actualLesson.rescheduled_count > 0 && <Calendar className="h-3 w-3 text-yellow-600" />}
-                                {actualLesson.student_name}
+                                <div className={`${isMulti ? 'text-[9px]' : 'text-[10px]'} font-mono`}>
+                                  {formatTime(actualLesson.start_time)} - {formatTime(actualLesson.end_time)}
+                                </div>
+                              </div>;
+                            })}
+                            {trialLesson && visibleLessons.length === 0 ? (
+                              <div onClick={() => !processing && handleTrialLessonClick(trialLesson)} className={`w-full p-2 rounded border-2 transition-all ${processing ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:opacity-80"} ${trialLesson.is_completed ? "bg-red-100/30 border-red-200/50 opacity-30" : "bg-red-200 border-red-400"}`}>
+                                <div className={`font-medium text-xs mb-1 ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
+                                  Deneme Dersi
+                                </div>
+                                <div className={`text-[10px] font-mono ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
+                                  {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
+                                </div>
                               </div>
-                              <div className="text-[10px] font-mono">
-                                {formatTime(actualLesson.start_time)} - {formatTime(actualLesson.end_time)}
-                              </div>
-                            </div>
-                          ) : trialLesson ? (
-                            <div onClick={() => !processing && handleTrialLessonClick(trialLesson)} className={`p-2 rounded border-2 transition-all ${processing ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:opacity-80"} ${trialLesson.is_completed ? "bg-red-100/30 border-red-200/50 opacity-30" : "bg-red-200 border-red-400"}`}>
-                              <div className={`font-medium text-xs mb-1 ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
-                                Deneme Dersi
-                              </div>
-                              <div className={`text-[10px] font-mono ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
-                                {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
-                              </div>
-                            </div>
-                          ) : null}
+                            ) : null}
+                          </div>
                         </td>;
                       } else {
                         // KALICI MODE: template only, no trials, no overrides, display-only
