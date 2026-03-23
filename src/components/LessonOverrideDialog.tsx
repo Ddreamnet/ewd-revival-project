@@ -157,9 +157,7 @@ export function LessonOverrideDialog({
 
       if (result.conflicts.length > 0) {
         setConflicts(result.conflicts);
-        setSaving(false);
-        setShowPostponeConfirm(false);
-        return;
+        // Warning only — don't block, just inform
       }
 
       if (!result.success) {
