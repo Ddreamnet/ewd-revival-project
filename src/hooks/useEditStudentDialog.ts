@@ -14,6 +14,7 @@ import {
 import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
+import { clearWeekCache } from "@/hooks/useScheduleGrid";
 import type { StudentLessonBase } from "@/lib/types";
 
 interface UseEditStudentDialogProps {
@@ -510,6 +511,7 @@ export function useEditStudentDialog({
       }
 
       toast({ title: "Başarılı", description: "Öğrenci ayarları güncellendi" });
+      clearWeekCache();
       onStudentUpdated();
       onOpenChange(false);
     } catch (error: any) {
@@ -525,6 +527,7 @@ export function useEditStudentDialog({
       const result = await deleteStudent(studentId, studentUserId, teacherUserId);
       if (!result.success) throw new Error(result.error || "Öğrenci silinemedi");
       toast({ title: "Başarılı", description: "Öğrenci ve tüm verileri silindi" });
+      clearWeekCache();
       onStudentUpdated();
       onOpenChange(false);
     } catch (error: any) {
@@ -540,6 +543,7 @@ export function useEditStudentDialog({
       const result = await archiveStudent(studentId, studentUserId, teacherUserId);
       if (!result.success) throw new Error(result.error || "Arşivleme başarısız");
       toast({ title: "Başarılı", description: "Öğrenci arşivlendi" });
+      clearWeekCache();
       onStudentUpdated();
       onOpenChange(false);
     } catch (error: any) {
