@@ -229,50 +229,37 @@ export async function shiftLessonsForward(
   const afterTime = toShift[0].start_time;
   const newDates = generateFutureInstanceDates(templateSlots, toShift.length, startDate, afterTime);
 
-  // Check conflicts
-  const conflictChecks = newDates.map((nd, i) => ({
-    id: toShift[i].id,
-    date: nd.lessonDate,
-    startTime: nd.startTime,
-    endTime: nd.endTime,
-  }));
+  // Check conflicts in parallel (warning-only)
+  const conflictResults = await Promise.all(
+    newDates.map((nd, i) =>
+      checkTeacherConflicts(teacherId, nd.lessonDate, nd.startTime, nd.endTime, toShift[i].id, studentId)
+    )
+  );
+  const allConflicts = conflictResults.flat();
 
-  const allConflicts: ConflictInfo[] = [];
-  for (const check of conflictChecks) {
-    const c = await checkTeacherConflicts(
-      teacherId,
-      check.date,
-      check.startTime,
-      check.endTime,
-      check.id,
-      studentId
-    );
-    allConflicts.push(...c);
-  }
-
-  // Warning only — log conflicts but proceed with shift
   if (allConflicts.length > 0) {
     console.warn("shiftLessonsForward: conflicts detected (warning-only):", allConflicts);
   }
 
-  // Apply shifts with a shared group ID for batch revert
+  // Apply shifts in parallel with a shared group ID for batch revert
   const shiftGroupId = crypto.randomUUID();
-  for (let i = 0; i < toShift.length && i < newDates.length; i++) {
-    const inst = toShift[i];
-    await supabase
-      .from("lesson_instances")
-      .update({
-        original_date: inst.original_date || inst.lesson_date,
-        original_start_time: inst.original_start_time || inst.start_time,
-        original_end_time: inst.original_end_time || inst.end_time,
-        lesson_date: newDates[i].lessonDate,
-        start_time: newDates[i].startTime,
-        end_time: newDates[i].endTime,
-        rescheduled_count: inst.rescheduled_count + 1,
-        shift_group_id: shiftGroupId,
-      })
-      .eq("id", inst.id);
-  }
+  await Promise.all(
+    toShift.slice(0, newDates.length).map((inst, i) =>
+      supabase
+        .from("lesson_instances")
+        .update({
+          original_date: inst.original_date || inst.lesson_date,
+          original_start_time: inst.original_start_time || inst.start_time,
+          original_end_time: inst.original_end_time || inst.end_time,
+          lesson_date: newDates[i].lessonDate,
+          start_time: newDates[i].startTime,
+          end_time: newDates[i].endTime,
+          rescheduled_count: inst.rescheduled_count + 1,
+          shift_group_id: shiftGroupId,
+        })
+        .eq("id", inst.id)
+    )
+  );
 
   return { conflicts: [], success: true };
 }
