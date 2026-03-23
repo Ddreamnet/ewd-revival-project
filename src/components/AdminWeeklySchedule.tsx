@@ -233,7 +233,7 @@ export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
   };
 
   const computedTimeSlots = showTemplate
-    ? getAllTimeSlots(lessons, [], [])
+    ? getAllTimeSlots(lessons, [])
     : getAllTimeSlotsActual(actualLessons, trialLessons);
 
   // Week navigation label
