@@ -114,8 +114,16 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
         return;
       }
 
-      await fetchInstances();
-      await refreshCompletionState();
+      // Optimistic update: update local state instead of refetching
+      setInstances(prev => prev.map(i =>
+        i.id === pendingInstanceId ? { ...i, status: 'completed' } : i
+      ));
+      // Derive next completable: first planned after this one
+      const sortedPlanned = instances
+        .filter(i => i.status === 'planned' && i.id !== pendingInstanceId)
+        .sort((a, b) => a.lesson_date.localeCompare(b.lesson_date) || a.start_time.localeCompare(b.start_time));
+      setNextCompletableId(sortedPlanned[0]?.id ?? null);
+      setLastCompletedId(pendingInstanceId);
 
       const inst = instances.find((i) => i.id === pendingInstanceId);
       toast({
