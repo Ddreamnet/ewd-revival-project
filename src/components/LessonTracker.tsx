@@ -157,8 +157,16 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
         return;
       }
 
-      await fetchInstances();
-      await refreshCompletionState();
+      // Optimistic update
+      setInstances(prev => prev.map(i =>
+        i.id === undoInstanceId ? { ...i, status: 'planned' } : i
+      ));
+      setNextCompletableId(undoInstanceId);
+      // Derive new last completed: last completed excluding this one
+      const remaining = instances
+        .filter(i => i.status === 'completed' && i.id !== undoInstanceId)
+        .sort((a, b) => b.lesson_date.localeCompare(a.lesson_date) || b.start_time.localeCompare(a.start_time));
+      setLastCompletedId(remaining[0]?.id ?? null);
 
       toast({
         title: "Başarılı",
