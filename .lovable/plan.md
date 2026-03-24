@@ -1,54 +1,74 @@
 
 
-# Plan: EditStudentDialog Schedule Değişikliği Neden Yansımıyor
+# Plan: EditStudentDialog Schedule Değişikliği — Görsel Programa Yansımıyor
 
 ## Kök Neden
 
-`handleSubmit` (`useEditStudentDialog.ts` satır 512-513) başarılı şekilde:
-1. `student_lessons` tablosunu günceller (template)
-2. `lesson_instances` tablosunu günceller (actual — `syncTemplateChange` ile)
-3. `onStudentUpdated()` callback'ini çağırır
+`AdminWeeklySchedule` bileşeninin `useEffect` dependency'leri şunlar:
 
-Ama `onStudentUpdated`, `AdminDashboard.tsx` satır 395'te `fetchTeachers` fonksiyonuna bağlı — bu sadece öğretmen/öğrenci listesini yeniler.
+```text
+useEffect → [teacherId]           // satır 93 — ilk yükleme
+useEffect → [showTemplate, weekOffset]  // satır 95-101 — mod/hafta değişimi
+useEffect → realtime trial_lessons      // satır 103-114 — trial değişiklikleri
+```
 
-**Sorun:** `AdminWeeklySchedule` bileşeninin kendi `weekCache`'i (60 saniyelik in-memory cache) ve kendi `actualLessons` state'i var. `handleSubmit` sonrasında:
-- `clearWeekCache()` **çağrılmıyor** — eski veri cache'te kalıyor
-- `fetchActualSchedule()` **tetiklenmiyor** — grid eski state'i göstermeye devam ediyor
-- `fetchSchedule()` (template mode) **tetiklenmiyor** — template grid de eski kalıyor
+`EditStudentDialog.handleSubmit` şu sırayla çalışıyor:
+1. `student_lessons` template güncelle ✓
+2. `syncTemplateChange` → planned `lesson_instances` güncelle ✓
+3. `clearWeekCache()` → in-memory cache temizle ✓
+4. `onStudentUpdated()` → `fetchTeachers()` çağır ✓
+5. Dialog kapat ✓
 
-Mehmet Ali ve Öykünaz'ın dersleri DB'de doğru güncellendi, ama ekranda eski cache'ten okunuyor.
+**Sorun:** `fetchTeachers()` öğretmen/öğrenci listesini yeniler ama `teacherId` değişmez (aynı öğretmen seçili). `AdminWeeklySchedule`'ın hiçbir `useEffect` dependency'si tetiklenmez. Cache temizlenmiş olsa bile `fetchSchedule()` ve `fetchActualSchedule()` hiç çağrılmaz.
 
-## Düzeltme
+Sonuç: Grid eski state'i göstermeye devam eder.
 
-`useEditStudentDialog.ts` → `handleSubmit` içinde, `onStudentUpdated()` çağrılmadan hemen önce `clearWeekCache()` çağır. Bu, schedule grid'in bir sonraki render'da taze veriyi DB'den çekmesini sağlar.
+"İşlenen Dersler" listesi (dialog içi) ise `instances` state'ini okur — `handleSubmit` sonrasında `fetchInstances()` çağrılmaz çünkü dialog kapanır. Kullanıcı dialogu tekrar açtığında `initializeDialog` çalışır ve DB'den taze veri gelir. Bu kısım sorunsuz çalışır.
 
-### Değişecek Dosya
+Asıl sorun **görsel ders programı grid'inin yeniden fetch yapmaması**.
+
+## Çözüm
+
+`AdminDashboard`'a bir `scheduleRefreshKey` counter state'i ekle. `fetchTeachers` her çağrıldığında bu counter artırılsın. Bu counter `AdminWeeklySchedule`'a prop olarak geçsin. `AdminWeeklySchedule` bu prop'u `useEffect` dependency'lerine eklesin.
+
+### Değişecek Dosyalar
 
 | Dosya | Değişiklik |
 |-------|-----------|
-| `src/hooks/useEditStudentDialog.ts` | `handleSubmit`, `handleDeleteStudent`, `handleArchiveStudent` içinde `onStudentUpdated()` öncesine `clearWeekCache()` ekle |
+| `src/components/AdminDashboard.tsx` | `scheduleRefreshKey` state ekle, `fetchTeachers` içinde artır, `AdminWeeklySchedule`'a prop olarak geç |
+| `src/components/AdminWeeklySchedule.tsx` | `refreshKey` prop kabul et, ilk `useEffect` dependency'sine ekle |
 
-### Tek satırlık değişiklik (3 yerde):
+### Detay
 
+**AdminDashboard.tsx:**
 ```typescript
-import { clearWeekCache } from "@/hooks/useScheduleGrid";
+const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
 
-// handleSubmit satır ~512:
-clearWeekCache();
-onStudentUpdated();
+const fetchTeachers = async () => {
+  // ...existing fetch logic...
+  setScheduleRefreshKey(prev => prev + 1);
+};
 
-// handleDeleteStudent satır ~527:
-clearWeekCache();
-onStudentUpdated();
-
-// handleArchiveStudent satır ~542:
-clearWeekCache();
-onStudentUpdated();
+// JSX:
+<AdminWeeklySchedule teacherId={selectedTeacher.user_id} refreshKey={scheduleRefreshKey} />
 ```
 
-Ek olarak `AdminDashboard`'un `fetchTeachers` callback'i zaten öğrenci listesini yeniden çekiyor — bu da `AdminWeeklySchedule`'ın `teacherId` prop'unu güncelleyerek `useEffect` üzerinden `fetchSchedule()` + `fetchActualSchedule()` tetiklemesine yol açıyor. `clearWeekCache()` olmadan bu refetch stale cache'ten okuyordu — şimdi taze veriyi çekecek.
+**AdminWeeklySchedule.tsx:**
+```typescript
+// Props'a ekle:
+interface Props { teacherId: string; refreshKey?: number; }
+
+// İlk useEffect dependency'sine ekle:
+useEffect(() => {
+  if (!showTemplate) {
+    Promise.all([fetchSchedule(), fetchActualSchedule()]).then(() => { ... });
+  } else {
+    fetchSchedule();
+  }
+}, [teacherId, refreshKey]);  // <-- refreshKey eklendi
+```
 
 ## Risk
 
-Sıfır risk. `clearWeekCache()` sadece in-memory Map'i temizler, bir sonraki okumada DB'den taze veri gelir.
+Sıfır risk. `refreshKey` sadece re-fetch tetikler. `clearWeekCache()` zaten çağrılıyor, şimdi refetch de tetiklenmiş olacak.
 
