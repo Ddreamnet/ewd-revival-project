@@ -283,7 +283,7 @@ export function useEditStudentDialog({
     if (allConflicts.length > 0) setConflicts(allConflicts);
 
     // Batch updates in parallel
-    await Promise.all(
+    const batchResults = await Promise.all(
       changeEntries.map((e) =>
         supabase
           .from("lesson_instances")
@@ -295,6 +295,10 @@ export function useEditStudentDialog({
           .eq("id", e.inst!.id)
       )
     );
+    const batchErrors = batchResults.filter(r => r.error);
+    if (batchErrors.length > 0) {
+      throw new Error(`Instance güncelleme hatası: ${batchErrors.map(e => e.error?.message).join(', ')}`);
+    }
 
     return changeEntries;
   };
