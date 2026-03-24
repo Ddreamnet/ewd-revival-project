@@ -11,7 +11,7 @@ import {
   getNextCompletableInstance,
   getLastCompletedInstance,
 } from "@/lib/lessonService";
-import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
+import { TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
 import { clearWeekCache } from "@/hooks/useScheduleGrid";
