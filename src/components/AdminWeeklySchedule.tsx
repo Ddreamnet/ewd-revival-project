@@ -55,7 +55,7 @@ const STUDENT_COLORS = [
   "bg-cyan-100 text-cyan-800 hover:bg-cyan-200 border-cyan-300 dark:bg-cyan-950 dark:text-cyan-200 dark:hover:bg-cyan-900 dark:border-cyan-800",
 ];
 
-export function AdminWeeklySchedule({ teacherId }: AdminWeeklyScheduleProps) {
+export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklyScheduleProps) {
   const [lessons, setLessons] = useState<StudentLesson[]>([]);
   const [trialLessons, setTrialLessons] = useState<TrialLesson[]>([]);
   const [loading, setLoading] = useState(true);
