@@ -344,26 +344,33 @@ async function fetchActualLessonsForWeekCore(
   // Filter real instances to active students only
   const filteredInstances = realInstances.filter((i) => allActiveStudentIds.has(i.student_id));
 
-  // Determine which active students have NO instances this week → candidates for ghost
-  const studentsWithInstances = new Set(filteredInstances.map((i) => i.student_id));
-  const studentsWithoutInstances = [...allActiveStudentIds].filter((id) => !studentsWithInstances.has(id));
+  // Build a Set of existing instance keys: "studentId-dayOfWeek-startTime"
+  // to check per-slot coverage (not per-week binary)
+  const instanceSlotKeys = new Set<string>();
+  filteredInstances.forEach((inst) => {
+    // Convert lesson_date to day_of_week for slot matching
+    const d = new Date(inst.lesson_date + "T00:00:00");
+    const dow = d.getDay(); // 0=Sun, 1=Mon, ...
+    instanceSlotKeys.add(`${inst.student_id}-${dow}-${inst.start_time}`);
+  });
 
-  // Generate ghost entries for students with exhausted packages
+  // Generate ghost entries — per-slot check for ALL active students with templates
   const ghostEntries: ActualLesson[] = [];
+  const allActiveIds = [...allActiveStudentIds];
 
-  if (studentsWithoutInstances.length > 0) {
-    // Get templates + tracking in parallel (BATCH)
+  if (allActiveIds.length > 0) {
+    // Get templates + tracking for ALL active students in parallel
     const [templatesResult, trackingResult] = await Promise.all([
       supabase
         .from("student_lessons")
         .select("student_id, day_of_week, start_time, end_time")
         .eq("teacher_id", teacherId)
-        .in("student_id", studentsWithoutInstances),
+        .in("student_id", allActiveIds),
       supabase
         .from("student_lesson_tracking")
         .select("student_id, package_cycle, lessons_per_week")
         .eq("teacher_id", teacherId)
-        .in("student_id", studentsWithoutInstances),
+        .in("student_id", allActiveIds),
     ]);
 
     const templates = templatesResult.data || [];
@@ -377,14 +384,13 @@ async function fetchActualLessonsForWeekCore(
 
       const templateStudentIds = [...new Set(templates.map((t) => t.student_id))];
 
-      // BATCH: Get all cycle instance counts in ONE query instead of N
+      // BATCH: Get all cycle instance counts in ONE query
       const { data: allCycleInstances } = await supabase
         .from("lesson_instances")
         .select("student_id, package_cycle")
         .eq("teacher_id", teacherId)
         .in("student_id", templateStudentIds);
 
-      // Count per student in their current cycle
       const cycleCountMap = new Map<string, number>();
       (allCycleInstances || []).forEach((row) => {
         const tracking = trackingMap.get(row.student_id);
@@ -400,9 +406,14 @@ async function fetchActualLessonsForWeekCore(
         const existingInCycle = cycleCountMap.get(studentId) || 0;
         if (existingInCycle < totalRights) continue; // Not exhausted, skip
 
-        // Package exhausted — generate ghost entries from template
+        // Package exhausted — check each template slot individually
         const studentTemplates = templates.filter((t) => t.student_id === studentId);
         for (const tmpl of studentTemplates) {
+          const slotKey = `${studentId}-${tmpl.day_of_week}-${tmpl.start_time}`;
+
+          // If this specific slot already has an instance this week, skip (no ghost needed)
+          if (instanceSlotKeys.has(slotKey)) continue;
+
           const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
           const lessonDate = addDays(ws, dayIndex);
           const dateStr = format(lessonDate, "yyyy-MM-dd");
