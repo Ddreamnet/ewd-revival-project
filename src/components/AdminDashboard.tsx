@@ -360,7 +360,7 @@ export function AdminDashboard() {
                     />
                   )}
 
-                  {activeTab === "schedule" && <AdminWeeklySchedule teacherId={selectedTeacher.user_id} />}
+                  {activeTab === "schedule" && <AdminWeeklySchedule teacherId={selectedTeacher.user_id} refreshKey={scheduleRefreshKey} />}
                   {activeTab === "payments" && <AdminBalanceManager teacherId={selectedTeacher.user_id} />}
                 </CardContent>
               </Card>

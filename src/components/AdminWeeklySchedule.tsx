@@ -91,7 +91,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
     } else {
       fetchSchedule();
     }
-  }, [teacherId]);
+  }, [teacherId, refreshKey]);
 
   useEffect(() => {
     if (!showTemplate) {
