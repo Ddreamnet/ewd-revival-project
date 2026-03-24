@@ -11,7 +11,7 @@ import {
   getNextCompletableInstance,
   getLastCompletedInstance,
 } from "@/lib/lessonService";
-import { syncTemplateChange, TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
+import { TemplateSlot, generateFutureInstanceDates } from "@/lib/instanceGeneration";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
 import { clearWeekCache } from "@/hooks/useScheduleGrid";
@@ -283,7 +283,7 @@ export function useEditStudentDialog({
     if (allConflicts.length > 0) setConflicts(allConflicts);
 
     // Batch updates in parallel
-    await Promise.all(
+    const batchResults = await Promise.all(
       changeEntries.map((e) =>
         supabase
           .from("lesson_instances")
@@ -295,6 +295,10 @@ export function useEditStudentDialog({
           .eq("id", e.inst!.id)
       )
     );
+    const batchErrors = batchResults.filter(r => r.error);
+    if (batchErrors.length > 0) {
+      throw new Error(`Instance güncelleme hatası: ${batchErrors.map(e => e.error?.message).join(', ')}`);
+    }
 
     return changeEntries;
   };
@@ -350,7 +354,7 @@ export function useEditStudentDialog({
           if (futureConflicts.length > 0) setConflicts(futureConflicts);
 
           const updateCount = Math.min(plannedAfterChanged.length, futureDates.length);
-          await Promise.all(
+          const remainingResults = await Promise.all(
             Array.from({ length: updateCount }, (_, i) =>
               supabase
                 .from("lesson_instances")
@@ -362,6 +366,10 @@ export function useEditStudentDialog({
                 .eq("id", plannedAfterChanged[i].id)
             )
           );
+          const remainingErrors = remainingResults.filter(r => r.error);
+          if (remainingErrors.length > 0) {
+            throw new Error(`Kalan dersler güncelleme hatası: ${remainingErrors.map(e => e.error?.message).join(', ')}`);
+          }
 
           for (let i = 0; i < updateCount; i++) {
             finalDatesRef.current[plannedAfterChanged[i].lesson_number.toString()] = futureDates[i].lessonDate;
@@ -372,7 +380,9 @@ export function useEditStudentDialog({
         await batchUpdateInstances(changedKeys, finalDatesRef);
       }
 
+      clearWeekCache();
       await fetchInstances();
+      onStudentUpdated();
       toast({ title: "Başarılı", description: "Ders tarihleri güncellendi" });
 
       // Non-template weekday warning
