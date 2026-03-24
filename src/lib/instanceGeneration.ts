@@ -152,7 +152,11 @@ export async function syncTemplateChange(
         })
         .eq("id", p.id)
     );
-    await Promise.all(updatePromises);
+    const updateResults = await Promise.all(updatePromises);
+    const updateErrors = updateResults.filter(r => r.error);
+    if (updateErrors.length > 0) {
+      throw new Error(`Instance güncelleme hatası: ${updateErrors.map(e => e.error?.message).join(', ')}`);
+    }
   }
 
   // If more planned lessons than before, batch insert
@@ -168,13 +172,15 @@ export async function syncTemplateChange(
       status: "planned",
       package_cycle: currentCycle,
     }));
-    await supabase.from("lesson_instances").insert(toInsert);
+    const { error: insertError } = await supabase.from("lesson_instances").insert(toInsert);
+    if (insertError) throw new Error(`Instance ekleme hatası: ${insertError.message}`);
   }
 
   // If fewer planned lessons, batch delete
   if (newDates.length < planned.length) {
     const excessIds = planned.slice(newDates.length).map((p) => p.id);
-    await supabase.from("lesson_instances").delete().in("id", excessIds);
+    const { error: deleteError } = await supabase.from("lesson_instances").delete().in("id", excessIds);
+    if (deleteError) throw new Error(`Instance silme hatası: ${deleteError.message}`);
   }
 
   return { conflicts: [], success: true };
@@ -243,7 +249,7 @@ export async function shiftLessonsForward(
 
   // Apply shifts in parallel with a shared group ID for batch revert
   const shiftGroupId = crypto.randomUUID();
-  await Promise.all(
+  const shiftResults = await Promise.all(
     toShift.slice(0, newDates.length).map((inst, i) =>
       supabase
         .from("lesson_instances")
@@ -260,6 +266,10 @@ export async function shiftLessonsForward(
         .eq("id", inst.id)
     )
   );
+  const shiftErrors = shiftResults.filter(r => r.error);
+  if (shiftErrors.length > 0) {
+    throw new Error(`Shift güncelleme hatası: ${shiftErrors.map(e => e.error?.message).join(', ')}`);
+  }
 
   return { conflicts: [], success: true };
 }
