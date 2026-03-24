@@ -898,6 +898,15 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_sync_student_schedule: {
+        Args: {
+          p_lessons_per_week: number
+          p_slots: Json
+          p_student_id: string
+          p_teacher_id: string
+        }
+        Returns: Json
+      }
       rpc_undo_complete_lesson: {
         Args: { p_instance_id: string; p_teacher_id: string }
         Returns: Json
