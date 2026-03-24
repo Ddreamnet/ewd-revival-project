@@ -212,6 +212,7 @@ export function AdminDashboard() {
       );
 
       setTeachers(teachersWithStudents);
+      setScheduleRefreshKey(prev => prev + 1);
     } catch (error: any) {
       toast({ title: "Hata", description: "Öğretmenler yüklenemedi", variant: "destructive" });
     } finally {
