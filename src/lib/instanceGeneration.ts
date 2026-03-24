@@ -152,7 +152,11 @@ export async function syncTemplateChange(
         })
         .eq("id", p.id)
     );
-    await Promise.all(updatePromises);
+    const updateResults = await Promise.all(updatePromises);
+    const updateErrors = updateResults.filter(r => r.error);
+    if (updateErrors.length > 0) {
+      throw new Error(`Instance güncelleme hatası: ${updateErrors.map(e => e.error?.message).join(', ')}`);
+    }
   }
 
   // If more planned lessons than before, batch insert
