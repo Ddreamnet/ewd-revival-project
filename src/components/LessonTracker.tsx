@@ -48,22 +48,17 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchInstances(), fetchTemplateCount(), refreshCompletionState()]);
-    setLoading(false);
-  };
+    // Single cycle fetch, then pass to all consumers
+    const { data: tracking } = await supabase
+      .from("student_lesson_tracking")
+      .select("package_cycle")
+      .eq("student_id", studentId)
+      .eq("teacher_id", teacherId)
+      .maybeSingle();
+    const currentCycle = tracking?.package_cycle ?? 1;
 
-  const fetchInstances = async () => {
-    try {
-      const { data: tracking } = await supabase
-        .from("student_lesson_tracking")
-        .select("package_cycle")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId)
-        .maybeSingle();
-
-      const currentCycle = tracking?.package_cycle ?? 1;
-
-      const { data, error } = await supabase
+    const [instancesResult, templateResult, nextResult, lastResult] = await Promise.all([
+      supabase
         .from("lesson_instances")
         .select("*")
         .eq("student_id", studentId)
@@ -71,31 +66,23 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
         .eq("package_cycle", currentCycle)
         .in("status", ["planned", "completed"])
         .order("lesson_date", { ascending: true })
-        .order("start_time", { ascending: true });
-
-      if (error) throw error;
-      setInstances((data as LessonInstance[]) || []);
-    } catch (error: any) {
-      console.error("Failed to fetch lesson instances:", error);
-    }
-  };
-
-  const fetchTemplateCount = async () => {
-    const { count } = await supabase
-      .from("student_lessons")
-      .select("id", { count: "exact", head: true })
-      .eq("student_id", studentId)
-      .eq("teacher_id", teacherId);
-    setTemplateCount(count ?? 0);
-  };
-
-  const refreshCompletionState = async () => {
-    const [next, last] = await Promise.all([
-      getNextCompletableInstance(studentId, teacherId),
-      getLastCompletedInstance(studentId, teacherId),
+        .order("start_time", { ascending: true }),
+      supabase
+        .from("student_lessons")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", studentId)
+        .eq("teacher_id", teacherId),
+      getNextCompletableInstance(studentId, teacherId, currentCycle),
+      getLastCompletedInstance(studentId, teacherId, currentCycle),
     ]);
-    setNextCompletableId(next?.id ?? null);
-    setLastCompletedId(last?.id ?? null);
+
+    if (!instancesResult.error) {
+      setInstances((instancesResult.data as LessonInstance[]) || []);
+    }
+    setTemplateCount(templateResult.count ?? 0);
+    setNextCompletableId(nextResult?.id ?? null);
+    setLastCompletedId(lastResult?.id ?? null);
+    setLoading(false);
   };
 
   const handleLessonClick = (instanceId: string, isCompleted: boolean) => {
