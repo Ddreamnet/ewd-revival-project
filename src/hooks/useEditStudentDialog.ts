@@ -380,7 +380,9 @@ export function useEditStudentDialog({
         await batchUpdateInstances(changedKeys, finalDatesRef);
       }
 
+      clearWeekCache();
       await fetchInstances();
+      onStudentUpdated();
       toast({ title: "Başarılı", description: "Ders tarihleri güncellendi" });
 
       // Non-template weekday warning
