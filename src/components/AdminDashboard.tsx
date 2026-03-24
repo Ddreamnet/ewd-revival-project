@@ -35,6 +35,7 @@ export function AdminDashboard() {
   const [studentTopicsMap, setStudentTopicsMap] = useState<Map<string, Topic[]>>(new Map());
   const [studentCompletedTopics, setStudentCompletedTopics] = useState<Map<string, Topic[]>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
 
   // Dialog state
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
@@ -211,6 +212,7 @@ export function AdminDashboard() {
       );
 
       setTeachers(teachersWithStudents);
+      setScheduleRefreshKey(prev => prev + 1);
     } catch (error: any) {
       toast({ title: "Hata", description: "Öğretmenler yüklenemedi", variant: "destructive" });
     } finally {
@@ -358,7 +360,7 @@ export function AdminDashboard() {
                     />
                   )}
 
-                  {activeTab === "schedule" && <AdminWeeklySchedule teacherId={selectedTeacher.user_id} />}
+                  {activeTab === "schedule" && <AdminWeeklySchedule teacherId={selectedTeacher.user_id} refreshKey={scheduleRefreshKey} />}
                   {activeTab === "payments" && <AdminBalanceManager teacherId={selectedTeacher.user_id} />}
                 </CardContent>
               </Card>
