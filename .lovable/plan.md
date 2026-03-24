@@ -1,117 +1,99 @@
 
 
-# Plan: Atomik Template Sync RPC + Kontrollü Repair (Güncellenmiş)
+# Son Audit Planı — Güncellenmiş (confirmDateUpdate Refresh Notu Ekli)
 
-## Adım 1: `rpc_sync_student_schedule` RPC Fonksiyonu
+## Tamamlanan ve Doğru Çalışan Akışlar (Dokunmaya Gerek Yok)
 
-Tek PL/pgSQL transaction içinde çalışan atomik RPC:
-
-```sql
-rpc_sync_student_schedule(
-  p_student_id uuid,
-  p_teacher_id uuid,
-  p_slots jsonb,          -- [{dayOfWeek, startTime, endTime}]
-  p_lessons_per_week integer
-) RETURNS json
-```
-
-**İç mantık (tek transaction):**
-1. `student_lessons` DELETE + INSERT (yeni template)
-2. `student_lesson_tracking.lessons_per_week` UPDATE (veya INSERT)
-3. Mevcut cycle'daki instance'ları çek
-4. `is_manual_override = true` veya `shift_group_id IS NOT NULL` olanları koru
-5. Geri kalan planned instance'ları SİL
-6. Template'e göre yeni planned instance'ları regenerate et (completed count'u koruyarak)
-7. Herhangi bir adımda hata → otomatik ROLLBACK
-
-Conflict check RPC içinde yapılmayacak — mevcut warning-only client-side davranış korunuyor.
+| Akış | Durum |
+|------|-------|
+| Login / Auth | Sorunsuz |
+| Ders işlendi yapma (complete) | Sorunsuz — atomik RPC |
+| Ders geri alma (undo) | Sorunsuz — atomik RPC |
+| Paket sıfırlama (reset) | Sorunsuz — atomik RPC |
+| Kalıcı ders programı değişikliği (template) | Sorunsuz — `rpc_sync_student_schedule` |
+| Ders erteleme (shift forward) | Sorunsuz — cascade + error propagation |
+| Ders geri alma (revert shift) | Sorunsuz — `shift_group_id` bazlı batch |
+| Trial lesson complete/undo | Sorunsuz — atomik RPC |
+| Grid cache / prefetch / refresh | Sorunsuz — weekCache + refreshKey |
+| Bakiye yönetimi | Sorunsuz — RPC + balance_events audit |
+| Öğrenci silme / arşivleme / geri alma | Sorunsuz — atomik RPC |
+| LessonOverrideDialog | Sorunsuz |
 
 ---
 
-## Adım 2: `handleSubmit` → Tek RPC Çağrısı
+## Tespit Edilen 3 Açık
 
-`useEditStudentDialog.ts` satır 416-521 arasındaki 6-7 ayrı DB çağrısı tek `supabase.rpc('rpc_sync_student_schedule', {...})` çağrısına dönüşecek.
+### Sorun 1: `confirmDateUpdate` Cache + Refresh Eksikliği (Orta Önem)
 
-Profil isim güncelleme RPC dışında kalacak — ayrı mutation.
+`confirmDateUpdate` (satır 302-399) başarılı olduğunda:
+- `fetchInstances()` çağırıyor → dialog içi liste güncelleniyor
+- `clearWeekCache()` **çağırmıyor**
+- `onStudentUpdated()` **çağırmıyor**
+
+Sonuç: Dialog içinden tek tek ders tarihi değiştirildiğinde görsel ders programı eski veriyi göstermeye devam ediyor.
+
+#### Sadece `clearWeekCache()` Yeterli mi?
+
+**Hayır, yeterli değil.** Doğrulama sonucu:
+
+`AdminWeeklySchedule`'ın refetch tetikleyicileri:
+```
+useEffect → [teacherId, refreshKey]     // satır 94
+useEffect → [showTemplate, weekOffset]  // satır 96-102
+```
+
+`clearWeekCache()` sadece in-memory Map'i temizler. Hiçbir `useEffect` dependency'si değişmediği için `fetchActualSchedule()` veya `fetchSchedule()` **yeniden çağrılmaz**. Grid eski `actualLessons` / `lessons` state'ini göstermeye devam eder.
+
+#### Doğru Çözüm: `clearWeekCache()` + `onStudentUpdated()`
+
+`onStudentUpdated()` → `fetchTeachers()` → `setScheduleRefreshKey(prev + 1)` → `refreshKey` dependency değişir → grid refetch tetiklenir.
+
+Bu zaten `handleSubmit`, `handleDeleteStudent`, `handleArchiveStudent` için çalışan mekanizma. `confirmDateUpdate` için de aynı zincir kullanılacak:
+
+```typescript
+// confirmDateUpdate sonuna (satır 393 öncesi):
+clearWeekCache();
+onStudentUpdated();
+```
+
+Hedefli refresh mekanizması (ikinci seçenek) gereksiz çünkü mevcut `refreshKey` zinciri tam olarak bu işi yapıyor. Yeni mekanizma eklemek scope büyütür.
+
+**Dosya**: `src/hooks/useEditStudentDialog.ts` satır 375 sonrası
+
+---
+
+### Sorun 2: `batchUpdateInstances` + Remaining Days Error Check Eksikliği (Düşük Önem)
+
+`batchUpdateInstances` (satır 286-297) ve `confirmDateUpdate` satır 353-364'teki `Promise.all` sonuçları Supabase error kontrolü yapmıyor. Sessiz fail riski.
+
+**Düzeltme**: `.filter(r => r.error)` kontrolü + throw ekle.
 
 **Dosya**: `src/hooks/useEditStudentDialog.ts`
 
 ---
 
-## Adım 3: `syncTemplateChange` + `shiftLessonsForward` Error Propagation
+### Sorun 3: Dead Import — `syncTemplateChange` (Kozmetik)
 
-RPC dışında kalan çağrı noktaları için `Promise.all` sonuçlarında error check + throw:
+`useEditStudentDialog.ts` satır 14'te `syncTemplateChange` import ediliyor ama artık kullanılmıyor (handleSubmit RPC'ye geçti).
 
-```typescript
-const results = await Promise.all(updatePromises);
-const errors = results.filter(r => r.error);
-if (errors.length > 0) {
-  throw new Error(`Instance güncelleme hatası: ${errors.map(e => e.error?.message).join(', ')}`);
-}
-```
+**Düzeltme**: Import'tan kaldır.
 
-**Dosya**: `src/lib/instanceGeneration.ts`
+**Dosya**: `src/hooks/useEditStudentDialog.ts`
 
 ---
 
-## Adım 4: Kontrollü Repair (Audit-First, Batch, Idempotent)
+## Uygulama Planı
 
-### 4a. Audit — uyumsuz kayıtları tespit et
-Template saati ile planned instance saati farklı olan kayıtları listele (`is_manual_override = false` AND `shift_group_id IS NULL`).
-
-### 4b. Dry-run raporu — kaç öğrenci, kaç instance etkileniyor
-
-### 4c. Same-day multi-slot ön kontrol (zorunlu)
-
-### 4d. Repair — sadece uyumsuz öğrenci/teacher çiftleri için RPC çağrısı
-
-### 4e. Doğrulama — aynı audit sorgusunu tekrar çalıştır, sonuç boş olmalı
+| Sıra | Değişiklik | Dosya | Risk |
+|------|-----------|-------|------|
+| 1 | `confirmDateUpdate` sonuna `clearWeekCache()` + `onStudentUpdated()` ekle | `useEditStudentDialog.ts` | Sıfır |
+| 2 | `batchUpdateInstances` ve remaining days Promise.all'a error check ekle | `useEditStudentDialog.ts` | Sıfır |
+| 3 | `syncTemplateChange` dead import kaldır | `useEditStudentDialog.ts` | Sıfır |
 
 ---
 
-## Planned Instance ID Stabilitesi — Bağımlılık Analizi
+## Sonuç
 
-Codebase'de `lesson_instances.id` referans alan noktaları inceledim:
-
-| Referans Noktası | Planned Instance'ı Etkiler mi? |
-|---|---|
-| `balance_events.instance_id` | **Hayır** — sadece `lesson_complete` ve `lesson_undo` event'lerinde yazılır. Bu event'ler yalnızca **completed** instance'lar için oluşur. Planned instance'ların ID'si hiçbir balance_events kaydında bulunmaz. |
-| `rpc_complete_lesson(p_instance_id)` | **Hayır** — runtime'da `nextCompletableId` state'inden geçirilir, persist edilmez. Delete + regenerate sonrası yeni ID, bir sonraki `loadData` ile taze çekilir. |
-| `rpc_undo_complete_lesson(p_instance_id)` | **Hayır** — sadece completed instance'lar için çalışır. Completed instance'lara dokunulmaz. |
-| `LessonTracker` — `nextCompletableId` / `lastCompletedId` | **Hayır** — React state, her `loadData` çağrısında DB'den yeniden derive edilir. |
-| `LessonOverrideDialog` — instance seçimi | **Hayır** — dialog açıldığında DB'den taze veri çeker. |
-| `notify_admin_last_lesson` trigger | **Hayır** — trigger `status = 'completed'` değişikliğinde ateşlenir, planned instance silme/insert trigger'ı tetiklemez. |
-| Foreign key constraint | **Yok** — `lesson_instances.id` hiçbir tabloda foreign key olarak referans alınmıyor. `balance_events.instance_id` FK constraint'i yok, sadece veri seviyesinde referans. |
-
-### Sonuç: Delete + Regenerate Güvenli
-
-**Planned instance'ların ID'si hiçbir persist edilen referansta kullanılmıyor.** `balance_events.instance_id` sadece completed instance'lar için yazılır; completed instance'lara dokunulmaz. Tüm runtime referansları (nextCompletableId, lastCompletedId) DB'den yeniden derive edilir.
-
-Bu nedenle **full delete + regenerate yaklaşımı güvenlidir** ve in-place update'e geçmeye gerek yoktur.
-
----
-
-## Değişecek Dosyalar
-
-| Dosya | Değişiklik |
-|-------|-----------|
-| Migration SQL | `rpc_sync_student_schedule` RPC fonksiyonu |
-| `src/hooks/useEditStudentDialog.ts` | `handleSubmit` → tek RPC çağrısı |
-| `src/lib/instanceGeneration.ts` | Error propagation (syncTemplateChange + shiftLessonsForward) |
-| Script / manual | Audit + kontrollü repair (RPC çağrıları) |
-
-## Uygulama Sırası
-
-1. `rpc_sync_student_schedule` RPC oluştur
-2. `instanceGeneration.ts` error propagation ekle
-3. `handleSubmit`'i tek RPC çağrısına dönüştür
-4. Audit sorgusu çalıştır → dry-run raporu sun
-5. Uyumsuz kayıtlar için kontrollü repair uygula
-6. Doğrulama audit'i çalıştır
-
-## Scope Kontrolü
-
-- **Önceki plandan aynen korunan**: Tüm 4 adım, dosya listesi, uygulama sırası, repair kuralları (override/shift istisnaları), multi-slot ön kontrol zorunluluğu, idempotent batch yaklaşımı
-- **Bu güncellemede eklenen**: Planned instance ID bağımlılık analizi — 7 referans noktası incelendi, hepsi güvenli bulundu
-- **Karar**: Delete + regenerate yaklaşımı korunuyor, in-place update'e geçmeye gerek yok
+- **Sadece `clearWeekCache()` yeterli mi?** Hayır. Cache temizlenir ama grid refetch tetiklenmez.
+- **Grid refetch hangi mekanizmayla tetiklenecek?** `onStudentUpdated()` → `fetchTeachers()` → `setScheduleRefreshKey(prev+1)` → `useEffect[teacherId, refreshKey]` → `fetchSchedule()` + `fetchActualSchedule()`. Mevcut zincir, ek mekanizma gerekmez.
 
