@@ -182,37 +182,45 @@ export function AdminDashboard() {
 
   const fetchTeachers = async () => {
     try {
-      const { data: teachersData, error: teachersError } = await supabase
-        .from("profiles").select("user_id, full_name, email").eq("role", "teacher").order("full_name");
-      if (teachersError) throw teachersError;
+      // Batch: 3 parallel queries instead of 1 + N×2 sequential
+      const [teachersRes, allStudentsRes, allLessonsRes] = await Promise.all([
+        supabase.from("profiles").select("user_id, full_name, email").eq("role", "teacher").order("full_name"),
+        supabase.from("students").select(`id, student_id, teacher_id, is_archived, about_text, profiles!students_student_id_fkey (full_name, email)`),
+        supabase.from("student_lessons").select("id, student_id, teacher_id, day_of_week, start_time, end_time, note"),
+      ]);
 
-      const teachersWithStudents = await Promise.all(
-        (teachersData || []).map(async (teacher) => {
-          const { data: studentsData, error: studentsError } = await supabase
-            .from("students")
-            .select(`id, student_id, is_archived, about_text, profiles!students_student_id_fkey (full_name, email)`)
-            .eq("teacher_id", teacher.user_id);
-          if (studentsError) throw studentsError;
+      if (teachersRes.error) throw teachersRes.error;
+      if (allStudentsRes.error) throw allStudentsRes.error;
+      if (allLessonsRes.error) throw allLessonsRes.error;
 
-          const { data: lessonsData, error: lessonsError } = await supabase
-            .from("student_lessons").select("*").eq("teacher_id", teacher.user_id);
-          if (lessonsError) throw lessonsError;
+      // Group students and lessons by teacher_id in JS
+      const studentsByTeacher = new Map<string, typeof allStudentsRes.data>();
+      for (const s of allStudentsRes.data || []) {
+        const list = studentsByTeacher.get(s.teacher_id) || [];
+        list.push(s);
+        studentsByTeacher.set(s.teacher_id, list);
+      }
 
-          const studentsWithLessons = (studentsData || []).map((student) => ({
-            ...student,
-            is_archived: student.is_archived || false,
-            about_text: student.about_text || null,
-            lessons: (lessonsData || [])
-              .filter((l) => l.student_id === student.student_id)
-              .map((l) => ({ id: l.id, dayOfWeek: l.day_of_week, startTime: l.start_time, endTime: l.end_time, note: l.note })),
-          }));
+      const lessonsByStudent = new Map<string, typeof allLessonsRes.data>();
+      for (const l of allLessonsRes.data || []) {
+        const list = lessonsByStudent.get(l.student_id) || [];
+        list.push(l);
+        lessonsByStudent.set(l.student_id, list);
+      }
 
-          return { ...teacher, students: studentsWithLessons };
-        })
-      );
+      const teachersWithStudents = (teachersRes.data || []).map((teacher) => {
+        const students = (studentsByTeacher.get(teacher.user_id) || []).map((student) => ({
+          ...student,
+          is_archived: student.is_archived || false,
+          about_text: student.about_text || null,
+          lessons: (lessonsByStudent.get(student.student_id) || [])
+            .filter((l) => l.teacher_id === teacher.user_id)
+            .map((l) => ({ id: l.id, dayOfWeek: l.day_of_week, startTime: l.start_time, endTime: l.end_time, note: l.note })),
+        }));
+        return { ...teacher, students };
+      });
 
       setTeachers(teachersWithStudents);
-      setScheduleRefreshKey(prev => prev + 1);
     } catch (error: any) {
       toast({ title: "Hata", description: "Öğretmenler yüklenemedi", variant: "destructive" });
     } finally {
@@ -394,7 +402,7 @@ export function AdminDashboard() {
             onStudentCreated={fetchTeachers} teacherId={selectedTeacher.user_id} />
           {editingStudent && (
             <EditStudentDialog open={showEditStudent} onOpenChange={setShowEditStudent}
-              onStudentUpdated={fetchTeachers} studentId={editingStudent.id}
+              onStudentUpdated={() => { fetchTeachers(); setScheduleRefreshKey(prev => prev + 1); }} studentId={editingStudent.id}
               currentName={editingStudent.profiles.full_name} currentLessons={editingStudent.lessons} />
           )}
         </>

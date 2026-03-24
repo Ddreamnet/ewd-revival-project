@@ -127,35 +127,37 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const fetchSchedule = async () => {
     try {
       setLoading(true);
-      const { data: activeStudents, error: studentsError } = await supabase
-        .from("students").select("student_id").eq("teacher_id", teacherId).eq("is_archived", false);
-      if (studentsError) throw studentsError;
-      const activeStudentIds = (activeStudents || []).map(s => s.student_id);
 
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from("student_lessons")
-        .select("id, student_id, day_of_week, start_time, end_time, note")
-        .eq("teacher_id", teacherId)
-        .in("student_id", activeStudentIds.length > 0 ? activeStudentIds : ['no-students']);
-      if (lessonsError) throw lessonsError;
+      // Step 1: students + trial_lessons in parallel (independent)
+      const [studentsRes, trialRes] = await Promise.all([
+        supabase.from("students").select("student_id").eq("teacher_id", teacherId).eq("is_archived", false),
+        supabase.from("trial_lessons").select("*").eq("teacher_id", teacherId).order("start_time", { ascending: true }),
+      ]);
+      if (studentsRes.error) throw studentsRes.error;
+      if (trialRes.error) throw trialRes.error;
 
-      const studentIds = [...new Set(lessonsData?.map((l) => l.student_id) || [])];
-      const { data: studentsData, error: profilesError } = await supabase
-        .from("profiles").select("user_id, full_name")
-        .in("user_id", studentIds.length > 0 ? studentIds : ['no-students']);
-      if (profilesError) throw profilesError;
+      const activeStudentIds = (studentsRes.data || []).map(s => s.student_id);
+      setTrialLessons(trialRes.data || []);
 
-      const nameMap = new Map(studentsData?.map((s) => [s.user_id, s.full_name]) || []);
+      // Step 2: lessons + profiles in parallel (depend on activeStudentIds)
+      const [lessonsRes, profilesRes] = await Promise.all([
+        supabase.from("student_lessons")
+          .select("id, student_id, day_of_week, start_time, end_time, note")
+          .eq("teacher_id", teacherId)
+          .in("student_id", activeStudentIds.length > 0 ? activeStudentIds : ['no-students']),
+        supabase.from("profiles").select("user_id, full_name")
+          .in("user_id", activeStudentIds.length > 0 ? activeStudentIds : ['no-students']),
+      ]);
+      if (lessonsRes.error) throw lessonsRes.error;
+      if (profilesRes.error) throw profilesRes.error;
+
+      const nameMap = new Map(profilesRes.data?.map((s) => [s.user_id, s.full_name]) || []);
+      const studentIds = [...new Set(lessonsRes.data?.map((l) => l.student_id) || [])];
       const colorMap = new Map<string, string>();
       studentIds.forEach((id, index) => { colorMap.set(id, STUDENT_COLORS[index % STUDENT_COLORS.length]); });
       setStudentColors(colorMap);
 
-      setLessons(lessonsData?.map((lesson) => ({ ...lesson, student_name: nameMap.get(lesson.student_id) || "Bilinmeyen", note: lesson.note })) || []);
-
-      const { data: trialData, error: trialError } = await supabase
-        .from("trial_lessons").select("*").eq("teacher_id", teacherId).order("start_time", { ascending: true });
-      if (trialError) throw trialError;
-      setTrialLessons(trialData || []);
+      setLessons(lessonsRes.data?.map((lesson) => ({ ...lesson, student_name: nameMap.get(lesson.student_id) || "Bilinmeyen", note: lesson.note })) || []);
     } catch {
       toast({ title: "Hata", description: "Ders programı yüklenemedi", variant: "destructive" });
     } finally {
