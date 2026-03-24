@@ -172,13 +172,15 @@ export async function syncTemplateChange(
       status: "planned",
       package_cycle: currentCycle,
     }));
-    await supabase.from("lesson_instances").insert(toInsert);
+    const { error: insertError } = await supabase.from("lesson_instances").insert(toInsert);
+    if (insertError) throw new Error(`Instance ekleme hatası: ${insertError.message}`);
   }
 
   // If fewer planned lessons, batch delete
   if (newDates.length < planned.length) {
     const excessIds = planned.slice(newDates.length).map((p) => p.id);
-    await supabase.from("lesson_instances").delete().in("id", excessIds);
+    const { error: deleteError } = await supabase.from("lesson_instances").delete().in("id", excessIds);
+    if (deleteError) throw new Error(`Instance silme hatası: ${deleteError.message}`);
   }
 
   return { conflicts: [], success: true };
