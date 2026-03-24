@@ -42,6 +42,7 @@ interface TrialLesson {
 
 interface AdminWeeklyScheduleProps {
   teacherId: string;
+  refreshKey?: number;
 }
 
 const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
