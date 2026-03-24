@@ -354,7 +354,7 @@ export function useEditStudentDialog({
           if (futureConflicts.length > 0) setConflicts(futureConflicts);
 
           const updateCount = Math.min(plannedAfterChanged.length, futureDates.length);
-          await Promise.all(
+          const remainingResults = await Promise.all(
             Array.from({ length: updateCount }, (_, i) =>
               supabase
                 .from("lesson_instances")
@@ -366,6 +366,10 @@ export function useEditStudentDialog({
                 .eq("id", plannedAfterChanged[i].id)
             )
           );
+          const remainingErrors = remainingResults.filter(r => r.error);
+          if (remainingErrors.length > 0) {
+            throw new Error(`Kalan dersler güncelleme hatası: ${remainingErrors.map(e => e.error?.message).join(', ')}`);
+          }
 
           for (let i = 0; i < updateCount; i++) {
             finalDatesRef.current[plannedAfterChanged[i].lesson_number.toString()] = futureDates[i].lessonDate;
