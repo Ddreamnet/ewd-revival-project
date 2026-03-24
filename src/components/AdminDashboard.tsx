@@ -35,6 +35,7 @@ export function AdminDashboard() {
   const [studentTopicsMap, setStudentTopicsMap] = useState<Map<string, Topic[]>>(new Map());
   const [studentCompletedTopics, setStudentCompletedTopics] = useState<Map<string, Topic[]>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
 
   // Dialog state
   const [showGlobalTopics, setShowGlobalTopics] = useState(false);
