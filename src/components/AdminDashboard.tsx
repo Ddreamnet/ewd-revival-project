@@ -402,7 +402,7 @@ export function AdminDashboard() {
             onStudentCreated={fetchTeachers} teacherId={selectedTeacher.user_id} />
           {editingStudent && (
             <EditStudentDialog open={showEditStudent} onOpenChange={setShowEditStudent}
-              onStudentUpdated={fetchTeachers} studentId={editingStudent.id}
+              onStudentUpdated={() => { fetchTeachers(); setScheduleRefreshKey(prev => prev + 1); }} studentId={editingStudent.id}
               currentName={editingStudent.profiles.full_name} currentLessons={editingStudent.lessons} />
           )}
         </>

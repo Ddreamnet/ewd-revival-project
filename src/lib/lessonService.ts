@@ -243,16 +243,19 @@ export async function getNextCompletableInstance(
  */
 export async function getLastCompletedInstance(
   studentId: string,
-  teacherId: string
+  teacherId: string,
+  preloadedCycle?: number
 ): Promise<{ id: string; lesson_number: number; lesson_date: string } | null> {
-  const { data: tracking } = await supabase
-    .from("student_lesson_tracking")
-    .select("package_cycle")
-    .eq("student_id", studentId)
-    .eq("teacher_id", teacherId)
-    .maybeSingle();
-
-  const currentCycle = tracking?.package_cycle ?? 1;
+  let currentCycle = preloadedCycle;
+  if (currentCycle === undefined) {
+    const { data: tracking } = await supabase
+      .from("student_lesson_tracking")
+      .select("package_cycle")
+      .eq("student_id", studentId)
+      .eq("teacher_id", teacherId)
+      .maybeSingle();
+    currentCycle = tracking?.package_cycle ?? 1;
+  }
 
   const { data } = await supabase
     .from("lesson_instances")
