@@ -414,100 +414,30 @@ export function useEditStudentDialog({
     setConflicts([]);
 
     try {
+      // Update profile name (separate from schedule sync)
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ full_name: name.trim() })
         .eq("user_id", studentUserId);
       if (profileError) throw profileError;
 
-      const { error: deleteError } = await supabase
-        .from("student_lessons")
-        .delete()
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId);
-      if (deleteError) throw deleteError;
-
-      const lessonsToInsert = lessons.map((lesson) => ({
-        student_id: studentUserId,
-        teacher_id: teacherUserId,
-        day_of_week: lesson.dayOfWeek,
-        start_time: lesson.startTime,
-        end_time: lesson.endTime,
-        note: lesson.note || null,
-      }));
-
-      const { error: insertError } = await supabase.from("student_lessons").insert(lessonsToInsert);
-      if (insertError) throw insertError;
-
-      // Sync lessons_per_week to tracking table
-      const { data: existingTrackingSync } = await supabase
-        .from("student_lesson_tracking")
-        .select("id")
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherUserId)
-        .limit(1);
-
-      if (existingTrackingSync && existingTrackingSync.length > 0) {
-        await supabase
-          .from("student_lesson_tracking")
-          .update({ lessons_per_week: lessonsPerWeek })
-          .eq("id", existingTrackingSync[0].id);
-      }
-
-      // Sync template change to instances
-      const newSlots: TemplateSlot[] = lessons.map((l) => ({
+      // Atomic schedule sync via RPC
+      const slots = lessons.map((l) => ({
         dayOfWeek: l.dayOfWeek,
         startTime: l.startTime,
         endTime: l.endTime,
       }));
-      const totalLessonsCount = lessonsPerWeek * 4;
 
-      if (instances.length > 0) {
-        const result = await syncTemplateChange(studentUserId, teacherUserId, newSlots, totalLessonsCount);
-        if (result.conflicts.length > 0) {
-          setConflicts(result.conflicts);
-          setLoading(false);
-          return;
-        }
-      } else {
-        const today = new Date();
-        const futureDates = generateFutureInstanceDates(newSlots, totalLessonsCount, today);
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('rpc_sync_student_schedule', {
+        p_student_id: studentUserId,
+        p_teacher_id: teacherUserId,
+        p_slots: slots,
+        p_lessons_per_week: lessonsPerWeek,
+      });
 
-        const { data: existingTracking } = await supabase
-          .from("student_lesson_tracking")
-          .select("id, package_cycle")
-          .eq("student_id", studentUserId)
-          .eq("teacher_id", teacherUserId)
-          .limit(1);
-
-        let currentCycle = 1;
-        if (existingTracking && existingTracking.length > 0) {
-          currentCycle = existingTracking[0].package_cycle ?? 1;
-          await supabase
-            .from("student_lesson_tracking")
-            .update({ lessons_per_week: lessonsPerWeek })
-            .eq("id", existingTracking[0].id);
-        } else {
-          await supabase.from("student_lesson_tracking").insert({
-            student_id: studentUserId,
-            teacher_id: teacherUserId,
-            lessons_per_week: lessonsPerWeek,
-          });
-        }
-
-        if (futureDates.length > 0) {
-          const toInsert = futureDates.map((fd, i) => ({
-            student_id: studentUserId,
-            teacher_id: teacherUserId,
-            lesson_number: i + 1,
-            lesson_date: fd.lessonDate,
-            start_time: fd.startTime,
-            end_time: fd.endTime,
-            status: "planned",
-            package_cycle: currentCycle,
-          }));
-          await supabase.from("lesson_instances").insert(toInsert);
-        }
+      if (rpcError) throw rpcError;
+      if (rpcResult && !(rpcResult as any).success) {
+        throw new Error((rpcResult as any).error || 'Schedule sync failed');
       }
 
       toast({ title: "Başarılı", description: "Öğrenci ayarları güncellendi" });

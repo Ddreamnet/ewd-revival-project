@@ -249,7 +249,7 @@ export async function shiftLessonsForward(
 
   // Apply shifts in parallel with a shared group ID for batch revert
   const shiftGroupId = crypto.randomUUID();
-  await Promise.all(
+  const shiftResults = await Promise.all(
     toShift.slice(0, newDates.length).map((inst, i) =>
       supabase
         .from("lesson_instances")
@@ -266,6 +266,10 @@ export async function shiftLessonsForward(
         .eq("id", inst.id)
     )
   );
+  const shiftErrors = shiftResults.filter(r => r.error);
+  if (shiftErrors.length > 0) {
+    throw new Error(`Shift güncelleme hatası: ${shiftErrors.map(e => e.error?.message).join(', ')}`);
+  }
 
   return { conflicts: [], success: true };
 }
