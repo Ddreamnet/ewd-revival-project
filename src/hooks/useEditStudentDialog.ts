@@ -49,6 +49,7 @@ export function useEditStudentDialog({
   const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
   const [studentUserId, setStudentUserId] = useState("");
   const [teacherUserId, setTeacherUserId] = useState("");
+  const [canShiftBackward, setCanShiftBackward] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
