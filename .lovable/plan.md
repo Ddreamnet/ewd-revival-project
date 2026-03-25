@@ -1,76 +1,28 @@
 
 
-# Plan: Same-Day Multi-Slot "Kalan Günleri Güncelle" Bug Fix
+# Plan: Stable Student Colors Across Weeks
 
-## Kök Neden
+## Problem
+In `AdminWeeklySchedule.tsx`, `fetchActualSchedule` (line 120-124) assigns colors based on the order of students returned for that specific week. When switching weeks, different students appear or in different order, causing color reassignment.
 
-`confirmDateUpdate` satır 342-345:
+Same issue exists in `WeeklyScheduleDialog.tsx` (line 107-114).
 
-```typescript
-const startDate = new Date(lastChangedDate);
-startDate.setDate(startDate.getDate() + 1);  // ← BUG
-const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate);
-```
+## Fix
 
-Kullanıcı 1. dersi 10 Mart Salı olarak seçtiğinde:
-- `lastChangedDate` = 10 Mart
-- `startDate` = 10 Mart + 1 = **11 Mart (Çarşamba)**
-- `generateFutureInstanceDates` 11 Mart'tan itibaren ilk Salı slotunu arar → **17 Mart Salı 17:20** bulur
-- Sonuç: 2. ders (aynı gün 18:00 olması gereken) 17 Mart 17:20'ye atanır
+Both components already fetch a stable list of ALL active students with templates in `fetchSchedule`. Use that stable student list as the single source for color assignment, and stop reassigning colors in `fetchActualSchedule`.
 
-Problem: `+1 gün` mantığı aynı gün ikinci slotu tamamen atlıyor. `generateFutureInstanceDates` zaten `afterTime` parametresiyle aynı gün filtreleme yapabiliyor — ama bu parametre burada hiç kullanılmıyor.
+### AdminWeeklySchedule.tsx
+1. In `fetchSchedule` (line 155-158): keep the existing color assignment from template student list — this is stable across weeks
+2. In `fetchActualSchedule` (line 120-124): remove color reassignment. Only add colors for students that appear in actual data but weren't in templates (edge case), appending to existing map rather than rebuilding
 
-## Doğru Davranış
+### WeeklyScheduleDialog.tsx
+1. Same pattern: `fetchLessons` (line 148-157) builds stable colors from templates — keep this
+2. `fetchActualLessons` (line 107-114): stop rebuilding, only append missing students
 
-1. dersi 10 Mart Salı 17:20 olarak seçtiğimde:
-- 2. ders: 10 Mart Salı 18:00 (aynı gün, ikinci slot)
-- 3. ders: 17 Mart Salı 17:20 (sonraki hafta)
-- 4. ders: 17 Mart Salı 18:00
-- ... ve böyle devam
-
-## Düzeltme
-
-`confirmDateUpdate` içinde `startDate + 1` yerine, son değiştirilen instance'ın tarihini koruyup `afterTime` parametresiyle aynı gün kalan slotları yakalamalı:
-
-```typescript
-// Mevcut (hatalı):
-const startDate = new Date(lastChangedDate);
-startDate.setDate(startDate.getDate() + 1);
-const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate);
-
-// Düzeltme:
-const startDate = new Date(lastChangedDate);
-// Son değiştirilen instance'ın start_time'ını bul
-const lastChangedInst = allSorted.find(
-  inst => inst.id === instanceIdMap[lastChangedKey]
-);
-const afterTime = lastChangedInst?.start_time;
-const futureDates = generateFutureInstanceDates(
-  templateSlots,
-  plannedAfterChanged.length,
-  startDate,
-  afterTime  // aynı gün bu saatten sonraki slotları yakala
-);
-```
-
-`generateFutureInstanceDates` zaten `afterTime` desteğine sahip (satır 70-71):
-```typescript
-if (offset === 0 && afterTime && slot.startTime <= afterTime) continue;
-```
-
-Bu, aynı gündeki 17:20 slotunu atlar ama 18:00 slotunu yakalar — tam istenen davranış.
-
-## Etki
-
-- Koray (Sa 17:20 + Sa 18:00): Düzeltme sonrası aynı gün iki ders doğru sırayla üretilir
-- Tüm same-day multi-slot öğrenciler aynı şekilde düzelir
-- Tek slotlu öğrenciler etkilenmez (`afterTime` ile aynı gün tek slot zaten atlanır, sonraki haftaya geçer — mevcut davranışla aynı)
-
-## Dosya
-
-`src/hooks/useEditStudentDialog.ts` — satır 340-345 (3-4 satır değişiklik)
+## Files
+- `src/components/AdminWeeklySchedule.tsx` — ~5 lines changed
+- `src/components/WeeklyScheduleDialog.tsx` — ~5 lines changed
 
 ## Risk
-
-Sıfır. `generateFutureInstanceDates` + `afterTime` zaten production'da `shiftLessonsForward` tarafından kullanılıyor ve test edilmiş.
+Zero. Colors become more stable, no logic change.
 
