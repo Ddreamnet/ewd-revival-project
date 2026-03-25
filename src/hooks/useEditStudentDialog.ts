@@ -538,18 +538,31 @@ export function useEditStudentDialog({
   const getTemplateSlots = (): TemplateSlot[] =>
     lessons.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime, endTime: l.endTime }));
 
+  /** Fetch the absolute last completed instance across ALL cycles for this student.
+   *  This is the cross-cycle anchor used for backward boundary and realign. */
+  const fetchLastCompletedAnchor = async (): Promise<{ lessonDate: string; startTime: string } | null> => {
+    if (!studentUserId || !teacherUserId) return null;
+    const { data } = await supabase
+      .from("lesson_instances")
+      .select("lesson_date, start_time")
+      .eq("student_id", studentUserId)
+      .eq("teacher_id", teacherUserId)
+      .eq("status", "completed")
+      .order("lesson_date", { ascending: false })
+      .order("start_time", { ascending: false })
+      .limit(1);
+    if (data && data.length > 0) return { lessonDate: data[0].lesson_date, startTime: data[0].start_time };
+    return null;
+  };
+
   /** Compute the minimum allowed slot (boundary for backward + realign).
-   *  = first template slot after the last completed instance.
+   *  = first template slot after the last completed instance (cross-cycle).
    *  If no completed: first template slot from today. */
-  const computeMinSlot = () => {
-    const completed = instances.filter((i) => i.status === "completed");
+  const computeMinSlot = async () => {
     const templateSlots = getTemplateSlots();
-    if (completed.length > 0) {
-      const last = [...completed].sort((a, b) => {
-        const dc = a.lesson_date.localeCompare(b.lesson_date);
-        return dc !== 0 ? dc : a.start_time.localeCompare(b.start_time);
-      }).pop()!;
-      const result = generateFutureInstanceDates(templateSlots, 1, new Date(last.lesson_date), last.start_time);
+    const anchor = await fetchLastCompletedAnchor();
+    if (anchor) {
+      const result = generateFutureInstanceDates(templateSlots, 1, new Date(anchor.lessonDate), anchor.startTime);
       return result[0] || null;
     }
     const result = generateFutureInstanceDates(templateSlots, 1, startOfDay(new Date()));
@@ -582,7 +595,7 @@ export function useEditStudentDialog({
     );
   };
 
-  /** Realign: regenerate all planned chain from the last completed anchor */
+  /** Realign: regenerate all planned chain from the last completed anchor (cross-cycle) */
   const handleRealignChain = async () => {
     const realignable = getRealignableInstances();
     if (realignable.length === 0) {
@@ -592,16 +605,12 @@ export function useEditStudentDialog({
     setShifting(true);
     try {
       const templateSlots = getTemplateSlots();
-      const completed = instances.filter((i) => i.status === "completed");
+      const anchor = await fetchLastCompletedAnchor();
       let startDate: Date;
       let afterTime: string | undefined;
-      if (completed.length > 0) {
-        const last = [...completed].sort((a, b) => {
-          const dc = a.lesson_date.localeCompare(b.lesson_date);
-          return dc !== 0 ? dc : a.start_time.localeCompare(b.start_time);
-        }).pop()!;
-        startDate = new Date(last.lesson_date);
-        afterTime = last.start_time;
+      if (anchor) {
+        startDate = new Date(anchor.lessonDate);
+        afterTime = anchor.startTime;
       } else {
         startDate = startOfDay(new Date());
       }
@@ -708,7 +717,7 @@ export function useEditStudentDialog({
       }
 
       // Boundary check: new first slot must be >= minSlot
-      const minSlot = computeMinSlot();
+      const minSlot = await computeMinSlot();
       if (minSlot) {
         const prevDateStr = format(prevSlot.date, "yyyy-MM-dd");
         if (prevDateStr < minSlot.lessonDate || (prevDateStr === minSlot.lessonDate && prevSlot.startTime < minSlot.startTime)) {
@@ -772,19 +781,25 @@ export function useEditStudentDialog({
     }
   };
 
-  /** Whether backward arrow should be disabled */
-  const canShiftBackward = (() => {
-    const realignable = getRealignableInstances();
-    if (realignable.length === 0) return false;
-    const templateSlots = getTemplateSlots();
-    const first = realignable[0];
-    const prevSlot = getSlotBefore(templateSlots, new Date(first.lesson_date), first.start_time);
-    if (!prevSlot) return false;
-    const minSlot = computeMinSlot();
-    if (!minSlot) return false;
-    const prevDateStr = format(prevSlot.date, "yyyy-MM-dd");
-    return !(prevDateStr < minSlot.lessonDate || (prevDateStr === minSlot.lessonDate && prevSlot.startTime < minSlot.startTime));
-  })();
+  /** Recompute canShiftBackward as async state whenever instances or lessons change */
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      const realignable = getRealignableInstances();
+      if (realignable.length === 0) { setCanShiftBackward(false); return; }
+      const templateSlots = getTemplateSlots();
+      const first = realignable[0];
+      const prevSlot = getSlotBefore(templateSlots, new Date(first.lesson_date), first.start_time);
+      if (!prevSlot) { setCanShiftBackward(false); return; }
+      const minSlot = await computeMinSlot();
+      if (!minSlot) { setCanShiftBackward(false); return; }
+      const prevDateStr = format(prevSlot.date, "yyyy-MM-dd");
+      const allowed = !(prevDateStr < minSlot.lessonDate || (prevDateStr === minSlot.lessonDate && prevSlot.startTime < minSlot.startTime));
+      if (!cancelled) setCanShiftBackward(allowed);
+    };
+    check();
+    return () => { cancelled = true; };
+  }, [instances, lessons]);
 
   const hasRealignableInstances = getRealignableInstances().length > 0;
 
