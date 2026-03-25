@@ -1180,3 +1180,34 @@ All colors MUST be HSL.
     transform: translateX(58px);
   }
 }
+
+/* Time input styling — match Select dropdown appearance */
+input[type="time"] {
+  color-scheme: light;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.dark input[type="time"] {
+  color-scheme: dark;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  cursor: pointer;
+  filter: var(--time-picker-filter, none);
+  transition: opacity 0.15s ease;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.5;
+}
+
+.dark input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.85;
+}
