@@ -1,63 +1,76 @@
 
 
-# Plan: Ghost Warning Icon Bug — Masal 05.04 Görünmüyor
+# Plan: Same-Day Multi-Slot "Kalan Günleri Güncelle" Bug Fix
 
 ## Kök Neden
 
-`useScheduleGrid.ts` satır 347-349'daki ghost mantığı **ikili (binary)**: Bir öğrencinin o hafta HERHANGİ BİR instance'ı varsa, ghost üretilmez.
+`confirmDateUpdate` satır 342-345:
 
-Masal'ın durumu:
-- Son 3 planned ders: 28.03 (Cumartesi), 29.03 (Pazar), 04.04 (Cumartesi)
-- 05.04 (Pazar) için instance yok — paketi bitmiş olacak
-- Hafta aralığı: 30.03 Pazartesi → 05.04 Pazar
-- 04.04 Cumartesi bu haftada → Masal `studentsWithInstances`'a dahil → ghost atlanıyor
+```typescript
+const startDate = new Date(lastChangedDate);
+startDate.setDate(startDate.getDate() + 1);  // ← BUG
+const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate);
+```
 
-Sonuç: 05.04 Pazar'da uyarı ikonu görünmüyor.
+Kullanıcı 1. dersi 10 Mart Salı olarak seçtiğinde:
+- `lastChangedDate` = 10 Mart
+- `startDate` = 10 Mart + 1 = **11 Mart (Çarşamba)**
+- `generateFutureInstanceDates` 11 Mart'tan itibaren ilk Salı slotunu arar → **17 Mart Salı 17:20** bulur
+- Sonuç: 2. ders (aynı gün 18:00 olması gereken) 17 Mart 17:20'ye atanır
 
-## Sorun Türü
+Problem: `+1 gün` mantığı aynı gün ikinci slotu tamamen atlıyor. `generateFutureInstanceDates` zaten `afterTime` parametresiyle aynı gün filtreleme yapabiliyor — ama bu parametre burada hiç kullanılmıyor.
 
-Veri seviyesinde değil, **derived mantık** (ghost üretimi) problemi. DB verileri doğru.
+## Doğru Davranış
+
+1. dersi 10 Mart Salı 17:20 olarak seçtiğimde:
+- 2. ders: 10 Mart Salı 18:00 (aynı gün, ikinci slot)
+- 3. ders: 17 Mart Salı 17:20 (sonraki hafta)
+- 4. ders: 17 Mart Salı 18:00
+- ... ve böyle devam
 
 ## Düzeltme
 
-`useScheduleGrid.ts` — ghost üretim mantığını "hafta bazında instance var mı" yerine **"gün bazında template slot'u var ama instance yok mu"** kontrolüne çevir.
+`confirmDateUpdate` içinde `startDate + 1` yerine, son değiştirilen instance'ın tarihini koruyup `afterTime` parametresiyle aynı gün kalan slotları yakalamalı:
 
-Mevcut mantık:
-```
-studentsWithoutInstances = aktif öğrenciler - bu hafta instance'ı olanlar
-→ sadece bu listedekiler için ghost üret
+```typescript
+// Mevcut (hatalı):
+const startDate = new Date(lastChangedDate);
+startDate.setDate(startDate.getDate() + 1);
+const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate);
+
+// Düzeltme:
+const startDate = new Date(lastChangedDate);
+// Son değiştirilen instance'ın start_time'ını bul
+const lastChangedInst = allSorted.find(
+  inst => inst.id === instanceIdMap[lastChangedKey]
+);
+const afterTime = lastChangedInst?.start_time;
+const futureDates = generateFutureInstanceDates(
+  templateSlots,
+  plannedAfterChanged.length,
+  startDate,
+  afterTime  // aynı gün bu saatten sonraki slotları yakala
+);
 ```
 
-Doğru mantık:
-```
-Her aktif öğrencinin bu haftadaki her template slot'u için:
-  - O gün/saat'te zaten bir instance (planned/completed) varsa → skip
-  - Yoksa VE öğrencinin paketi bitmişse → ghost üret
+`generateFutureInstanceDates` zaten `afterTime` desteğine sahip (satır 70-71):
+```typescript
+if (offset === 0 && afterTime && slot.startTime <= afterTime) continue;
 ```
 
-Somut değişiklik:
-1. `studentsWithoutInstances` filtresini kaldır
-2. Tüm aktif öğrencilerin template'lerini çek
-3. Her template slot için o hafta o gün/saat'te instance olup olmadığını kontrol et
-4. Instance yoksa VE cycle exhausted ise → ghost entry üret
-
-**Dosya**: `src/hooks/useScheduleGrid.ts` satır 346-428
+Bu, aynı gündeki 17:20 slotunu atlar ama 18:00 slotunu yakalar — tam istenen davranış.
 
 ## Etki
 
-- Masal: 04.04'te normal planned ders görünür, 05.04'te ghost uyarı ikonu görünür
-- Tüm Cumartesi/Pazar veya hafta sonu bölünmüş öğrenciler için aynı fix geçerli
-- Paketi bitmemiş öğrenciler etkilenmez (exhaustion check korunuyor)
+- Koray (Sa 17:20 + Sa 18:00): Düzeltme sonrası aynı gün iki ders doğru sırayla üretilir
+- Tüm same-day multi-slot öğrenciler aynı şekilde düzelir
+- Tek slotlu öğrenciler etkilenmez (`afterTime` ile aynı gün tek slot zaten atlanır, sonraki haftaya geçer — mevcut davranışla aynı)
+
+## Dosya
+
+`src/hooks/useEditStudentDialog.ts` — satır 340-345 (3-4 satır değişiklik)
 
 ## Risk
 
-Düşük. Ghost üretimi sadece görsel; tıklanamaz (`cursor-default`). Ek template + tracking sorgusu zaten mevcut batch pattern'e eklenir. Performans etkisi ihmal edilebilir.
-
-## Teknik Detay
-
-Değiştirilecek bölüm ~80 satır. Mantık:
-1. Tüm aktif öğrencilerin template'lerini çek (mevcut sorgu genişletilir)
-2. `filteredInstances`'tan bir `Set<string>` oluştur: `"studentId-dayOfWeek-startTime"` formatında
-3. Her template slot için: bu haftada karşılık gelen gün/saat'te instance yoksa VE paketi exhausted ise → ghost ekle
-4. Exhaustion kontrolü mevcut `cycleCountMap` mantığıyla aynı kalır
+Sıfır. `generateFutureInstanceDates` + `afterTime` zaten production'da `shiftLessonsForward` tarafından kullanılıyor ve test edilmiş.
 
