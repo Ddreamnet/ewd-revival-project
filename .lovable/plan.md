@@ -1,166 +1,200 @@
 
 
-# Implementation Plan: Manual Chain Controls (Realign + Arrow Shift) — Revize v2
+# Implementation Plan: Manual Chain Controls — Revize v3
 
-## A) Current Chain Data Model — Assessment
+## Koray Kök Neden Analizi
 
-The chain is stored in `lesson_instances` with `lesson_date + start_time` as the de facto ordering. `lesson_number` is assigned at creation but NOT reliably re-sequenced after mutations. The `generateFutureInstanceDates` helper already handles same-day multi-slot correctly (sorts by dayOfWeek then startTime, uses `afterTime` to skip filled slots).
+### Sorun
+`computeMinSlot()` (satır 543-556) `instances` dizisine bakıyor. Bu dizi `fetchInstances()` tarafından **current cycle ile filtrelenmiş** durumda (satır 102, 138). Koray'ın son completed dersi (22.03) **önceki cycle'da** — `computeMinSlot()` onu görmüyor, fallback ile `today → 26.03` boundary hesaplıyor.
 
-**Verdict: No pre-cleanup needed.** The existing `generateFutureInstanceDates` is the correct engine for both "realign" and "arrow shift". We reuse it directly.
+### 24.03'te görünenler ne?
+Ghost/derived kayıtlar. `useScheduleGrid.ts` içindeki `ghostEntries` mantığı template slotlarından türetilmiş görsel kayıtlar. Gerçek planned instance değiller.
 
----
-
-## B) "Zinciri Yeniden Hizala" (Realign Chain)
-
-### What it does
-Takes all `planned` instances after the last `completed` instance (excluding `is_manual_override = true` instances) and regenerates their dates/times from the template slots.
-
-### Algorithm
-1. Find last completed instance (by date+time DESC)
-2. Collect all planned instances sorted by date+time, split into:
-   - **Protected**: `is_manual_override = true` — skip these entirely
-   - **Realignable**: the rest
-3. Calculate anchor: `startDate = lastCompleted.lesson_date`, `afterTime = lastCompleted.start_time` (if no completed: `startDate = today`, no afterTime)
-4. Call `generateFutureInstanceDates(templateSlots, realignableCount, startDate, afterTime)`
-5. In-place UPDATE each realignable instance with new date/time (no delete+insert = no duplicate risk)
-6. Re-sequence `lesson_number` across all instances in cycle using date+time order
-
-### Why in-place update, not delete+insert
-- Preserves instance IDs (important for `shift_group_id`, `balance_events` references)
-- Zero duplicate risk — same row count before and after
-- `is_manual_override` instances keep their position untouched
-
-### Implementation location
-- New function `realignPlannedChain()` in `useEditStudentDialog.ts`
-- Uses existing `generateFutureInstanceDates` from `instanceGeneration.ts`
-- No new RPC needed — client-side batch update (same pattern as existing `batchUpdateInstances`)
+### Doğru boundary neden 24.03?
+- Son completed: 22.03 Pazar 17:30
+- Template slotları: Salı 16:40, Salı 17:20, Perşembe 17:30
+- `generateFutureInstanceDates(slots, 1, "2026-03-22", "17:30")` → **24.03 Salı 16:40**
+- Geri ok sınırı 24.03 Salı 16:40 olmalı, 26.03 değil
 
 ---
 
-## C) Arrow Buttons (Shift Chain Forward/Backward by 1 Slot)
+## Truth Source Ayrışma Analizi
 
-### What "1 slot" means
-Template slots sorted chronologically: e.g., [Tue 16:40, Tue 17:20, Thu 17:30]. One arrow press = shift entire planned chain by one position in this ordered slot list.
+Sistemde 4 farklı katman aynı veriyi farklı kurallarla hesaplıyor:
 
-### Forward arrow
-1. Get all planned instances (excluding `is_manual_override`)
-2. Find first planned instance's current slot position in template
-3. Call `generateFutureInstanceDates(templateSlots, count, firstPlannedDate, firstPlannedStartTime)`
-   - This naturally produces the "next slot" onward
-4. In-place update all realignable planned instances
+| Katman | Truth Source | Sorun |
+|--------|-------------|-------|
+| `EditStudentDialog` ders listesi | `lesson_instances` current cycle only | Önceki cycle completed'ları görmüyor |
+| `computeMinSlot()` boundary | Dialog içi `instances` (current cycle) | Yanlış anchor — önceki cycle'daki completed kaçırılıyor |
+| `handleRealignChain()` anchor | Dialog içi `instances` (current cycle) | Aynı problem — realign de yanlış anchor alabilir |
+| `useScheduleGrid` ghost/warning | Template + tüm cycle instance'ları | Gerçek planned olmayan slotları gösteriyor |
 
-### Backward arrow
-1. Same collection of planned instances
-2. Need to find the slot BEFORE the first planned instance
-3. Build reverse lookup: given current first slot, find previous slot in the sorted template ring
-4. **Boundary check**: see section below
-5. Generate from that earlier slot position forward
+**Kopukluk:** Dialog ve chain kontrolleri **sadece current cycle** görürken, schedule grid **tüm geçmişi** hesaba katıyor. Bu yüzden grid'de 24.03 uyarı görünüyor ama dialog zinciri 26.03'ten başlıyor.
 
-### ~~REVISED~~ Backward Boundary Rule
+---
 
-**Önceki kural (hatalı):** Completed yoksa sınır = today.
+## Aynen Kalan Bölümler (v2'den)
 
-**Yeni kural:** Geri kaydırmanın alt sınırı = son completed dersten sonraki **ilk uygun template slotu**.
+- **A)** Chain data model assessment — değişiklik yok
+- **B)** Realign algoritması — in-place update, override koruması, resequence — aynen
+- **C)** Arrow mantığı — forward/backward slot shifting — aynen
+- **D)** Duplicate prevention strategy — aynen
+- **E)** Schedule grid sync strategy — aynen
+- **F)** Optimistic UI — aynen
+- **H)** Implementation order — genişletildi (aşağıda)
+- **I)** Edge cases — genişletildi (aşağıda)
 
-Teknik hesaplama:
+---
 
-```
-1. Son completed instance'ı bul (lesson_date DESC, start_time DESC)
-2. generateFutureInstanceDates(templateSlots, 1, lastCompleted.lesson_date, lastCompleted.start_time)
-   → Bu, tam olarak "completed'dan sonraki ilk uygun slot"u üretir
-   → Buna "minSlot" diyelim: { date, startTime }
-3. Backward arrow'un ürettiği yeni ilk slot >= minSlot olmalı
-4. Eğer backward sonucu minSlot'un altına düşüyorsa → button disabled / no-op
+## Revize Edilen: Boundary ve Anchor Hesabı
+
+### Fix 1: `computeMinSlot()` — tüm cycle'lardaki son completed'a baksın
+
+Mevcut (hatalı):
+```typescript
+const completed = instances.filter((i) => i.status === "completed");
+// instances = current cycle only → önceki cycle completed kaçırılıyor
 ```
 
-**Completed hiç yoksa:**
-- `minSlot = generateFutureInstanceDates(templateSlots, 1, today)` → bugünden itibaren ilk uygun template slotu
-- Yani sınır "today" değil, "bugünden itibaren ilk uygun slot". Fark: bugün Çarşamba ama dersleri Salı/Perşembe ise, sınır Perşembe olur, Çarşamba'ya zaten gidilemez
+Düzeltme: `computeMinSlot()` içinde ayrı bir DB sorgusu yapılacak:
+```typescript
+const { data } = await supabase
+  .from("lesson_instances")
+  .select("lesson_date, start_time")
+  .eq("student_id", studentUserId)
+  .eq("teacher_id", teacherUserId)
+  .eq("status", "completed")
+  .order("lesson_date", { ascending: false })
+  .order("start_time", { ascending: false })
+  .limit(1);
+```
 
-**Same-day multi-slot örneği:**
-- Koray: Salı 16:40, Salı 17:20, Perşembe 17:30
-- Son completed = Salı 16:40
-- `generateFutureInstanceDates(slots, 1, "Salı", "16:40")` → **Salı 17:20** (aynı gün, sonraki slot)
-- minSlot = Salı 17:20
-- Backward arrow, zinciri en fazla Salı 17:20'ye kadar geri çekebilir
-- Salı 16:40'a (completed) veya öncesine inemez
+Bu sorgu **tüm cycle'ları** tarar. Sonuç `generateFutureInstanceDates(slots, 1, lastDate, lastTime)` ile minSlot'a dönüştürülür.
 
-**Bu kural realign için de geçerli mi?**
-Evet. "Zinciri yeniden hizala" aksiyonunda da başlangıç anchor'ı aynı formülle hesaplanır: `generateFutureInstanceDates(templateSlots, 1, lastCompleted.date, lastCompleted.startTime)`. Realign zaten bu kuralı doğal olarak uygular çünkü `generateFutureInstanceDates`'e `afterTime` geçiyor — completed dersin zamanından sonraki ilk slottan başlar.
+### Fix 2: `handleRealignChain()` — aynı cross-cycle anchor
 
----
+`handleRealignChain()` (satır 594-604) da aynı `instances.filter` ile anchor hesaplıyor. Aynı cross-cycle sorguyu kullanacak.
 
-## D) Duplicate Prevention Strategy
+### Fix 3: Ortak helper — `fetchLastCompletedAnchor()`
 
-| Risk | Mitigation |
-|------|-----------|
-| Same date+time duplicate | In-place UPDATE only, never INSERT+DELETE |
-| Race condition (rapid clicks) | Disable arrows during pending mutation, loading state |
-| Override collision | Filter out `is_manual_override = true` from all operations |
-| lesson_number drift | Re-sequence after realign using `ROW_NUMBER() OVER (ORDER BY lesson_date, start_time)` |
-| Thu single-slot becoming double | `generateFutureInstanceDates` only produces entries for matching template slots — Thu with 1 template slot = 1 instance per Thu, always |
+Tekrarı önlemek için yeni bir async helper:
+```typescript
+const fetchLastCompletedAnchor = async (): Promise<{ lessonDate: string; startTime: string } | null>
+```
 
----
+Bu helper şu yerlerde kullanılacak:
+- `computeMinSlot()` → backward boundary
+- `handleRealignChain()` → realign anchor
+- `canShiftBackward` hesabı
 
-## E) Schedule Grid Sync Strategy
+**Not:** `computeMinSlot()` async olacak. `canShiftBackward` hesabı da async'e dönmeli — bu bir `useMemo` yerine `useState` + `useEffect` ile hesaplanmalı.
 
-After any chain mutation (realign or arrow):
-1. `clearWeekCache()` — forces schedule grid to refetch
-2. `onStudentUpdated()` → triggers parent `fetchTeachers()` → `scheduleRefreshKey++` → grid refetch
-3. Local `fetchInstances()` — updates dialog's own instance list
-
-Same pattern already used by `confirmDateUpdate`, `handleResetAllLessons`, and `handleSubmit`.
-
----
-
-## F) Optimistic UI for Arrow Speed
-
-- **Step 1**: Compute new dates locally using `generateFutureInstanceDates` (pure function, instant)
-- **Step 2**: Update local `instances` state immediately (UI feels instant)
-- **Step 3**: Fire parallel DB updates in background
-- **Step 4**: On error → rollback local state to pre-mutation snapshot, show toast
-- **Step 5**: On success → `clearWeekCache()` + `onStudentUpdated()`
-
-Safe because `generateFutureInstanceDates` is deterministic; we update existing rows only.
+### Koray'da yeni davranış
+- `fetchLastCompletedAnchor()` → `{lessonDate: "2026-03-22", startTime: "17:30"}`
+- `generateFutureInstanceDates(slots, 1, "2026-03-22", "17:30")` → `{lessonDate: "2026-03-24", startTime: "16:40"}`
+- Backward boundary = **24.03 Salı 16:40** (doğru)
 
 ---
 
-## G) Files to Modify
+## Backward Boundary Rule (Revize v3 — Final)
+
+```
+1. fetchLastCompletedAnchor() — TÜM cycle'lar, lesson_date+start_time DESC, LIMIT 1
+2. Varsa: generateFutureInstanceDates(templateSlots, 1, lastDate, lastTime) → minSlot
+3. Yoksa: generateFutureInstanceDates(templateSlots, 1, today) → minSlot
+4. Backward arrow sonucu >= minSlot olmalı, değilse disabled/no-op
+```
+
+Same-day multi-slot örneği (aynen v2'den):
+- Son completed = Salı 16:40 → minSlot = Salı 17:20
+- Backward en fazla Salı 17:20'ye kadar
+
+Realign de aynı anchor'ı kullanır (afterTime mekanizmasıyla).
+
+---
+
+## Eklenen: Truth Source Koordinasyon Planı
+
+### Phase 1 (Bu PR — Koray fix)
+1. `fetchLastCompletedAnchor()` helper ekle
+2. `computeMinSlot()` ve `handleRealignChain()` bu helper'ı kullansın
+3. `canShiftBackward` async state'e dönüşsün
+
+### Phase 2 (Sonraki PR — Koordinasyon iyileştirmesi)
+Şu an ayrı scope. Ama plana kaydediyoruz:
+
+**Ghost/Schedule ile dialog arasındaki kopukluk:**
+- `useScheduleGrid` ghost mantığı `cycleCountMap` üzerinden "exhausted" kontrolü yapıyor
+- Dialog chain kontrolleri `instances` (current cycle) üzerinden çalışıyor
+- İkisi farklı veriyi referans aldığı için "grid'de uyarı var ama dialog'da o slot yok" durumu oluşuyor
+
+**Olası iyileştirme:**
+- Ghost üretimi ile chain boundary'nin aynı anchor kuralını kullanması
+- En azından: "uyarı ikonu görünen slot varsa, backward arrow o slota kadar inebilmeli" tutarlılığı
+
+Bu v3 PR'ında ghost mantığına dokunulmayacak; sadece boundary hesabı düzeltilecek.
+
+---
+
+## G) Files to Modify (Güncel)
 
 | File | Change |
 |------|--------|
-| `src/lib/instanceGeneration.ts` | Add `getSlotBefore(templateSlots, currentDate, currentTime)` helper (~15 lines) |
-| `src/hooks/useEditStudentDialog.ts` | Add `handleRealignChain()`, `handleShiftForward()`, `handleShiftBackward()` + `shifting` loading state |
-| `src/components/EditStudentDialog.tsx` | Add "Zinciri Hizala" button + forward/backward arrow buttons |
+| `src/lib/instanceGeneration.ts` | `getSlotBefore` helper — aynen v2 |
+| `src/hooks/useEditStudentDialog.ts` | `fetchLastCompletedAnchor()` helper ekle. `computeMinSlot()` async yapıp cross-cycle sorgu kullan. `canShiftBackward` → `useState` + `useEffect`. `handleRealignChain` anchor'ı bu helper'dan alsın. |
+| `src/components/EditStudentDialog.tsx` | UI buttons — aynen v2 |
 
 No new RPC. No migration. No new table.
 
 ---
 
-## H) Implementation Order
+## H) Implementation Order (Güncel)
 
-1. Add `getSlotBefore` helper to `instanceGeneration.ts`
-2. Add handlers to `useEditStudentDialog.ts`
-3. Add UI buttons to `EditStudentDialog.tsx`
+1. `getSlotBefore` helper → `instanceGeneration.ts`
+2. `fetchLastCompletedAnchor()` helper → `useEditStudentDialog.ts`
+3. `computeMinSlot()` async refactor + cross-cycle query
+4. `canShiftBackward` → async state (`useState` + `useEffect`)
+5. `handleRealignChain` anchor'ı `fetchLastCompletedAnchor` ile güncelle
+6. UI buttons → `EditStudentDialog.tsx`
 
 ---
 
-## I) Edge Cases
+## I) Edge Cases (Güncel)
 
 - All lessons completed → arrows disabled, realign disabled
-- No completed lessons → boundary = first template slot from today
-- Only manual overrides remaining → no realignable instances → no-op
+- No completed lessons (hiçbir cycle'da) → boundary = first template slot from today
+- Completed sadece önceki cycle'da → **cross-cycle sorgu doğru anchor verir** (Koray vakası)
+- Only manual overrides remaining → no-op
 - Package exhausted → all controls disabled
 - Rapid clicks → loading guard
+- 24.03'te görünenler ghost ise → backward arrow 24.03'e inebilir ama orada gerçek instance yoksa chain o slotlara planned üretir (in-place update — mevcut instance'lar taşınır, yeni instance üretilmez)
 
 ---
 
-## Revision Summary
+## Duplicate ve Veri Kaybı Riski
 
-- **Aynen kalan**: Tüm plan — realign algoritması, forward arrow, duplicate prevention, sync strategy, optimistic UI, file list, implementation order
-- **Revize edilen**: Backward boundary kuralı
-  - Eski: completed yoksa sınır = today
-  - Yeni: sınır = `generateFutureInstanceDates(templateSlots, 1, lastCompletedDate, lastCompletedStartTime)` → son completed'dan sonraki ilk uygun template slotu. Completed yoksa bugünden itibaren ilk uygun slot.
-- **Backward arrow artık hangi anchor'a kadar geri gidebilecek**: Son completed dersten sonraki ilk uygun template slotuna kadar. Örn: completed 24.03 Salı 16:40 → minSlot = Salı 17:20 → en fazla oraya kadar.
-- **Realign** de aynı anchor kuralını kullanır (doğal olarak, `afterTime` mekanizmasıyla).
+| Risk | Mitigation |
+|------|-----------|
+| Cross-cycle completed sorgusu yanlış veri dönerse | `ORDER BY lesson_date DESC, start_time DESC LIMIT 1` — deterministik, tek satır |
+| canShiftBackward async race | `shifting` loading guard zaten var, ek `useEffect` dependency'leri doğru set edilecek |
+| Ghost slot'a geri kaydırınca duplicate | In-place UPDATE — ghost gerçek instance değil, DB'de karşılığı yok, chain kontrolleri sadece gerçek `lesson_instances` satırlarını taşır |
+| Realign + arrow aynı anda | `shifting` state her ikisini de bloklar |
+
+---
+
+## Revision Summary (v2 → v3)
+
+- **Aynen kalan**: Realign algoritması, forward arrow, duplicate prevention, sync strategy, optimistic UI, `getSlotBefore` helper, override koruması
+- **Revize edilen**:
+  - `computeMinSlot()`: current cycle `instances` → **cross-cycle DB sorgusu** (`fetchLastCompletedAnchor`)
+  - `handleRealignChain()` anchor: aynı cross-cycle helper
+  - `canShiftBackward`: senkron hesap → **async state**
+- **Eklenen**:
+  - Truth source ayrışma analizi
+  - Phase 2 koordinasyon planı (ghost/schedule hizalaması — ayrı PR)
+  - 24.03 ghost vs planned açıklaması
+- **Koray fix özeti**:
+  - Sorun: `computeMinSlot()` sadece current cycle'a bakıyordu
+  - Çözüm: Tüm cycle'lardaki son completed'a bakan cross-cycle sorgu
+  - Sonuç: Boundary 26.03 → **24.03 Salı 16:40**
 
