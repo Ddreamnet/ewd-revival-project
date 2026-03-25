@@ -469,23 +469,56 @@ export function useEditStudentDialog({
         .eq("user_id", studentUserId);
       if (profileError) throw profileError;
 
-      // Atomic schedule sync via RPC
-      const slots = lessons.map((l) => ({
-        dayOfWeek: l.dayOfWeek,
-        startTime: l.startTime,
-        endTime: l.endTime,
-      }));
+      // Check if template actually changed
+      const templateChanged =
+        lessonsPerWeek !== currentLessons.length ||
+        lessons.length !== currentLessons.length ||
+        lessons.some((l, i) => {
+          const curr = currentLessons[i];
+          if (!curr) return true;
+          return l.dayOfWeek !== curr.dayOfWeek ||
+                 l.startTime !== curr.startTime ||
+                 l.endTime !== curr.endTime;
+        });
 
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('rpc_sync_student_schedule', {
-        p_student_id: studentUserId,
-        p_teacher_id: teacherUserId,
-        p_slots: slots,
-        p_lessons_per_week: lessonsPerWeek,
-      });
+      if (templateChanged) {
+        // Template changed → full sync via RPC (regenerates instances)
+        const slots = lessons.map((l) => ({
+          dayOfWeek: l.dayOfWeek,
+          startTime: l.startTime,
+          endTime: l.endTime,
+        }));
 
-      if (rpcError) throw rpcError;
-      if (rpcResult && !(rpcResult as any).success) {
-        throw new Error((rpcResult as any).error || 'Schedule sync failed');
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('rpc_sync_student_schedule', {
+          p_student_id: studentUserId,
+          p_teacher_id: teacherUserId,
+          p_slots: slots,
+          p_lessons_per_week: lessonsPerWeek,
+        });
+
+        if (rpcError) throw rpcError;
+        if (rpcResult && !(rpcResult as any).success) {
+          throw new Error((rpcResult as any).error || 'Schedule sync failed');
+        }
+      } else {
+        // Template unchanged → only update metadata, preserve instance positions
+        const { error: trackingError } = await supabase
+          .from("student_lesson_tracking")
+          .update({ lessons_per_week: lessonsPerWeek })
+          .eq("student_id", studentUserId)
+          .eq("teacher_id", teacherUserId);
+        if (trackingError) throw trackingError;
+
+        // Update notes on template slots
+        for (const lesson of lessons) {
+          await supabase
+            .from("student_lessons")
+            .update({ note: lesson.note || null })
+            .eq("student_id", studentUserId)
+            .eq("teacher_id", teacherUserId)
+            .eq("day_of_week", lesson.dayOfWeek)
+            .eq("start_time", lesson.startTime);
+        }
       }
 
       toast({ title: "Başarılı", description: "Öğrenci ayarları güncellendi" });
