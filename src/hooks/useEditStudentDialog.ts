@@ -42,6 +42,7 @@ export function useEditStudentDialog({
   const [originalLessonDates, setOriginalLessonDates] = useState<LessonDates>({});
   const [instances, setInstances] = useState<LessonInstance[]>([]);
   const [loading, setLoading] = useState(false);
+  const [shifting, setShifting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
@@ -528,6 +529,263 @@ export function useEditStudentDialog({
       setLoading(false);
     }
   };
+
+  // =============================================
+  // Chain control helpers
+  // =============================================
+
+  const getTemplateSlots = (): TemplateSlot[] =>
+    lessons.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime, endTime: l.endTime }));
+
+  /** Compute the minimum allowed slot (boundary for backward + realign).
+   *  = first template slot after the last completed instance.
+   *  If no completed: first template slot from today. */
+  const computeMinSlot = () => {
+    const completed = instances.filter((i) => i.status === "completed");
+    const templateSlots = getTemplateSlots();
+    if (completed.length > 0) {
+      const last = [...completed].sort((a, b) => {
+        const dc = a.lesson_date.localeCompare(b.lesson_date);
+        return dc !== 0 ? dc : a.start_time.localeCompare(b.start_time);
+      }).pop()!;
+      const result = generateFutureInstanceDates(templateSlots, 1, new Date(last.lesson_date), last.start_time);
+      return result[0] || null;
+    }
+    const result = generateFutureInstanceDates(templateSlots, 1, startOfDay(new Date()));
+    return result[0] || null;
+  };
+
+  /** Get planned instances eligible for chain operations (excluding manual overrides) */
+  const getRealignableInstances = () =>
+    [...instances]
+      .filter((i) => i.status === "planned" && !i.is_manual_override)
+      .sort((a, b) => {
+        const dc = a.lesson_date.localeCompare(b.lesson_date);
+        return dc !== 0 ? dc : a.start_time.localeCompare(b.start_time);
+      });
+
+  /** Re-sequence lesson_number for all instances by date+time order */
+  const resequenceLessonNumbers = async (currentInstances: LessonInstance[]) => {
+    const sorted = [...currentInstances].sort((a, b) => {
+      const dc = a.lesson_date.localeCompare(b.lesson_date);
+      return dc !== 0 ? dc : a.start_time.localeCompare(b.start_time);
+    });
+    const updates = sorted
+      .map((inst, idx) => ({ id: inst.id, newNum: idx + 1, oldNum: inst.lesson_number }))
+      .filter((u) => u.newNum !== u.oldNum);
+    if (updates.length === 0) return;
+    await Promise.all(
+      updates.map((u) =>
+        supabase.from("lesson_instances").update({ lesson_number: u.newNum }).eq("id", u.id)
+      )
+    );
+  };
+
+  /** Realign: regenerate all planned chain from the last completed anchor */
+  const handleRealignChain = async () => {
+    const realignable = getRealignableInstances();
+    if (realignable.length === 0) {
+      toast({ title: "Bilgi", description: "Hizalanacak planlı ders yok" });
+      return;
+    }
+    setShifting(true);
+    try {
+      const templateSlots = getTemplateSlots();
+      const completed = instances.filter((i) => i.status === "completed");
+      let startDate: Date;
+      let afterTime: string | undefined;
+      if (completed.length > 0) {
+        const last = [...completed].sort((a, b) => {
+          const dc = a.lesson_date.localeCompare(b.lesson_date);
+          return dc !== 0 ? dc : a.start_time.localeCompare(b.start_time);
+        }).pop()!;
+        startDate = new Date(last.lesson_date);
+        afterTime = last.start_time;
+      } else {
+        startDate = startOfDay(new Date());
+      }
+
+      const newDates = generateFutureInstanceDates(templateSlots, realignable.length, startDate, afterTime);
+
+      // Optimistic local update
+      const snapshot = [...instances];
+      const updatedInstances = instances.map((inst) => {
+        const idx = realignable.findIndex((r) => r.id === inst.id);
+        if (idx === -1 || idx >= newDates.length) return inst;
+        return { ...inst, lesson_date: newDates[idx].lessonDate, start_time: newDates[idx].startTime, end_time: newDates[idx].endTime };
+      });
+      setInstances(updatedInstances);
+
+      // DB updates
+      const results = await Promise.all(
+        realignable.slice(0, newDates.length).map((inst, i) =>
+          supabase.from("lesson_instances").update({
+            lesson_date: newDates[i].lessonDate,
+            start_time: newDates[i].startTime,
+            end_time: newDates[i].endTime,
+          }).eq("id", inst.id)
+        )
+      );
+      const errors = results.filter((r) => r.error);
+      if (errors.length > 0) {
+        setInstances(snapshot);
+        throw new Error(errors.map((e) => e.error?.message).join(", "));
+      }
+
+      await resequenceLessonNumbers(updatedInstances);
+      clearWeekCache();
+      onStudentUpdated();
+      await fetchInstances();
+      toast({ title: "Başarılı", description: "Ders zinciri yeniden hizalandı" });
+    } catch (error: any) {
+      toast({ title: "Hata", description: error.message || "Hizalama başarısız", variant: "destructive" });
+    } finally {
+      setShifting(false);
+    }
+  };
+
+  /** Shift chain forward by 1 slot */
+  const handleShiftForward = async () => {
+    const realignable = getRealignableInstances();
+    if (realignable.length === 0) return;
+    setShifting(true);
+    try {
+      const templateSlots = getTemplateSlots();
+      const first = realignable[0];
+      const newDates = generateFutureInstanceDates(templateSlots, realignable.length, new Date(first.lesson_date), first.start_time);
+
+      // Optimistic
+      const snapshot = [...instances];
+      const updatedInstances = instances.map((inst) => {
+        const idx = realignable.findIndex((r) => r.id === inst.id);
+        if (idx === -1 || idx >= newDates.length) return inst;
+        return { ...inst, lesson_date: newDates[idx].lessonDate, start_time: newDates[idx].startTime, end_time: newDates[idx].endTime };
+      });
+      setInstances(updatedInstances);
+
+      const results = await Promise.all(
+        realignable.slice(0, newDates.length).map((inst, i) =>
+          supabase.from("lesson_instances").update({
+            lesson_date: newDates[i].lessonDate,
+            start_time: newDates[i].startTime,
+            end_time: newDates[i].endTime,
+          }).eq("id", inst.id)
+        )
+      );
+      const errors = results.filter((r) => r.error);
+      if (errors.length > 0) {
+        setInstances(snapshot);
+        throw new Error(errors.map((e) => e.error?.message).join(", "));
+      }
+
+      await resequenceLessonNumbers(updatedInstances);
+      clearWeekCache();
+      onStudentUpdated();
+      await fetchInstances();
+    } catch (error: any) {
+      toast({ title: "Hata", description: error.message || "İleri kaydırma başarısız", variant: "destructive" });
+    } finally {
+      setShifting(false);
+    }
+  };
+
+  /** Shift chain backward by 1 slot, respecting completed boundary */
+  const handleShiftBackward = async () => {
+    const realignable = getRealignableInstances();
+    if (realignable.length === 0) return;
+    setShifting(true);
+    try {
+      const templateSlots = getTemplateSlots();
+      const first = realignable[0];
+
+      // Find the slot before the first planned instance
+      const prevSlot = getSlotBefore(templateSlots, new Date(first.lesson_date), first.start_time);
+      if (!prevSlot) {
+        toast({ title: "Bilgi", description: "Daha geriye kaydırılamaz" });
+        setShifting(false);
+        return;
+      }
+
+      // Boundary check: new first slot must be >= minSlot
+      const minSlot = computeMinSlot();
+      if (minSlot) {
+        const prevDateStr = format(prevSlot.date, "yyyy-MM-dd");
+        if (prevDateStr < minSlot.lessonDate || (prevDateStr === minSlot.lessonDate && prevSlot.startTime < minSlot.startTime)) {
+          toast({ title: "Bilgi", description: "Son işlenen dersin ötesine geri kaydırılamaz" });
+          setShifting(false);
+          return;
+        }
+      }
+
+      // Generate from the previous slot position
+      const newDates = generateFutureInstanceDates(templateSlots, realignable.length, prevSlot.date, undefined);
+      // Filter: only include dates starting from prevSlot's time on prevSlot's date
+      // Actually we need to generate starting from prevSlot exactly, including it
+      // Use a custom approach: generate from prevSlot.date with no afterTime, 
+      // but skip slots before prevSlot.startTime on the same day
+      const filteredDates: typeof newDates = [];
+      for (const nd of newDates) {
+        if (filteredDates.length >= realignable.length) break;
+        if (nd.lessonDate === format(prevSlot.date, "yyyy-MM-dd") && nd.startTime < prevSlot.startTime) continue;
+        filteredDates.push(nd);
+      }
+
+      if (filteredDates.length === 0) {
+        toast({ title: "Bilgi", description: "Daha geriye kaydırılamaz" });
+        setShifting(false);
+        return;
+      }
+
+      // Optimistic
+      const snapshot = [...instances];
+      const updatedInstances = instances.map((inst) => {
+        const idx = realignable.findIndex((r) => r.id === inst.id);
+        if (idx === -1 || idx >= filteredDates.length) return inst;
+        return { ...inst, lesson_date: filteredDates[idx].lessonDate, start_time: filteredDates[idx].startTime, end_time: filteredDates[idx].endTime };
+      });
+      setInstances(updatedInstances);
+
+      const results = await Promise.all(
+        realignable.slice(0, filteredDates.length).map((inst, i) =>
+          supabase.from("lesson_instances").update({
+            lesson_date: filteredDates[i].lessonDate,
+            start_time: filteredDates[i].startTime,
+            end_time: filteredDates[i].endTime,
+          }).eq("id", inst.id)
+        )
+      );
+      const errors = results.filter((r) => r.error);
+      if (errors.length > 0) {
+        setInstances(snapshot);
+        throw new Error(errors.map((e) => e.error?.message).join(", "));
+      }
+
+      await resequenceLessonNumbers(updatedInstances);
+      clearWeekCache();
+      onStudentUpdated();
+      await fetchInstances();
+    } catch (error: any) {
+      toast({ title: "Hata", description: error.message || "Geri kaydırma başarısız", variant: "destructive" });
+    } finally {
+      setShifting(false);
+    }
+  };
+
+  /** Whether backward arrow should be disabled */
+  const canShiftBackward = (() => {
+    const realignable = getRealignableInstances();
+    if (realignable.length === 0) return false;
+    const templateSlots = getTemplateSlots();
+    const first = realignable[0];
+    const prevSlot = getSlotBefore(templateSlots, new Date(first.lesson_date), first.start_time);
+    if (!prevSlot) return false;
+    const minSlot = computeMinSlot();
+    if (!minSlot) return false;
+    const prevDateStr = format(prevSlot.date, "yyyy-MM-dd");
+    return !(prevDateStr < minSlot.lessonDate || (prevDateStr === minSlot.lessonDate && prevSlot.startTime < minSlot.startTime));
+  })();
+
+  const hasRealignableInstances = getRealignableInstances().length > 0;
 
   // Derived state
   const completedCount = instances.filter((i) => i.status === "completed").length;
