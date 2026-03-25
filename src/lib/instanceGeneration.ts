@@ -130,7 +130,7 @@ export async function syncTemplateChange(
 
   // Enforce total_rights cap
   const plannedCount = Math.max(0, totalLessons - completed.length);
-  const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom);
+  const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom, afterTime);
 
   // Check conflicts in parallel (warning-only)
   const conflictResults = await Promise.all(
