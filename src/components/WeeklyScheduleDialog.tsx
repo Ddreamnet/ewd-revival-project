@@ -103,15 +103,16 @@ export function WeeklyScheduleDialog({
   const fetchActualSchedule = async () => {
     const lessons = await fetchActualLessonsForWeek(teacherId, weekStart);
     setActualLessons(lessons);
-    // Assign colors for actual lessons too
-    const uniqueStudents = [...new Set(lessons.map(l => l.student_id))];
-    const colors: Record<string, string> = { ...studentColors };
-    uniqueStudents.forEach((studentId, index) => {
-      if (!colors[studentId]) {
-        colors[studentId] = STUDENT_COLORS[index % STUDENT_COLORS.length];
-      }
-    });
-    setStudentColors(colors);
+    // Only append colors for students not already in the stable map
+    const newStudents = [...new Set(lessons.map(l => l.student_id))].filter(id => !studentColors[id]);
+    if (newStudents.length > 0) {
+      const colors: Record<string, string> = { ...studentColors };
+      const existingCount = Object.keys(colors).length;
+      newStudents.forEach((studentId, i) => {
+        colors[studentId] = STUDENT_COLORS[(existingCount + i) % STUDENT_COLORS.length];
+      });
+      setStudentColors(colors);
+    }
   };
 
   const fetchSchedule = async () => {
