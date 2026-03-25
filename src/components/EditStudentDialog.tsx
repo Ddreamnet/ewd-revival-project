@@ -161,21 +161,60 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
           {/* İşlenen Dersler */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
+              <div className="flex items-center gap-2">
                 <Label className="text-base font-medium">İşlenen Dersler</Label>
+                {/* Chain control arrows */}
+                {hasRealignableInstances && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={handleShiftBackward}
+                      disabled={loading || shifting || !canShiftBackward}
+                      title="Zinciri 1 slot geri kaydır"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={handleShiftForward}
+                      disabled={loading || shifting}
+                      title="Zinciri 1 slot ileri kaydır"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={handleRealignChain}
+                      disabled={loading || shifting}
+                      title="Zinciri yeniden hizala"
+                    >
+                      <AlignLeft className="h-3.5 w-3.5" />
+                      Hizala
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {completedCount < lessonsPerWeek * 4 && (
-                  <Button type="button" variant="default" size="sm" onClick={handleMarkLastLesson} disabled={loading}>
+                  <Button type="button" variant="default" size="sm" onClick={handleMarkLastLesson} disabled={loading || shifting}>
                     Son Dersi İşaretle
                   </Button>
                 )}
                 {completedCount > 0 && (
                   <>
-                    <Button type="button" variant="outline" size="sm" onClick={handleUndoLastLesson} disabled={loading}>
+                    <Button type="button" variant="outline" size="sm" onClick={handleUndoLastLesson} disabled={loading || shifting}>
                       Son Dersi Geri Al
                     </Button>
-                    <Button type="button" variant="destructive" size="sm" onClick={() => setShowResetConfirm(true)} disabled={loading}>
+                    <Button type="button" variant="destructive" size="sm" onClick={() => setShowResetConfirm(true)} disabled={loading || shifting}>
                       Sıfırla
                     </Button>
                   </>
