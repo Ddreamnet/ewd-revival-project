@@ -162,9 +162,6 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <Label className="text-base font-medium">İşlenen Dersler</Label>
-                <p className="text-sm text-muted-foreground">
-                  Ders tarihlerini düzenleyebilir ve güncelleyebilirsiniz.
-                </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {completedCount < lessonsPerWeek * 4 && (
