@@ -40,6 +40,51 @@ export interface LessonInstanceRow {
  * Supports multiple slots on the same day: slots sharing a dayOfWeek are
  * sorted by startTime and each produces a separate entry in the results.
  */
+/**
+ * Given a sorted template slot ring, find the slot BEFORE the given date+time.
+ * Returns null if no prior slot exists (e.g., already at the earliest possible position).
+ * Used by backward arrow to shift chain one slot back.
+ */
+export function getSlotBefore(
+  templateSlots: TemplateSlot[],
+  currentDate: Date,
+  currentTime: string
+): { date: Date; startTime: string; endTime: string } | null {
+  if (templateSlots.length === 0) return null;
+
+  const sortedSlots = [...templateSlots].sort((a, b) => {
+    if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
+    return a.startTime.localeCompare(b.startTime);
+  });
+
+  const currentDow = currentDate.getDay();
+
+  // Find current slot's index in the sorted ring
+  const currentIdx = sortedSlots.findIndex(
+    (s) => s.dayOfWeek === currentDow && s.startTime === currentTime
+  );
+
+  if (currentIdx === -1) return null;
+
+  // Previous slot in the ring
+  const prevIdx = currentIdx - 1;
+
+  if (prevIdx >= 0) {
+    // Previous slot is in the same week, possibly same day or earlier day
+    const prevSlot = sortedSlots[prevIdx];
+    const dayDiff = currentDow - prevSlot.dayOfWeek;
+    const prevDate = addDays(currentDate, -dayDiff);
+    return { date: prevDate, startTime: prevSlot.startTime, endTime: prevSlot.endTime };
+  } else {
+    // Wrap around: previous slot is last slot from previous week
+    const prevSlot = sortedSlots[sortedSlots.length - 1];
+    let dayDiff = currentDow - prevSlot.dayOfWeek;
+    if (dayDiff <= 0) dayDiff += 7;
+    const prevDate = addDays(currentDate, -dayDiff);
+    return { date: prevDate, startTime: prevSlot.startTime, endTime: prevSlot.endTime };
+  }
+}
+
 export function generateFutureInstanceDates(
   templateSlots: TemplateSlot[],
   count: number,
