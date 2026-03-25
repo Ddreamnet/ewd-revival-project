@@ -117,11 +117,13 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const fetchActualSchedule = async () => {
     const fetched = await fetchActualLessonsForWeek(teacherId, weekStart);
     setActualLessons(fetched);
-    const studentIds = [...new Set(fetched.map(l => l.student_id))];
-    const colorMap = new Map<string, string>();
-    studentIds.forEach((id, index) => { colorMap.set(id, STUDENT_COLORS[index % STUDENT_COLORS.length]); });
-    studentColors.forEach((color, id) => { if (!colorMap.has(id)) colorMap.set(id, color); });
-    setStudentColors(colorMap);
+    // Only append colors for students not already in the stable map
+    const newStudentIds = [...new Set(fetched.map(l => l.student_id))].filter(id => !studentColors.has(id));
+    if (newStudentIds.length > 0) {
+      const colorMap = new Map(studentColors);
+      newStudentIds.forEach((id) => { colorMap.set(id, STUDENT_COLORS[colorMap.size % STUDENT_COLORS.length]); });
+      setStudentColors(colorMap);
+    }
   };
 
   const fetchSchedule = async () => {
