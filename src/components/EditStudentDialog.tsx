@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Trash2, Archive, AlertTriangle, ChevronLeft, ChevronRight, AlignLeft } from "lucide-react";
 import { formatTime } from "@/lib/lessonTypes";
-import { DAYS_OF_WEEK } from "@/lib/types";
+import { DAYS_OF_WEEK, TIME_OPTIONS } from "@/lib/types";
 import type { StudentLessonBase } from "@/lib/types";
 import { useEditStudentDialog } from "@/hooks/useEditStudentDialog";
 
@@ -112,21 +112,35 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
                 </div>
                 <div className="space-y-2">
                   <Label>Başlangıç</Label>
-                  <Input
-                    type="time"
+                  <Select
                     value={lesson.startTime}
-                    onChange={(e) => updateLesson(index, "startTime", e.target.value)}
-                    required
-                  />
+                    onValueChange={(v) => updateLesson(index, "startTime", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {TIME_OPTIONS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Bitiş</Label>
-                  <Input
-                    type="time"
+                  <Select
                     value={lesson.endTime}
-                    onChange={(e) => updateLesson(index, "endTime", e.target.value)}
-                    required
-                  />
+                    onValueChange={(v) => updateLesson(index, "endTime", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {TIME_OPTIONS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Not</Label>
