@@ -340,9 +340,14 @@ export function useEditStudentDialog({
           const lastChangedKey = changedKeys.reduce((a, b) => (Number(a) > Number(b) ? a : b));
           const lastChangedDate = new Date(lessonDates[lastChangedKey]);
           const startDate = new Date(lastChangedDate);
-          startDate.setDate(startDate.getDate() + 1);
 
-          const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate);
+          // Find the start_time of the last changed instance to use as afterTime
+          // This allows same-day later slots to be captured (e.g. 17:20 → 18:00)
+          const lastChangedInstId = instanceIdMap[lastChangedKey];
+          const lastChangedInst = allSorted.find(inst => inst.id === lastChangedInstId);
+          const afterTime = lastChangedInst?.start_time;
+
+          const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate, afterTime);
 
           // Parallel conflict checks (warning-only)
           const futureConflictResults = await Promise.all(
