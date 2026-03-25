@@ -847,6 +847,7 @@ export function useEditStudentDialog({
     lessonDates,
     originalLessonDates,
     loading,
+    shifting,
     showConfirm,
     setShowConfirm,
     showResetConfirm,
@@ -857,6 +858,8 @@ export function useEditStudentDialog({
     completedCount,
     totalLessons,
     sortedLessonsForDisplay,
+    canShiftBackward,
+    hasRealignableInstances,
 
     // Handlers
     handleLessonsPerWeekChange,
@@ -870,5 +873,8 @@ export function useEditStudentDialog({
     handleSubmit,
     handleDeleteStudent,
     handleArchiveStudent,
+    handleRealignChain,
+    handleShiftForward,
+    handleShiftBackward,
   };
 }
