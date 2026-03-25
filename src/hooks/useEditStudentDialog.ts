@@ -342,8 +342,8 @@ export function useEditStudentDialog({
       );
 
       if (updateRemainingDays && changedKeys.length > 0 && instances.length > 0) {
-        // Update changed instances
-        await batchUpdateInstances(changedKeys, finalDatesRef);
+        // Update changed instances — returns updates with newStartTime/newEndTime
+        const updates = await batchUpdateInstances(changedKeys, finalDatesRef);
 
         // Regenerate planned instances after the last changed one
         const templateSlots: TemplateSlot[] = lessons.map((l) => ({
@@ -372,11 +372,10 @@ export function useEditStudentDialog({
           const lastChangedDate = new Date(lessonDates[lastChangedKey]);
           const startDate = new Date(lastChangedDate);
 
-          // Find the start_time of the last changed instance to use as afterTime
-          // This allows same-day later slots to be captured (e.g. 17:20 → 18:00)
-          const lastChangedInstId = instanceIdMap[lastChangedKey];
-          const lastChangedInst = allSorted.find(inst => inst.id === lastChangedInstId);
-          const afterTime = lastChangedInst?.start_time;
+          // Use the NEW start_time from batchUpdateInstances (not the old pre-update time)
+          // This ensures afterTime matches the template slot, not a stale time from another day
+          const lastUpdate = updates.find(u => u.key === lastChangedKey);
+          const afterTime = lastUpdate?.newStartTime;
 
           const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate, afterTime);
 
