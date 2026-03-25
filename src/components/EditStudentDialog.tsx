@@ -19,6 +19,13 @@ import { Loader2, Trash2, Archive, AlertTriangle, ChevronLeft, ChevronRight, Ali
 import { formatTime } from "@/lib/lessonTypes";
 import { DAYS_OF_WEEK } from "@/lib/types";
 import type { StudentLessonBase } from "@/lib/types";
+
+const timeOptions: string[] = [];
+for (let h = 8; h <= 22; h++) {
+  for (let m = 0; m < 60; m += 15) {
+    timeOptions.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+  }
+}
 import { useEditStudentDialog } from "@/hooks/useEditStudentDialog";
 
 interface EditStudentDialogProps {
@@ -112,21 +119,29 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
                 </div>
                 <div className="space-y-2">
                   <Label>Başlangıç</Label>
-                  <Input
-                    type="time"
-                    value={lesson.startTime}
-                    onChange={(e) => updateLesson(index, "startTime", e.target.value)}
-                    required
-                  />
+                  <Select value={lesson.startTime} onValueChange={(v) => updateLesson(index, "startTime", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Bitiş</Label>
-                  <Input
-                    type="time"
-                    value={lesson.endTime}
-                    onChange={(e) => updateLesson(index, "endTime", e.target.value)}
-                    required
-                  />
+                  <Select value={lesson.endTime} onValueChange={(v) => updateLesson(index, "endTime", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Not</Label>
