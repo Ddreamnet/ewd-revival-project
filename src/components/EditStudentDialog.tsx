@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2, Archive, AlertTriangle } from "lucide-react";
+import { Loader2, Trash2, Archive, AlertTriangle, ChevronLeft, ChevronRight, AlignLeft } from "lucide-react";
 import { formatTime } from "@/lib/lessonTypes";
 import { DAYS_OF_WEEK } from "@/lib/types";
 import type { StudentLessonBase } from "@/lib/types";
