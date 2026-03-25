@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import type { StudentLessonBase } from "@/lib/types";
-import { DAYS_OF_WEEK } from "@/lib/types";
+import { DAYS_OF_WEEK, TIME_OPTIONS } from "@/lib/types";
 
 interface AddStudentDialogProps {
   open: boolean;
@@ -122,22 +122,36 @@ export function AddStudentDialog({ open, onOpenChange, onAddStudent }: AddStuden
 
                 <div className="space-y-2">
                   <Label>Başlangıç</Label>
-                  <Input
-                    type="time"
+                  <Select
                     value={lesson.startTime}
-                    onChange={(e) => updateLesson(index, "startTime", e.target.value)}
-                    required
-                  />
+                    onValueChange={(v) => updateLesson(index, "startTime", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {TIME_OPTIONS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
                   <Label>Bitiş</Label>
-                  <Input
-                    type="time"
+                  <Select
                     value={lesson.endTime}
-                    onChange={(e) => updateLesson(index, "endTime", e.target.value)}
-                    required
-                  />
+                    onValueChange={(v) => updateLesson(index, "endTime", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {TIME_OPTIONS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="flex items-end">

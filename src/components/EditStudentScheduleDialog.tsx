@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { TIME_OPTIONS } from "@/lib/types";
 
 interface StudentSchedule {
   dayOfWeek: number;
@@ -136,19 +137,31 @@ export function EditStudentScheduleDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="start-time">Start Time</Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                required
-              />
+              <Label>Start Time</Label>
+              <Select value={startTime} onValueChange={setStartTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {TIME_OPTIONS.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="end-time">End Time</Label>
-              <Input id="end-time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+              <Label>End Time</Label>
+              <Select value={endTime} onValueChange={setEndTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {TIME_OPTIONS.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

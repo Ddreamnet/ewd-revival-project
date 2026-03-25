@@ -111,3 +111,17 @@ export const DAYS_OF_WEEK = [
   { value: 6, label: "Cumartesi" },
   { value: 0, label: "Pazar" },
 ] as const;
+
+// =============================================================================
+// TIME OPTIONS (shared dropdown data, 08:00–22:00, 5-min intervals)
+// =============================================================================
+
+export const TIME_OPTIONS: string[] = (() => {
+  const opts: string[] = [];
+  for (let h = 8; h <= 22; h++) {
+    for (let m = 0; m < 60; m += 5) {
+      opts.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+    }
+  }
+  return opts;
+})();

@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { StudentLessonBase } from "@/lib/types";
-import { DAYS_OF_WEEK } from "@/lib/types";
+import { DAYS_OF_WEEK, TIME_OPTIONS } from "@/lib/types";
 
 const daysOfWeek = DAYS_OF_WEEK;
 
@@ -224,22 +224,36 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
 
                 <div className="space-y-2">
                   <Label>Başlangıç</Label>
-                  <Input
-                    type="time"
+                  <Select
                     value={lesson.startTime}
-                    onChange={(e) => updateLesson(index, "startTime", e.target.value)}
-                    required
-                  />
+                    onValueChange={(v) => updateLesson(index, "startTime", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {TIME_OPTIONS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
                   <Label>Bitiş</Label>
-                  <Input
-                    type="time"
+                  <Select
                     value={lesson.endTime}
-                    onChange={(e) => updateLesson(index, "endTime", e.target.value)}
-                    required
-                  />
+                    onValueChange={(v) => updateLesson(index, "endTime", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {TIME_OPTIONS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             ))}
