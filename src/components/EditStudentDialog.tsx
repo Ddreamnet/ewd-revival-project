@@ -37,15 +37,16 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
     name, setName,
     lessonsPerWeek, lessons,
     lessonDates, originalLessonDates,
-    loading, showConfirm, setShowConfirm,
+    loading, shifting, showConfirm, setShowConfirm,
     showResetConfirm, setShowResetConfirm,
     updateRemainingDays, setUpdateRemainingDays,
     conflicts, completedCount, totalLessons,
-    sortedLessonsForDisplay,
+    sortedLessonsForDisplay, canShiftBackward, hasRealignableInstances,
     handleLessonsPerWeekChange, updateLesson, updateLessonDate,
     handleDateSubmit, handleMarkLastLesson, handleUndoLastLesson,
     handleResetAllLessons, confirmDateUpdate, handleSubmit,
     handleDeleteStudent, handleArchiveStudent,
+    handleRealignChain, handleShiftForward, handleShiftBackward,
   } = useEditStudentDialog(props);
 
   return (
