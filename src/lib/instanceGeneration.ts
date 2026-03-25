@@ -114,19 +114,23 @@ export async function syncTemplateChange(
   const completed = existing.filter((i) => i.status === "completed");
   const planned = existing.filter((i) => i.status === "planned");
 
-  // Determine start date for regeneration: day after last completed, or today
+  // Determine start date for regeneration: same day as last completed (with afterTime), or today
   const today = startOfDay(new Date());
   let startFrom = today;
+  let afterTime: string | undefined;
   if (completed.length > 0) {
     const lastCompleted = completed[completed.length - 1];
-    const lastDate = new Date(lastCompleted.lesson_date);
-    startFrom = addDays(lastDate, 1);
-    if (isBefore(startFrom, today)) startFrom = today;
+    const lastDate = startOfDay(new Date(lastCompleted.lesson_date));
+    startFrom = isBefore(lastDate, today) ? today : lastDate;
+    // Use afterTime to skip slots at or before the last completed lesson's time on same day
+    if (startFrom.getTime() === lastDate.getTime()) {
+      afterTime = lastCompleted.start_time;
+    }
   }
 
   // Enforce total_rights cap
   const plannedCount = Math.max(0, totalLessons - completed.length);
-  const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom);
+  const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom, afterTime);
 
   // Check conflicts in parallel (warning-only)
   const conflictResults = await Promise.all(

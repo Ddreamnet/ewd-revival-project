@@ -260,7 +260,10 @@ export function useEditStudentDialog({
     }
   };
 
-  /** Shared logic for batch date updates with conflict checks */
+  /** Shared logic for batch date updates with conflict checks.
+   *  When a date changes, also re-maps start_time/end_time to the
+   *  matching template slot for the new day-of-week so the time
+   *  chain stays consistent with the schedule. */
   const batchUpdateInstances = async (
     changedKeys: string[],
     finalDatesRef: { current: LessonDates }
@@ -273,26 +276,54 @@ export function useEditStudentDialog({
       })
       .filter((e) => e.inst != null);
 
+    // Build sorted template slots for time mapping
+    const templateSlots: TemplateSlot[] = lessons
+      .map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime, endTime: l.endTime }))
+      .sort((a, b) => a.dayOfWeek !== b.dayOfWeek ? a.dayOfWeek - b.dayOfWeek : a.startTime.localeCompare(b.startTime));
+
+    // For each changed instance, find matching template slot for the new date's DOW
+    const usedSlotsPerDate: Record<string, number> = {};
+    const updates = changeEntries.map((e) => {
+      const newDate = finalDatesRef.current[e.key];
+      const newDow = new Date(newDate + "T00:00:00").getDay();
+      const matchingSlots = templateSlots.filter(s => s.dayOfWeek === newDow);
+
+      const usedCount = usedSlotsPerDate[newDate] || 0;
+      const slotIdx = Math.min(usedCount, Math.max(0, matchingSlots.length - 1));
+      const matchedSlot = matchingSlots[slotIdx];
+      usedSlotsPerDate[newDate] = usedCount + 1;
+
+      return {
+        ...e,
+        newStartTime: matchedSlot?.startTime || e.inst!.start_time,
+        newEndTime: matchedSlot?.endTime || e.inst!.end_time,
+      };
+    });
+
     // Parallel conflict checks (warning-only)
     const conflictResults = await Promise.all(
-      changeEntries.map((e) =>
-        checkTeacherConflicts(teacherUserId, finalDatesRef.current[e.key], e.inst!.start_time, e.inst!.end_time, e.inst!.id, studentUserId)
+      updates.map((u) =>
+        checkTeacherConflicts(teacherUserId, finalDatesRef.current[u.key], u.newStartTime, u.newEndTime, u.inst!.id, studentUserId)
       )
     );
     const allConflicts = conflictResults.flat();
     if (allConflicts.length > 0) setConflicts(allConflicts);
 
-    // Batch updates in parallel
+    // Batch updates in parallel — also update start_time/end_time
     const batchResults = await Promise.all(
-      changeEntries.map((e) =>
+      updates.map((u) =>
         supabase
           .from("lesson_instances")
           .update({
-            lesson_date: finalDatesRef.current[e.key],
-            original_date: e.inst!.original_date || e.inst!.lesson_date,
-            rescheduled_count: e.inst!.rescheduled_count + 1,
+            lesson_date: finalDatesRef.current[u.key],
+            start_time: u.newStartTime,
+            end_time: u.newEndTime,
+            original_date: u.inst!.original_date || u.inst!.lesson_date,
+            original_start_time: u.inst!.original_start_time || u.inst!.start_time,
+            original_end_time: u.inst!.original_end_time || u.inst!.end_time,
+            rescheduled_count: u.inst!.rescheduled_count + 1,
           })
-          .eq("id", e.inst!.id)
+          .eq("id", u.inst!.id)
       )
     );
     const batchErrors = batchResults.filter(r => r.error);
@@ -300,7 +331,7 @@ export function useEditStudentDialog({
       throw new Error(`Instance güncelleme hatası: ${batchErrors.map(e => e.error?.message).join(', ')}`);
     }
 
-    return changeEntries;
+    return updates;
   };
 
   const confirmDateUpdate = async () => {
@@ -311,8 +342,8 @@ export function useEditStudentDialog({
       );
 
       if (updateRemainingDays && changedKeys.length > 0 && instances.length > 0) {
-        // Update changed instances
-        await batchUpdateInstances(changedKeys, finalDatesRef);
+        // Update changed instances — returns updates with newStartTime/newEndTime
+        const updates = await batchUpdateInstances(changedKeys, finalDatesRef);
 
         // Regenerate planned instances after the last changed one
         const templateSlots: TemplateSlot[] = lessons.map((l) => ({
@@ -341,11 +372,10 @@ export function useEditStudentDialog({
           const lastChangedDate = new Date(lessonDates[lastChangedKey]);
           const startDate = new Date(lastChangedDate);
 
-          // Find the start_time of the last changed instance to use as afterTime
-          // This allows same-day later slots to be captured (e.g. 17:20 → 18:00)
-          const lastChangedInstId = instanceIdMap[lastChangedKey];
-          const lastChangedInst = allSorted.find(inst => inst.id === lastChangedInstId);
-          const afterTime = lastChangedInst?.start_time;
+          // Use the NEW start_time from batchUpdateInstances (not the old pre-update time)
+          // This ensures afterTime matches the template slot, not a stale time from another day
+          const lastUpdate = updates.find(u => u.key === lastChangedKey);
+          const afterTime = lastUpdate?.newStartTime;
 
           const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate, afterTime);
 
