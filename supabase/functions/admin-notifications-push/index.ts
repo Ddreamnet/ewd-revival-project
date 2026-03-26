@@ -2,8 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-ewd-webhook-secret",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ewd-webhook-secret",
 };
 
 Deno.serve(async (req) => {
@@ -78,10 +77,7 @@ Deno.serve(async (req) => {
 
     if (rolesError) {
       console.error("Failed to fetch admin roles:", rolesError);
-      await supabase
-        .from("admin_notifications")
-        .update({ push_processing_at: null })
-        .eq("id", record.id);
+      await supabase.from("admin_notifications").update({ push_processing_at: null }).eq("id", record.id);
       return new Response(JSON.stringify({ error: "Failed to fetch admins" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -102,7 +98,7 @@ Deno.serve(async (req) => {
 
     // ── Send push to each admin ──
     const sendPushUrl = `${supabaseUrl}/functions/v1/send-push`;
-    const title = "Son Ders Uyarısı ⚠️";
+    const title = "Son Ders Uyarısı 💸";
     const body = record.message || "Bir öğrencinin son dersi kaldı!";
     let allSuccess = true;
 
@@ -147,10 +143,7 @@ Deno.serve(async (req) => {
 
     if (!allSuccess) {
       // Release claim for retry
-      await supabase
-        .from("admin_notifications")
-        .update({ push_processing_at: null })
-        .eq("id", record.id);
+      await supabase.from("admin_notifications").update({ push_processing_at: null }).eq("id", record.id);
       return new Response(JSON.stringify({ error: "Some push deliveries failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -167,7 +160,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, admin_notification_id: record.id, admins_notified: adminRoles.length }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("admin-notifications-push error:", error);
@@ -175,16 +168,15 @@ Deno.serve(async (req) => {
     try {
       const payload = await req.clone().json();
       if (payload?.record?.id) {
-        await supabase
-          .from("admin_notifications")
-          .update({ push_processing_at: null })
-          .eq("id", payload.record.id);
+        await supabase.from("admin_notifications").update({ push_processing_at: null }).eq("id", payload.record.id);
       }
-    } catch { /* ignore cleanup errors */ }
+    } catch {
+      /* ignore cleanup errors */
+    }
 
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
