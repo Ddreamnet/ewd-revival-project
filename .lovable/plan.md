@@ -1,18 +1,28 @@
 
-# Fix: push_tokens_role_check Constraint
 
-## Kök Neden
-`push_tokens` tablosundaki CHECK constraint `role IN ('teacher', 'student')` olarak tanımlı. Admin token kaydedilmeye çalışınca `push_tokens_role_check` ihlali oluşuyor.
+# Kök Neden: Admin Panel Bildirimleri Canlı Güncellenmiyor
+
+## Kök Neden (Kesin)
+`admin_notifications` tablosu Supabase Realtime publication'a eklenmemiş. `pg_publication_tables` sorgusu boş döndü.
+
+`AdminNotificationBell.tsx` satır 55-70'te `postgres_changes` ile `admin_notifications` tablosunu dinliyor ama Supabase bu tablo için hiçbir realtime event yayınlamıyor.
+
+Bu yüzden:
+- Uygulama açıkken yeni bildirim DB'ye düşüyor ama realtime event gelmiyor → UI güncellenmiyor
+- Çıkıp tekrar girince `fetchNotifications()` mount'ta çalışıyor → veriler görünüyor
 
 ## Düzeltme
 Tek SQL migration:
 ```sql
-ALTER TABLE public.push_tokens DROP CONSTRAINT push_tokens_role_check;
-ALTER TABLE public.push_tokens ADD CONSTRAINT push_tokens_role_check CHECK (role IN ('teacher', 'student', 'admin'));
+ALTER PUBLICATION supabase_realtime ADD TABLE admin_notifications;
 ```
 
 ## Dosya
 - 1 SQL migration dosyası
 
 ## Risk
-Sıfır. Mevcut teacher/student kayıtlarına dokunulmuyor, sadece admin ekleniyor.
+Sıfır. Sadece realtime broadcast'i etkinleştiriyor, mevcut RLS politikaları geçerli kalıyor.
+
+## Push Tarafı
+Push delivery ayrı bir konu — edge function webhook ile tetikleniyor, realtime ile ilgisi yok. Token fix'i sonrası push'ın çalışıp çalışmadığı ayrıca test edilmeli.
+
