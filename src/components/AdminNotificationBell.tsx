@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Bell, Clock, Users } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,13 +31,7 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchNotifications();
-    const cleanup = setupRealtimeSubscription();
-    return cleanup;
-  }, [adminId]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('admin_notifications')
@@ -51,7 +46,40 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
     } catch (error: any) {
       console.error('Error fetching admin notifications:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const cleanup = setupRealtimeSubscription();
+    return cleanup;
+  }, [adminId, fetchNotifications]);
+
+  // App resume refetch: background → foreground
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    let removeNativeListener: (() => void) | null = null;
+    if (Capacitor.isNativePlatform()) {
+      import('@capacitor/app').then(({ App }) => {
+        App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) fetchNotifications();
+        }).then(handle => {
+          removeNativeListener = () => handle.remove();
+        });
+      });
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      removeNativeListener?.();
+    };
+  }, [fetchNotifications]);
+
 
   const setupRealtimeSubscription = () => {
     const channel = supabase
