@@ -31,11 +31,54 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      setNotifications(data || []);
+      setUnreadCount((data || []).filter(n => !n.is_read).length);
+    } catch (error: any) {
+      console.error('Error fetching admin notifications:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchNotifications();
     const cleanup = setupRealtimeSubscription();
     return cleanup;
-  }, [adminId]);
+  }, [adminId, fetchNotifications]);
+
+  // App resume refetch: background → foreground
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    let removeNativeListener: (() => void) | null = null;
+    if (Capacitor.isNativePlatform()) {
+      import('@capacitor/app').then(({ App }) => {
+        App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) fetchNotifications();
+        }).then(handle => {
+          removeNativeListener = () => handle.remove();
+        });
+      });
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      removeNativeListener?.();
+    };
+  }, [fetchNotifications]);
 
   const fetchNotifications = async () => {
     try {
