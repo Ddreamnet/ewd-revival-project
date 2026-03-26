@@ -80,22 +80,6 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
     };
   }, [fetchNotifications]);
 
-  const fetchNotifications = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('admin_notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-
-      setNotifications(data || []);
-      setUnreadCount((data || []).filter(n => !n.is_read).length);
-    } catch (error: any) {
-      console.error('Error fetching admin notifications:', error);
-    }
-  };
 
   const setupRealtimeSubscription = () => {
     const channel = supabase
