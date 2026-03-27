@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
 
     const serviceAccount = JSON.parse(fcmServiceAccountJson);
     const accessToken = await getAccessToken(serviceAccount);
+    console.log(`[SEND-PUSH] OAuth2 access token obtained successfully`);
     const projectId = serviceAccount.project_id;
 
     let sent = 0;
