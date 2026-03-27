@@ -1,108 +1,97 @@
 
 
-# Admin Bildirim Sistemi — Kapsamlı Analiz ve Düzeltme Planı
+# Revize Plan: Production iOS Push Delivery — 401 Kök Neden Netleştirmesi
 
-## Kök Nedenler (3 Ayrı Sorun)
-
-### Sorun 1: iOS'ta Admin Push Bildirimi Hiç Gelmiyor
-**Kök neden kesin:** `admin_notifications` tablosunda database webhook trigger'ı **YOK**.
-
-Kanıt:
-- `notifications` tablosunda `notification_webhook` trigger'ı var → `supabase_functions.http_request()` ile `notifications-push` edge function'ı çağırıyor
-- `admin_notifications` tablosunda **hiçbir trigger yok** (sorgu boş döndü)
-- Edge function logları da boş — function hiç çağrılmadı
-
-Bu yüzden `admin-notifications-push` edge function'ı mevcut olmasına rağmen hiçbir zaman tetiklenmiyor. Push gönderimi başlamıyor bile.
-
-**Düzeltme:** `admin_notifications` INSERT trigger'ı oluşturulacak — `notifications` tablosundaki çalışan webhook pattern'i aynen uygulanacak.
-
-### Sorun 2: Background → Foreground Geçişinde Bell Güncellenmiyor
-**Kök neden:** `AdminNotificationBell` component'i sadece mount'ta `fetchNotifications()` çağırıyor ve realtime subscription kuruyor. App background'a geçtiğinde WebSocket bağlantısı kopabiliyor. Foreground'a dönünce:
-- Realtime subscription ölmüş olabilir
-- Refetch yapan hiçbir mekanizma yok
-- Sadece tam restart'ta (component remount) veri yenileniyor
-
-`AuthContext.tsx` satır 231-238'deki `appStateChange` listener'ı sadece `auth.startAutoRefresh/stopAutoRefresh` yapıyor — notification refetch tetiklemiyor.
-
-**Karşılaştırma:** `NotificationBell` (öğretmen paneli) da aynı eksikliğe sahip — ama öğretmen panelinde bu sorun fark edilmemiş çünkü ödev bildirimleri daha seyrek.
-
-**Düzeltme:** `AdminNotificationBell`'e Capacitor `appStateChange` listener'ı eklenecek — foreground'a dönünce `fetchNotifications()` çağrılacak.
-
-### Sorun 3: Realtime Subscription Güvenilirliği
-Realtime publication zaten önceki fix'te eklendi. Ama subscription koptuğunda recovery yok. Foreground'da çalışırken bile uzun süreli bağlantı kopuşlarında state stale kalabilir.
-
-**Düzeltme:** Visibility change listener ile sayfa tekrar görünür olduğunda refetch.
+## Önceki Plandan Aynen Kalan Kısımlar
+- `aps-environment` entitlement düzeltmesi (development → production)
+- App resume refetch (AdminNotificationBell) — zaten uygulandı
+- admin_notification_webhook trigger — zaten uygulandı
+- admin_notifications realtime publication — zaten uygulandı
 
 ---
 
-## Uygulama Planı
+## YENİ ANALİZ: 401 THIRD_PARTY_AUTH_ERROR Tam Ayrımı
 
-### Adım 1: Database Webhook Trigger (SQL Migration)
-`admin_notifications` INSERT → `admin-notifications-push` edge function çağıran trigger oluştur. Mevcut `notification_webhook` trigger'ındaki pattern'i birebir kullan:
+### Hata Hangi Aşamada Oluşuyor?
 
-```sql
-CREATE TRIGGER admin_notification_webhook
-AFTER INSERT ON public.admin_notifications
-FOR EACH ROW
-EXECUTE FUNCTION supabase_functions.http_request(
-  'https://hwwpbtcgppzuscbvjkde.supabase.co/functions/v1/admin-notifications-push',
-  'POST',
-  '{"Content-type":"application/json","x-ewd-webhook-secret":"92e7a01f..."}',
-  '{}',
-  '10000'
-);
+`send-push/index.ts` satır 61'de `getAccessToken()` çağrılıyor. Bu fonksiyon başarısız olursa exception fırlatır ve dış catch bloğu `"send-push error:"` loglar. **Loglarda bu mesaj YOK.**
+
+Loglarda görünen hata formatı:
+```
+FCM error for token ffR1BGSezU...: { "error": { "code": 401, ... "THIRD_PARTY_AUTH_ERROR" } }
 ```
 
-### Adım 2: AdminNotificationBell — App Resume Refetch
-`AdminNotificationBell.tsx`'e iki mekanizma ekle:
+Bu mesaj satır 127-128'deki `fcmResponse` kontrol bloğundan geliyor — yani `getAccessToken()` **başarılı olmuş**, OAuth2 access token alınmış, FCM API'ye istek gönderilmiş, ve **FCM send response'unda** 401 dönmüş.
 
-1. **Capacitor `appStateChange`**: Native platformda background→foreground geçişinde `fetchNotifications()` çağır
-2. **`visibilitychange` event**: Web'de ve native'de tab/app gizlenip tekrar göründüğünde refetch
+### Sonuç: Service Account Geçerli, APNs Credential Eksik/Hatalı
+
+`THIRD_PARTY_AUTH_ERROR`, Firebase dokümanına göre şu anlama gelir:
+> "The APNs certificate or web push auth key was invalid or missing."
+
+Bu, FCM'in Google OAuth2 token'ı kabul ettiği ama **APNs'e mesaj iletmeye çalışırken üçüncü taraf kimlik doğrulamasında başarısız olduğu** anlamına gelir.
+
+**Kök neden service account key DEĞİL.** Service account yenilenmesine gerek yok.
+
+### Gerçek Kök Neden: Firebase Console APNs Yapılandırması
+
+Firebase Console → Project Settings → Cloud Messaging → Apple app configuration bölümünde:
+1. APNs Authentication Key (p8 dosyası) yüklenmemiş olabilir
+2. Veya yüklenen key'in Team ID / Key ID / Bundle ID eşleşmesi hatalı olabilir
+3. Veya sadece development (sandbox) APNs certificate yüklenmiş, production certificate eksik olabilir
+
+### App Store Build Entitlements Doğrulaması
+
+Kaynak koddaki `ios/App/App/App.entitlements` dosyası `development` diyor — ama bu dosya **App Store'a giden signed binary'nin effective entitlements'ını garanti etmez**. Xcode, distribution provisioning profile'dan `aps-environment: production` override edebilir.
+
+Gerçek doğrulama yöntemi:
+1. App Store'a gönderilen `.ipa` dosyasını indir
+2. `.ipa`'yı `.zip` olarak aç → `Payload/App.app/` içindeki embedded provisioning profile'ı ve entitlements'ı kontrol et
+3. `codesign -d --entitlements - Payload/App.app/` komutuyla effective entitlements'ı oku
+4. `aps-environment` değerinin `production` olduğunu doğrula
+
+Kaynak dosyayı `production` yapmak yine iyi bir pratik ama **asıl doğrulama signed binary üzerinden yapılmalı**.
+
+---
+
+## Güncellenmiş Aksiyon Planı
+
+### Adım 1 (KRİTİK — Manuel, Kullanıcı): Firebase APNs Credential Düzeltmesi
+1. Apple Developer Portal'dan APNs Authentication Key (p8) indir (veya mevcut olanı bul)
+   - Certificates, Identifiers & Profiles → Keys → APNs key
+2. Firebase Console → Project Settings → Cloud Messaging → Apple app configuration
+3. "APNs Authentication Key" bölümüne p8 dosyasını yükle
+4. Key ID, Team ID ve Bundle ID (`com.englishwithdilara.app`) doğru girildiğinden emin ol
+5. Eğer sadece APNs Certificate kullanılıyorsa: hem development hem production certificate'ın yüklendiğinden emin ol
+
+### Adım 2 (Kod — Diagnostic Log): getAccessToken başarısını logla
+`send-push/index.ts`'e `getAccessToken()` sonrası başarı logu ekle — böylece gelecekte OAuth2 vs APNs hatası kesin ayrılabilsin:
 
 ```typescript
-useEffect(() => {
-  // Web: visibilitychange
-  const handleVisibility = () => {
-    if (document.visibilityState === 'visible') {
-      fetchNotifications();
-    }
-  };
-  document.addEventListener('visibilitychange', handleVisibility);
-
-  // Native: Capacitor appStateChange
-  let removeNativeListener: (() => void) | null = null;
-  if (Capacitor.isNativePlatform()) {
-    import('@capacitor/app').then(({ App }) => {
-      App.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) fetchNotifications();
-      }).then(handle => {
-        removeNativeListener = () => handle.remove();
-      });
-    });
-  }
-
-  return () => {
-    document.removeEventListener('visibilitychange', handleVisibility);
-    removeNativeListener?.();
-  };
-}, [adminId]);
+const accessToken = await getAccessToken(serviceAccount);
+console.log(`[SEND-PUSH] OAuth2 access token obtained successfully`);
 ```
+
+### Adım 3 (Kod): aps-environment → production
+`ios/App/App/App.entitlements` dosyasında `development` → `production` değişikliği. Bu, signed build'in effective entitlements'ında doğru değerin olmasını garanti eder.
+
+### Adım 4 (Manuel, Kullanıcı): Signed Build Doğrulaması
+Yeni bir App Store archive alındıktan sonra:
+```bash
+codesign -d --entitlements - Payload/App.app/
+```
+komutuyla `aps-environment: production` olduğunu doğrula.
 
 ---
 
+## Özet Tablo
+
+| Bulgu | Önceki Yorum | Düzeltilmiş Yorum |
+|-------|-------------|-------------------|
+| 401 kaynağı | getAccessToken() başarısız (service account geçersiz) | FCM send response (APNs credential eksik/hatalı) |
+| Çözüm | Service account key yenile | Firebase Console'da APNs auth key yükle/düzelt |
+| Entitlements doğrulaması | Kaynak dosyayı değiştir | Kaynak dosyayı değiştir + signed binary'den effective entitlements doğrula |
+
 ## Dosyalar
-1. **SQL migration** — `admin_notification_webhook` trigger oluşturma (~5 satır)
-2. **`src/components/AdminNotificationBell.tsx`** — app resume refetch ekleme (~25 satır)
-
-## Düzelen Senaryolar
-| Senaryo | Önceki Durum | Sonrası |
-|---------|-------------|---------|
-| App açıkken bildirim | ✅ Çalışıyor (realtime fix) | ✅ Aynı |
-| App background → foreground | ❌ Bell güncellenmiyordu | ✅ Refetch ile güncellenir |
-| App kapalı → açılış | ✅ Mount'ta fetch | ✅ Aynı |
-| iOS admin push bildirimi | ❌ Webhook trigger yoktu | ✅ Trigger ile edge function tetiklenir |
-| Bell liste senkronizasyonu | ❌ Background sonrası stale | ✅ Resume'de refetch |
-
-## Risk
-Düşük. Webhook trigger `notifications` tablosundaki kanıtlanmış pattern'in kopyası. App resume refetch sadece mevcut `fetchNotifications` fonksiyonunu çağırıyor.
+1. `supabase/functions/send-push/index.ts` — diagnostic log ekleme (1 satır)
+2. `ios/App/App/App.entitlements` — development → production (1 satır)
 
