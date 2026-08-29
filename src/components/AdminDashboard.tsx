@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,7 +8,6 @@ import { Users, LogOut, FolderOpen, PenSquare } from "lucide-react";
 import { restoreStudent } from "@/lib/lessonService";
 import { initPushNotifications } from "@/lib/pushNotifications";
 import { Header } from "./Header";
-import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { AdminNotificationBell } from "./AdminNotificationBell";
 import { CreateStudentDialog } from "./CreateStudentDialog";
 import { CreateTeacherDialog } from "./CreateTeacherDialog";
@@ -20,13 +19,24 @@ import { EditTopicDialog } from "./EditTopicDialog";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AdminWeeklySchedule } from "./AdminWeeklySchedule";
 import { AdminBalanceManager } from "./AdminBalanceManager";
-import { StudentAboutDialog } from "./StudentAboutDialog";
-import { AdminBlogManager } from "./AdminBlogManager";
 import { AdminTeacherList } from "./AdminTeacherList";
 import { AdminStudentList } from "./AdminStudentList";
 import { useAdminTopicsCrud } from "@/hooks/useAdminTopicsCrud";
 import type { Teacher, Student, Topic, Resource } from "@/lib/types";
 import { ThemeToggleButton } from "./ThemeToggleButton";
+
+// These three pull in the TipTap rich-text editor (~490 kB). Statically
+// imported, that bundle was fetched on every admin dashboard load even though
+// the dialogs open rarely — so they are code-split and mounted on demand.
+const GlobalTopicsManager = lazy(() =>
+  import("./GlobalTopicsManager").then((m) => ({ default: m.GlobalTopicsManager }))
+);
+const StudentAboutDialog = lazy(() =>
+  import("./StudentAboutDialog").then((m) => ({ default: m.StudentAboutDialog }))
+);
+const AdminBlogManager = lazy(() =>
+  import("./AdminBlogManager").then((m) => ({ default: m.AdminBlogManager }))
+);
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -57,6 +67,7 @@ export function AdminDashboard() {
   const [showStudentAbout, setShowStudentAbout] = useState(false);
   const [showBlogManager, setShowBlogManager] = useState(false);
   const [studentAboutData, setStudentAboutData] = useState<{ studentId: string; studentName: string; aboutText: string | null } | null>(null);
+  const [pendingDeepLink, setPendingDeepLink] = useState<{ studentId: string; teacherId: string } | null>(null);
 
   const { profile, signOut, signingOut } = useAuth();
   const { toast } = useToast();
@@ -70,50 +81,46 @@ export function AdminDashboard() {
     }
   }, [profile?.user_id]);
 
-  // Handle notification tap deep link (student_settings action)
+  // Capture a notification-tap deep link ("open this student's settings") from
+  // the URL exactly once, then clear the URL.
   useEffect(() => {
-    const handleNotificationNav = () => {
+    const capture = () => {
       const params = new URLSearchParams(window.location.search);
-      const action = params.get('action');
+      if (params.get('action') !== 'student_settings') return;
       const studentId = params.get('student_id');
       const teacherId = params.get('teacher_id');
-
-      if (action === 'student_settings' && studentId && teacherId) {
-        // Clean URL immediately
-        window.history.replaceState({}, '', '/dashboard');
-
-        // Wait for teachers data to be loaded
-        const tryOpenDialog = () => {
-          const teacher = teachers.find(t => t.user_id === teacherId);
-          if (teacher) {
-            setSelectedTeacher(teacher);
-            const student = teacher.students.find(s => s.student_id === studentId);
-            if (student) {
-              setEditingStudent(student);
-              setShowEditStudent(true);
-            }
-          }
-        };
-
-        if (teachers.length > 0) {
-          tryOpenDialog();
-        } else {
-          // Retry after data loads
-          const interval = setInterval(() => {
-            if (teachers.length > 0) {
-              clearInterval(interval);
-              tryOpenDialog();
-            }
-          }, 300);
-          setTimeout(() => clearInterval(interval), 5000);
-        }
-      }
+      if (!studentId || !teacherId) return;
+      setPendingDeepLink({ studentId, teacherId });
+      window.history.replaceState({}, '', '/dashboard');
     };
 
-    handleNotificationNav();
-    window.addEventListener('popstate', handleNotificationNav);
-    return () => window.removeEventListener('popstate', handleNotificationNav);
-  }, [teachers]);
+    capture();
+    window.addEventListener('popstate', capture);
+    return () => window.removeEventListener('popstate', capture);
+  }, []);
+
+  // Resolve the pending link once the teacher list has loaded.
+  //
+  // This replaces a setInterval that polled a *stale* `teachers` array captured
+  // by its closure: the effect re-ran on every teacher refetch, creating a new
+  // interval each time while the old one was cleared only by a 5s timeout that
+  // itself outlived unmount. And because the URL had already been cleared on
+  // the first pass, the re-run found no params — so tapping the notification
+  // before the data arrived silently did nothing.
+  useEffect(() => {
+    if (!pendingDeepLink || teachers.length === 0) return;
+
+    const teacher = teachers.find((t) => t.user_id === pendingDeepLink.teacherId);
+    if (teacher) {
+      setSelectedTeacher(teacher);
+      const student = teacher.students.find((s) => s.student_id === pendingDeepLink.studentId);
+      if (student) {
+        setEditingStudent(student);
+        setShowEditStudent(true);
+      }
+    }
+    setPendingDeepLink(null);
+  }, [pendingDeepLink, teachers]);
 
   const fetchStudentTopics = async (studentUserId: string, studentId: string) => {
     try {
@@ -388,7 +395,11 @@ export function AdminDashboard() {
       </div>
 
       {/* Dialogs */}
-      <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={true} />
+      {showGlobalTopics && (
+        <Suspense fallback={null}>
+          <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={true} />
+        </Suspense>
+      )}
       <CreateTeacherDialog open={showCreateTeacher} onOpenChange={setShowCreateTeacher} onSuccess={fetchTeachers} />
       
       {editingTeacher && (
@@ -418,14 +429,20 @@ export function AdminDashboard() {
         onEditResource={topicsCrud.handleEditResource} resource={editingResource} />
 
       {studentAboutData && (
-        <StudentAboutDialog key={studentAboutData.studentId} open={showStudentAbout}
-          onOpenChange={(open) => { setShowStudentAbout(open); if (!open) setStudentAboutData(null); }}
-          studentId={studentAboutData.studentId} studentName={studentAboutData.studentName}
-          aboutText={studentAboutData.aboutText} isReadOnly={false}
-          onSaved={async () => { await fetchTeachers(); setStudentAboutData(null); }} />
+        <Suspense fallback={null}>
+          <StudentAboutDialog key={studentAboutData.studentId} open={showStudentAbout}
+            onOpenChange={(open) => { setShowStudentAbout(open); if (!open) setStudentAboutData(null); }}
+            studentId={studentAboutData.studentId} studentName={studentAboutData.studentName}
+            aboutText={studentAboutData.aboutText} isReadOnly={false}
+            onSaved={async () => { await fetchTeachers(); setStudentAboutData(null); }} />
+        </Suspense>
       )}
 
-      <AdminBlogManager open={showBlogManager} onOpenChange={setShowBlogManager} />
+      {showBlogManager && (
+        <Suspense fallback={null}>
+          <AdminBlogManager open={showBlogManager} onOpenChange={setShowBlogManager} />
+        </Suspense>
+      )}
     </div>
   );
 }

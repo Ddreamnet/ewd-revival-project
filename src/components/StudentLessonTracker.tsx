@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { LessonInstance, getRowConfig } from "@/lib/lessonTypes";
+import { LessonInstance, getRowConfig, parseLocalDate } from "@/lib/lessonTypes";
 
 interface StudentLessonTrackerProps {
   studentId: string;
@@ -156,7 +156,7 @@ export function StudentLessonTracker({ studentId }: StudentLessonTrackerProps) {
                             : "text-muted-foreground"
                         }`}
                       >
-                        {format(new Date(inst.lesson_date), "dd.MM")}
+                        {format(parseLocalDate(inst.lesson_date), "dd.MM")}
                       </span>
                     </div>
                   );

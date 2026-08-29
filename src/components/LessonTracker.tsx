@@ -12,7 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { LessonInstance, getRowConfig } from "@/lib/lessonTypes";
+import { LessonInstance, getRowConfig, parseLocalDate } from "@/lib/lessonTypes";
 import {
   completeLesson,
   undoCompleteLesson,
@@ -103,7 +103,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     if (!pendingInstanceId) return;
 
     try {
-      const result = await completeLesson(pendingInstanceId, teacherId, studentId);
+      const result = await completeLesson(pendingInstanceId, teacherId);
 
       if (!result.success) {
         toast({
@@ -128,7 +128,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
       const inst = instances.find((i) => i.id === pendingInstanceId);
       toast({
         title: "Başarılı",
-        description: `Ders işlendi olarak işaretlendi${inst ? ` (${format(new Date(inst.lesson_date), "dd.MM")})` : ""}`,
+        description: `Ders işlendi olarak işaretlendi${inst ? ` (${format(parseLocalDate(inst.lesson_date), "dd.MM")})` : ""}`,
       });
     } catch (error: any) {
       toast({
@@ -146,7 +146,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
     if (!undoInstanceId) return;
 
     try {
-      const result = await undoCompleteLesson(undoInstanceId, teacherId, studentId);
+      const result = await undoCompleteLesson(undoInstanceId, teacherId);
 
       if (!result.success) {
         toast({
@@ -236,7 +236,7 @@ export function LessonTracker({ studentId, studentName, teacherId }: LessonTrack
                       <span className={`text-[10px] whitespace-nowrap ${
                         inst.original_date && (inst as any).is_manual_override ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"
                       }`}>
-                        {format(new Date(inst.lesson_date), "dd.MM")}
+                        {format(parseLocalDate(inst.lesson_date), "dd.MM")}
                       </span>
                     </div>
                   );

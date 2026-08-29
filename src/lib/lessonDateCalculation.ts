@@ -5,6 +5,7 @@
 
 import { addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { parseLocalDate } from "./lessonTypes";
 
 /**
  * Finds the next lesson date after a given date, based on the student's weekly pattern.
@@ -65,7 +66,7 @@ export async function checkNonTemplateWeekday(
     }
 
     const templateDayNumbers = templateSlots.map((s) => s.day_of_week);
-    const targetDate = new Date(dateStr);
+    const targetDate = parseLocalDate(dateStr);
     const targetDay = targetDate.getDay(); // 0=Sun, 1=Mon, ...
 
     const dayNames = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];

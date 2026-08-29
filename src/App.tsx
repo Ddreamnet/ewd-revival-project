@@ -4,10 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, useRef, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Capacitor } from "@capacitor/core";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
 import { AuthForm } from "@/components/AuthForm";
+import { Button } from "@/components/ui/button";
 
 const TeacherDashboard = lazy(() => import("./components/TeacherDashboard").then(m => ({ default: m.TeacherDashboard })));
 const StudentDashboard = lazy(() => import("./components/StudentDashboard").then(m => ({ default: m.StudentDashboard })));
@@ -38,7 +39,7 @@ if (typeof window !== "undefined") {
 const queryClient = new QueryClient();
 
 function DashboardRoutes() {
-  const { user, profile, loading, initializing } = useAuthContext();
+  const { user, profile, loading, initializing, signOut, signingOut } = useAuthContext();
 
   // Session is still being restored from native storage — never redirect yet
   // Show spinner only during initial boot or first profile load.
@@ -67,20 +68,26 @@ function DashboardRoutes() {
     return <StudentDashboard />;
   }
 
+  // Signed in, but no usable profile — e.g. the profile row was deleted while
+  // the auth user survived, or the handle_new_user trigger swallowed an error.
+  // This used to fall through to a spinner with no way out, stranding the user
+  // on every platform. Give them an explanation and an exit.
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <h1 className="text-lg font-semibold">Hesabınız yapılandırılamadı</h1>
+      <p className="text-sm text-muted-foreground max-w-sm">
+        Bu hesaba bağlı bir profil bulunamadı. Lütfen yöneticinizle iletişime geçin.
+      </p>
+      <Button onClick={signOut} variant="outline" disabled={signingOut}>
+        {signingOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}
+      </Button>
     </div>
   );
 }
 
 function ScrollToTop() {
   const { pathname } = useLocation();
-  const prevPathname = useRef(pathname);
   useEffect(() => {
-    if (prevPathname.current !== pathname) {
-      prevPathname.current = pathname;
-    }
     window.scrollTo(0, 0);
   }, [pathname]);
   return null;

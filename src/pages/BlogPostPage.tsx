@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import DOMPurify from "dompurify";
 import { useBlogPostBySlug } from "@/hooks/useBlogPosts";
 import { ArrowLeft } from "lucide-react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -61,14 +62,19 @@ function BlogPostContent() {
 
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-landing-purple-dark mb-6 leading-tight">{post.title}</h1>
 
-          {/* Content */}
+          {/*
+            Content. Blog HTML comes from the TipTap editor and is stored
+            verbatim. Only admins can publish, but an admin-account compromise
+            would otherwise execute script in every visitor's browser and inside
+            both mobile WebViews, so it is sanitized on the way out.
+          */}
           {post.content && (
             <article
-              className="prose prose-sm sm:prose-base max-w-none 
-                prose-headings:text-foreground prose-p:text-foreground/90 
+              className="prose prose-sm sm:prose-base max-w-none
+                prose-headings:text-foreground prose-p:text-foreground/90
                 prose-a:text-primary prose-strong:text-foreground
                 prose-img:rounded-lg prose-img:mx-auto"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
             />
           )}
 

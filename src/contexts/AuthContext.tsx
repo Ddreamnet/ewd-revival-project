@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { clearSupabaseStorage, saveCredentials } from "@/lib/capacitorStorage";
+import { clearSupabaseStorage, saveLastEmail, purgeLegacyStoredPassword } from "@/lib/capacitorStorage";
+import { disablePushTokens } from "@/lib/pushNotifications";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
 
@@ -105,6 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (DEV) console.log("[Auth] AuthProvider mounting — setting up auth");
 
+    // One-time cleanup of the plaintext password older builds persisted.
+    purgeLegacyStoredPassword();
+
     // ── STEP 1: Subscribe to auth state changes FIRST ─────────────────────
     const {
       data: { subscription },
@@ -163,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // This properly waits for Capacitor Preferences async read to finish.
     const sessionTimeout = setTimeout(() => {
       if (!initDoneRef.current) {
-        console.warn("[Auth] getSession() timeout (5s) — forcing init complete");
+        console.warn("[Auth] getSession() timeout (3s) — forcing init complete");
         initDoneRef.current = true;
         setInitializing(false);
         setLoading(false);
@@ -181,8 +185,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             existingSession ? `user: ${existingSession.user.id}` : "no session"
           );
 
-        // Debug: log Preferences keys on native platform
-        if (Capacitor.isNativePlatform()) {
+        // Debug: log Preferences keys on native platform (dev builds only —
+        // this enumerates storage keys into the device log otherwise)
+        if (DEV && Capacitor.isNativePlatform()) {
           import("@capacitor/preferences").then(({ Preferences }) => {
             Preferences.keys().then(({ keys }) => {
               console.log("[Auth][Native] Preferences keys:", keys);
@@ -257,8 +262,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isSigningOutRef.current = false;
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      // Save credentials for prefill on next login
-      await saveCredentials(email, password);
+      // Remember the e-mail only — never the password.
+      await saveLastEmail(email);
       return { error: null };
     } catch (error: any) {
       return { error };
@@ -294,32 +299,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isSigningOutRef.current = true;
     setSigningOut(true);
 
+    const signingOutUserId = user?.id;
+
     if (profileFetchAbortRef.current) {
       profileFetchAbortRef.current.abort();
       profileFetchAbortRef.current = null;
     }
 
-    // Clear React state first → instant UI redirect
+    // Stop this device from receiving the user's notifications. Must run while
+    // the session is still valid, otherwise RLS rejects the update and a shared
+    // or family device keeps getting their homework pushes after sign-out.
+    if (signingOutUserId) {
+      try {
+        await disablePushTokens(signingOutUserId);
+      } catch (e) {
+        console.warn("[Auth] push token disable error:", e);
+      }
+    }
+
+    // Clear React state → instant UI redirect
     setUser(null);
     setSession(null);
     profileRef.current = null;
     setProfile(null);
 
-    // Clear native / localStorage
+    toast({ title: "Başarılı", description: "Çıkış yapıldı" });
+
+    // Revoke server-side BEFORE wiping local storage — the old order deleted
+    // the token first, so the refresh token was often left alive on the server.
+    // Scope 'local' keeps the user's other devices signed in.
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+      if (DEV) console.log("[Auth] Supabase signOut ok");
+    } catch (error: any) {
+      console.warn("[Auth] signOut error (acceptable if session expired):", error?.message);
+    }
+
+    // Belt and braces: drop anything the SDK left behind.
     try {
       await clearSupabaseStorage();
     } catch (e) {
       console.warn("[Auth] storage clear error:", e);
-    }
-
-    toast({ title: "Başarılı", description: "Çıkış yapıldı" });
-
-    // Sign out from Supabase (may fail if session already gone — that's OK)
-    try {
-      await supabase.auth.signOut();
-      if (DEV) console.log("[Auth] Supabase signOut ok");
-    } catch (error: any) {
-      console.warn("[Auth] signOut error (acceptable if session expired):", error?.message);
     }
 
     if (DEV) console.log("[Auth] === SIGNOUT COMPLETE ===");

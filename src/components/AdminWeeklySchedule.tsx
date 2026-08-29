@@ -12,9 +12,9 @@ import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { LessonOverrideDialog } from "./LessonOverrideDialog";
 import { ScheduleGridCell } from "./ScheduleGridCell";
-import { getLessonDateForCurrentWeek } from "@/hooks/useScheduleGrid";
+
 import { format, addDays } from "date-fns";
-import { formatTime } from "@/lib/lessonTypes";
+import { formatTime, parseLocalDate } from "@/lib/lessonTypes";
 import { completeTrialLesson, undoTrialLesson } from "@/lib/lessonService";
 import { getAllTimeSlots, getAllTimeSlotsActual, fetchActualLessonsForWeek, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
@@ -82,24 +82,22 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
 
   const { toast } = useToast();
 
+  // Template data (student_lessons + trials) — reloaded per teacher.
   useEffect(() => {
-    if (!showTemplate) {
-      Promise.all([fetchSchedule(), fetchActualSchedule()]).then(() => {
-        prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
-        prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
-      });
-    } else {
-      fetchSchedule();
-    }
+    fetchSchedule();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId, refreshKey]);
 
+  // Actual data (lesson_instances) — reloaded per teacher, week and mode.
+  // These two effects both fired on mount before, so selecting a teacher ran
+  // fetchActualSchedule twice and double-fetched the week.
   useEffect(() => {
-    if (!showTemplate) {
-      fetchActualSchedule();
-      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
-      prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
-    }
-  }, [showTemplate, weekOffset]);
+    if (showTemplate) return;
+    fetchActualSchedule();
+    prefetchWeek(teacherId, getWeekStartForOffset(weekOffset + 1));
+    prefetchWeek(teacherId, getWeekStartForOffset(weekOffset - 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherId, refreshKey, showTemplate, weekOffset]);
 
   useEffect(() => {
     if (!teacherId) return;
@@ -179,18 +177,18 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
       id: lesson.id,
       student_id: lesson.student_id,
       student_name: lesson.student_name,
-      day_of_week: new Date(lesson.lesson_date).getDay(),
+      day_of_week: parseLocalDate(lesson.lesson_date).getDay(),
       start_time: lesson.original_start_time || lesson.start_time,
       end_time: lesson.original_end_time || lesson.end_time,
       _originalStartTime: lesson.original_start_time || lesson.start_time,
       _originalEndTime: lesson.original_end_time || lesson.end_time,
       _hasOverride: lesson.rescheduled_count > 0,
     };
-    const originalDate = lesson.original_date ? new Date(lesson.original_date) : new Date(lesson.lesson_date);
+    const originalDate = parseLocalDate(lesson.original_date || lesson.lesson_date);
     setSelectedLesson(syntheticLesson);
     setSelectedActualLesson(lesson);
     setSelectedLessonDate(originalDate);
-    setSelectedLessonCurrentDate(new Date(lesson.lesson_date));
+    setSelectedLessonCurrentDate(parseLocalDate(lesson.lesson_date));
     setSelectedLessonCurrentStartTime(lesson.start_time);
     setSelectedLessonCurrentEndTime(lesson.end_time);
     setShowOverrideDialog(true);

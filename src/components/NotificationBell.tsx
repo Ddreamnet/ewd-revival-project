@@ -106,7 +106,7 @@ export function NotificationBell({ userId, teacherId, studentId, isStudent = fal
           filter: `recipient_id=eq.${userId}`
         },
         (payload) => {
-          console.log('New notification received:', payload);
+          if (import.meta.env.DEV) console.log('New notification received:', payload);
           fetchNotifications(); // Yeni bildirim geldiğinde listeyi güncelle
           
           toast({

@@ -6,14 +6,6 @@
 import { format, startOfWeek, addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
-/** Helper to calculate the date for a lesson based on day_of_week for current week */
-export function getLessonDateForCurrentWeek(dayOfWeek: number): Date {
-  const today = new Date();
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  return addDays(weekStart, daysFromMonday);
-}
-
 interface BaseLessonInfo {
   id: string;
   student_id: string;
@@ -45,6 +37,7 @@ export interface ActualLesson {
   original_end_time: string | null;
   rescheduled_count: number;
   is_manual_override: boolean;
+  created_at?: string | null;
   isGhost?: boolean;
 }
 
@@ -196,26 +189,23 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
   const missingStudents = [...activeStudentIds].filter((id) => !studentsWithInstances.has(id));
   if (missingStudents.length === 0) return;
 
-  // ── BATCH: Get tracking data, max lesson numbers, cycle instances, max completed dates ──
-  // All in parallel
-  const [trackingResult, maxLessonsResult, cycleInstancesResult] = await Promise.all([
+  // ── BATCH: Get tracking data + per-cycle instance details ──
+  const [trackingResult, cycleInstancesResult] = await Promise.all([
     supabase
       .from("student_lesson_tracking")
       .select("student_id, package_cycle, lessons_per_week")
       .eq("teacher_id", teacherId)
       .in("student_id", missingStudents),
+    // All planned/completed instances for missing students. lesson_number is
+    // collected per-cycle so the next-number computation stays inside the
+    // current cycle (cycle resets restart numbering at 1 — global MAX would
+    // wrongly continue from the previous cycle's tail).
     supabase
       .from("lesson_instances")
-      .select("student_id, lesson_number")
+      .select("student_id, package_cycle, status, lesson_date, lesson_number")
       .eq("teacher_id", teacherId)
       .in("student_id", missingStudents)
-      .order("lesson_number", { ascending: false }),
-    // Get ALL instances for missing students to compute cycle counts + max completed dates in JS
-    supabase
-      .from("lesson_instances")
-      .select("student_id, package_cycle, status, lesson_date")
-      .eq("teacher_id", teacherId)
-      .in("student_id", missingStudents),
+      .in("status", ["planned", "completed"]),
   ]);
 
   const trackingMap = new Map<string, { cycle: number; lpw: number }>();
@@ -223,20 +213,16 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
     trackingMap.set(t.student_id, { cycle: t.package_cycle, lpw: t.lessons_per_week });
   });
 
-  const maxLessonMap = new Map<string, number>();
-  (maxLessonsResult.data || []).forEach((row) => {
-    if (!maxLessonMap.has(row.student_id)) {
-      maxLessonMap.set(row.student_id, row.lesson_number);
-    }
-  });
-
-  // Compute per-student: cycle instance count + max completed date (all in JS, zero extra queries)
+  // Per-student aggregates inside the *current* cycle only.
   const cycleCountMap = new Map<string, number>();
   const maxCompletedDateMap = new Map<string, string>();
+  const maxLessonNumInCycleMap = new Map<string, number>();
   (cycleInstancesResult.data || []).forEach((row) => {
     const tracking = trackingMap.get(row.student_id);
     if (!tracking || row.package_cycle !== tracking.cycle) return;
     cycleCountMap.set(row.student_id, (cycleCountMap.get(row.student_id) || 0) + 1);
+    const prevMax = maxLessonNumInCycleMap.get(row.student_id) || 0;
+    if (row.lesson_number > prevMax) maxLessonNumInCycleMap.set(row.student_id, row.lesson_number);
     if (row.status === "completed") {
       const current = maxCompletedDateMap.get(row.student_id);
       if (!current || row.lesson_date > current) {
@@ -269,7 +255,7 @@ async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void
 
     const remainingSlots = totalRights - existingInCycle;
     const studentTemplates = templates.filter((t) => t.student_id === studentId);
-    let nextNum = (maxLessonMap.get(studentId) || 0) + 1;
+    let nextNum = (maxLessonNumInCycleMap.get(studentId) || 0) + 1;
     let generated = 0;
     const lastCompletedDate = maxCompletedDateMap.get(studentId);
 
@@ -324,7 +310,7 @@ async function fetchActualLessonsForWeekCore(
   const [instancesResult, activeStudentsResult] = await Promise.all([
     supabase
       .from("lesson_instances")
-      .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count, is_manual_override")
+      .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count, is_manual_override, created_at")
       .eq("teacher_id", teacherId)
       .gte("lesson_date", startStr)
       .lte("lesson_date", endStr)
@@ -344,14 +330,16 @@ async function fetchActualLessonsForWeekCore(
   // Filter real instances to active students only
   const filteredInstances = realInstances.filter((i) => allActiveStudentIds.has(i.student_id));
 
-  // Build a Set of existing instance keys: "studentId-dayOfWeek-startTime"
-  // to check per-slot coverage (not per-week binary)
-  const instanceSlotKeys = new Set<string>();
+  // Per-week presence: students who already have any real instance this week
+  // shouldn't get ghost entries. Ghosts represent the template preview for
+  // weeks where the student has nothing on the calendar (between-package or
+  // fully-future weeks). If the student has any real instance this week —
+  // even at a non-template time (template was edited after instances were
+  // generated, or a shift moved them) — the schedule already shows reality
+  // and ghosts would duplicate the student on the same week.
+  const studentsWithInstanceThisWeek = new Set<string>();
   filteredInstances.forEach((inst) => {
-    // Convert lesson_date to day_of_week for slot matching
-    const d = new Date(inst.lesson_date + "T00:00:00");
-    const dow = d.getDay(); // 0=Sun, 1=Mon, ...
-    instanceSlotKeys.add(`${inst.student_id}-${dow}-${inst.start_time}`);
+    studentsWithInstanceThisWeek.add(inst.student_id);
   });
 
   // Generate ghost entries — per-slot check for ALL active students with templates
@@ -384,12 +372,15 @@ async function fetchActualLessonsForWeekCore(
 
       const templateStudentIds = [...new Set(templates.map((t) => t.student_id))];
 
-      // BATCH: Get all cycle instance counts in ONE query
+      // BATCH: Get all cycle instance counts in ONE query.
+      // Filter by active statuses so future status values (e.g. 'cancelled')
+      // can't inflate the "exhausted" calculation.
       const { data: allCycleInstances } = await supabase
         .from("lesson_instances")
         .select("student_id, package_cycle")
         .eq("teacher_id", teacherId)
-        .in("student_id", templateStudentIds);
+        .in("student_id", templateStudentIds)
+        .in("status", ["planned", "completed"]);
 
       const cycleCountMap = new Map<string, number>();
       (allCycleInstances || []).forEach((row) => {
@@ -406,14 +397,12 @@ async function fetchActualLessonsForWeekCore(
         const existingInCycle = cycleCountMap.get(studentId) || 0;
         if (existingInCycle < totalRights) continue; // Not exhausted, skip
 
-        // Package exhausted — check each template slot individually
+        if (studentsWithInstanceThisWeek.has(studentId)) continue;
+
+        // Package exhausted + no real instance this week — produce one ghost
+        // per template slot to preview the next-cycle layout.
         const studentTemplates = templates.filter((t) => t.student_id === studentId);
         for (const tmpl of studentTemplates) {
-          const slotKey = `${studentId}-${tmpl.day_of_week}-${tmpl.start_time}`;
-
-          // If this specific slot already has an instance this week, skip (no ghost needed)
-          if (instanceSlotKeys.has(slotKey)) continue;
-
           const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
           const lessonDate = addDays(ws, dayIndex);
           const dateStr = format(lessonDate, "yyyy-MM-dd");
@@ -483,6 +472,11 @@ export async function fetchActualLessonsForWeek(
 
 /**
  * Get ALL actual lessons for a specific day and time slot (supports multiple students in same slot).
+ *
+ * Historical cross-cycle duplicates exist where the same (student, date, start_time)
+ * has two completed rows in different package_cycles (migration artifact). Surface
+ * dedup keeps only the newest-created row per (student, date, start_time) so the
+ * grid renders one card. The DB rows are preserved (balance untouched).
  */
 export function getActualLessonsForDayAndTime(
   actualLessons: ActualLesson[],
@@ -492,9 +486,23 @@ export function getActualLessonsForDayAndTime(
 ): ActualLesson[] {
   const dateForDay = getDateForDayIndex(dayIndex, weekStart);
   const dateStr = format(dateForDay, "yyyy-MM-dd");
-  return actualLessons.filter(
+  const matched = actualLessons.filter(
     (l) => l.lesson_date === dateStr && l.start_time === timeSlot
   );
+  if (matched.length <= 1) return matched;
+
+  const bestPerStudent = new Map<string, ActualLesson>();
+  for (const l of matched) {
+    const existing = bestPerStudent.get(l.student_id);
+    if (!existing) { bestPerStudent.set(l.student_id, l); continue; }
+    // Prefer real over ghost; among reals prefer the newest created_at.
+    if (existing.isGhost && !l.isGhost) { bestPerStudent.set(l.student_id, l); continue; }
+    if (!existing.isGhost && l.isGhost) continue;
+    const lTs = l.created_at || "";
+    const eTs = existing.created_at || "";
+    if (lTs > eTs) bestPerStudent.set(l.student_id, l);
+  }
+  return Array.from(bestPerStudent.values());
 }
 
 /**

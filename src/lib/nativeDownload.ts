@@ -69,7 +69,7 @@ export async function downloadFileNative(options: DownloadOptions): Promise<bool
       });
     } catch (e) {
       // User cancelled share sheet — not an error
-      console.log('Share cancelled or unavailable:', e);
+      if (import.meta.env.DEV) console.log('Share cancelled or unavailable:', e);
     }
 
     return true;

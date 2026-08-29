@@ -92,7 +92,7 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
           table: 'admin_notifications'
         },
         (payload) => {
-          console.log('New admin notification received:', payload);
+          if (import.meta.env.DEV) console.log("New admin notification received:", payload);
           fetchNotifications();
           
           toast({

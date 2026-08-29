@@ -25,8 +25,7 @@ interface RpcResult {
  */
 export async function completeLesson(
   instanceId: string,
-  teacherId: string,
-  studentId: string
+  teacherId: string
 ): Promise<RpcResult> {
   const { data, error } = await supabase.rpc("rpc_complete_lesson", {
     p_instance_id: instanceId,
@@ -49,8 +48,7 @@ export async function completeLesson(
  */
 export async function undoCompleteLesson(
   instanceId: string,
-  teacherId: string,
-  studentId: string
+  teacherId: string
 ): Promise<RpcResult> {
   const { data, error } = await supabase.rpc("rpc_undo_complete_lesson", {
     p_instance_id: instanceId,

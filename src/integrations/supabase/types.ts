@@ -849,7 +849,27 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_caller: { Args: never; Returns: boolean }
       is_teacher: { Args: { _user_id: string }; Returns: boolean }
+      is_teacher_caller: { Args: { _teacher_id: string }; Returns: boolean }
+      rpc_apply_chain_dates: {
+        Args: {
+          p_student_id: string
+          p_teacher_id: string
+          p_updates: Json
+          p_mark_override?: boolean
+          p_shift_group_id?: string | null
+        }
+        Returns: Json
+      }
+      rpc_resequence_lesson_numbers: {
+        Args: {
+          p_student_id: string
+          p_teacher_id: string
+          p_package_cycle?: number | null
+        }
+        Returns: Json
+      }
       rpc_archive_student: {
         Args: {
           p_student_record_id: string

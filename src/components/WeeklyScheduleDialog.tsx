@@ -4,17 +4,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Download, Calendar, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
-import { getLessonDateForCurrentWeek } from "@/hooks/useScheduleGrid";
+import { ScheduleGridCell } from "./ScheduleGridCell";
 import { format, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
 import { completeTrialLesson, undoTrialLesson } from "@/lib/lessonService";
-import { getDateForDayIndex, dayIndexToDbDayOfWeek, getAllTimeSlots, getTrialLessonForDayAndTime as findTrialLesson, getAllTimeSlotsActual, fetchActualLessonsForWeek, getActualLessonsForDayAndTime, getBackToBackGroupForLesson, isSecondaryInBackToBack, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
+import { getAllTimeSlots, getAllTimeSlotsActual, fetchActualLessonsForWeek, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
   id: string;
@@ -39,7 +37,15 @@ interface WeeklyScheduleDialogProps {
   onOpenChange: (open: boolean) => void;
   teacherId: string;
 }
-const STUDENT_COLORS = ["bg-rose-100 border-rose-300 text-rose-900 dark:bg-rose-950 dark:border-rose-800 dark:text-rose-200", "bg-blue-100 border-blue-300 text-blue-900 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200", "bg-amber-100 border-amber-300 text-amber-900 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200", "bg-emerald-100 border-emerald-300 text-emerald-900 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-200", "bg-purple-100 border-purple-300 text-purple-900 dark:bg-purple-950 dark:border-purple-800 dark:text-purple-200", "bg-pink-100 border-pink-300 text-pink-900 dark:bg-pink-950 dark:border-pink-800 dark:text-pink-200", "bg-cyan-100 border-cyan-300 text-cyan-900 dark:bg-cyan-950 dark:border-cyan-800 dark:text-cyan-200", "bg-orange-100 border-orange-300 text-orange-900 dark:bg-orange-950 dark:border-orange-800 dark:text-orange-200", "bg-lime-100 border-lime-300 text-lime-900 dark:bg-lime-950 dark:border-lime-800 dark:text-lime-200", "bg-indigo-100 border-indigo-300 text-indigo-900 dark:bg-indigo-950 dark:border-indigo-800 dark:text-indigo-200"];
+// Mirror AdminWeeklySchedule's palette so admin and teacher views render identically.
+const STUDENT_COLORS = [
+  "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900 dark:border-blue-800",
+  "bg-green-100 text-green-800 hover:bg-green-200 border-green-300 dark:bg-green-950 dark:text-green-200 dark:hover:bg-green-900 dark:border-green-800",
+  "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-300 dark:bg-purple-950 dark:text-purple-200 dark:hover:bg-purple-900 dark:border-purple-800",
+  "bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-300 dark:bg-orange-950 dark:text-orange-200 dark:hover:bg-orange-900 dark:border-orange-800",
+  "bg-pink-100 text-pink-800 hover:bg-pink-200 border-pink-300 dark:bg-pink-950 dark:text-pink-200 dark:hover:bg-pink-900 dark:border-pink-800",
+  "bg-cyan-100 text-cyan-800 hover:bg-cyan-200 border-cyan-300 dark:bg-cyan-950 dark:text-cyan-200 dark:hover:bg-cyan-900 dark:border-cyan-800",
+];
 
 export function WeeklyScheduleDialog({
   open,
@@ -167,15 +173,10 @@ export function WeeklyScheduleDialog({
     ? getAllTimeSlots(lessons, [])  // Kalıcı: template only, no trials, no overrides
     : getAllTimeSlotsActual(actualLessons, trialLessons); // Güncel: actual + trials
 
-  // Template mode: pure template positions (no override adjustments)
-  const getLessonForDayAndTime = (dayIndex: number, timeSlot: string): StudentLesson | null => {
-    const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
-    return lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot) || null;
-  };
-  
-  const getTrialLessonForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    return findTrialLesson(trialLessons, dayIndex, timeSlot, weekStart);
-  };
+  // Convert Record → Map once per render so ScheduleGridCell receives the
+  // shape it expects without us refactoring all the call sites that read
+  // studentColors[id].
+  const studentColorsMap = new Map(Object.entries(studentColors));
 
   const handleTrialLessonClick = (lesson: TrialLesson) => {
     setSelectedTrialLesson(lesson);
@@ -291,92 +292,21 @@ export function WeeklyScheduleDialog({
                     <td className="border bg-muted/50 p-2 text-center text-sm font-mono">
                       {formatTime(timeSlot)}
                     </td>
-                    {DAYS.map((day, dayIndex) => {
-                      if (!showTemplate) {
-                        // ACTUAL MODE
-                        const slotLessons = getActualLessonsForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
-                        const trialLesson = getTrialLessonForDayAndTime(dayIndex, timeSlot);
-                        
-                        // Filter out secondary back-to-back
-                        const visibleLessons = slotLessons.filter(
-                          (l) => !isSecondaryInBackToBack(actualLessons, dayIndex, l.id, weekStart)
-                        );
-                        
-                        if (visibleLessons.length === 0 && !trialLesson) {
-                          return <td key={day} className="border p-2"></td>;
-                        }
-
-                        const isMulti = visibleLessons.length > 1 || (visibleLessons.length >= 1 && trialLesson);
-
-                        return <td key={day} className="border p-1">
-                          <div className="flex gap-0.5 h-full">
-                            {visibleLessons.map(actualLesson => {
-                              const b2bGroup = getBackToBackGroupForLesson(actualLessons, dayIndex, actualLesson.id, weekStart);
-                              
-                              if (b2bGroup) {
-                                return <div key={actualLesson.id} className={`${isMulti ? 'flex-1 min-w-0' : 'w-full'} p-2 rounded border-2 transition-opacity ${
-                                  actualLesson.status === "completed" ? "opacity-40" : "opacity-100"
-                                } ${actualLesson.is_manual_override ? "ring-2 ring-yellow-400" : ""} ${
-                                  studentColors[actualLesson.student_id] || "bg-gray-100 border-gray-300"
-                                }`}>
-                                  <div className={`font-medium ${isMulti ? 'text-[10px]' : 'text-xs'} mb-1 flex items-center gap-1`}>
-                                    {actualLesson.is_manual_override && <Calendar className="h-3 w-3 text-yellow-600 shrink-0" />}
-                                    <span className="truncate">{actualLesson.student_name}</span>
-                                    <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">{b2bGroup.length} ders</Badge>
-                                  </div>
-                                  {!isMulti && b2bGroup.map(l => (
-                                    <div key={l.id} className="text-[10px] font-mono">
-                                      {formatTime(l.start_time)} - {formatTime(l.end_time)}
-                                    </div>
-                                  ))}
-                                </div>;
-                              }
-                              
-                              return <div key={actualLesson.id} className={`${isMulti ? 'flex-1 min-w-0' : 'w-full'} p-2 rounded border-2 transition-opacity relative ${
-                                actualLesson.status === "completed" && !actualLesson.isGhost ? "opacity-40" : "opacity-100"
-                              } ${!actualLesson.isGhost && actualLesson.is_manual_override ? "ring-2 ring-yellow-400" : ""} ${
-                                studentColors[actualLesson.student_id] || "bg-gray-100 border-gray-300"
-                              }`}>
-                                {actualLesson.isGhost && (
-                                  <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />
-                                )}
-                                <div className={`font-medium ${isMulti ? 'text-[10px]' : 'text-xs'} mb-1 flex items-center gap-1`}>
-                                  {!actualLesson.isGhost && actualLesson.is_manual_override && <Calendar className="h-3 w-3 text-yellow-600 shrink-0" />}
-                                  <span className="truncate">{actualLesson.student_name}</span>
-                                </div>
-                                <div className={`${isMulti ? 'text-[9px]' : 'text-[10px]'} font-mono`}>
-                                  {formatTime(actualLesson.start_time)} - {formatTime(actualLesson.end_time)}
-                                </div>
-                              </div>;
-                            })}
-                            {trialLesson && visibleLessons.length === 0 ? (
-                              <div onClick={() => !processing && handleTrialLessonClick(trialLesson)} className={`w-full p-2 rounded border-2 transition-all ${processing ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:opacity-80"} ${trialLesson.is_completed ? "bg-red-100/30 border-red-200/50 opacity-30" : "bg-red-200 border-red-400"}`}>
-                                <div className={`font-medium text-xs mb-1 ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
-                                  Deneme Dersi
-                                </div>
-                                <div className={`text-[10px] font-mono ${trialLesson.is_completed ? "text-red-400" : "text-red-900"}`}>
-                                  {formatTime(trialLesson.start_time)} - {formatTime(trialLesson.end_time)}
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                        </td>;
-                      } else {
-                        // KALICI MODE: template only, no trials, no overrides, display-only
-                        const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
-                        const lesson = lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
-                        return <td key={day} className="border p-2">
-                          {lesson ? <div className={`p-2 rounded border-2 ${studentColors[lesson.student_id] || "bg-gray-100 border-gray-300"}`}>
-                              <div className="font-medium text-xs mb-1">
-                                {lesson.note ? `${lesson.student_name} - ${lesson.note}` : lesson.student_name}
-                              </div>
-                              <div className="text-[10px] font-mono">
-                                {formatTime(lesson.start_time)} - {formatTime(lesson.end_time)}
-                              </div>
-                            </div> : null}
-                        </td>;
-                      }
-                    })}
+                    {DAYS.map((_, dayIndex) => (
+                      <ScheduleGridCell
+                        key={dayIndex}
+                        showTemplate={showTemplate}
+                        dayIndex={dayIndex}
+                        timeSlot={timeSlot}
+                        lessons={lessons}
+                        actualLessons={actualLessons}
+                        trialLessons={trialLessons}
+                        weekStart={weekStart}
+                        studentColors={studentColorsMap}
+                        onActualLessonClick={() => { /* teacher view: real lessons are read-only */ }}
+                        onTrialLessonClick={handleTrialLessonClick}
+                      />
+                    ))}
                   </tr>)}
               </tbody>
             </table>

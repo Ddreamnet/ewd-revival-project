@@ -6,6 +6,17 @@ import { supabase } from '@/integrations/supabase/client';
 const PUSH_DISMISSED_KEY = 'push_permission_dismissed';
 
 /**
+ * Development-only logging. These traces print FCM registration tokens and
+ * session user ids, which end up readable in device logs on a shipped build,
+ * so they must never run in production. Genuine failures still use
+ * console.error / console.warn.
+ */
+const DEV = import.meta.env.DEV;
+const dlog = (...args: unknown[]) => {
+  if (DEV) console.log(...args);
+};
+
+/**
  * Create Android notification channels with custom sounds.
  * Must be called before any push arrives so the OS registers them.
  */
@@ -18,11 +29,11 @@ async function createAndroidChannels(): Promise<void> {
     { id: 'last_lesson', name: 'Son Ders Uyarısı', description: 'Admin son ders uyarısı', importance: 5 as const, sound: 'last_lesson' },
   ];
 
-  console.log('[PUSH] Creating Android notification channels...');
+  dlog('[PUSH] Creating Android notification channels...');
   for (const ch of channels) {
     try {
       await LocalNotifications.createChannel(ch);
-      console.log(`[PUSH] Channel created: ${ch.id}, sound: ${ch.sound}`);
+      dlog(`[PUSH] Channel created: ${ch.id}, sound: ${ch.sound}`);
     } catch (err) {
       console.warn(`[PUSH] Failed to create channel ${ch.id}:`, err);
     }
@@ -37,12 +48,12 @@ export async function initPushNotifications(
   userId: string,
   role: 'teacher' | 'student' | 'admin'
 ): Promise<void> {
-  console.log('[PUSH-DIAG] initPushNotifications called, userId:', userId, 'role:', role);
-  console.log('[PUSH-DIAG] isNativePlatform:', Capacitor.isNativePlatform(), 'platform:', Capacitor.getPlatform());
+  dlog('[PUSH-DIAG] initPushNotifications called, userId:', userId, 'role:', role);
+  dlog('[PUSH-DIAG] isNativePlatform:', Capacitor.isNativePlatform(), 'platform:', Capacitor.getPlatform());
 
   // Only run on native (Android/iOS)
   if (!Capacitor.isNativePlatform()) {
-    console.log('[PUSH-DIAG] Not native platform, returning early');
+    dlog('[PUSH-DIAG] Not native platform, returning early');
     return;
   }
 
@@ -51,36 +62,36 @@ export async function initPushNotifications(
 
   try {
     const permStatus = await PushNotifications.checkPermissions();
-    console.log('[PUSH-DIAG] checkPermissions result:', permStatus.receive);
+    dlog('[PUSH-DIAG] checkPermissions result:', permStatus.receive);
 
     if (permStatus.receive === 'granted') {
-      console.log('[PUSH-DIAG] Already granted, registering token...');
+      dlog('[PUSH-DIAG] Already granted, registering token...');
       await registerAndSaveToken(userId, role);
       return;
     }
 
     if (permStatus.receive === 'denied') {
-      console.log('[PUSH-DIAG] Permission denied by user');
+      dlog('[PUSH-DIAG] Permission denied by user');
       return;
     }
 
     // 'prompt' — check if user previously dismissed our custom dialog
     const dismissed = localStorage.getItem(PUSH_DISMISSED_KEY);
     if (dismissed === 'true') {
-      console.log('[PUSH-DIAG] Previously dismissed, skipping');
+      dlog('[PUSH-DIAG] Previously dismissed, skipping');
       return;
     }
 
     // Request permission (native dialog will appear on Android 13+)
     const result = await PushNotifications.requestPermissions();
-    console.log('[PUSH-DIAG] requestPermissions result:', result.receive);
+    dlog('[PUSH-DIAG] requestPermissions result:', result.receive);
 
     if (result.receive === 'granted') {
       await registerAndSaveToken(userId, role);
     } else {
       // User denied — mark so we don't ask again until next install
       localStorage.setItem(PUSH_DISMISSED_KEY, 'true');
-      console.log('[PUSH-DIAG] User denied permission, marked dismissed');
+      dlog('[PUSH-DIAG] User denied permission, marked dismissed');
     }
   } catch (error) {
     console.error('[PUSH-DIAG] Push notification init error:', error);
@@ -91,21 +102,21 @@ export async function initPushNotifications(
  * Register for push and save the token to Supabase.
  */
 async function registerAndSaveToken(userId: string, role: string): Promise<void> {
-  console.log('[PUSH-DIAG] registerAndSaveToken entered, userId:', userId, 'role:', role);
+  dlog('[PUSH-DIAG] registerAndSaveToken entered, userId:', userId, 'role:', role);
 
   // Remove any existing listeners to prevent accumulation on re-mounts
   await PushNotifications.removeAllListeners();
 
   // Listen for registration success
   await PushNotifications.addListener('registration', async (token) => {
-    console.log('[PUSH-DIAG] >>> registration event FIRED, token:', token.value?.substring(0, 20) + '...');
+    dlog('[PUSH-DIAG] >>> registration event FIRED, token:', token.value?.substring(0, 20) + '...');
 
     const platform = Capacitor.getPlatform(); // 'android' | 'ios'
 
     // Diagnostic: check current session
     const { data: sessionData } = await supabase.auth.getSession();
     const sessionUserId = sessionData?.session?.user?.id;
-    console.log('[PUSH-DIAG] current session user_id:', sessionUserId, 'matches userId param:', sessionUserId === userId);
+    dlog('[PUSH-DIAG] current session user_id:', sessionUserId, 'matches userId param:', sessionUserId === userId);
 
     if (!sessionUserId) {
       console.error('[PUSH-DIAG] NO SESSION — token cannot be saved. Retrying in 2s...');
@@ -113,7 +124,7 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
       await new Promise(resolve => setTimeout(resolve, 2000));
       const { data: retrySession } = await supabase.auth.getSession();
       const retryUserId = retrySession?.session?.user?.id;
-      console.log('[PUSH-DIAG] retry session user_id:', retryUserId);
+      dlog('[PUSH-DIAG] retry session user_id:', retryUserId);
       if (!retryUserId) {
         console.error('[PUSH-DIAG] Still no session after retry, aborting token save');
         return;
@@ -126,16 +137,16 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
       .select('user_id, role')
       .eq('token', token.value)
       .maybeSingle();
-    console.log('[PUSH-DIAG] existing token owner:', existingToken);
+    dlog('[PUSH-DIAG] existing token owner:', existingToken);
 
     // If token belongs to a different user, delete it first then insert
     if (existingToken && existingToken.user_id !== userId) {
-      console.log('[PUSH-DIAG] Token owned by different user, deleting old record first');
+      dlog('[PUSH-DIAG] Token owned by different user, deleting old record first');
       const { error: deleteOldError } = await supabase
         .from('push_tokens')
         .delete()
         .eq('token', token.value);
-      console.log('[PUSH-DIAG] delete old token result - error:', deleteOldError);
+      dlog('[PUSH-DIAG] delete old token result - error:', deleteOldError);
     }
 
     // Clean up stale tokens from previous installs / builds
@@ -164,12 +175,12 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
       )
       .select();
 
-    console.log('[PUSH-DIAG] upsert result - data:', upsertData, 'error:', error);
+    dlog('[PUSH-DIAG] upsert result - data:', upsertData, 'error:', error);
 
     if (error) {
       console.error('[PUSH-DIAG] Failed to save push token:', error);
     } else {
-      console.log(`[PUSH-DIAG] Token registered successfully for ${role}`);
+      dlog(`[PUSH-DIAG] Token registered successfully for ${role}`);
     }
   });
 
@@ -180,12 +191,12 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
 
   // Foreground notification
   await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-    console.log('[PUSH] Push received (foreground):', notification);
+    dlog('[PUSH] Push received (foreground):', notification);
   });
 
   // User tapped on notification — navigate via deep link
   await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-    console.log('[PUSH] Push action performed:', action);
+    dlog('[PUSH] Push action performed:', action);
     const data = action.notification.data ?? {};
     const deepLink: string = data.deep_link ?? '/dashboard';
     if (deepLink && deepLink.startsWith('/')) {
@@ -194,12 +205,12 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
     }
   });
 
-  console.log('[PUSH-DIAG] All listeners added, calling register()...');
+  dlog('[PUSH-DIAG] All listeners added, calling register()...');
 
   // Register with FCM/APNs
   await PushNotifications.register();
 
-  console.log('[PUSH-DIAG] PushNotifications.register() completed');
+  dlog('[PUSH-DIAG] PushNotifications.register() completed');
 }
 
 /**
@@ -218,9 +229,3 @@ export async function disablePushTokens(userId: string): Promise<void> {
   }
 }
 
-/**
- * Reset the "dismissed" flag so the prompt shows again.
- */
-export function resetPushDismissed(): void {
-  localStorage.removeItem(PUSH_DISMISSED_KEY);
-}

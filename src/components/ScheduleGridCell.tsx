@@ -9,7 +9,6 @@ import {
   isSecondaryInBackToBack,
   getBackToBackGroupForLesson,
   dayIndexToDbDayOfWeek,
-  getLessonDateForCurrentWeek,
   ActualLesson,
 } from "@/hooks/useScheduleGrid";
 

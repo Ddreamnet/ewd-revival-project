@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,16 +8,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { Users, BookOpen, LogOut, Clock, Wallet, Calendar, FileUser } from "lucide-react";
 import { StudentTopics } from "./StudentTopics";
 import { Header } from "./Header";
-import { GlobalTopicsManager } from "./GlobalTopicsManager";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggleButton } from "./ThemeToggleButton";
 import { WeeklyScheduleDialog } from "./WeeklyScheduleDialog";
 import { TeacherBalanceDialog } from "./TeacherBalanceDialog";
-import { StudentAboutDialog } from "./StudentAboutDialog";
 import { initPushNotifications } from "@/lib/pushNotifications";
 import { HomeworkListDialog } from "./HomeworkListDialog";
 import { getDayName, formatTime } from "@/lib/lessonTypes";
 import type { Student, StudentLessonBase } from "@/lib/types";
+
+// Both pull in the TipTap editor (~490 kB); loaded on demand instead of on
+// every teacher dashboard render.
+const GlobalTopicsManager = lazy(() =>
+  import("./GlobalTopicsManager").then((m) => ({ default: m.GlobalTopicsManager }))
+);
+const StudentAboutDialog = lazy(() =>
+  import("./StudentAboutDialog").then((m) => ({ default: m.StudentAboutDialog }))
+);
 export function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -28,6 +35,7 @@ export function TeacherDashboard() {
   const [showStudentAbout, setShowStudentAbout] = useState(false);
   const [showHomeworkForStudent, setShowHomeworkForStudent] = useState<Student | null>(null);
   const [studentAboutData, setStudentAboutData] = useState<{ studentId: string; studentName: string; aboutText: string | null } | null>(null);
+  const [pendingHomeworkStudentId, setPendingHomeworkStudentId] = useState<string | null>(null);
   const {
     profile,
     signOut,
@@ -49,25 +57,28 @@ export function TeacherDashboard() {
     }
   }, [profile]);
 
-  // Handle homework deep link from push notification
+  // Capture the homework deep link once, before the URL is cleared.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('action') === 'homework') {
-      const studentId = params.get('student_id');
-      if (studentId) {
-        // Wait for students to load, then open homework for the specific student
-        const checkAndOpen = () => {
-          const studentToShow = students.find(s => s.student_id === studentId);
-          if (studentToShow) {
-            setSelectedStudent(studentToShow);
-            setShowHomeworkForStudent(studentToShow);
-          }
-        };
-        checkAndOpen();
-      }
-      window.history.replaceState({}, '', '/dashboard');
+    if (params.get('action') !== 'homework') return;
+    const studentId = params.get('student_id');
+    if (studentId) setPendingHomeworkStudentId(studentId);
+    window.history.replaceState({}, '', '/dashboard');
+  }, []);
+
+  // Resolve it once the students have loaded. Previously both steps lived in a
+  // single effect keyed on `students`: the first pass cleared the URL while the
+  // list was still empty, so the re-run found no params and tapping the
+  // notification did nothing.
+  useEffect(() => {
+    if (!pendingHomeworkStudentId || students.length === 0) return;
+    const studentToShow = students.find((s) => s.student_id === pendingHomeworkStudentId);
+    if (studentToShow) {
+      setSelectedStudent(studentToShow);
+      setShowHomeworkForStudent(studentToShow);
     }
-  }, [students]);
+    setPendingHomeworkStudentId(null);
+  }, [pendingHomeworkStudentId, students]);
   const fetchStudents = async () => {
     try {
       // Fetch students with their lessons (exclude archived students)
@@ -311,22 +322,28 @@ export function TeacherDashboard() {
       </div>
 
       {/* Global Topics Manager - Read-only for teachers */}
-      <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={false} />
+      {showGlobalTopics && (
+        <Suspense fallback={null}>
+          <GlobalTopicsManager open={showGlobalTopics} onOpenChange={setShowGlobalTopics} isAdmin={false} />
+        </Suspense>
+      )}
 
       <WeeklyScheduleDialog open={showWeeklySchedule} onOpenChange={setShowWeeklySchedule} teacherId={profile?.user_id || ""} />
 
       <TeacherBalanceDialog open={showBalance} onOpenChange={setShowBalance} teacherId={profile?.user_id || ""} />
 
       {studentAboutData && (
-        <StudentAboutDialog
-          key={studentAboutData.studentId}
-          open={showStudentAbout}
-          onOpenChange={setShowStudentAbout}
-          studentId={studentAboutData.studentId}
-          studentName={studentAboutData.studentName}
-          aboutText={studentAboutData.aboutText}
-          isReadOnly={true}
-        />
+        <Suspense fallback={null}>
+          <StudentAboutDialog
+            key={studentAboutData.studentId}
+            open={showStudentAbout}
+            onOpenChange={setShowStudentAbout}
+            studentId={studentAboutData.studentId}
+            studentName={studentAboutData.studentName}
+            aboutText={studentAboutData.aboutText}
+            isReadOnly={true}
+          />
+        </Suspense>
       )}
 
       {/* Homework Dialog opened from notification click */}

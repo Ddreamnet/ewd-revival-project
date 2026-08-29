@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Scratch data — this held real production dumps (student and balance rows)
+tmp/
+*.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

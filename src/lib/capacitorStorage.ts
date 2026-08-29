@@ -34,41 +34,66 @@ export const capacitorStorage = isNative
       },
     };
 
-/**
- * Helper to clear all Supabase auth keys from the active storage.
- */
-// ── Credential prefill storage ──────────────────────────────────────────
+// ── Login prefill ───────────────────────────────────────────────────────
+// Only the e-mail is remembered. Earlier builds also persisted the password in
+// plaintext (Preferences on native, localStorage on web) purely to prefill the
+// form — which meant anyone with the device, a device backup, or a foothold in
+// the page could read the actual password rather than a revocable session
+// token. Supabase already persists the session, so the password bought nothing.
 const CRED_EMAIL_KEY = 'app-cred-email';
-const CRED_PASSWORD_KEY = 'app-cred-password';
+const LEGACY_PASSWORD_KEY = 'app-cred-password';
 
-export async function saveCredentials(email: string, password: string): Promise<void> {
-  if (isNative) {
-    await Preferences.set({ key: CRED_EMAIL_KEY, value: email });
-    await Preferences.set({ key: CRED_PASSWORD_KEY, value: password });
-  } else {
-    localStorage.setItem(CRED_EMAIL_KEY, email);
-    localStorage.setItem(CRED_PASSWORD_KEY, password);
+export async function saveLastEmail(email: string): Promise<void> {
+  try {
+    if (isNative) {
+      await Preferences.set({ key: CRED_EMAIL_KEY, value: email });
+    } else {
+      localStorage.setItem(CRED_EMAIL_KEY, email);
+    }
+  } catch {
+    // Prefill is a convenience — never block sign-in on a storage failure.
   }
 }
 
-export async function loadCredentials(): Promise<{ email: string; password: string }> {
-  if (isNative) {
-    const { value: email } = await Preferences.get({ key: CRED_EMAIL_KEY });
-    const { value: password } = await Preferences.get({ key: CRED_PASSWORD_KEY });
-    return { email: email || '', password: password || '' };
-  } else {
-    return {
-      email: localStorage.getItem(CRED_EMAIL_KEY) || '',
-      password: localStorage.getItem(CRED_PASSWORD_KEY) || '',
-    };
+export async function loadLastEmail(): Promise<string> {
+  try {
+    if (isNative) {
+      const { value } = await Preferences.get({ key: CRED_EMAIL_KEY });
+      return value || '';
+    }
+    return localStorage.getItem(CRED_EMAIL_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Deletes the plaintext password left behind by older installs.
+ * Runs once at startup so upgrading devices stop carrying the credential.
+ */
+export async function purgeLegacyStoredPassword(): Promise<void> {
+  try {
+    if (isNative) {
+      await Preferences.remove({ key: LEGACY_PASSWORD_KEY });
+    } else {
+      localStorage.removeItem(LEGACY_PASSWORD_KEY);
+    }
+  } catch {
+    // Best effort.
   }
 }
 
 // ── Supabase session storage cleanup ────────────────────────────────────
 export async function clearSupabaseStorage(): Promise<void> {
   if (isNative) {
-    const knownKey = `sb-hwwpbtcgppzuscbvjkde-auth-token`;
-    await Preferences.remove({ key: knownKey });
+    // Derived from the configured project ref rather than hardcoded, so this
+    // keeps working if the Supabase project is ever migrated.
+    const projectRef =
+      import.meta.env.VITE_SUPABASE_PROJECT_ID || 'hwwpbtcgppzuscbvjkde';
+    const { keys } = await Preferences.keys();
+    const supabaseKeys = keys.filter((k) => k.startsWith('sb-') || k.includes('supabase'));
+    const toRemove = supabaseKeys.length > 0 ? supabaseKeys : [`sb-${projectRef}-auth-token`];
+    await Promise.all(toRemove.map((key) => Preferences.remove({ key })));
   } else {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {

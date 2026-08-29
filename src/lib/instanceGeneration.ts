@@ -8,9 +8,10 @@
  * sorted by startTime and each produces a separate instance.
  */
 
-import { addDays, format, startOfDay, isBefore } from "date-fns";
+import { addDays, startOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { checkTeacherConflicts, ConflictInfo } from "./conflictDetection";
+import { toDbTime, isSameTime, parseLocalDate, toDateStr } from "./lessonTypes";
 
 export interface TemplateSlot {
   dayOfWeek: number; // 0=Sun, 1=Mon, ..., 6=Sat
@@ -54,14 +55,17 @@ export function getSlotBefore(
 
   const sortedSlots = [...templateSlots].sort((a, b) => {
     if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
-    return a.startTime.localeCompare(b.startTime);
+    return toDbTime(a.startTime).localeCompare(toDbTime(b.startTime));
   });
 
   const currentDow = currentDate.getDay();
 
-  // Find current slot's index in the sorted ring
+  // Find current slot's index in the sorted ring.
+  // Compared through isSameTime: template slots may carry "09:00" while the
+  // instance carries "09:00:00", and a raw === never matched — which made the
+  // backward-shift arrow silently do nothing ("Daha geriye kaydırılamaz").
   const currentIdx = sortedSlots.findIndex(
-    (s) => s.dayOfWeek === currentDow && s.startTime === currentTime
+    (s) => s.dayOfWeek === currentDow && isSameTime(s.startTime, currentTime)
   );
 
   if (currentIdx === -1) return null;
@@ -94,13 +98,21 @@ export function generateFutureInstanceDates(
   if (count <= 0 || templateSlots.length === 0) return [];
 
   const results: { lessonDate: string; startTime: string; endTime: string }[] = [];
-  // Sort slots by dayOfWeek then startTime for predictable iteration
-  const sortedSlots = [...templateSlots].sort((a, b) => {
-    if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
-    return a.startTime.localeCompare(b.startTime);
-  });
+  // Normalize every slot time up front so ordering and the afterTime cutoff
+  // below compare like-for-like (see toDbTime in lessonTypes).
+  const sortedSlots = [...templateSlots]
+    .map((s) => ({
+      dayOfWeek: s.dayOfWeek,
+      startTime: toDbTime(s.startTime),
+      endTime: toDbTime(s.endTime),
+    }))
+    .sort((a, b) => {
+      if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
+      return a.startTime.localeCompare(b.startTime);
+    });
 
-  let currentDate = startOfDay(startFromDate);
+  const cutoff = afterTime ? toDbTime(afterTime) : undefined;
+  const currentDate = startOfDay(parseLocalDate(startFromDate));
   const maxDays = 200; // Safety limit
 
   for (let offset = 0; offset < maxDays && results.length < count; offset++) {
@@ -112,10 +124,12 @@ export function generateFutureInstanceDates(
 
     for (const slot of matchingSlots) {
       if (results.length >= count) break;
-      // On the first day (offset=0), skip slots at or before afterTime
-      if (offset === 0 && afterTime && slot.startTime <= afterTime) continue;
+      // On the first day (offset=0), skip slots at or before afterTime.
+      // Unnormalized, "09:00:00" <= "09:00" was false and the anchor slot got
+      // regenerated on top of itself — one source of duplicate lesson rows.
+      if (offset === 0 && cutoff && slot.startTime <= cutoff) continue;
       results.push({
-        lessonDate: format(candidate, "yyyy-MM-dd"),
+        lessonDate: toDateStr(candidate),
         startTime: slot.startTime,
         endTime: slot.endTime,
       });
@@ -123,116 +137,6 @@ export function generateFutureInstanceDates(
   }
 
   return results;
-}
-
-/**
- * Sync template changes: keep completed instances, regenerate planned ones.
- * Returns conflicts if any would be created.
- */
-export async function syncTemplateChange(
-  studentId: string,
-  teacherId: string,
-  newSlots: TemplateSlot[],
-  totalLessons: number
-): Promise<{ conflicts: ConflictInfo[]; success: boolean }> {
-  // Get current cycle
-  const { data: tracking } = await supabase
-    .from("student_lesson_tracking")
-    .select("package_cycle")
-    .eq("student_id", studentId)
-    .eq("teacher_id", teacherId)
-    .maybeSingle();
-
-  const currentCycle = tracking?.package_cycle ?? 1;
-
-  // Fetch existing instances for current cycle only
-  const { data: existing } = await supabase
-    .from("lesson_instances")
-    .select("*")
-    .eq("student_id", studentId)
-    .eq("teacher_id", teacherId)
-    .eq("package_cycle", currentCycle)
-    .order("lesson_number", { ascending: true });
-
-  if (!existing) return { conflicts: [], success: false };
-
-  const completed = existing.filter((i) => i.status === "completed");
-  const planned = existing.filter((i) => i.status === "planned");
-
-  // Determine start date for regeneration: same day as last completed (with afterTime), or today
-  const today = startOfDay(new Date());
-  let startFrom = today;
-  let afterTime: string | undefined;
-  if (completed.length > 0) {
-    const lastCompleted = completed[completed.length - 1];
-    const lastDate = startOfDay(new Date(lastCompleted.lesson_date));
-    startFrom = isBefore(lastDate, today) ? today : lastDate;
-    // Use afterTime to skip slots at or before the last completed lesson's time on same day
-    if (startFrom.getTime() === lastDate.getTime()) {
-      afterTime = lastCompleted.start_time;
-    }
-  }
-
-  // Enforce total_rights cap
-  const plannedCount = Math.max(0, totalLessons - completed.length);
-  const newDates = generateFutureInstanceDates(newSlots, plannedCount, startFrom, afterTime);
-
-  // Check conflicts in parallel (warning-only)
-  const conflictResults = await Promise.all(
-    newDates.map((nd) =>
-      checkTeacherConflicts(teacherId, nd.lessonDate, nd.startTime, nd.endTime, undefined, studentId)
-    )
-  );
-  const allConflicts = conflictResults.flat();
-
-  if (allConflicts.length > 0) {
-    console.warn("syncTemplateChange: conflicts detected (warning-only):", allConflicts);
-  }
-
-  // Batch update planned instances
-  if (planned.length > 0 && newDates.length > 0) {
-    const updatePromises = planned.slice(0, Math.min(planned.length, newDates.length)).map((p, i) =>
-      supabase
-        .from("lesson_instances")
-        .update({
-          lesson_date: newDates[i].lessonDate,
-          start_time: newDates[i].startTime,
-          end_time: newDates[i].endTime,
-        })
-        .eq("id", p.id)
-    );
-    const updateResults = await Promise.all(updatePromises);
-    const updateErrors = updateResults.filter(r => r.error);
-    if (updateErrors.length > 0) {
-      throw new Error(`Instance güncelleme hatası: ${updateErrors.map(e => e.error?.message).join(', ')}`);
-    }
-  }
-
-  // If more planned lessons than before, batch insert
-  if (newDates.length > planned.length) {
-    const nextLessonNumber = Math.max(...existing.map((e) => e.lesson_number), 0) + 1;
-    const toInsert = newDates.slice(planned.length).map((nd, i) => ({
-      student_id: studentId,
-      teacher_id: teacherId,
-      lesson_number: nextLessonNumber + i,
-      lesson_date: nd.lessonDate,
-      start_time: nd.startTime,
-      end_time: nd.endTime,
-      status: "planned",
-      package_cycle: currentCycle,
-    }));
-    const { error: insertError } = await supabase.from("lesson_instances").insert(toInsert);
-    if (insertError) throw new Error(`Instance ekleme hatası: ${insertError.message}`);
-  }
-
-  // If fewer planned lessons, batch delete
-  if (newDates.length < planned.length) {
-    const excessIds = planned.slice(newDates.length).map((p) => p.id);
-    const { error: deleteError } = await supabase.from("lesson_instances").delete().in("id", excessIds);
-    if (deleteError) throw new Error(`Instance silme hatası: ${deleteError.message}`);
-  }
-
-  return { conflicts: [], success: true };
 }
 
 /**
@@ -280,44 +184,62 @@ export async function shiftLessonsForward(
 
   // Generate new dates starting from the SAME day but after the current slot's time
   // This enables same-day cascade: Mon 10:00 shifts to Mon 11:00 if available
-  const startDate = new Date(toShift[0].lesson_date);
-  const afterTime = toShift[0].start_time;
+  const startDate = parseLocalDate(toShift[0].lesson_date);
+  const afterTime = toDbTime(toShift[0].start_time);
   const newDates = generateFutureInstanceDates(templateSlots, toShift.length, startDate, afterTime);
 
-  // Check conflicts in parallel (warning-only)
-  const conflictResults = await Promise.all(
-    newDates.map((nd, i) =>
-      checkTeacherConflicts(teacherId, nd.lessonDate, nd.startTime, nd.endTime, toShift[i].id, studentId)
-    )
-  );
-  const allConflicts = conflictResults.flat();
-
-  if (allConflicts.length > 0) {
-    console.warn("shiftLessonsForward: conflicts detected (warning-only):", allConflicts);
-  }
-
-  // Apply shifts in parallel with a shared group ID for batch revert
+  // One atomic RPC: conflict check, sentinel-parked reorder, override
+  // bookkeeping and renumbering all happen in a single transaction.
+  //
+  // This used to run the conflict check and then N parallel UPDATEs. Because
+  // `uniq_active_planned_slot` is a partial UNIQUE index on
+  // (student_id, lesson_date, start_time) WHERE status='planned', the lesson
+  // moving into the next slot collided with the lesson still occupying it
+  // whenever the writes landed in an unlucky order — the intermittent
+  // "zaten bir ders var" failure when postponing a lesson. A mid-flight error
+  // also left the chain half-shifted, with no rollback.
+  const count = Math.min(toShift.length, newDates.length);
   const shiftGroupId = crypto.randomUUID();
-  const shiftResults = await Promise.all(
-    toShift.slice(0, newDates.length).map((inst, i) =>
-      supabase
-        .from("lesson_instances")
-        .update({
-          original_date: inst.original_date || inst.lesson_date,
-          original_start_time: inst.original_start_time || inst.start_time,
-          original_end_time: inst.original_end_time || inst.end_time,
-          lesson_date: newDates[i].lessonDate,
-          start_time: newDates[i].startTime,
-          end_time: newDates[i].endTime,
-          rescheduled_count: inst.rescheduled_count + 1,
-          shift_group_id: shiftGroupId,
-        })
-        .eq("id", inst.id)
-    )
-  );
-  const shiftErrors = shiftResults.filter(r => r.error);
-  if (shiftErrors.length > 0) {
-    throw new Error(`Shift güncelleme hatası: ${shiftErrors.map(e => e.error?.message).join(', ')}`);
+
+  const { data, error } = await supabase.rpc("rpc_apply_chain_dates", {
+    p_student_id: studentId,
+    p_teacher_id: teacherId,
+    p_updates: toShift.slice(0, count).map((inst, i) => ({
+      id: inst.id,
+      lessonDate: newDates[i].lessonDate,
+      startTime: newDates[i].startTime,
+      endTime: newDates[i].endTime,
+    })),
+    p_mark_override: true,
+    p_shift_group_id: shiftGroupId,
+  });
+
+  if (error) throw new Error(`Shift güncelleme hatası: ${error.message}`);
+
+  const result = data as unknown as {
+    success: boolean;
+    error?: string;
+    conflict_student?: string;
+    conflict_date?: string;
+    conflict_time?: string;
+  };
+
+  if (!result?.success) {
+    if (result?.error === "conflict") {
+      return {
+        conflicts: [
+          {
+            studentName: result.conflict_student || "Bilinmeyen Öğrenci",
+            date: result.conflict_date || "",
+            timeRange: result.conflict_time || "",
+            type: result.conflict_student === "Deneme Dersi" ? "trial" : "lesson",
+            teacherId,
+          },
+        ],
+        success: false,
+      };
+    }
+    throw new Error(result?.error || "Dersler kaydırılamadı");
   }
 
   return { conflicts: [], success: true };

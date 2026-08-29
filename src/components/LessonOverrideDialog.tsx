@@ -12,16 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, ArrowRight, CalendarClock, RotateCcw, Save, AlertTriangle } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { formatTime as sharedFormatTime } from "@/lib/lessonTypes";
+import { formatTime as sharedFormatTime, toDbTime, toDateStr, toInputTime } from "@/lib/lessonTypes";
 import { calculateNextLessonDate as calcNextDate } from "@/lib/lessonDateCalculation";
 import { useToast } from "@/hooks/use-toast";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { shiftLessonsForward, TemplateSlot } from "@/lib/instanceGeneration";
 import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
+import { clearWeekCache } from "@/hooks/useScheduleGrid";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,8 +74,8 @@ export function LessonOverrideDialog({
   const displayEndTime = currentEndTime || originalEndTime;
 
   const [newDate, setNewDate] = useState<Date | undefined>(displayDate);
-  const [newStartTime, setNewStartTime] = useState(displayStartTime.slice(0, 5));
-  const [newEndTime, setNewEndTime] = useState(displayEndTime.slice(0, 5));
+  const [newStartTime, setNewStartTime] = useState(toInputTime(displayStartTime));
+  const [newEndTime, setNewEndTime] = useState(toInputTime(displayEndTime));
   const [saving, setSaving] = useState(false);
   const [showPostponeConfirm, setShowPostponeConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
@@ -88,8 +89,8 @@ export function LessonOverrideDialog({
       const startTimeToUse = currentStartTime || originalStartTime;
       const endTimeToUse = currentEndTime || originalEndTime;
       setNewDate(dateToUse);
-      setNewStartTime(startTimeToUse.slice(0, 5));
-      setNewEndTime(endTimeToUse.slice(0, 5));
+      setNewStartTime(toInputTime(startTimeToUse));
+      setNewEndTime(toInputTime(endTimeToUse));
       setConflicts([]);
       calculateNextLessonDate(originalDate).then(setNextLessonDate);
     }
@@ -99,9 +100,9 @@ export function LessonOverrideDialog({
 
   const hasDateTimeChanges = (): boolean => {
     if (!newDate) return false;
-    const dateChanged = format(newDate, "yyyy-MM-dd") !== format(displayDate, "yyyy-MM-dd");
-    const startTimeChanged = newStartTime !== displayStartTime.slice(0, 5);
-    const endTimeChanged = newEndTime !== displayEndTime.slice(0, 5);
+    const dateChanged = toDateStr(newDate) !== toDateStr(displayDate);
+    const startTimeChanged = newStartTime !== toInputTime(displayStartTime);
+    const endTimeChanged = newEndTime !== toInputTime(displayEndTime);
     return dateChanged || startTimeChanged || endTimeChanged;
   };
 
@@ -157,7 +158,14 @@ export function LessonOverrideDialog({
 
       if (result.conflicts.length > 0) {
         setConflicts(result.conflicts);
-        // Warning only — don't block, just inform
+        toast({
+          title: "Çakışma var",
+          description: "Dersler kaydırılamadı; çakışmaları çözüp tekrar deneyin.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        setShowPostponeConfirm(false);
+        return;
       }
 
       if (!result.success) {
@@ -167,9 +175,7 @@ export function LessonOverrideDialog({
         return;
       }
 
-
-
-
+      clearWeekCache();
       toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
       onSuccess();
       onOpenChange(false);
@@ -195,66 +201,91 @@ export function LessonOverrideDialog({
       return;
     }
 
+    if (!instanceId) {
+      toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     setConflicts([]);
     try {
-      const newDateStr = format(newDate, "yyyy-MM-dd");
-      const newStartFull = newStartTime + ":00";
-      const newEndFull = newEndTime + ":00";
+      const newDateStr = toDateStr(newDate);
+      const newStartFull = toDbTime(newStartTime);
+      const newEndFull = toDbTime(newEndTime);
 
-      // Conflict check
+      // Conflict check — block on conflict to avoid creating duplicate slots.
+      // The previous behaviour (warning + save) was the root cause of the
+      // "two lessons in the same slot" bug. The DB trigger
+      // `prevent_duplicate_lesson_instance` is the last-line defence; this
+      // check exists so the user gets a clear UI message instead of a
+      // raw DB error.
       const foundConflicts = await checkTeacherConflicts(
         teacherId,
         newDateStr,
         newStartFull,
         newEndFull,
-        instanceId,
-        studentId
+        [instanceId]
       );
 
       if (foundConflicts.length > 0) {
         setConflicts(foundConflicts);
-        // Warning only — don't block save
-      }
-
-      // Update lesson_instances (source of truth)
-      if (!instanceId) {
-        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
-        setSaving(false);
+        toast({
+          title: "Çakışma var",
+          description: "Bu saat dilimi başka bir derse ait. Önce o dersi taşıyın.",
+          variant: "destructive",
+        });
         return;
       }
 
-      const { data: currentInst } = await supabase
+      const { data: currentInst, error: fetchError } = await supabase
         .from("lesson_instances")
-        .select("lesson_date, start_time, end_time, original_date, rescheduled_count")
+        .select("lesson_date, start_time, end_time, original_date, original_start_time, original_end_time, rescheduled_count")
         .eq("id", instanceId)
         .single();
 
-      if (currentInst) {
-        await supabase
-          .from("lesson_instances")
-          .update({
-            lesson_date: newDateStr,
-            start_time: newStartFull,
-            end_time: newEndFull,
-            original_date: currentInst.original_date || currentInst.lesson_date,
-            original_start_time: currentInst.original_date ? undefined : currentInst.start_time,
-            original_end_time: currentInst.original_date ? undefined : currentInst.end_time,
-            rescheduled_count: currentInst.rescheduled_count + 1,
-            is_manual_override: true,
-          })
-          .eq("id", instanceId);
-
-        // Non-template weekday warning
-        const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
-        if (check.isNonTemplate) {
-          toast({
-            title: "Bilgi",
-            description: `Seçilen tarih (${format(newDate, "d MMM", { locale: tr })}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
-          });
-        }
+      if (fetchError || !currentInst) {
+        toast({ title: "Hata", description: "Ders bulunamadı", variant: "destructive" });
+        return;
       }
 
+      const { error: updateError } = await supabase
+        .from("lesson_instances")
+        .update({
+          lesson_date: newDateStr,
+          start_time: newStartFull,
+          end_time: newEndFull,
+          original_date: currentInst.original_date || currentInst.lesson_date,
+          original_start_time: currentInst.original_start_time || currentInst.start_time,
+          original_end_time: currentInst.original_end_time || currentInst.end_time,
+          rescheduled_count: currentInst.rescheduled_count + 1,
+          is_manual_override: true,
+        })
+        .eq("id", instanceId);
+
+      if (updateError) {
+        // The duplicate-prevention trigger raises unique_violation (23505).
+        // Surface a friendly message either way.
+        const isDuplicate = updateError.code === "23505";
+        toast({
+          title: isDuplicate ? "Çakışma var" : "Hata",
+          description: isDuplicate
+            ? "Bu saat dilimi başka bir derse ait. Önce o dersi taşıyın."
+            : updateError.message || "Ders tarihi değiştirilemedi",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Non-template weekday warning
+      const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
+      if (check.isNonTemplate) {
+        toast({
+          title: "Bilgi",
+          description: `Seçilen tarih (${format(newDate, "d MMM", { locale: tr })}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
+        });
+      }
+
+      clearWeekCache();
       toast({
         title: "Başarılı",
         description: `Ders ${format(newDate, "d MMMM", { locale: tr })} tarihine taşındı`,
@@ -322,7 +353,9 @@ export function LessonOverrideDialog({
         }];
       }
 
-      // Conflict check for all instances in parallel (warning-only)
+      // Conflict check — exclude every row in the revert batch so a chain
+      // revert doesn't flag itself.
+      const revertingIds = instancesToRevert.map((ri) => ri.id);
       const conflictResults = await Promise.all(
         instancesToRevert.map((ri) =>
           checkTeacherConflicts(
@@ -330,8 +363,7 @@ export function LessonOverrideDialog({
             ri.original_date,
             ri.original_start_time || originalStartTime,
             ri.original_end_time || originalEndTime,
-            ri.id,
-            studentId
+            revertingIds
           )
         )
       );
@@ -339,10 +371,16 @@ export function LessonOverrideDialog({
 
       if (allRevertConflicts.length > 0) {
         setConflicts(allRevertConflicts);
+        toast({
+          title: "Çakışma var",
+          description: "Geri alma yapılamadı; orijinal saat dilimleri başka derslerle çakışıyor.",
+          variant: "destructive",
+        });
+        return;
       }
 
       // Batch revert all instances in parallel
-      await Promise.all(
+      const revertResults = await Promise.all(
         instancesToRevert.map((ri) =>
           supabase
             .from("lesson_instances")
@@ -360,7 +398,20 @@ export function LessonOverrideDialog({
             .eq("id", ri.id)
         )
       );
+      const revertErrors = revertResults.filter((r) => r.error);
+      if (revertErrors.length > 0) {
+        const isDup = revertErrors.some((r) => r.error?.code === "23505");
+        toast({
+          title: isDup ? "Çakışma var" : "Hata",
+          description: isDup
+            ? "Geri alma yapılamadı; orijinal saat dilimleri başka derslerle çakışıyor."
+            : revertErrors[0].error?.message || "Değişiklik geri alınamadı",
+          variant: "destructive",
+        });
+        return;
+      }
 
+      clearWeekCache();
       const revertCount = instancesToRevert.length;
       toast({
         title: "Başarılı",
