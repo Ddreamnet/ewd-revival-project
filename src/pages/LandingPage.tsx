@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { HeroSection } from '@/components/landing/HeroSection';
+import { RibbonBand } from '@/components/landing/RibbonBand';
+import { DailyWordsSection } from '@/components/landing/DailyWordsSection';
 import { WhySection } from '@/components/landing/WhySection';
 import { KidsPackages } from '@/components/landing/KidsPackages';
 import { AdultPackages } from '@/components/landing/AdultPackages';
@@ -11,11 +13,10 @@ import { ValuesSection } from '@/components/landing/ValuesSection';
 import { ContactSection } from '@/components/landing/ContactSection';
 import { Footer } from '@/components/landing/Footer';
 import { StickyBubble } from '@/components/landing/StickyBubble';
-import { LanguageProvider } from '@/contexts/LanguageContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-function LandingContent() {
+export default function LandingPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const scrollHandled = useRef(false);
@@ -50,10 +51,13 @@ function LandingContent() {
   }
 
   return (
-    <div className="landing-body min-h-screen overflow-x-hidden">
+    // `ewd-light`: landing her zaman açık modda kalır (koyu mod yalnızca panelde).
+    <div className="landing-body ewd-light min-h-screen">
       <LandingHeader />
       <main>
         <HeroSection />
+        <RibbonBand />
+        <DailyWordsSection />
         <WhySection />
         <KidsPackages />
         <AdultPackages />
@@ -65,13 +69,5 @@ function LandingContent() {
       <Footer />
       <StickyBubble />
     </div>
-  );
-}
-
-export default function LandingPage() {
-  return (
-    <LanguageProvider>
-      <LandingContent />
-    </LanguageProvider>
   );
 }

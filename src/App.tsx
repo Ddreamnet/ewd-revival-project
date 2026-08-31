@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, lazy, Suspense } from "react";
 import { Capacitor } from "@capacitor/core";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthForm } from "@/components/AuthForm";
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +23,7 @@ const WorkWithUsPage = lazy(() => import("./pages/WorkWithUsPage"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const BlogPage = lazy(() => import("./pages/BlogPage"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage"));
+const WordsPage = lazy(() => import("./pages/WordsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Prefetch secondary routes after initial load
@@ -32,6 +34,7 @@ if (typeof window !== "undefined") {
       import("./pages/PrivacyPolicyPage");
       import("./pages/BlogPage");
       import("./pages/BlogPostPage");
+      import("./pages/WordsPage");
     }, 1000);
   }, { once: true });
 }
@@ -108,6 +111,7 @@ function SplashHider() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <LanguageProvider>
     <AuthProvider>
       <SplashHider />
       <TooltipProvider>
@@ -122,6 +126,7 @@ const App = () => (
               <Route path="/gizlilik-politikasi" element={<PrivacyPolicyPage />} />
               <Route path="/blog" element={<BlogPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
+              <Route path="/gunun-kelimeleri" element={<WordsPage />} />
               <Route path="/login" element={<AuthForm />} />
               <Route path="/dashboard" element={<DashboardRoutes />} />
               <Route path="*" element={<NotFound />} />
@@ -130,6 +135,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </LanguageProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

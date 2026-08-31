@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,18 +11,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ArrowRight, CalendarClock, RotateCcw, Save, AlertTriangle } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
+import { CalendarIcon, ArrowRight, RotateCcw, AlertTriangle, History } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { formatTime as sharedFormatTime, toDbTime, toDateStr, toInputTime } from "@/lib/lessonTypes";
-import { calculateNextLessonDate as calcNextDate } from "@/lib/lessonDateCalculation";
+import { formatTime, toDbTime, toDateStr, toInputTime, parseLocalDate } from "@/lib/lessonTypes";
 import { useToast } from "@/hooks/use-toast";
-import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
-import { shiftLessonsForward, TemplateSlot } from "@/lib/instanceGeneration";
-import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
-import { clearWeekCache } from "@/hooks/useScheduleGrid";
+import {
+  moveLesson,
+  postponeLesson,
+  revertLesson,
+  nextFreeSlot,
+  describeRescheduleError,
+  type RescheduleResult,
+} from "@/lib/lessonService";
+import { clearWeekCache, type ActualLesson } from "@/hooks/useScheduleGrid";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,421 +42,190 @@ import {
 interface LessonOverrideDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  studentId: string;
+  /** The lesson_instances row the admin clicked in the schedule grid. */
+  lesson: ActualLesson | null;
   teacherId: string;
-  studentName: string;
-  originalDate: Date;
-  originalDayOfWeek: number;
-  originalStartTime: string;
-  originalEndTime: string;
-  currentDate?: Date;
-  currentStartTime?: string;
-  currentEndTime?: string;
-  hasExistingOverride?: boolean;
-  instanceId?: string; // lesson_instances.id for instance-based operations
   onSuccess: () => void;
 }
 
+/** How a manual date change treats the lessons that come after it. */
+type MoveMode = "single" | "cascade";
+
+/**
+ * The one place a lesson's date or time is changed.
+ *
+ * Every action here is a single server RPC that resolves the placement, checks
+ * for conflicts, writes and renumbers the chain in one transaction. The dialog
+ * itself does no date arithmetic and never writes to lesson_instances directly
+ * — that split was what let the schedule drift out of order.
+ */
 export function LessonOverrideDialog({
   open,
   onOpenChange,
-  studentId,
+  lesson,
   teacherId,
-  studentName,
-  originalDate,
-  originalDayOfWeek,
-  originalStartTime,
-  originalEndTime,
-  currentDate,
-  currentStartTime,
-  currentEndTime,
-  hasExistingOverride = false,
-  instanceId,
   onSuccess,
 }: LessonOverrideDialogProps) {
-  const displayDate = currentDate || originalDate;
-  const displayStartTime = currentStartTime || originalStartTime;
-  const displayEndTime = currentEndTime || originalEndTime;
-
-  const [newDate, setNewDate] = useState<Date | undefined>(displayDate);
-  const [newStartTime, setNewStartTime] = useState(toInputTime(displayStartTime));
-  const [newEndTime, setNewEndTime] = useState(toInputTime(displayEndTime));
+  const [newDate, setNewDate] = useState<Date | undefined>();
+  const [newStartTime, setNewStartTime] = useState("");
+  const [newEndTime, setNewEndTime] = useState("");
+  const [moveMode, setMoveMode] = useState<MoveMode>("single");
   const [saving, setSaving] = useState(false);
   const [showPostponeConfirm, setShowPostponeConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
-  const [nextLessonDate, setNextLessonDate] = useState<Date | null>(null);
-  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
+  const [postponeTarget, setPostponeTarget] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const wasMoved = !!lesson?.original_date;
+  const isCompleted = lesson?.status === "completed";
+
   useEffect(() => {
-    if (open) {
-      const dateToUse = currentDate || originalDate;
-      const startTimeToUse = currentStartTime || originalStartTime;
-      const endTimeToUse = currentEndTime || originalEndTime;
-      setNewDate(dateToUse);
-      setNewStartTime(toInputTime(startTimeToUse));
-      setNewEndTime(toInputTime(endTimeToUse));
-      setConflicts([]);
-      calculateNextLessonDate(originalDate).then(setNextLessonDate);
-    }
-  }, [open, originalDate, originalStartTime, originalEndTime, currentDate, currentStartTime, currentEndTime]);
+    if (!open || !lesson) return;
+    setNewDate(parseLocalDate(lesson.lesson_date));
+    setNewStartTime(toInputTime(lesson.start_time));
+    setNewEndTime(toInputTime(lesson.end_time));
+    setMoveMode("single");
+    setError(null);
+    setPostponeTarget(null);
 
-  const formatTime = sharedFormatTime;
+    // Preview where "Sonraki Boş Saate Ertele" would land, so the confirmation
+    // can name a real date instead of a vague promise.
+    nextFreeSlot(lesson.student_id, teacherId, lesson.lesson_date, lesson.start_time, [lesson.id])
+      .then((slot) => setPostponeTarget(slot.success ? slot.lessonDate ?? null : null))
+      .catch(() => setPostponeTarget(null));
+  }, [open, lesson, teacherId]);
 
-  const hasDateTimeChanges = (): boolean => {
-    if (!newDate) return false;
-    const dateChanged = toDateStr(newDate) !== toDateStr(displayDate);
-    const startTimeChanged = newStartTime !== toInputTime(displayStartTime);
-    const endTimeChanged = newEndTime !== toInputTime(displayEndTime);
-    return dateChanged || startTimeChanged || endTimeChanged;
+  const hasChanges = (): boolean => {
+    if (!lesson || !newDate) return false;
+    return (
+      toDateStr(newDate) !== lesson.lesson_date ||
+      toDbTime(newStartTime) !== toDbTime(lesson.start_time) ||
+      toDbTime(newEndTime) !== toDbTime(lesson.end_time)
+    );
   };
 
-  const calculateNextLessonDate = async (currentDate: Date): Promise<Date | null> => {
-    try {
-      const { data: lessonDays, error } = await supabase
-        .from("student_lessons")
-        .select("day_of_week")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId);
-
-      if (error || !lessonDays || lessonDays.length === 0) return null;
-      const days = lessonDays.map((l: any) => l.day_of_week);
-      return calcNextDate(currentDate, days);
-    } catch {
-      return null;
-    }
-  };
-
-  // "Sonraki Derse Aktar" - instance-based shift
-  const handlePostponeToNextLesson = async () => {
-    setSaving(true);
-    setConflicts([]);
-    try {
-      if (!instanceId) {
-        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
-        setSaving(false);
-        setShowPostponeConfirm(false);
-        return;
-      }
-
-      // Instance-based: shift forward using template slots
-      const { data: templateSlots } = await supabase
-        .from("student_lessons")
-        .select("day_of_week, start_time, end_time")
-        .eq("student_id", studentId)
-        .eq("teacher_id", teacherId);
-
-      if (!templateSlots || templateSlots.length === 0) {
-        toast({ title: "Hata", description: "Ders programı bulunamadı", variant: "destructive" });
-        setSaving(false);
-        setShowPostponeConfirm(false);
-        return;
-      }
-
-      const slots: TemplateSlot[] = templateSlots.map((s) => ({
-        dayOfWeek: s.day_of_week,
-        startTime: s.start_time,
-        endTime: s.end_time,
-      }));
-
-      const result = await shiftLessonsForward(studentId, teacherId, instanceId, slots);
-
-      if (result.conflicts.length > 0) {
-        setConflicts(result.conflicts);
+  /** Shared result handling: one toast, one error panel, one refresh. */
+  const settle = useCallback(
+    (result: RescheduleResult, successMessage: string): boolean => {
+      if (!result.success) {
+        setError(describeRescheduleError(result));
         toast({
-          title: "Çakışma var",
-          description: "Dersler kaydırılamadı; çakışmaları çözüp tekrar deneyin.",
+          title: result.error === "conflict" ? "Çakışma var" : "Hata",
+          description: describeRescheduleError(result),
           variant: "destructive",
         });
-        setSaving(false);
-        setShowPostponeConfirm(false);
-        return;
+        return false;
       }
-
-      if (!result.success) {
-        toast({ title: "Hata", description: "Dersler kaydırılamadı", variant: "destructive" });
-        setSaving(false);
-        setShowPostponeConfirm(false);
-        return;
-      }
-
       clearWeekCache();
-      toast({ title: "Başarılı", description: "Dersler kaydırıldı" });
+      setError(null);
+      toast({ title: "Başarılı", description: successMessage });
       onSuccess();
       onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error postponing lesson:", error);
-      toast({ title: "Hata", description: error.message || "Ders ertelenemedi", variant: "destructive" });
+      return true;
+    },
+    [toast, onSuccess, onOpenChange]
+  );
+
+  const handleMove = async () => {
+    if (!lesson || !newDate) return;
+    if (!hasChanges()) {
+      toast({ title: "Bilgi", description: "Tarih veya saat değişikliği yapılmadı" });
+      return;
+    }
+    if (toDbTime(newEndTime) <= toDbTime(newStartTime)) {
+      setError("Bitiş saati başlangıçtan sonra olmalı.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await moveLesson(
+        lesson.id,
+        toDateStr(newDate),
+        toDbTime(newStartTime),
+        toDbTime(newEndTime),
+        moveMode === "cascade"
+      );
+      settle(
+        result,
+        moveMode === "cascade"
+          ? `Ders ${format(newDate, "d MMMM", { locale: tr })} tarihine alındı, sonraki dersler kaydırıldı`
+          : `Ders ${format(newDate, "d MMMM", { locale: tr })} tarihine alındı`
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePostpone = async () => {
+    if (!lesson) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await postponeLesson(lesson.id);
+      settle(result, "Ders ertelendi, sonraki dersler kaydırıldı");
     } finally {
       setSaving(false);
       setShowPostponeConfirm(false);
     }
   };
 
-  // Legacy postpone removed in Phase 3 — all operations are instance-based
-
-  // "1 Seferlik Değiştir" with conflict check + instance update
-  const handleOneTimeChange = async () => {
-    if (!newDate) {
-      toast({ title: "Hata", description: "Lütfen yeni tarih seçin", variant: "destructive" });
-      return;
-    }
-    if (!hasDateTimeChanges()) {
-      toast({ title: "Bilgi", description: "Tarih veya saat değişikliği yapılmadı" });
-      return;
-    }
-
-    if (!instanceId) {
-      toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
-      return;
-    }
-
-    setSaving(true);
-    setConflicts([]);
-    try {
-      const newDateStr = toDateStr(newDate);
-      const newStartFull = toDbTime(newStartTime);
-      const newEndFull = toDbTime(newEndTime);
-
-      // Conflict check — block on conflict to avoid creating duplicate slots.
-      // The previous behaviour (warning + save) was the root cause of the
-      // "two lessons in the same slot" bug. The DB trigger
-      // `prevent_duplicate_lesson_instance` is the last-line defence; this
-      // check exists so the user gets a clear UI message instead of a
-      // raw DB error.
-      const foundConflicts = await checkTeacherConflicts(
-        teacherId,
-        newDateStr,
-        newStartFull,
-        newEndFull,
-        [instanceId]
-      );
-
-      if (foundConflicts.length > 0) {
-        setConflicts(foundConflicts);
-        toast({
-          title: "Çakışma var",
-          description: "Bu saat dilimi başka bir derse ait. Önce o dersi taşıyın.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { data: currentInst, error: fetchError } = await supabase
-        .from("lesson_instances")
-        .select("lesson_date, start_time, end_time, original_date, original_start_time, original_end_time, rescheduled_count")
-        .eq("id", instanceId)
-        .single();
-
-      if (fetchError || !currentInst) {
-        toast({ title: "Hata", description: "Ders bulunamadı", variant: "destructive" });
-        return;
-      }
-
-      const { error: updateError } = await supabase
-        .from("lesson_instances")
-        .update({
-          lesson_date: newDateStr,
-          start_time: newStartFull,
-          end_time: newEndFull,
-          original_date: currentInst.original_date || currentInst.lesson_date,
-          original_start_time: currentInst.original_start_time || currentInst.start_time,
-          original_end_time: currentInst.original_end_time || currentInst.end_time,
-          rescheduled_count: currentInst.rescheduled_count + 1,
-          is_manual_override: true,
-        })
-        .eq("id", instanceId);
-
-      if (updateError) {
-        // The duplicate-prevention trigger raises unique_violation (23505).
-        // Surface a friendly message either way.
-        const isDuplicate = updateError.code === "23505";
-        toast({
-          title: isDuplicate ? "Çakışma var" : "Hata",
-          description: isDuplicate
-            ? "Bu saat dilimi başka bir derse ait. Önce o dersi taşıyın."
-            : updateError.message || "Ders tarihi değiştirilemedi",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Non-template weekday warning
-      const check = await checkNonTemplateWeekday(studentId, teacherId, newDateStr);
-      if (check.isNonTemplate) {
-        toast({
-          title: "Bilgi",
-          description: `Seçilen tarih (${format(newDate, "d MMM", { locale: tr })}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
-        });
-      }
-
-      clearWeekCache();
-      toast({
-        title: "Başarılı",
-        description: `Ders ${format(newDate, "d MMMM", { locale: tr })} tarihine taşındı`,
-      });
-      onSuccess();
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error saving lesson override:", error);
-      toast({ title: "Hata", description: error.message || "Ders tarihi değiştirilemedi", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // "Geri Al" - reverts instance (and shift group if applicable) to original date/time
   const handleRevert = async () => {
+    if (!lesson) return;
     setSaving(true);
-    setConflicts([]);
+    setError(null);
     try {
-      if (!instanceId) {
-        toast({ title: "Hata", description: "Instance ID bulunamadı", variant: "destructive" });
-        setSaving(false);
-        setShowRevertConfirm(false);
-        return;
-      }
-
-      // Fetch the clicked instance to check for shift_group_id
-      const { data: inst } = await supabase
-        .from("lesson_instances")
-        .select("original_date, original_start_time, original_end_time, shift_group_id")
-        .eq("id", instanceId)
-        .single();
-
-      if (!inst?.original_date) {
-        toast({ title: "Bilgi", description: "Geri alınacak değişiklik bulunamadı" });
-        setSaving(false);
-        setShowRevertConfirm(false);
-        return;
-      }
-
-      // Determine all instances to revert
-      let instancesToRevert: { id: string; original_date: string; original_start_time: string | null; original_end_time: string | null }[] = [];
-
-      if (inst.shift_group_id) {
-        // Batch revert: find all instances in the same shift group
-        const { data: groupInstances } = await supabase
-          .from("lesson_instances")
-          .select("id, original_date, original_start_time, original_end_time")
-          .eq("shift_group_id", inst.shift_group_id)
-          .not("original_date", "is", null);
-
-        instancesToRevert = (groupInstances || []).map((gi) => ({
-          id: gi.id,
-          original_date: gi.original_date!,
-          original_start_time: gi.original_start_time,
-          original_end_time: gi.original_end_time,
-        }));
-      } else {
-        // Single revert (manual reschedule or old data without shift_group_id)
-        instancesToRevert = [{
-          id: instanceId,
-          original_date: inst.original_date,
-          original_start_time: inst.original_start_time,
-          original_end_time: inst.original_end_time,
-        }];
-      }
-
-      // Conflict check — exclude every row in the revert batch so a chain
-      // revert doesn't flag itself.
-      const revertingIds = instancesToRevert.map((ri) => ri.id);
-      const conflictResults = await Promise.all(
-        instancesToRevert.map((ri) =>
-          checkTeacherConflicts(
-            teacherId,
-            ri.original_date,
-            ri.original_start_time || originalStartTime,
-            ri.original_end_time || originalEndTime,
-            revertingIds
-          )
-        )
-      );
-      const allRevertConflicts = conflictResults.flat();
-
-      if (allRevertConflicts.length > 0) {
-        setConflicts(allRevertConflicts);
-        toast({
-          title: "Çakışma var",
-          description: "Geri alma yapılamadı; orijinal saat dilimleri başka derslerle çakışıyor.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Batch revert all instances in parallel
-      const revertResults = await Promise.all(
-        instancesToRevert.map((ri) =>
-          supabase
-            .from("lesson_instances")
-            .update({
-              lesson_date: ri.original_date,
-              start_time: ri.original_start_time || originalStartTime,
-              end_time: ri.original_end_time || originalEndTime,
-              original_date: null,
-              original_start_time: null,
-              original_end_time: null,
-              rescheduled_count: 0,
-              shift_group_id: null,
-              is_manual_override: false,
-            })
-            .eq("id", ri.id)
-        )
-      );
-      const revertErrors = revertResults.filter((r) => r.error);
-      if (revertErrors.length > 0) {
-        const isDup = revertErrors.some((r) => r.error?.code === "23505");
-        toast({
-          title: isDup ? "Çakışma var" : "Hata",
-          description: isDup
-            ? "Geri alma yapılamadı; orijinal saat dilimleri başka derslerle çakışıyor."
-            : revertErrors[0].error?.message || "Değişiklik geri alınamadı",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      clearWeekCache();
-      const revertCount = instancesToRevert.length;
-      toast({
-        title: "Başarılı",
-        description: revertCount > 1
-          ? `${revertCount} ders orijinal tarih ve saatine döndürüldü`
-          : "Ders orijinal tarih ve saatine döndürüldü",
-      });
-      onSuccess();
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error reverting lesson override:", error);
-      toast({ title: "Hata", description: error.message || "Değişiklik geri alınamadı", variant: "destructive" });
+      const result = await revertLesson(lesson.id);
+      settle(result, "Ders eski tarih ve saatine döndürüldü");
     } finally {
       setSaving(false);
       setShowRevertConfirm(false);
     }
   };
 
-  const handleSave = async () => {
-    if (hasDateTimeChanges()) {
-      await handleOneTimeChange();
-    } else {
-      onOpenChange(false);
-    }
-  };
+  if (!lesson) return null;
+
+  const currentDate = parseLocalDate(lesson.lesson_date);
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base">Ders Düzenle</DialogTitle>
             <DialogDescription className="text-sm">
-              {studentName} - {format(originalDate, "d MMM yyyy", { locale: tr })} {formatTime(originalStartTime)}
+              {lesson.student_name} — {format(currentDate, "d MMMM yyyy, EEEE", { locale: tr })}
+              <br />
+              {formatTime(lesson.start_time)} – {formatTime(lesson.end_time)}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
+          {wasMoved && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+              <History className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>
+                Bu ders{" "}
+                <strong>
+                  {format(parseLocalDate(lesson.original_date!), "d MMMM", { locale: tr })}
+                  {lesson.original_start_time ? ` ${formatTime(lesson.original_start_time)}` : ""}
+                </strong>{" "}
+                tarihinden taşındı. “Geri Al” eski yerine döndürür.
+              </span>
+            </div>
+          )}
+
+          {isCompleted && (
+            <div className="rounded-md border border-muted bg-muted/50 p-2.5 text-xs text-muted-foreground">
+              Bu ders işlenmiş olarak işaretli. Tarihini değiştirmek bakiyeyi etkilemez, ancak
+              geçmiş kaydını değiştirir.
+            </div>
+          )}
+
+          <div className="space-y-3 py-1">
             <div className="space-y-1.5">
-              <Label className="text-sm">Tarih</Label>
+              <Label className="text-sm">Yeni tarih</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -463,14 +237,14 @@ export function LessonOverrideDialog({
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                    {newDate ? format(newDate, "d MMM yyyy", { locale: tr }) : "Tarih seçin"}
+                    {newDate ? format(newDate, "d MMM yyyy, EEEE", { locale: tr }) : "Tarih seçin"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 z-50" align="start">
                   <Calendar
                     mode="single"
                     selected={newDate}
-                    onSelect={setNewDate}
+                    onSelect={(d) => { setNewDate(d); setError(null); }}
                     locale={tr}
                     initialFocus
                   />
@@ -485,7 +259,7 @@ export function LessonOverrideDialog({
                   id="startTime"
                   type="time"
                   value={newStartTime}
-                  onChange={(e) => { setNewStartTime(e.target.value); setConflicts([]); }}
+                  onChange={(e) => { setNewStartTime(e.target.value); setError(null); }}
                   className="h-9"
                 />
               </div>
@@ -495,117 +269,136 @@ export function LessonOverrideDialog({
                   id="endTime"
                   type="time"
                   value={newEndTime}
-                  onChange={(e) => { setNewEndTime(e.target.value); setConflicts([]); }}
+                  onChange={(e) => { setNewEndTime(e.target.value); setError(null); }}
                   className="h-9"
                 />
               </div>
             </div>
 
-            {/* Conflict warnings */}
-            {conflicts.length > 0 && (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1.5">
-                <div className="flex items-center gap-2 text-destructive font-medium text-sm">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  Çakışma Tespit Edildi
+            <div className="space-y-2">
+              <Label className="text-sm">Sonraki dersler ne olsun?</Label>
+              <RadioGroup
+                value={moveMode}
+                onValueChange={(v) => setMoveMode(v as MoveMode)}
+                className="gap-2"
+              >
+                <label
+                  htmlFor="mode-single"
+                  className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50"
+                >
+                  <RadioGroupItem value="single" id="mode-single" className="mt-0.5" />
+                  <span className="text-xs leading-snug">
+                    <span className="font-medium block">Yerinde kalsın</span>
+                    <span className="text-muted-foreground">
+                      Sadece bu ders taşınır. Ders sabitlenir; program değişse de yerinde kalır.
+                    </span>
+                  </span>
+                </label>
+                <label
+                  htmlFor="mode-cascade"
+                  className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50"
+                >
+                  <RadioGroupItem value="cascade" id="mode-cascade" className="mt-0.5" />
+                  <span className="text-xs leading-snug">
+                    <span className="font-medium block">Onlar da kaysın</span>
+                    <span className="text-muted-foreground">
+                      Bu dersten sonraki tüm planlı dersler birer boş saat ileri alınır.
+                    </span>
+                  </span>
+                </label>
+              </RadioGroup>
+            </div>
+
+            {error && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
+                <div className="flex items-start gap-2 text-destructive text-xs">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
                 </div>
-                {conflicts.map((c, i) => (
-                  <div key={i} className="text-xs text-destructive/80">
-                    {c.studentName} — {c.date} {c.timeRange} ({c.type === "trial" ? "Deneme" : "Ders"})
-                  </div>
-                ))}
               </div>
             )}
+
+            <Button
+              onClick={handleMove}
+              disabled={saving || !hasChanges()}
+              className="w-full"
+              size="sm"
+            >
+              {saving ? "Kaydediliyor..." : "Dersi Taşı"}
+            </Button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+          <Separator />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowPostponeConfirm(true)}
-              disabled={saving}
-              className="text-xs px-2"
+              disabled={saving || isCompleted}
+              className="text-xs"
             >
               <ArrowRight className="h-3.5 w-3.5 mr-1 shrink-0" />
-              <span className="truncate">Sonraki Derse Aktar</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOneTimeChange}
-              disabled={saving || !hasDateTimeChanges()}
-              className={cn(
-                "text-xs px-2",
-                !hasDateTimeChanges() && "opacity-50"
-              )}
-            >
-              <CalendarClock className="h-3.5 w-3.5 mr-1 shrink-0" />
-              <span className="truncate">1 Seferlik Değiştir</span>
+              Sonraki Boş Saate Ertele
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowRevertConfirm(true)}
-              disabled={saving || !hasExistingOverride}
-              className={cn(
-                "text-xs px-2",
-                !hasExistingOverride && "opacity-50"
-              )}
+              disabled={saving || !wasMoved}
+              className={cn("text-xs", !wasMoved && "opacity-50")}
             >
               <RotateCcw className="h-3.5 w-3.5 mr-1 shrink-0" />
-              <span className="truncate">Geri Al</span>
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saving}
-              className="text-xs px-2"
-            >
-              <Save className="h-3.5 w-3.5 mr-1 shrink-0" />
-              <span className="truncate">{saving ? "Kaydediliyor..." : "Kaydet"}</span>
+              Geri Al
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Postpone Confirmation Dialog */}
       <AlertDialog open={showPostponeConfirm} onOpenChange={setShowPostponeConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Sonraki Derse Aktar</AlertDialogTitle>
-            <AlertDialogDescription>
-              {studentName} öğrencisinin {format(originalDate, "d MMMM yyyy", { locale: tr })} tarihli dersini sonraki derse aktarmak istediğinize emin misiniz?
-              <br /><br />
-              <strong>Bu işlem ile:</strong>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Bu ders {nextLessonDate ? format(nextLessonDate, "d MMMM", { locale: tr }) : "sonraki ders gününe"} tarihine kaydırılacak</li>
-                <li>Sonraki tüm dersler de birer ders ileri kaydırılacak</li>
-                <li>Öğrencinin ders hakkı korunacak</li>
-              </ul>
+            <AlertDialogTitle>Sonraki Boş Saate Ertele</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <p>
+                  {lesson.student_name} öğrencisinin{" "}
+                  {format(currentDate, "d MMMM", { locale: tr })} tarihli dersi
+                  {postponeTarget
+                    ? ` ${format(parseLocalDate(postponeTarget), "d MMMM yyyy", { locale: tr })} tarihine alınacak.`
+                    : " programdaki sonraki boş saate alınacak."}
+                </p>
+                <ul className="list-disc list-inside mt-3 space-y-1 text-sm">
+                  <li>Bu dersten sonraki tüm planlı dersler de birer boş saat ileri kayar.</li>
+                  <li>Elle sabitlenmiş dersler yerinde kalır, zincir onların etrafından dolaşır.</li>
+                  <li>Öğrencinin ders hakkı değişmez.</li>
+                  <li>Tek “Geri Al” ile tüm kaydırma iptal edilebilir.</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePostponeToNextLesson}>
-              Aktar
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handlePostpone}>Ertele</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Revert Confirmation Dialog */}
       <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Değişiklikleri Geri Al</AlertDialogTitle>
+            <AlertDialogTitle>Değişikliği Geri Al</AlertDialogTitle>
             <AlertDialogDescription>
-              {studentName} öğrencisinin dersini orijinal tarih ve saatine ({format(originalDate, "d MMMM yyyy", { locale: tr })} {formatTime(originalStartTime)}) döndürmek istediğinize emin misiniz?
+              {wasMoved && lesson.original_date
+                ? `Ders ${format(parseLocalDate(lesson.original_date), "d MMMM yyyy", { locale: tr })}${
+                    lesson.original_start_time ? ` ${formatTime(lesson.original_start_time)}` : ""
+                  } tarihine döndürülecek. Bu ders bir toplu kaydırmanın parçasıysa, o kaydırmadan sonra elle taşınmamış tüm dersler birlikte geri alınır.`
+                : "Geri alınacak bir değişiklik yok."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRevert}>
-              Geri Al
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleRevert}>Geri Al</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

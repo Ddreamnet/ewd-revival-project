@@ -14,7 +14,7 @@ import { LessonOverrideDialog } from "./LessonOverrideDialog";
 import { ScheduleGridCell } from "./ScheduleGridCell";
 
 import { format, addDays } from "date-fns";
-import { formatTime, parseLocalDate } from "@/lib/lessonTypes";
+import { formatTime } from "@/lib/lessonTypes";
 import { completeTrialLesson, undoTrialLesson } from "@/lib/lessonService";
 import { getAllTimeSlots, getAllTimeSlotsActual, fetchActualLessonsForWeek, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
@@ -26,9 +26,6 @@ interface StudentLesson {
   start_time: string;
   end_time: string;
   note?: string;
-  _originalStartTime?: string;
-  _originalEndTime?: string;
-  _hasOverride?: boolean;
 }
 
 interface TrialLesson {
@@ -71,12 +68,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const [weekOffset, setWeekOffset] = useState(0);
   const weekStart = getWeekStartForOffset(weekOffset);
 
-  // Lesson override state
-  const [selectedLesson, setSelectedLesson] = useState<StudentLesson | null>(null);
-  const [selectedLessonDate, setSelectedLessonDate] = useState<Date | null>(null);
-  const [selectedLessonCurrentDate, setSelectedLessonCurrentDate] = useState<Date | null>(null);
-  const [selectedLessonCurrentStartTime, setSelectedLessonCurrentStartTime] = useState<string | null>(null);
-  const [selectedLessonCurrentEndTime, setSelectedLessonCurrentEndTime] = useState<string | null>(null);
+  // Reschedule dialog state — the clicked instance is all the dialog needs.
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [selectedActualLesson, setSelectedActualLesson] = useState<ActualLesson | null>(null);
 
@@ -173,24 +165,10 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
 
   const handleActualLessonClick = (lesson: ActualLesson) => {
-    const syntheticLesson: StudentLesson = {
-      id: lesson.id,
-      student_id: lesson.student_id,
-      student_name: lesson.student_name,
-      day_of_week: parseLocalDate(lesson.lesson_date).getDay(),
-      start_time: lesson.original_start_time || lesson.start_time,
-      end_time: lesson.original_end_time || lesson.end_time,
-      _originalStartTime: lesson.original_start_time || lesson.start_time,
-      _originalEndTime: lesson.original_end_time || lesson.end_time,
-      _hasOverride: lesson.rescheduled_count > 0,
-    };
-    const originalDate = parseLocalDate(lesson.original_date || lesson.lesson_date);
-    setSelectedLesson(syntheticLesson);
+    // Ghost rows are a template preview for a week with no real lessons yet;
+    // there is nothing on the calendar to move.
+    if (lesson.isGhost) return;
     setSelectedActualLesson(lesson);
-    setSelectedLessonDate(originalDate);
-    setSelectedLessonCurrentDate(parseLocalDate(lesson.lesson_date));
-    setSelectedLessonCurrentStartTime(lesson.start_time);
-    setSelectedLessonCurrentEndTime(lesson.end_time);
     setShowOverrideDialog(true);
   };
 
@@ -438,25 +416,13 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
         </AlertDialogContent>
       </AlertDialog>
 
-      {selectedLesson && selectedLessonDate && (
-        <LessonOverrideDialog
-          open={showOverrideDialog}
-          onOpenChange={setShowOverrideDialog}
-          studentId={selectedLesson.student_id}
-          teacherId={teacherId}
-          studentName={selectedLesson.student_name}
-          originalDate={selectedLessonDate}
-          originalDayOfWeek={selectedLesson.day_of_week}
-          originalStartTime={selectedLesson._originalStartTime || selectedLesson.start_time}
-          originalEndTime={selectedLesson._originalEndTime || selectedLesson.end_time}
-          currentDate={selectedLessonCurrentDate || undefined}
-          currentStartTime={selectedLessonCurrentStartTime || undefined}
-          currentEndTime={selectedLessonCurrentEndTime || undefined}
-          hasExistingOverride={selectedLesson._hasOverride || false}
-          instanceId={selectedActualLesson?.id}
-          onSuccess={handleOverrideSuccess}
-        />
-      )}
+      <LessonOverrideDialog
+        open={showOverrideDialog}
+        onOpenChange={setShowOverrideDialog}
+        lesson={selectedActualLesson}
+        teacherId={teacherId}
+        onSuccess={handleOverrideSuccess}
+      />
     </>
   );
 }

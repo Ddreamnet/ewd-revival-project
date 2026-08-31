@@ -146,11 +146,11 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1.5">
               <div className="flex items-center gap-2 text-destructive font-medium text-sm">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                Çakışma Tespit Edildi
+                İşlem tamamlanamadı
               </div>
               {conflicts.map((c, i) => (
                 <div key={i} className="text-xs text-destructive/80">
-                  {c.studentName} — {c.date} {c.timeRange} ({c.type === "trial" ? "Deneme" : "Ders"})
+                  {c.message}
                 </div>
               ))}
             </div>
@@ -224,7 +224,7 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
             <div className="space-y-2">
               {sortedLessonsForDisplay.map((lesson) => (
                 <div
-                  key={`${lesson.lessonNumber}-${lesson.instanceId || lesson.displayIndex}`}
+                  key={lesson.instanceId || `placeholder-${lesson.displayIndex}`}
                   className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border rounded-lg ${lesson.isOverridden ? "border-amber-500" : ""}`}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -244,8 +244,10 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
                     </Label>
                     <Input
                       type="date"
-                      value={lessonDates[lesson.lessonNumber.toString()] || lesson.effectiveDate || ""}
-                      onChange={(e) => updateLessonDate(lesson.lessonNumber, e.target.value)}
+                      value={lesson.instanceId ? lessonDates[lesson.instanceId] ?? lesson.effectiveDate : ""}
+                      onChange={(e) => lesson.instanceId && updateLessonDate(lesson.instanceId, e.target.value)}
+                      disabled={!lesson.instanceId}
+                      title={lesson.instanceId ? undefined : "Bu ders henüz programa eklenmedi"}
                       className={`w-full sm:w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
                     />
                   </div>

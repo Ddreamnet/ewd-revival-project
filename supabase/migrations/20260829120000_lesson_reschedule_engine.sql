@@ -912,3 +912,52 @@ COMMENT ON FUNCTION public.rpc_ensure_cycle_instances IS
   'Idempotently tops a student''s current package up to lessons_per_week * 4 planned/completed lessons, appending on free slots after the last existing one.';
 
 REVOKE EXECUTE ON FUNCTION public.rpc_ensure_cycle_instances(uuid, uuid) FROM anon;
+
+-- ── 6. Preview helper + access lockdown ─────────────────────────────────────
+--
+-- free_lesson_slots reads another teacher's calendar to decide what is free, so
+-- it must not be reachable from PostgREST directly. The SECURITY DEFINER
+-- callers above run as the function owner and are unaffected by this revoke.
+
+REVOKE EXECUTE ON FUNCTION public.free_lesson_slots(uuid, uuid, integer, date, time, boolean, uuid[], date)
+  FROM public, anon, authenticated;
+
+-- The UI uses this to show where "Sonraki Boş Saate Ertele" would land before
+-- the admin commits to it.
+CREATE OR REPLACE FUNCTION public.rpc_next_free_slot(
+  p_student_id uuid,
+  p_teacher_id uuid,
+  p_from_date  date,
+  p_from_time  time DEFAULT NULL,
+  p_exclude    uuid[] DEFAULT '{}'::uuid[]
+)
+RETURNS json
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_slot record;
+BEGIN
+  IF NOT public.is_teacher_caller(p_teacher_id) THEN
+    RETURN json_build_object('success', false, 'error', 'Bu işlem için yetkiniz yok');
+  END IF;
+
+  SELECT * INTO v_slot
+  FROM public.free_lesson_slots(p_student_id, p_teacher_id, 1, p_from_date, p_from_time, false, p_exclude)
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN json_build_object('success', false, 'error', 'no_slot');
+  END IF;
+
+  RETURN json_build_object('success', true, 'lessonDate', v_slot.lesson_date,
+                           'startTime', v_slot.start_time, 'endTime', v_slot.end_time);
+END;
+$$;
+
+COMMENT ON FUNCTION public.rpc_next_free_slot IS
+  'The first free template slot after a point in time — used to preview where a postpone would land.';
+
+REVOKE EXECUTE ON FUNCTION public.rpc_next_free_slot(uuid, uuid, date, time, uuid[]) FROM anon;

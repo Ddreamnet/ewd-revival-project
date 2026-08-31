@@ -1,120 +1,197 @@
-import { useLanguage } from '@/contexts/LanguageContext';
-import { GraduationCap, Check } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
+import { translations } from "@/lib/translations";
 
+type ItemRow = { key: string; icon: string };
+
+const CLASSIC_ITEMS: ItemRow[] = [
+  { key: "lessonsPerWeek", icon: "ic-takvim.png" },
+  { key: "speaking", icon: "ic-konusma.png" },
+  { key: "coreEnglish", icon: "ic-abc.png" },
+  { key: "listening", icon: "ic-kulaklik.png" },
+  { key: "games", icon: "ic-oyun.png" },
+  { key: "duration", icon: "ic-saat.png" },
+  { key: "options", icon: "ic-grup.png" },
+];
+
+const SCHOOL_ITEMS: ItemRow[] = [
+  { key: "lessonsPerWeek", icon: "ic-takvim-p.png" },
+  { key: "parallel", icon: "ic-kitap-p.png" },
+  { key: "exams", icon: "ic-kupa.png" },
+  { key: "homework", icon: "ic-kalem.png" },
+  { key: "support", icon: "ic-abc.png" },
+  { key: "duration", icon: "ic-saat-p.png" },
+  { key: "options", icon: "ic-grup-p.png" },
+];
+
+/** Çocuk ders paketleri — iki büyük kart, taşan 3D objeler ve şerit. */
 export function KidsPackages() {
   const { language, t } = useLanguage();
-
-  const scrollToContact = () => {
-    const element = document.getElementById('contact');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const classicItems = [
-  t.kidsPackages.classicPackage.items.lessonsPerWeek,
-  t.kidsPackages.classicPackage.items.speaking,
-  t.kidsPackages.classicPackage.items.coreEnglish,
-  t.kidsPackages.classicPackage.items.listening,
-  t.kidsPackages.classicPackage.items.games,
-  t.kidsPackages.classicPackage.items.duration,
-  t.kidsPackages.classicPackage.items.options];
-
-
-  const schoolItems = [
-  t.kidsPackages.schoolPackage.items.parallel,
-  t.kidsPackages.schoolPackage.items.homework,
-  t.kidsPackages.schoolPackage.items.exams,
-  t.kidsPackages.schoolPackage.items.support,
-  t.kidsPackages.schoolPackage.items.duration,
-  t.kidsPackages.schoolPackage.items.options];
-
 
   return (
     <section
       id="kids-packages"
-      className="scroll-section py-16 md:py-24">
+      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24"
+      style={{ background: "var(--ewd-cream)" }}
+    >
+      <img
+        src="/ewd/assets/sparkle-yellow.png"
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute right-[70px] top-[88px] hidden w-12 opacity-85 lg:block"
+      />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark mb-4">
-            {t.kidsPackages.title[language]}
-          </h2>
-          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
+      <div className="mx-auto max-w-[1180px]">
+        <div className="grid items-end gap-8 lg:grid-cols-[1fr_430px] lg:gap-12">
+          <h2 className="ewd-h2 whitespace-pre-line">{t.kidsPackages.title[language]}</h2>
+          <p
+            className="ewd-lead mb-1.5 border-l-[3px] border-dotted pl-5"
+            style={{ borderColor: "#D6C0F0" }}
+          >
             {t.kidsPackages.description[language]}
           </p>
         </div>
 
-        {/* Package Cards + Blob */}
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-          {/* Two Package Columns */}
-          <div className="flex-1 grid md:grid-cols-2 gap-6">
-            {/* Classic Package */}
-            <div className="bg-landing-purple/20 backdrop-blur-sm rounded-3xl p-6 shadow-lg">
-              <h3 className="text-xl md:text-2xl font-bold text-landing-purple-dark mb-2">
-                {t.kidsPackages.classicPackage.title[language]}
-              </h3>
-              <p className="text-sm font-medium text-foreground/70 mb-4">
-                {t.kidsPackages.classicPackage.subtitle[language]}
-              </p>
-              <ul className="space-y-3">
-                {classicItems.map((item, index) =>
-                <li key={index} className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-landing-purple-dark flex-shrink-0 mt-0.5" />
-                    <span className="text-sm md:text-base text-foreground">
-                      {item[language]}
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </div>
-
-            {/* School Support Package */}
-            <div className="bg-landing-purple/20 backdrop-blur-sm rounded-3xl p-6 shadow-lg">
-              <h3 className="text-xl md:text-2xl font-bold text-landing-purple-dark mb-2">
-                {t.kidsPackages.schoolPackage.title[language]}
-              </h3>
-              <p className="text-sm font-medium text-foreground/70 mb-4">
-                {t.kidsPackages.schoolPackage.subtitle[language]}
-              </p>
-              <ul className="space-y-3">
-                {schoolItems.map((item, index) =>
-                <li key={index} className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-landing-purple-dark flex-shrink-0 mt-0.5" />
-                    <span className="text-sm md:text-base text-foreground">
-                      {item[language]}
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </div>
-          </div>
-
-          {/* Blob with Student Icon */}
-          <div className="hidden lg:flex flex-col items-center justify-center w-48 xl:w-64">
-            <div className="w-32 h-32 xl:w-48 xl:h-48 rounded-full bg-landing-purple/10 flex items-center justify-center">
-              <GraduationCap className="w-16 h-16 xl:w-24 xl:h-24 text-landing-purple/50" />
-            </div>
-            
-
-
-
-
-
-          </div>
-        </div>
-
-        {/* Mobile CTA */}
-        <div className="lg:hidden flex justify-center mt-8">
-          <button
-            onClick={scrollToContact}
-            className="px-6 py-3 bg-landing-yellow text-foreground rounded-full text-base font-medium hover:bg-landing-yellow/80 transition-colors shadow-md">
-
-            {t.kidsPackages.moreInfo[language]} →
-          </button>
+        <div className="grid gap-8 pt-12 lg:grid-cols-2 lg:gap-[34px]">
+          <PackageCard
+            pack={t.kidsPackages.classicPackage}
+            items={CLASSIC_ITEMS}
+            bg="#A253BE"
+            titleAccent="#EBCBF7"
+            medallionInk="#6D28D9"
+            rowTitle="#6D28D9"
+            dotted="#D6C6F7"
+            ribbon="art-ribbon-purple.png"
+            art="art-book-aa.png"
+            artClass="right-3 top-3 w-[124px] lg:w-[152px]"
+            sloganInk="#F6E3FD"
+            shadow="0 30px 44px -22px rgba(46,16,101,0.45)"
+          />
+          <PackageCard
+            pack={t.kidsPackages.schoolPackage}
+            items={SCHOOL_ITEMS}
+            bg="#EC4899"
+            titleAccent="#FBD0E4"
+            medallionInk="#BE185D"
+            rowTitle="#DB2777"
+            dotted="#FAD3E4"
+            ribbon="art-ribbon-pink.png"
+            art="art-backpack.png"
+            artClass="right-3 top-2 w-[126px] lg:w-[156px]"
+            sloganInk="#FFE9F2"
+            shadow="0 30px 44px -22px rgba(190,24,93,0.45)"
+          />
         </div>
       </div>
-    </section>);
+    </section>
+  );
+}
 
+type PackageContent =
+  | typeof translations.kidsPackages.classicPackage
+  | typeof translations.kidsPackages.schoolPackage;
+
+interface PackageCardProps {
+  pack: PackageContent;
+  items: ItemRow[];
+  bg: string;
+  titleAccent: string;
+  medallionInk: string;
+  rowTitle: string;
+  dotted: string;
+  ribbon: string;
+  art: string;
+  artClass: string;
+  sloganInk: string;
+  shadow: string;
+}
+
+function PackageCard({
+  pack,
+  items,
+  bg,
+  titleAccent,
+  medallionInk,
+  rowTitle,
+  dotted,
+  ribbon,
+  art,
+  artClass,
+  sloganInk,
+  shadow,
+}: PackageCardProps) {
+  const { language } = useLanguage();
+  // İçerik sözlüğü sabit anahtarlı; satır listesi burada gevşek indekslenir.
+  const packItems = pack.items as Record<string, { title: Record<string, string>; sub: Record<string, string> }>;
+
+  return (
+    <article
+      className="relative rounded-[36px] p-5 pb-5 sm:rounded-[44px] sm:p-6"
+      style={{ background: bg, boxShadow: shadow }}
+    >
+      <img src={`/ewd/assets/${ribbon}`} alt="" aria-hidden="true" className="ewd-bookmark left-[42px]" />
+      <img
+        src={`/ewd/assets/${art}`}
+        alt=""
+        aria-hidden="true"
+        className={`pointer-events-none absolute ${artClass}`}
+        style={{ filter: "drop-shadow(0 12px 18px rgba(20,4,50,0.32))" }}
+      />
+
+      <header className="relative flex items-center gap-3.5 pt-3">
+        <span
+          className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-full text-[22px] font-black"
+          style={{ background: "var(--ewd-cream)", color: medallionInk }}
+        >
+          {pack.number[language]}
+        </span>
+        <h3 className="ewd-h3 text-[#FFF8EF]">
+          {pack.titleTop[language]}
+          <br />
+          <span style={{ color: titleAccent }}>{pack.titleBottom[language]}</span>
+        </h3>
+      </header>
+
+      <div className="flex items-center gap-2.5 px-1 pb-4 pt-[18px]">
+        <img src="/ewd/assets/sparkle-yellow.png" alt="" aria-hidden="true" className="w-[15px]" />
+        <span
+          className="text-[11px] font-extrabold uppercase leading-tight tracking-[0.1em] sm:text-[12px]"
+          style={{ color: sloganInk }}
+        >
+          {pack.slogan[language]}
+        </span>
+      </div>
+
+      <div
+        className="flex flex-col gap-2.5 rounded-[24px] p-4 sm:rounded-[30px] sm:p-[18px]"
+        style={{ background: "var(--ewd-cream)" }}
+      >
+        {items.map(({ key, icon }) => {
+          const item = packItems[key];
+          if (!item) return null;
+          return (
+            <div key={key} className="ewd-feat">
+              <img src={`/ewd/assets/ic/${icon}`} alt="" loading="lazy" className="ewd-feat__icon" />
+              <div className="ewd-feat__body" style={{ borderColor: dotted }}>
+                <div className="ewd-feat__title" style={{ color: rowTitle }}>
+                  {item.title[language]}
+                </div>
+                <div className="ewd-feat__sub">{item.sub[language]}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        className="mt-4 flex items-center justify-center gap-3 rounded-full px-5 py-3.5"
+        style={{ background: "rgba(255,248,239,0.22)" }}
+      >
+        <img src="/ewd/assets/sparkle-yellow.png" alt="" aria-hidden="true" className="w-4" />
+        <span className="text-center text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#FFF8EF] sm:text-[13px]">
+          {pack.footer[language]}
+        </span>
+        <img src="/ewd/assets/sparkle-yellow.png" alt="" aria-hidden="true" className="w-4" />
+      </div>
+    </article>
+  );
 }

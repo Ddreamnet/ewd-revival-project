@@ -17,6 +17,7 @@ export default {
         sans: ['Poppins', 'sans-serif'],
         poppins: ['Poppins', 'sans-serif'],
         aprilia: ['Aprilia', 'Dancing Script', 'cursive'],
+        script: ['Dancing Script', 'cursive'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -62,6 +63,55 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // EWD design language — src/styles/ewd.css içindeki token'lara bağlı.
+        // Ham hex olduklarından /opacity kısayolu çalışmaz; şeffaflık için
+        // doğrudan rgb(... / x) kullanın.
+        ewd: {
+          cream: "var(--ewd-cream)",
+          "cream-hi": "var(--ewd-cream-hi)",
+          ink: "var(--ewd-ink)",
+          body: "var(--ewd-body)",
+          "body-soft": "var(--ewd-body-soft)",
+          faint: "var(--ewd-faint)",
+          neutral: "var(--ewd-neutral)",
+          purple: "var(--ewd-purple)",
+          "purple-base": "var(--ewd-purple-base)",
+          "purple-deep": "var(--ewd-purple-deep)",
+          "purple-deeper": "var(--ewd-purple-deeper)",
+          violet: "var(--ewd-violet)",
+          lilac: "var(--ewd-lilac)",
+          "lilac-soft": "var(--ewd-lilac-soft)",
+          "lilac-tint": "var(--ewd-lilac-tint)",
+          "lilac-line": "var(--ewd-lilac-line)",
+          "lilac-hair": "var(--ewd-lilac-hair)",
+          pink: "var(--ewd-pink)",
+          "pink-base": "var(--ewd-pink-base)",
+          "pink-mid": "var(--ewd-pink-mid)",
+          "pink-soft": "var(--ewd-pink-soft)",
+          "pink-tint": "var(--ewd-pink-tint)",
+          "pink-line": "var(--ewd-pink-line)",
+          yellow: "var(--ewd-yellow)",
+          "yellow-base": "var(--ewd-yellow-base)",
+          "yellow-tint": "var(--ewd-yellow-tint)",
+          "yellow-pale": "var(--ewd-yellow-pale)",
+          "yellow-ink": "var(--ewd-yellow-ink)",
+          green: "var(--ewd-green)",
+          "green-base": "var(--ewd-green-base)",
+          // panel yüzeyleri (açık/koyu moda göre değişir)
+          surface: "var(--ewd-surface)",
+          "surface-2": "var(--ewd-surface-2)",
+          "surface-3": "var(--ewd-surface-3)",
+          "surface-sunk": "var(--ewd-surface-sunk)",
+          line: "var(--ewd-line)",
+          "line-strong": "var(--ewd-line-strong)",
+          "on-surface": "var(--ewd-on-surface)",
+          "on-surface-soft": "var(--ewd-on-surface-soft)",
+          "on-surface-faint": "var(--ewd-on-surface-faint)",
+          accent: "var(--ewd-accent)",
+          "accent-base": "var(--ewd-accent-base)",
+          "accent-on": "var(--ewd-accent-on)",
+          "accent-wash": "var(--ewd-accent-wash)",
+        },
         // Landing page specific colors
         landing: {
           pink: "hsl(var(--landing-pink))",
@@ -80,6 +130,16 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        // Şerit (marquee) — sonsuz kayan metin bandı
+        "ewd-marquee": {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(-50%)" },
+        },
+        // Kelime kartı belirme animasyonu
+        "ewd-card-in": {
+          from: { opacity: "0", transform: "translateY(14px) scale(0.97)" },
+          to: { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -259,6 +319,8 @@ export default {
         },
       },
       animation: {
+        "ewd-marquee": "ewd-marquee 26s linear infinite",
+        "ewd-card-in": "ewd-card-in 0.45s cubic-bezier(0.22, 1, 0.28, 1) both",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         float: "float 4s ease-in-out infinite",

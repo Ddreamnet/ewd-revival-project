@@ -1,5 +1,9 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Mystery+Quest&display=swap");
+
+/* EWD görsel sistemi — token'lar, tipografi, bileşenler, dokular */
+@import "./styles/ewd.css";
 
 @tailwind base;
 @tailwind components;
@@ -93,121 +97,119 @@
   margin: 1em 0;
 }
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
+   Değerler EWD görsel sisteminden türetildi (src/styles/ewd.css) ve HSL'e çevrildi;
+   shadcn bileşenleri bu token'lar üzerinden markanın rengini alır.
+   All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    /* Kid-friendly pastel color scheme */
-    --background: 324 100% 98%;
-    --foreground: 240 10% 20%;
+    /* Krem kâğıt zemin — landing'in #FFF8EF tonu */
+    --background: 34 100% 97%;
+    --foreground: 261 73% 23%;
 
-    --card: 320 100% 99%;
-    --card-foreground: 240 10% 20%;
+    --card: 43 100% 99%;
+    --card-foreground: 261 73% 23%;
 
-    --popover: 320 100% 99%;
-    --popover-foreground: 240 10% 20%;
+    --popover: 43 100% 99%;
+    --popover-foreground: 261 73% 23%;
 
-    /* Soft lavender purple as primary */
-    --primary: 280 60% 70%;
+    /* Marka moru #A253BE */
+    --primary: 284 45% 54%;
     --primary-foreground: 0 0% 100%;
 
-    /* Gentle pink as secondary */
-    --secondary: 340 85% 85%;
-    --secondary-foreground: 240 10% 25%;
+    /* Marka pembesi (yumuşak kenar tonu) #F8C8DC */
+    --secondary: 335 77% 88%;
+    --secondary-foreground: 261 73% 23%;
 
-    /* Very light pastel for muted elements */
-    --muted: 320 40% 95%;
-    --muted-foreground: 240 10% 50%;
+    /* Leylak yıkama #F4EDFF */
+    --muted: 263 100% 96%;
+    --muted-foreground: 270 15% 42%;
 
-    /* Warm peach as accent */
-    --accent: 20 85% 80%;
-    --accent-foreground: 240 10% 25%;
+    /* Sarı vurgu #FBD34F */
+    --accent: 46 96% 65%;
+    --accent-foreground: 260 60% 15%;
 
-    /* Soft coral for destructive actions */
-    --destructive: 0 70% 75%;
+    --destructive: 348 72% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Very light pastel borders */
-    --border: 320 30% 90%;
-    --input: 320 30% 90%;
-    --ring: 280 60% 70%;
+    --border: 271 59% 92%;
+    --input: 271 59% 92%;
+    --ring: 284 45% 54%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    /* Sidebar with soft mint green */
-    --sidebar-background: 160 60% 95%;
-    --sidebar-foreground: 240 10% 25%;
-    --sidebar-primary: 160 50% 60%;
+    /* Kenar çubuğu — leylak */
+    --sidebar-background: 263 100% 96%;
+    --sidebar-foreground: 261 73% 23%;
+    --sidebar-primary: 284 45% 54%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 160 40% 90%;
-    --sidebar-accent-foreground: 240 10% 25%;
-    --sidebar-border: 160 30% 85%;
-    --sidebar-ring: 160 50% 60%;
+    --sidebar-accent: 269 100% 94%;
+    --sidebar-accent-foreground: 261 73% 23%;
+    --sidebar-border: 268 61% 87%;
+    --sidebar-ring: 284 45% 54%;
 
     /* Landing page specific colors */
-    --landing-pink: 330 85% 86%;
-    --landing-purple: 280 50% 75%;
-    --landing-purple-dark: 280 45% 55%;
-    --landing-yellow: 45 95% 65%;
-    --landing-yellow-light: 45 100% 85%;
+    --landing-pink: 335 77% 88%;
+    --landing-purple: 284 45% 54%;
+    --landing-purple-dark: 262 66% 50%;
+    --landing-yellow: 46 96% 65%;
+    --landing-yellow-light: 46 96% 82%;
   }
 
   .dark {
-    /* Navy-based dark palette — hue 222 */
-    --background: 220 21% 11%;
-    --foreground: 220 15% 90%;
+    /* Erik-mor koyu palet — nötr lacivert yerine markanın moru sürüyor */
+    --background: 258 46% 10%;
+    --foreground: 265 100% 96%;
 
-    --card: 219 25% 14%;
-    --card-foreground: 220 15% 90%;
+    --card: 258 42% 14%;
+    --card-foreground: 265 100% 96%;
 
-    --popover: 222 20% 13%;
-    --popover-foreground: 220 15% 90%;
+    --popover: 258 42% 14%;
+    --popover-foreground: 265 100% 96%;
 
-    /* Lavender primary — slightly brighter for dark surfaces */
-    --primary: 280 65% 72%;
-    --primary-foreground: 0 0% 100%;
+    /* Koyu zeminde okunur mor #C084FC */
+    --primary: 270 95% 75%;
+    --primary-foreground: 260 60% 12%;
 
-    /* Muted navy-purple for secondary */
-    --secondary: 260 20% 22%;
-    --secondary-foreground: 220 15% 90%;
+    --secondary: 260 41% 19%;
+    --secondary-foreground: 265 100% 96%;
 
-    --muted: 222 15% 16%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 258 41% 18%;
+    --muted-foreground: 263 35% 74%;
 
-    /* Warm accent */
-    --accent: 20 55% 42%;
-    --accent-foreground: 220 15% 90%;
+    /* Koyuda sarı yerine erik-pembe vurgu */
+    --accent: 326 38% 21%;
+    --accent-foreground: 265 100% 96%;
 
-    /* Destructive — readable red */
-    --destructive: 0 55% 48%;
+    --destructive: 348 60% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 15% 20%;
-    --input: 222 18% 14%;
-    --ring: 280 65% 72%;
+    --border: 260 36% 23%;
+    --input: 258 42% 14%;
+    --ring: 270 95% 75%;
 
-    /* Sidebar — navy tones instead of teal */
-    --sidebar-background: 222 22% 10%;
-    --sidebar-foreground: 220 10% 80%;
-    --sidebar-primary: 280 55% 65%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 15% 16%;
-    --sidebar-accent-foreground: 220 10% 80%;
-    --sidebar-border: 222 15% 18%;
-    --sidebar-ring: 280 55% 65%;
+    /* Kenar çubuğu — en koyu erik */
+    --sidebar-background: 259 44% 8%;
+    --sidebar-foreground: 263 35% 74%;
+    --sidebar-primary: 270 95% 75%;
+    --sidebar-primary-foreground: 260 60% 12%;
+    --sidebar-accent: 258 41% 18%;
+    --sidebar-accent-foreground: 265 100% 96%;
+    --sidebar-border: 260 36% 23%;
+    --sidebar-ring: 270 95% 75%;
 
-    /* Landing page dark variants */
-    --landing-pink: 330 50% 55%;
-    --landing-purple: 280 40% 55%;
-    --landing-purple-dark: 280 35% 72%;
-    --landing-yellow: 45 80% 50%;
-    --landing-yellow-light: 45 60% 40%;
+    /* Landing page dark variants (panel içi landing-* kullanımları için) */
+    --landing-pink: 335 45% 45%;
+    --landing-purple: 270 60% 62%;
+    --landing-purple-dark: 270 70% 78%;
+    --landing-yellow: 46 70% 55%;
+    --landing-yellow-light: 46 45% 40%;
 
     /* Custom tokens */
-    --elevated: 222 20% 14%;
-    --soft-panel: 222 18% 12%;
+    --elevated: 258 42% 16%;
+    --soft-panel: 258 44% 12%;
   }
 }
 
@@ -216,25 +218,31 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  /* Pinkgingham arka plan: html::before ile position:fixed pseudo-element
-     background-attachment: fixed yerine bu yöntem kullanılır çünkü
-     fixed attachment scrollbar genişliği (8-17px) ile birleşince
-     sağ kenarda dikey "dikiş" çizgisi oluşturur.
-     position:fixed + 100vw/100vh arka planı scrollbar'dan bağımsız kılar. */
+  /* Zemin, html::before ile position:fixed bir pseudo-element olarak boyanır.
+     background-attachment: fixed yerine bu yöntem kullanılır çünkü fixed
+     attachment scrollbar genişliğiyle birleşince sağ kenarda dikey bir "dikiş"
+     çizgisi oluşturur. position:fixed + inset:0 zemini scrollbar'dan bağımsız kılar. */
   html {
     min-height: 100%;
     margin: 0;
     /* scroll-behavior: smooth removed — causes iOS WKWebView scroll jumps on keyboard open */
     /* overflow-x: hidden removed — causes iOS WKWebView scroll-to-top on input focus.
-       #root already has overflow-x: hidden which is sufficient. */
+       #root already has overflow-x: clip which is sufficient. */
   }
 
   #root {
+    /* `overflow-x: hidden` bir kaydırma kabı oluşturur ve içindeki
+       `position: sticky` başlıkları çalışmaz hâle getirir. `clip` aynı yatay
+       kırpmayı kaydırma kabı yaratmadan yapar; desteklemeyen tarayıcılar
+       önceki satırdaki `hidden` değerinde kalır. */
     overflow-x: hidden;
+    overflow-x: clip;
     position: relative;
     width: 100%;
   }
 
+  /* Zemin rengi: EWD yüzey token'ı (açık modda krem, koyuda erik).
+     Eski gingham deseni yeni paletle çakıştığı için kaldırıldı. */
   html::before {
     content: '';
     position: fixed;
@@ -242,16 +250,9 @@ All colors MUST be HSL.
     left: 0;
     right: 0;      /* 100vw yerine — scrollbar genişliğini içermez */
     bottom: 0;     /* 100vh yerine */
-    background: url("/uploads/pinkgingham.webp") repeat;
-    background-size: auto;
+    background-color: var(--ewd-surface);
     z-index: -1;
     pointer-events: none;
-  }
-
-  /* Dark mode: navy gingham background image */
-  html.dark::before {
-    background: url("/uploads/navygingham.webp") repeat;
-    background-size: auto;
   }
 
   body {

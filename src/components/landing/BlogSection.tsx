@@ -1,114 +1,119 @@
-import { useRef, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import useEmblaCarousel from "embla-carousel-react";
-import { usePublishedPosts } from "@/hooks/useBlogPosts";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import { usePublishedPosts } from "@/hooks/useBlogPosts";
+import type { Language } from "@/lib/translations";
 
+/** Kart tonları — pul kenarı ve iç zemin aynı renkten. */
+const TONES = [
+  { bg: "#EFDFF9", date: "#6B4A8A", edge: "#A253BE", ink: "#6D28D9", art: "n-sohbet.png" },
+  { bg: "#FBD5E4", date: "#9B3E62", edge: "#EC4899", ink: "#BE185D", art: "n-pano.png" },
+  { bg: "#FDECC0", date: "#7A5A0E", edge: "#D9A21B", ink: "#8A6410", art: "n-video.png" },
+];
+
+const LOCALES: Record<Language, string> = { tr: "tr-TR", en: "en-GB", fr: "fr-FR" };
+
+/** Blog — noktalı krem zemin üzerinde pul kenarlı üç kart. */
 export function BlogSection() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
-  const { data: posts } = usePublishedPosts(6);
-  const [emblaRef, emblaApi] = useEmblaCarousel({ align: "start", loop: false, skipSnaps: false });
-  const [canPrev, setCanPrev] = useState(false);
-  const [canNext, setCanNext] = useState(false);
-
-  const onSelect = useCallback(() => {
-    if (!emblaApi) return;
-    setCanPrev(emblaApi.canScrollPrev());
-    setCanNext(emblaApi.canScrollNext());
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    onSelect();
-    emblaApi.on("select", onSelect);
-    emblaApi.on("reInit", onSelect);
-  }, [emblaApi, onSelect]);
+  const { data: posts } = usePublishedPosts(3);
 
   if (!posts?.length) return null;
 
-  const title = language === "tr" ? "Blog" : "Blog";
-  const subtitle = language === "tr"
-    ? "İngilizce öğrenme yolculuğunuzda size ilham verecek yazılar"
-    : "Articles to inspire you on your English learning journey";
-  const allPosts = language === "tr" ? "Tüm yazılar" : "All posts";
-  const readMore = language === "tr" ? "Devamını oku" : "Read more";
-
   return (
-    <section id="blog" className="scroll-section py-16 md:py-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark mb-3">{title}</h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">{subtitle}</p>
-          <Button
-            variant="outline"
-            className="mt-4 rounded-full border-landing-purple text-landing-purple-dark hover:bg-landing-purple/10"
-            onClick={() => navigate("/blog")}
-          >
-            {allPosts} <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+    <section
+      id="blog"
+      className="ewd-dots scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24"
+      style={{
+        backgroundColor: "var(--ewd-cream)",
+        ["--dot" as string]: "#F0DCE4",
+        backgroundSize: "34px 34px",
+      }}
+    >
+      <div className="mx-auto max-w-[1180px]">
+        <div className="flex flex-col items-start justify-between gap-6 pb-12 md:flex-row md:items-end md:gap-10">
+          <div className="flex flex-col gap-2">
+            <span className="ewd-label self-start rounded-full bg-[#EC4899] px-5 py-2.5 text-white">
+              {t.blog.badge[language]}
+            </span>
+            <h2 className="ewd-h2 mt-1.5">{t.blog.title[language]}</h2>
+            <p className="text-[15px] font-medium text-[#6B5B7B] sm:text-[16px]">{t.blog.lead[language]}</p>
+          </div>
+          <button type="button" onClick={() => navigate("/blog")} className="ewd-btn ewd-btn--purple">
+            {t.blog.all[language]} →
+          </button>
         </div>
 
-        {/* Carousel */}
-        <div className="relative">
-          <div className="overflow-hidden" ref={emblaRef}>
-            <div className="flex gap-4 md:gap-6">
-              {posts.map((post) => (
-                <div key={post.id} className="flex-[0_0_85%] sm:flex-[0_0_45%] lg:flex-[0_0_30%] min-w-0">
-                  <Link to={`/blog/${post.slug}`} className="block group">
-                    <Card className="overflow-hidden h-full border-none shadow-md hover:shadow-lg transition-shadow bg-card">
-                      {post.cover_image_url ? (
-                        <div className="aspect-[16/10] overflow-hidden">
-                          <img
-                            src={post.cover_image_url}
-                            alt={post.title}
-                            loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                      ) : (
-                        <div className="aspect-[16/10] bg-gradient-to-br from-landing-pink/40 to-landing-purple/30 flex items-center justify-center">
-                          <span className="text-4xl">📝</span>
-                        </div>
-                      )}
-                      <div className="p-4">
-                        {post.published_at && (
-                          <p className="text-xs text-muted-foreground mb-1">
-                            {new Date(post.published_at).toLocaleDateString(language === "tr" ? "tr-TR" : "en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                          </p>
-                        )}
-                        <h3 className="font-semibold text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors">{post.title}</h3>
-                        {post.excerpt && <p className="text-sm text-muted-foreground line-clamp-2">{post.excerpt}</p>}
-                        <span className="text-sm font-medium text-primary mt-2 inline-block">{readMore} →</span>
-                      </div>
-                    </Card>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="grid gap-11 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.map((post, i) => {
+            const tone = TONES[i % TONES.length];
+            return (
+              <Link
+                key={post.id}
+                to={`/blog/${post.slug}`}
+                className="ewd-stamp group block transition-transform duration-200 hover:-translate-y-1"
+                style={{ ["--stamp" as string]: tone.bg }}
+              >
+                <span className="ewd-stamp__side ewd-stamp__side--l" aria-hidden="true" />
+                <span className="ewd-stamp__side ewd-stamp__side--r" aria-hidden="true" />
+                <div
+                  className="relative flex h-full flex-col items-center gap-3.5 rounded-[26px] px-7 pb-8 pt-7 text-center"
+                  style={{ background: tone.bg }}
+                >
+                  {post.cover_image_url ? (
+                    <div className="h-[104px] w-full overflow-hidden rounded-[18px]">
+                      <img
+                        src={post.cover_image_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={`/ewd/assets/ic/${tone.art}`}
+                      alt=""
+                      aria-hidden="true"
+                      className="h-[104px] w-auto"
+                      style={{ filter: "drop-shadow(0 10px 16px rgba(46,16,101,0.24))" }}
+                    />
+                  )}
 
-          {/* Arrows */}
-          {canPrev && (
-            <button
-              onClick={() => emblaApi?.scrollPrev()}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 bg-white/90 dark:bg-card shadow-md rounded-full p-2 hover:bg-white dark:hover:bg-mutedover:bg-white dark:hover:bg-muted transition hidden md:flex items-center justify-center"
-            >
-              <ChevronLeft className="h-5 w-5 text-foreground" />
-            </button>
-          )}
-          {canNext && (
-            <button
-              onClick={() => emblaApi?.scrollNext()}
-              className="absolute right-0 top-1/2 -translate-y-1/dark:bg-card shadow-md rounded-full p-2 hover:bg-white dark:hover:bg-mutedd rounded-full p-2 hover:bg-white transition hidden md:flex items-center justify-center"
-            >
-              <ChevronRight className="h-5 w-5 text-foreground" />
-            </button>
-          )}
+                  {post.published_at && (
+                    <span
+                      className="text-[11px] font-extrabold uppercase tracking-[0.12em]"
+                      style={{ color: tone.date }}
+                    >
+                      {new Date(post.published_at).toLocaleDateString(LOCALES[language], {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  )}
+
+                  <h3 className="text-[18px] font-extrabold leading-[1.35] text-[#2E1065] [text-wrap:pretty] sm:text-[19px]">
+                    {post.title}
+                  </h3>
+
+                  {post.excerpt && (
+                    <p className="line-clamp-2 text-[13px] font-medium leading-relaxed text-[#5B4A6E]">
+                      {post.excerpt}
+                    </p>
+                  )}
+
+                  <span className="mt-auto pt-3">
+                    <span
+                      className="inline-block rounded-full border-2 px-5 py-2.5 text-[13px] font-extrabold"
+                      style={{ borderColor: tone.edge, color: tone.ink }}
+                    >
+                      {t.blog.readMore[language]}
+                    </span>
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>

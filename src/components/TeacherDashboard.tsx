@@ -199,8 +199,12 @@ export function TeacherDashboard() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>;
   }
-  return <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
-      <Header rightActions={<>
+  return <div className="ewd-panel min-h-screen">
+      <Header
+      title="Öğretmen Paneli"
+      subtitle={profile?.full_name ? `Hoş geldin, ${profile.full_name}` : undefined}
+      badge="Öğretmen"
+      rightActions={<>
             <NotificationBell 
               userId={profile?.user_id || ""}
               teacherId={profile?.user_id || ""} 
@@ -222,14 +226,9 @@ export function TeacherDashboard() {
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">{signingOut ? "Çıkış..." : "Çıkış"}</span>
             </Button>
-          </>}>
-        <div className="text-center">
-          <h1 className="text-xl sm:text-2xl font-bold whitespace-nowrap">Öğretmen Paneli</h1>
-          <p className="text-sm sm:text-lg text-muted-foreground hidden sm:block">Hoş geldin, {profile?.full_name}</p>
-        </div>
-      </Header>
+          </>} />
 
-      <div className="container mx-auto p-4">
+      <div className="mx-auto max-w-[1500px] p-3 sm:p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Students List */}
           <div className="lg:col-span-1">

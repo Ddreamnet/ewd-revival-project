@@ -862,6 +862,59 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_move_lesson: {
+        Args: {
+          p_instance_id: string
+          p_date: string
+          p_start: string
+          p_end: string
+          p_cascade?: boolean
+        }
+        Returns: Json
+      }
+      rpc_postpone_lesson: {
+        Args: { p_instance_id: string }
+        Returns: Json
+      }
+      rpc_revert_lesson: {
+        Args: { p_instance_id: string }
+        Returns: Json
+      }
+      rpc_relayout_chain: {
+        Args: {
+          p_instance_ids: string[]
+          p_from_date: string
+          p_from_time?: string | null
+          p_inclusive?: boolean
+          p_mark_override?: boolean
+          p_shift_group_id?: string | null
+        }
+        Returns: Json
+      }
+      rpc_next_free_slot: {
+        Args: {
+          p_student_id: string
+          p_teacher_id: string
+          p_from_date: string
+          p_from_time?: string | null
+          p_exclude?: string[]
+        }
+        Returns: Json
+      }
+      rpc_prev_free_slot: {
+        Args: {
+          p_student_id: string
+          p_teacher_id: string
+          p_before_date: string
+          p_before_time: string
+          p_exclude?: string[]
+        }
+        Returns: Json
+      }
+      rpc_ensure_cycle_instances: {
+        Args: { p_teacher_id: string; p_student_id?: string | null }
+        Returns: Json
+      }
       rpc_resequence_lesson_numbers: {
         Args: {
           p_student_id: string

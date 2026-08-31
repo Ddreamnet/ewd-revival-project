@@ -1,303 +1,85 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Gift, ArrowRight, Sparkles } from 'lucide-react';
 
-type BubbleType = 'trial' | 'contact' | 'none';
-type AnimationPhase = 'idle' | 'exiting' | 'entering';
-
-// Sparkle component for floating decorations
-const FloatingSparkle = ({ delay, position }: { delay: string; position: string }) => (
-  <span
-    className={`absolute ${position} text-landing-yellow-light animate-sparkle`}
-    style={{ animationDelay: delay }}
-  >
-    <Sparkles className="w-2 h-2 md:w-3 md:h-3" />
-  </span>
-);
-
-// Burst particles for transition effect
-const BurstParticles = ({ isActive }: { isActive: boolean }) => {
-  if (!isActive) return null;
-
-  const particles = [
-    { tx: 60, ty: 0, color: 'hsl(330, 85%, 86%)' },
-    { tx: 42, ty: 42, color: 'hsl(280, 50%, 75%)' },
-    { tx: 0, ty: 60, color: 'hsl(45, 93%, 58%)' },
-    { tx: -42, ty: 42, color: 'hsl(330, 85%, 86%)' },
-    { tx: -60, ty: 0, color: 'hsl(45, 85%, 75%)' },
-    { tx: -42, ty: -42, color: 'hsl(280, 50%, 75%)' },
-    { tx: 0, ty: -60, color: 'hsl(330, 85%, 86%)' },
-    { tx: 42, ty: -42, color: 'hsl(45, 93%, 58%)' },
-  ];
-
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">
-      {particles.map((particle, i) => (
-        <span
-          key={i}
-          className="absolute w-3 h-3 rounded-full animate-burst-particle"
-          style={{
-            '--tx': `${particle.tx}px`,
-            '--ty': `${particle.ty}px`,
-            background: particle.color,
-            left: '50%',
-            top: '50%',
-            boxShadow: `0 0 10px ${particle.color}`,
-          } as React.CSSProperties}
-        />
-      ))}
-      <div 
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 
-                   w-20 h-20 rounded-full animate-glow-trail
-                   bg-gradient-to-r from-landing-yellow via-landing-pink to-landing-purple"
-      />
-    </div>
-  );
-};
-
-// Trial bubble component - extracted for cleaner code
-const TrialBubble = ({ onClick, language, t }: { onClick: () => void; language: string; t: any }) => (
-  <button onClick={onClick} className="relative group scale-75 origin-bottom-right">
-    <FloatingSparkle delay="0s" position="-top-2 -left-2" />
-    <FloatingSparkle delay="1s" position="-top-1 -right-3" />
-    <FloatingSparkle delay="2s" position="-bottom-2 -left-1" />
-    <FloatingSparkle delay="3s" position="bottom-4 -right-4" />
-
-    <div className="relative bg-gradient-to-br from-landing-yellow via-landing-pink to-landing-purple 
-                    dark:from-[hsl(260,30%,25%)] dark:via-[hsl(280,25%,30%)] dark:to-[hsl(250,35%,20%)]
-                    rounded-2xl p-3 md:p-4 
-                    animate-glow-pulse
-                    transform transition-all duration-300 
-                    group-hover:scale-105 group-hover:shadow-2xl
-                    overflow-hidden">
-      
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent 
-                      -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-
-      <div className="flex justify-center mb-1.5">
-        <Gift className="w-6 h-6 md:w-8 md:h-8 text-landing-purple-dark dark:text-[hsl(280,60%,75%)] animate-wiggle" />
-      </div>
-
-      <div className="text-center space-y-0">
-        <p className="text-base md:text-lg font-black 
-                     bg-gradient-to-r from-landing-purple-dark via-landing-pink to-landing-purple-dark 
-                     dark:from-[hsl(280,60%,75%)] dark:via-[hsl(330,70%,75%)] dark:to-[hsl(280,60%,75%)]
-                     bg-[length:200%_auto] bg-clip-text text-transparent 
-                     animate-gradient-shift">
-          {t.stickyBubble.line1[language]}
-        </p>
-        
-        <p className="text-sm md:text-base font-bold text-foreground">
-          {t.stickyBubble.line2[language]}
-        </p>
-        
-        <p className="text-sm md:text-base font-bold text-foreground">
-          {t.stickyBubble.line3[language]}
-        </p>
-
-        <div className="flex items-center justify-center gap-1 pt-1.5 text-xs md:text-sm font-semibold 
-                        text-landing-purple-dark dark:text-[hsl(280,60%,75%)]
-                        opacity-80 group-hover:opacity-100 transition-opacity">
-          <span>{t.stickyBubble.cta[language]}</span>
-          <ArrowRight className="w-3 h-3 md:w-4 md:h-4 animate-arrow-bounce" />
-        </div>
-      </div>
-
-      <div className="absolute -bottom-1.5 right-3 w-3 h-3 
-                      bg-gradient-to-br from-landing-pink to-landing-purple 
-                      dark:from-[hsl(280,25%,30%)] dark:to-[hsl(250,35%,20%)]
-                      transform rotate-45" />
-    </div>
-  </button>
-);
-
-// Contact bubble component
-const ContactBubble = ({ onClick }: { onClick: () => void }) => (
-  <button
-    onClick={onClick}
-    className="transform transition-all duration-300 hover:scale-105"
-    style={{ transformStyle: 'preserve-3d' }}
-  >
-    <img
-      src="/uploads/stickycontact.png"
-      alt="Contact"
-      className="w-[clamp(140px,22vw,240px)] h-auto drop-shadow-xl"
-    />
-  </button>
-);
-
+/**
+ * Sağ alt köşedeki "ücretsiz deneme dersi" sticker'ı — bileşen kütüphanesindeki
+ * döndürülmüş sticker kart deseni. İletişim bölümü göründüğünde kendini gizler.
+ */
 export function StickyBubble() {
   const { language, t } = useLanguage();
-  
-  // State machine: target vs visible bubble + animation phase
-  const [targetBubble, setTargetBubble] = useState<BubbleType>('trial');
-  const [visibleBubble, setVisibleBubble] = useState<BubbleType>('trial');
-  const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('idle');
-  const [showParticles, setShowParticles] = useState(false);
-  
-  // Single ref for cleanup
-  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const enterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const [visible, setVisible] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
-  // Detect current section based on scroll position
-  const detectSection = useCallback((): BubbleType => {
-    const kidsPackages = document.getElementById('kids-packages');
+  // Hero'dan sonra belir, iletişim bölümüne varınca çekil.
+  useEffect(() => {
     const contact = document.getElementById('contact');
 
-    if (!kidsPackages || !contact) return 'trial';
+    const onScroll = () => {
+      const pastHero = window.scrollY > 340;
+      const atContact = contact ? contact.getBoundingClientRect().top < window.innerHeight * 0.9 : false;
+      setVisible(pastHero && !atContact);
+    };
 
-    const viewportCenter = window.innerHeight / 2;
-    const kidsTop = kidsPackages.getBoundingClientRect().top;
-    const contactTop = contact.getBoundingClientRect().top;
-
-    if (contactTop < viewportCenter) {
-      return 'none';
-    } else if (kidsTop < viewportCenter) {
-      return 'contact';
-    }
-    return 'trial';
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Throttled scroll handler using RAF
-  useEffect(() => {
-    const handleScroll = () => {
-      // Skip if RAF is already scheduled
-      if (rafRef.current !== null) return;
-
-      rafRef.current = requestAnimationFrame(() => {
-        const newType = detectSection();
-        setTargetBubble(newType);
-        rafRef.current = null;
-      });
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // Initial detection
-    handleScroll();
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-    };
-  }, [detectSection]);
-
-  // Handle transitions between bubble types
-  useEffect(() => {
-    // Aynı bubble, işlem yapma
-    if (targetBubble === visibleBubble) return;
-
-    // Önceki timeout'ları temizle
-    if (transitionTimeoutRef.current) {
-      clearTimeout(transitionTimeoutRef.current);
-      transitionTimeoutRef.current = null;
-    }
-    if (enterTimeoutRef.current) {
-      clearTimeout(enterTimeoutRef.current);
-      enterTimeoutRef.current = null;
-    }
-
-    // Phase 1: Exit animasyonu başlat
-    setAnimationPhase('exiting');
-    setShowParticles(true);
-
-    // Phase 2: Exit bittikten sonra bubble'ı değiştir ve entry başlat
-    transitionTimeoutRef.current = setTimeout(() => {
-      setShowParticles(false);
-      setVisibleBubble(targetBubble);
-      setAnimationPhase('entering');
-      
-      // Phase 3: Entry bittikten sonra idle'a geç
-      enterTimeoutRef.current = setTimeout(() => {
-        setAnimationPhase('idle');
-        enterTimeoutRef.current = null;
-      }, 600); // Entry animasyonu süresi
-      
-      transitionTimeoutRef.current = null;
-    }, 400); // Exit animasyonu süresi
-
-    return () => {
-      if (transitionTimeoutRef.current) {
-        clearTimeout(transitionTimeoutRef.current);
-        transitionTimeoutRef.current = null;
-      }
-      if (enterTimeoutRef.current) {
-        clearTimeout(enterTimeoutRef.current);
-        enterTimeoutRef.current = null;
-      }
-    };
-  }, [targetBubble, visibleBubble]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (transitionTimeoutRef.current) {
-        clearTimeout(transitionTimeoutRef.current);
-      }
-      if (enterTimeoutRef.current) {
-        clearTimeout(enterTimeoutRef.current);
-      }
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
-  }, []);
-
-  const scrollToContact = () => {
-    const element = document.getElementById('contact');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  // Get animation class based on animation phase
-  const getAnimationClass = () => {
-    switch (animationPhase) {
-      case 'exiting':
-        if (visibleBubble === 'trial') return 'animate-magic-pop-out';
-        if (visibleBubble === 'contact') return 'animate-flip-out-y';
-        return 'opacity-0 scale-75';
-        
-      case 'entering':
-        if (visibleBubble === 'trial') return 'animate-magic-pop-in';
-        if (visibleBubble === 'contact') return 'animate-flip-in-y';
-        return 'opacity-100 scale-100';
-        
-      case 'idle':
-      default:
-        // Idle durumunda animasyon yok - sadece statik görünüm
-        return 'opacity-100 scale-100';
-    }
-  };
-
-  // Don't render if nothing to show
-  if (visibleBubble === 'none' && animationPhase === 'idle') {
-    return null;
-  }
+  if (dismissed) return null;
 
   return (
-    <div 
-      className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-40 pb-safe"
-      style={{ 
-        willChange: 'transform, opacity',
-        transform: 'translateZ(0)' 
+    <div
+      className="pointer-events-none fixed bottom-4 right-3 z-40 transition-all duration-300 sm:bottom-6 sm:right-6"
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0) scale(1)' : 'translateY(18px) scale(0.92)',
       }}
+      aria-hidden={!visible}
     >
-      <div className="relative">
-        <BurstParticles isActive={showParticles} />
+      <div
+        className="pointer-events-auto relative w-[132px] rounded-[22px] border-2 px-2.5 pb-2.5 pt-0 sm:w-[146px]"
+        style={{
+          background: '#EFE1FB',
+          borderColor: '#F0C4DC',
+          transform: 'rotate(5deg)',
+          boxShadow: '0 14px 22px -12px rgba(46,16,101,0.5)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="Kapat"
+          className="absolute -right-1.5 -top-1.5 z-10 grid h-5 w-5 place-items-center rounded-full border-2 bg-white text-[#6B5B7B] transition-colors hover:text-[#2E1065]"
+          style={{ borderColor: '#F0C4DC' }}
+        >
+          <X className="h-2.5 w-2.5" />
+        </button>
 
-        <div className={`transition-all duration-300 ease-out ${getAnimationClass()}`}>
-          {visibleBubble === 'trial' && (
-            <TrialBubble onClick={scrollToContact} language={language} t={t} />
-          )}
+        <img
+          src="/ewd/assets/ic/gift.png"
+          alt=""
+          aria-hidden="true"
+          className="mx-auto -mt-[20px] w-[52px] sm:w-[58px]"
+          style={{ filter: 'drop-shadow(0 6px 10px rgba(46,16,101,0.28))' }}
+        />
 
-          {visibleBubble === 'contact' && (
-            <ContactBubble onClick={scrollToContact} />
-          )}
+        <div className="flex flex-col items-center gap-0.5 text-center">
+          <span className="text-[8px] font-extrabold uppercase tracking-[0.12em] text-[#9B3E62]">
+            {t.stickyBubble.line1[language]}
+          </span>
+          <span className="text-[14px] font-black leading-[1.05] tracking-[-0.01em] text-[#2E1065] sm:text-[15px]">
+            {t.stickyBubble.line2[language]}
+            <br />
+            {t.stickyBubble.line3[language]}
+          </span>
+          <button
+            type="button"
+            onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
+            className="ewd-btn ewd-btn--purple mt-1.5 w-full !px-2 !py-2.5 !text-[10px] !leading-tight"
+          >
+            {t.stickyBubble.cta[language]}
+          </button>
         </div>
       </div>
     </div>

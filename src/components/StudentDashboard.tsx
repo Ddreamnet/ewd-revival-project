@@ -154,9 +154,12 @@ export function StudentDashboard() {
   // ============================================================================
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
+    <div className="ewd-panel min-h-screen">
       {/* Header */}
       <Header
+        title="Öğrenme Panelim"
+        subtitle={profile?.full_name ? `Hoş geldin, ${profile.full_name}` : undefined}
+        badge="Öğrenci"
         rightActions={
           <>
             <NotificationBell 
@@ -174,43 +177,40 @@ export function StudentDashboard() {
             </Button>
           </>
         }
-      >
-        <div className="text-center">
-          <h1 className="text-xl sm:text-2xl font-bold">Öğrenme Panelim</h1>
-          <p className="text-sm sm:text-lg text-muted-foreground hidden sm:block">Hoş geldin, {profile?.full_name}</p>
-        </div>
-      </Header>
+      />
 
-      <div className="container mx-auto p-4">
+      <div className="mx-auto max-w-[1500px] p-3 sm:p-5">
         {/* İlerleme Özeti - 2x2 Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {/* Row 1 - Col 1: İşlenen Konular */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <BookOpen className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-2xl font-bold">{allActiveTopics.length}</p>
-                  <p className="text-sm text-muted-foreground">İşlenen Konular</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="ewd-stat flex items-center gap-4">
+            <span
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl"
+              style={{ background: "var(--ewd-accent-wash)", color: "var(--ewd-accent)" }}
+            >
+              <BookOpen className="h-6 w-6" />
+            </span>
+            <div>
+              <p className="ewd-stat__value">{allActiveTopics.length}</p>
+              <p className="ewd-stat__label">İşlenen Konular</p>
+            </div>
+          </div>
 
           {/* Row 1 - Col 2: Toplam Kaynak */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {topics.reduce((acc, topic) => acc + getVisibleResources(topic).length, 0)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Toplam Kaynak</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="ewd-stat flex items-center gap-4">
+            <span
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl"
+              style={{ background: "rgb(34 197 94 / 0.14)", color: "#16A34A" }}
+            >
+              <CheckCircle className="h-6 w-6" />
+            </span>
+            <div>
+              <p className="ewd-stat__value">
+                {topics.reduce((acc, topic) => acc + getVisibleResources(topic).length, 0)}
+              </p>
+              <p className="ewd-stat__label">Toplam Kaynak</p>
+            </div>
+          </div>
 
           {/* Row 2 - Col 1: İşlenen Dersler */}
           <StudentLessonTracker studentId={profile?.user_id || ""} />

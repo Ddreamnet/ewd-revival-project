@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LessonDates, LessonInstance, toDbTime, parseLocalDate, toDateStr } from "@/lib/lessonTypes";
+import { LessonDates, LessonInstance, toDbTime, toDateStr } from "@/lib/lessonTypes";
 import {
   completeLesson,
   undoCompleteLesson,
@@ -10,11 +10,15 @@ import {
   deleteStudent,
   getNextCompletableInstance,
   getLastCompletedInstance,
+  applyLessonDates,
+  relayoutChain,
+  prevFreeSlot,
+  describeRescheduleError,
+  type RescheduleResult,
+  type ScheduleConflict,
+  type TemplateSlot,
 } from "@/lib/lessonService";
-import { TemplateSlot, generateFutureInstanceDates, getSlotBefore } from "@/lib/instanceGeneration";
-import { startOfDay } from "date-fns";
-import type { ConflictInfo } from "@/lib/conflictDetection";
-import { checkNonTemplateWeekday } from "@/lib/lessonDateCalculation";
+import { nonTemplateWeekdayWarning } from "@/lib/lessonDateCalculation";
 import { clearWeekCache } from "@/hooks/useScheduleGrid";
 import type { StudentLessonBase } from "@/lib/types";
 
@@ -46,7 +50,7 @@ export function useEditStudentDialog({
   const [showConfirm, setShowConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
-  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
+  const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   const [studentUserId, setStudentUserId] = useState("");
   const [teacherUserId, setTeacherUserId] = useState("");
   const [canShiftBackward, setCanShiftBackward] = useState(false);
@@ -106,9 +110,12 @@ export function useEditStudentDialog({
     const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
     setInstances(fetchedInstances);
 
+    // Keyed by instance id. Keying by lesson_number tied the date inputs (which
+    // are listed in date order) to a number that could fall out of that order,
+    // so a typed date could be applied to a different lesson.
     const dates: LessonDates = {};
     fetchedInstances.forEach((inst) => {
-      dates[inst.lesson_number.toString()] = inst.lesson_date;
+      dates[inst.id] = inst.lesson_date;
     });
     setLessonDates(dates);
     setOriginalLessonDates(dates);
@@ -164,12 +171,8 @@ export function useEditStudentDialog({
     setLessons(updatedLessons);
   };
 
-  const updateLessonDate = (lessonNumber: number, dateStr: string) => {
-    setLessonDates({ ...lessonDates, [lessonNumber.toString()]: dateStr });
-  };
-
-  const findInstanceForLesson = (lessonNumber: number): LessonInstance | undefined => {
-    return instances.find((inst) => inst.lesson_number === lessonNumber);
+  const updateLessonDate = (instanceId: string, dateStr: string) => {
+    setLessonDates({ ...lessonDates, [instanceId]: dateStr });
   };
 
   const handleDateSubmit = () => {
@@ -241,141 +244,103 @@ export function useEditStudentDialog({
     }
   };
 
-  /** Shared logic for batch date updates with conflict checks.
-   *  When a date changes, also re-maps start_time/end_time to the
-   *  matching template slot for the new day-of-week so the time
-   *  chain stays consistent with the schedule. */
-  const batchUpdateInstances = async (
-    changedKeys: string[],
-    finalDatesRef: { current: LessonDates }
-  ) => {
-    const changeEntries = changedKeys
-      .map((key) => ({ key, inst: findInstanceForLesson(parseInt(key)) }))
-      .filter((e) => e.inst != null);
-
-    // Build sorted template slots for time mapping (already normalized)
-    const templateSlots: TemplateSlot[] = getTemplateSlots()
-      .sort((a, b) => a.dayOfWeek !== b.dayOfWeek ? a.dayOfWeek - b.dayOfWeek : a.startTime.localeCompare(b.startTime));
-
-    // For each changed instance, find matching template slot for the new date's DOW
-    const usedSlotsPerDate: Record<string, number> = {};
-    const updates = changeEntries.map((e) => {
-      const newDate = finalDatesRef.current[e.key];
-      const newDow = parseLocalDate(newDate).getDay();
-      const matchingSlots = templateSlots.filter(s => s.dayOfWeek === newDow);
-
-      const usedCount = usedSlotsPerDate[newDate] || 0;
-      const slotIdx = Math.min(usedCount, Math.max(0, matchingSlots.length - 1));
-      const matchedSlot = matchingSlots[slotIdx];
-      usedSlotsPerDate[newDate] = usedCount + 1;
-
-      return {
-        ...e,
-        newStartTime: toDbTime(matchedSlot?.startTime || e.inst!.start_time),
-        newEndTime: toDbTime(matchedSlot?.endTime || e.inst!.end_time),
-      };
-    });
-
-    // One atomic RPC handles the conflict check, the reorder and the renumber.
-    // original_* / rescheduled_count bookkeeping is recorded server-side from
-    // the pre-move snapshot (markOverride).
-    await applyChainDates(
-      updates.map((u) => u.inst!),
-      updates.map((u) => ({
-        lessonDate: finalDatesRef.current[u.key],
-        startTime: u.newStartTime,
-        endTime: u.newEndTime,
-      })),
-      { markOverride: true, skipRefresh: true }
-    );
-
-    return updates;
-  };
-
+  /**
+   * Apply the dates the admin typed into the lesson list.
+   *
+   * Only the date is sent. The server picks the matching template slot on the
+   * new date — and only one that is actually free — falling back to the
+   * lesson's own time when the day isn't in the template. The client used to do
+   * this mapping itself by counting slots per date, which handed two lessons
+   * the same time and then failed the write with a conflict.
+   */
   const confirmDateUpdate = async () => {
+    const changedKeys = Object.keys(lessonDates).filter(
+      (key) => lessonDates[key] !== originalLessonDates[key]
+    );
+    if (changedKeys.length === 0) {
+      setShowConfirm(false);
+      return;
+    }
+
+    setShifting(true);
+    setConflicts([]);
     try {
-      const finalDatesRef = { current: { ...lessonDates } };
-      const changedKeys = Object.keys(lessonDates).filter(
-        (key) => lessonDates[key] !== originalLessonDates[key]
+      const changed = changedKeys
+        .map((id) => ({ id, inst: instances.find((i) => i.id === id) }))
+        .filter((e): e is { id: string; inst: LessonInstance } => e.inst != null);
+
+      if (changed.length === 0) {
+        toast({ title: "Bilgi", description: "Güncellenecek ders bulunamadı" });
+        return;
+      }
+
+      const result = await applyLessonDates(
+        studentUserId,
+        teacherUserId,
+        changed.map((c) => ({ id: c.id, lessonDate: lessonDates[c.id] }))
       );
+      if (!reportFailure(result)) return;
 
-      if (updateRemainingDays && changedKeys.length > 0 && instances.length > 0) {
-        // Update changed instances — returns updates with newStartTime/newEndTime
-        const updates = await batchUpdateInstances(changedKeys, finalDatesRef);
+      // "Kalan günleri de güncelle": everything after the last lesson the admin
+      // touched is re-laid onto the following free slots. The anchor comes from
+      // the server's own placements, because the time of a date-only edit is
+      // resolved there — anchoring on the typed date alone would let a tail
+      // lesson land earlier in that same day.
+      if (updateRemainingDays) {
+        const movedIds = new Set(changed.map((c) => c.inst.id));
+        const anchor = [...(result.placements ?? [])].sort((a, b) =>
+          a.lessonDate !== b.lessonDate
+            ? a.lessonDate.localeCompare(b.lessonDate)
+            : toDbTime(a.startTime).localeCompare(toDbTime(b.startTime))
+        ).pop();
 
-        // Regenerate planned instances after the last changed one
-        const templateSlots: TemplateSlot[] = getTemplateSlots();
+        const tail = [...instances]
+          .filter(
+            (i) =>
+              i.status === "planned" &&
+              !movedIds.has(i.id) &&
+              !i.is_manual_override &&
+              (!anchor ||
+                i.lesson_date > anchor.lessonDate ||
+                (i.lesson_date === anchor.lessonDate &&
+                  toDbTime(i.start_time) > toDbTime(anchor.startTime)))
+          )
+          .sort((a, b) => {
+            const dc = a.lesson_date.localeCompare(b.lesson_date);
+            return dc !== 0 ? dc : toDbTime(a.start_time).localeCompare(toDbTime(b.start_time));
+          });
 
-        const allSorted = [...instances].sort((a, b) => {
-          const dc = a.lesson_date.localeCompare(b.lesson_date);
-          return dc !== 0 ? dc : toDbTime(a.start_time).localeCompare(toDbTime(b.start_time));
-        });
-
-        const changedInstanceIds = new Set(updates.map((u) => u.inst!.id));
-        let lastChangedIdx = -1;
-        allSorted.forEach((inst, idx) => {
-          if (changedInstanceIds.has(inst.id)) lastChangedIdx = idx;
-        });
-
-        const plannedAfterChanged = allSorted
-          .slice(lastChangedIdx + 1)
-          .filter((inst) => inst.status === "planned");
-
-        if (plannedAfterChanged.length > 0) {
-          // Anchor the regenerated tail on the chronologically last changed
-          // lesson. This used to pick the highest lesson_number, but after a
-          // shift the numbers no longer follow date order — so the tail could
-          // regenerate from an earlier date and collide with lessons left in
-          // place, which surfaced as a spurious conflict.
-          const lastUpdate = [...updates].sort((a, b) => {
-            const dc = finalDatesRef.current[a.key].localeCompare(finalDatesRef.current[b.key]);
-            return dc !== 0 ? dc : a.newStartTime.localeCompare(b.newStartTime);
-          }).pop()!;
-
-          const startDate = parseLocalDate(finalDatesRef.current[lastUpdate.key]);
-          const afterTime = lastUpdate.newStartTime;
-
-          const futureDates = generateFutureInstanceDates(templateSlots, plannedAfterChanged.length, startDate, afterTime);
-
-          // The tail is a plain chain move (no override bookkeeping) — same
-          // atomic path, so it cannot half-apply or collide with itself.
-          await applyChainDates(plannedAfterChanged, futureDates, { skipRefresh: true });
-
-          const updateCount = Math.min(plannedAfterChanged.length, futureDates.length);
-          for (let i = 0; i < updateCount; i++) {
-            finalDatesRef.current[plannedAfterChanged[i].lesson_number.toString()] = futureDates[i].lessonDate;
-          }
+        if (anchor && tail.length > 0) {
+          const tailResult = await relayoutChain(
+            tail.map((i) => i.id),
+            anchor.lessonDate,
+            toDbTime(anchor.startTime)
+          );
+          if (!reportFailure(tailResult)) return;
         }
-      } else if (changedKeys.length > 0) {
-        // Only date changes, time stays the same
-        await batchUpdateInstances(changedKeys, finalDatesRef);
       }
 
       clearWeekCache();
       await fetchInstances();
       onStudentUpdated();
-      toast({ title: "Başarılı", description: "Ders tarihleri güncellendi" });
 
-      // Non-template weekday warning
-      const changedKeysForWarning = Object.keys(lessonDates).filter(
-        (key) => lessonDates[key] !== originalLessonDates[key]
+      const warning = nonTemplateWeekdayWarning(
+        changed.map((c) => lessonDates[c.id]),
+        lessons.map((l) => l.dayOfWeek)
       );
-      for (const key of changedKeysForWarning) {
-        const check = await checkNonTemplateWeekday(studentUserId, teacherUserId, lessonDates[key]);
-        if (check.isNonTemplate) {
-          toast({
-            title: "Bilgi",
-            description: `Seçilen tarih (${lessonDates[key]}) şablon ders günlerinden (${check.templateDays.join(", ")}) farklı bir güne denk geliyor.`,
-          });
-          break;
-        }
-      }
+      toast({
+        title: "Başarılı",
+        description: warning
+          ? `Ders tarihleri güncellendi. ${warning}`
+          : "Ders tarihleri güncellendi",
+      });
 
       setShowConfirm(false);
       setUpdateRemainingDays(false);
-      setConflicts([]);
     } catch (error: any) {
       toast({ title: "Hata", description: error.message || "Tarihler güncellenemedi", variant: "destructive" });
+    } finally {
+      setShifting(false);
     }
   };
 
@@ -504,8 +469,14 @@ export function useEditStudentDialog({
   };
 
   // =============================================
-  // Chain control helpers
+  // Chain control
   // =============================================
+  //
+  // Every one of these is a single server call. The client no longer walks the
+  // template to work out dates: the server knows which slots are free (a slot
+  // held by a completed lesson, a pinned lesson or another student is skipped,
+  // not collided with) and does the move, the conflict check and the renumber
+  // in one transaction.
 
   const getTemplateSlots = (): TemplateSlot[] =>
     lessons.map((l) => ({
@@ -514,27 +485,33 @@ export function useEditStudentDialog({
       endTime: toDbTime(l.endTime),
     }));
 
-  /** Compute the minimum allowed slot (boundary for backward + realign).
-   *  = first template slot after the last completed instance (cross-cycle).
-   *  If no completed: first template slot from today.
-   *  Synchronous — the anchor is loaded alongside the instances, so this no
-   *  longer fires a query on every keystroke in the schedule form. */
-  const computeMinSlot = () => {
-    const templateSlots = getTemplateSlots();
-    if (lastCompletedAnchor) {
-      const result = generateFutureInstanceDates(
-        templateSlots,
-        1,
-        parseLocalDate(lastCompletedAnchor.lessonDate),
-        lastCompletedAnchor.startTime
-      );
-      return result[0] || null;
+  /** Surface a failed reschedule in the conflict panel + a toast. Returns success. */
+  const reportFailure = (result: RescheduleResult): boolean => {
+    if (result.success) {
+      setConflicts([]);
+      return true;
     }
-    const result = generateFutureInstanceDates(templateSlots, 1, startOfDay(new Date()));
-    return result[0] || null;
+    const message = describeRescheduleError(result);
+    setConflicts(
+      result.error === "conflict"
+        ? [{
+            studentName: result.conflict_student || "Bilinmeyen Öğrenci",
+            date: result.conflict_date || "",
+            timeRange: result.conflict_time || "",
+            type: result.conflict_student === "Deneme Dersi" ? "trial" : "lesson",
+            message,
+          }]
+        : [{ studentName: "", date: "", timeRange: "", type: "lesson", message }]
+    );
+    toast({
+      title: result.error === "conflict" ? "Çakışma var" : "Hata",
+      description: message,
+      variant: "destructive",
+    });
+    return false;
   };
 
-  /** Get planned instances eligible for chain operations (excluding manual overrides) */
+  /** Planned lessons the chain buttons may move — pinned ones stay put. */
   const getRealignableInstances = () =>
     [...instances]
       .filter((i) => i.status === "planned" && !i.is_manual_override)
@@ -543,220 +520,105 @@ export function useEditStudentDialog({
         return dc !== 0 ? dc : toDbTime(a.start_time).localeCompare(toDbTime(b.start_time));
       });
 
-  /**
-   * Single write path for every chain operation (realign / forward / backward /
-   * bulk date edit). One atomic RPC does the conflict check, the reorder and the
-   * renumbering inside one transaction.
-   *
-   * The previous implementation fired N parallel UPDATEs. Because
-   * `uniq_active_planned_slot` is a partial UNIQUE index on
-   * (student_id, lesson_date, start_time) WHERE status='planned', a rotating
-   * chain hit transient collisions depending on which write landed first — the
-   * random "zaten bir ders var" failures — and a mid-flight error left the
-   * chain split across two layouts.
-   */
-  const applyChainDates = async (
-    targets: LessonInstance[],
-    newDates: { lessonDate: string; startTime: string; endTime: string }[],
-    options?: { markOverride?: boolean; skipRefresh?: boolean }
+  /** Run a chain operation with a shared busy flag and refresh. */
+  const runChainOp = async (
+    op: () => Promise<RescheduleResult>,
+    successMessage?: string
   ) => {
-    const count = Math.min(targets.length, newDates.length);
-    if (count === 0) throw new Error("Taşınacak ders bulunamadı");
-
-    const moving = targets.slice(0, count);
-    const payload = moving.map((inst, i) => ({
-      id: inst.id,
-      lessonDate: newDates[i].lessonDate,
-      startTime: toDbTime(newDates[i].startTime),
-      endTime: toDbTime(newDates[i].endTime),
-    }));
-
-    // Paint the move immediately; the server stays the arbiter and the snapshot
-    // is restored on any failure, thrown or returned.
-    const snapshot = instances;
-    const movedById = new Map(payload.map((p) => [p.id, p]));
-    setInstances(
-      instances.map((inst) => {
-        const nd = movedById.get(inst.id);
-        return nd
-          ? { ...inst, lesson_date: nd.lessonDate, start_time: nd.startTime, end_time: nd.endTime }
-          : inst;
-      })
-    );
-
+    setShifting(true);
+    setConflicts([]);
     try {
-      const { data, error } = await supabase.rpc("rpc_apply_chain_dates", {
-        p_student_id: studentUserId,
-        p_teacher_id: teacherUserId,
-        p_updates: payload,
-        p_mark_override: options?.markOverride ?? false,
-      });
-      if (error) throw new Error(error.message);
-
-      const result = data as unknown as {
-        success: boolean;
-        error?: string;
-        conflict_student?: string;
-        conflict_date?: string;
-        conflict_time?: string;
-      };
-
-      if (!result?.success) {
-        if (result?.error === "conflict") {
-          setConflicts([
-            {
-              studentName: result.conflict_student || "Bilinmeyen Öğrenci",
-              date: result.conflict_date || "",
-              timeRange: result.conflict_time || "",
-              type: result.conflict_student === "Deneme Dersi" ? "trial" : "lesson",
-              teacherId: teacherUserId,
-            },
-          ]);
-          throw new Error("Çakışma var, dersler taşınamadı");
-        }
-        throw new Error(result?.error || "Dersler taşınamadı");
-      }
-    } catch (err) {
-      setInstances(snapshot);
-      throw err;
-    }
-
-    clearWeekCache();
-    if (!options?.skipRefresh) {
-      onStudentUpdated();
+      const result = await op();
+      if (!reportFailure(result)) return;
+      clearWeekCache();
       await fetchInstances();
+      onStudentUpdated();
+      if (successMessage) toast({ title: "Başarılı", description: successMessage });
+    } catch (error: any) {
+      toast({ title: "Hata", description: error.message || "İşlem başarısız", variant: "destructive" });
+    } finally {
+      setShifting(false);
     }
   };
 
-  /** Realign: regenerate all planned chain from the last completed anchor (cross-cycle) */
+  /** Realign: pull the whole planned chain back onto the template, starting
+   *  right after the last lesson that was actually taught. */
   const handleRealignChain = async () => {
     const realignable = getRealignableInstances();
     if (realignable.length === 0) {
       toast({ title: "Bilgi", description: "Hizalanacak planlı ders yok" });
       return;
     }
-    setShifting(true);
-    setConflicts([]);
-    try {
-      const templateSlots = getTemplateSlots();
-      const startDate = lastCompletedAnchor
-        ? parseLocalDate(lastCompletedAnchor.lessonDate)
-        : startOfDay(new Date());
-      const afterTime = lastCompletedAnchor?.startTime;
-
-      const newDates = generateFutureInstanceDates(
-        templateSlots,
-        realignable.length,
-        startDate,
-        afterTime
-      );
-
-      await applyChainDates(realignable, newDates);
-      toast({ title: "Başarılı", description: "Ders zinciri yeniden hizalandı" });
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message || "Hizalama başarısız", variant: "destructive" });
-    } finally {
-      setShifting(false);
-    }
+    const fromDate = lastCompletedAnchor?.lessonDate ?? toDateStr(new Date());
+    const fromTime = lastCompletedAnchor?.startTime ?? null;
+    await runChainOp(
+      () => relayoutChain(realignable.map((i) => i.id), fromDate, fromTime),
+      "Ders zinciri yeniden hizalandı"
+    );
   };
 
-  /** Shift chain forward by 1 slot */
+  /** Shift the whole planned chain forward by one free slot. */
   const handleShiftForward = async () => {
     const realignable = getRealignableInstances();
     if (realignable.length === 0) return;
-    setShifting(true);
-    setConflicts([]);
-    try {
-      const templateSlots = getTemplateSlots();
-      const first = realignable[0];
-      const newDates = generateFutureInstanceDates(
-        templateSlots,
-        realignable.length,
-        parseLocalDate(first.lesson_date),
-        toDbTime(first.start_time)
-      );
-
-      await applyChainDates(realignable, newDates);
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message || "İleri kaydırma başarısız", variant: "destructive" });
-    } finally {
-      setShifting(false);
-    }
-  };
-
-  /** Is the slot before the chain's head still on the allowed side of the
-   *  last completed lesson? Shared by the button state and the handler. */
-  const getBackwardTarget = () => {
-    const realignable = getRealignableInstances();
-    if (realignable.length === 0) return null;
-    const templateSlots = getTemplateSlots();
     const first = realignable[0];
-
-    const prevSlot = getSlotBefore(
-      templateSlots,
-      parseLocalDate(first.lesson_date),
-      toDbTime(first.start_time)
+    await runChainOp(() =>
+      relayoutChain(
+        realignable.map((i) => i.id),
+        first.lesson_date,
+        toDbTime(first.start_time)
+      )
     );
-    if (!prevSlot) return null;
-
-    const minSlot = computeMinSlot();
-    if (minSlot) {
-      const prevDateStr = toDateStr(prevSlot.date);
-      const prevStart = toDbTime(prevSlot.startTime);
-      const blocked =
-        prevDateStr < minSlot.lessonDate ||
-        (prevDateStr === minSlot.lessonDate && prevStart < toDbTime(minSlot.startTime));
-      if (blocked) return null;
-    }
-    return { prevSlot, realignable, templateSlots };
   };
 
-  /** Shift chain backward by 1 slot, respecting completed boundary */
+  /** Shift the whole planned chain back by one free slot, never past the last
+   *  completed lesson or into the past. */
   const handleShiftBackward = async () => {
-    const target = getBackwardTarget();
-    if (!target) {
+    const realignable = getRealignableInstances();
+    if (realignable.length === 0) return;
+    const first = realignable[0];
+    const ids = realignable.map((i) => i.id);
+
+    const slot = await prevFreeSlot(
+      studentUserId,
+      teacherUserId,
+      first.lesson_date,
+      toDbTime(first.start_time),
+      ids
+    );
+    if (!slot.success || !slot.lessonDate || !slot.startTime) {
+      setCanShiftBackward(false);
       toast({ title: "Bilgi", description: "Daha geriye kaydırılamaz" });
       return;
     }
-    const { prevSlot, realignable, templateSlots } = target;
 
-    setShifting(true);
-    setConflicts([]);
-    try {
-      // Generate from the previous slot's day, then drop the same-day slots that
-      // sit before it. Over-generate first: filtering an exactly-sized batch
-      // used to leave the tail short, stranding the last lessons on old dates.
-      const prevDateStr = toDateStr(prevSlot.date);
-      const prevStart = toDbTime(prevSlot.startTime);
-      const generated = generateFutureInstanceDates(
-        templateSlots,
-        realignable.length + templateSlots.length,
-        prevSlot.date,
-        undefined
-      );
-      const filteredDates = generated
-        .filter((nd) => !(nd.lessonDate === prevDateStr && toDbTime(nd.startTime) < prevStart))
-        .slice(0, realignable.length);
-
-      if (filteredDates.length < realignable.length) {
-        toast({ title: "Bilgi", description: "Daha geriye kaydırılamaz" });
-        return;
-      }
-
-      await applyChainDates(realignable, filteredDates);
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message || "Geri kaydırma başarısız", variant: "destructive" });
-    } finally {
-      setShifting(false);
-    }
+    await runChainOp(() =>
+      relayoutChain(ids, slot.lessonDate!, slot.startTime!, { inclusive: true })
+    );
   };
 
-  /** Recompute canShiftBackward whenever instances, template or anchor change.
-   *  Fully synchronous now — it used to run a DB query on every change. */
+  /** Is there room to shift back? Asked once per instance load, not per keystroke. */
   useEffect(() => {
-    setCanShiftBackward(getBackwardTarget() !== null);
+    let cancelled = false;
+    const realignable = getRealignableInstances();
+    if (realignable.length === 0 || !studentUserId || !teacherUserId) {
+      setCanShiftBackward(false);
+      return;
+    }
+    const first = realignable[0];
+    prevFreeSlot(
+      studentUserId,
+      teacherUserId,
+      first.lesson_date,
+      toDbTime(first.start_time),
+      realignable.map((i) => i.id)
+    )
+      .then((slot) => { if (!cancelled) setCanShiftBackward(!!slot.success); })
+      .catch(() => { if (!cancelled) setCanShiftBackward(false); });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instances, lessons, lastCompletedAnchor]);
+  }, [instances, studentUserId, teacherUserId]);
+
 
   const hasRealignableInstances = getRealignableInstances().length > 0;
 
@@ -773,7 +635,6 @@ export function useEditStudentDialog({
 
     const result = sorted.map((inst, idx) => ({
       displayIndex: idx + 1,
-      lessonNumber: inst.lesson_number,
       effectiveDate: inst.lesson_date,
       startTime: inst.start_time,
       endTime: inst.end_time,
@@ -785,7 +646,6 @@ export function useEditStudentDialog({
     for (let i = result.length; i < totalLessons; i++) {
       result.push({
         displayIndex: i + 1,
-        lessonNumber: i + 1,
         effectiveDate: "",
         startTime: "",
         endTime: "",

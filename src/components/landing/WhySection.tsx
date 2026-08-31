@@ -1,75 +1,72 @@
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Sparkles, Monitor } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
+
+const FEATURES = [
+  { key: "personalProgram", icon: "n-kisi.png" },
+  { key: "oneOnOne", icon: "n-ikili.png" },
+  { key: "liveZoom", icon: "n-video.png" },
+  { key: "speakingFocused", icon: "n-sohbet.png" },
+  { key: "regularTracking", icon: "n-pano.png" },
+  { key: "freeTrial", icon: "n-hediye.png" },
+] as const;
+
+/**
+ * "Neden English with Dilara?" — koyu mor blok, tarak kenarlı, yıldız dokulu.
+ * Sağda 3D rozetleri sola taşan liste satırları.
+ */
 export function WhySection() {
-  const {
-    language,
-    t
-  } = useLanguage();
-  const features = [t.why.features.personalProgram, t.why.features.oneOnOne, t.why.features.liveZoom, t.why.features.speakingFocused, t.why.features.regularTracking, t.why.features.freeTrial];
-  return <section id="why" className="scroll-section py-16 md:py-24 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Two column layout on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-24 items-center">
-          
-          {/* Left Column - Title (45%) */}
-          <div className="lg:col-span-5 text-center lg:text-right relative">
-            {/* Decorative sparkle near title */}
-            
-            
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight">
-              <span className="text-foreground">{t.why.title[language]}</span>
-              <br />
-              <span className="text-landing-purple-dark text-4xl md:text-5xl lg:text-6xl">ENGLISH</span>
-              <br />
-              <span className="text-foreground/80 text-xl md:text-2xl font-semibold">with</span>
-              <br />
-              <span className="font-aprilia text-landing-purple-dark text-4xl md:text-5xl lg:text-6xl">DILARA</span>
-              <span className="text-landing-yellow text-4xl md:text-5xl lg:text-6xl font-extrabold">?</span>
-            </h2>
+  const { language, t } = useLanguage();
 
-            {/* Decorative arrow/accent */}
-            
+  const scrollToContact = () => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+
+  return (
+    <section
+      id="why"
+      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24 lg:py-[104px]"
+      style={{ background: "#6D28D9" }}
+    >
+      <span
+        className="pointer-events-none absolute inset-0 opacity-[0.32]"
+        style={{ backgroundImage: "url(/ewd/pat/tile-star-purple.png)", backgroundSize: "280px" }}
+        aria-hidden="true"
+      />
+      <span className="ewd-scallop-t" style={{ ["--scallop" as string]: "#F7ECFF" }} aria-hidden="true" />
+      <span className="ewd-scallop-b" style={{ ["--scallop" as string]: "#FFF8EF" }} aria-hidden="true" />
+
+      <div className="relative mx-auto grid max-w-[1180px] items-center gap-12 lg:grid-cols-[452px_1fr] lg:gap-[60px]">
+        <div className="flex flex-col items-start gap-1">
+          <span className="ewd-script text-[46px] leading-none text-[#FBD34F] sm:text-[58px] lg:text-[68px]">
+            {t.why.title[language]}
+          </span>
+          <div className="ewd-lockup ewd-lockup--onDark">
+            <span className="ewd-lockup__english">ENGLISH</span>
+            <span className="ewd-lockup__with">with</span>
+            <span className="ewd-lockup__dilara">
+              Dilara
+              <span className="font-sans text-[0.76em] font-black text-[#FBD34F]">?</span>
+            </span>
           </div>
 
-          {/* Right Column - Benefits Card + Preview (55%) */}
-          <div className="lg:col-span-7 flex flex-col items-center lg:items-start gap-6">
-            
-            {/* Benefits Card - Sticker Style */}
-            <div className="why-card-float relative w-full max-w-md">
-              {/* Yellow clip decoration */}
-              <div className="absolute -top-3 left-8 w-8 h-6 bg-landing-yellow rounded-b-lg shadow-md z-10" />
-              <div className="absolute -top-1 left-9 w-6 h-2 bg-landing-yellow-light rounded-full" />
-              
-              {/* Sparkle on card */}
-              <Sparkles className="why-sparkle-blink absolute -top-2 -right-2 w-5 h-5 text-landing-pink opacity-50" />
+          <p className="mt-5 max-w-[400px] text-[16px] font-medium leading-[1.6] text-[#E4D3F5] sm:text-[17px]">
+            {t.why.lead[language]}
+          </p>
 
-              {/* Card */}
-              <div className="bg-landing-purple/30 border-[3px] border-landing-purple/50 rounded-[20px] p-5 md:p-6 shadow-xl backdrop-blur-sm">
-                <ul className="space-y-3">
-                  {features.map((feature, index) => <li key={index} className="flex items-center gap-3">
-                      {/* Yellow bullet */}
-                      <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-landing-yellow shadow-sm" />
-                      <span className="text-base md:text-lg font-semibold text-foreground/90">
-                        {feature[language]}
-                      </span>
-                    </li>)}
-                </ul>
-              </div>
-            </div>
-
-            {/* Preview Panel */}
-            <div className="why-card-float relative w-48 md:w-56 lg:mr-8" style={{
-            animationDelay: '0.5s'
-          }}>
-              {/* Sparkles around preview */}
-              
-              
-
-              {/* Panel */}
-              
-            </div>
-          </div>
+          <button type="button" onClick={scrollToContact} className="ewd-btn ewd-btn--yellow mt-6">
+            {t.why.cta[language]}
+          </button>
         </div>
+
+        <ul className="flex flex-col gap-3 pl-2 sm:pl-3">
+          {FEATURES.map(({ key, icon }) => (
+            <li key={key} className="ewd-row">
+              <img src={`/ewd/assets/ic/${icon}`} alt="" loading="lazy" className="ewd-row__icon" />
+              <span className="ewd-row__dot" aria-hidden="true" />
+              <span className="text-[16px] font-bold text-[#2F2A3A] sm:text-[18px]">
+                {t.why.features[key][language]}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
-    </section>;
+    </section>
+  );
 }

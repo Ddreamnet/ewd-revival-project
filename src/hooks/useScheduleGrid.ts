@@ -5,6 +5,7 @@
 
 import { format, startOfWeek, addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureCycleInstances } from "@/lib/lessonService";
 
 interface BaseLessonInfo {
   id: string;
@@ -45,8 +46,8 @@ export interface ActualLesson {
 const weekCache = new Map<string, { data: ActualLesson[]; ts: number }>();
 const CACHE_TTL = 60_000; // 1 minute
 
-// ─── Ensure Cache — skip redundant ensureInstancesForWeek calls ──
-const ensuredWeeks = new Set<string>();
+// ─── Ensure guard — one package top-up per teacher per session ──
+const ensuredTeachers = new Set<string>();
 
 function getCacheKey(teacherId: string, weekStartStr: string): string {
   return `${teacherId}-${weekStartStr}`;
@@ -55,7 +56,7 @@ function getCacheKey(teacherId: string, weekStartStr: string): string {
 /** Clear all cached weeks + ensured set — call after mutations (shift/revert/complete/reschedule). */
 export function clearWeekCache(): void {
   weekCache.clear();
-  ensuredWeeks.clear();
+  ensuredTeachers.clear();
 }
 
 /** Prefetch a specific week in the background (no-op if already cached and fresh). */
@@ -137,158 +138,26 @@ export function getTrialLessonForDayAndTime<T extends TrialLessonInfo>(
 }
 
 /**
- * Ensure lesson_instances exist for all active template students for a given week.
- * OPTIMIZED: Uses batch queries instead of per-student N+1 loops.
+ * Make sure every active student's current package is fully materialised.
+ *
+ * This used to be a ~150-line client routine that asked "does this student have
+ * a lesson in the week I'm looking at?" and, if not, inserted one on the
+ * template day. Paging back to a week whose lesson had just been moved out
+ * therefore conjured a replacement, and two open admin tabs could both insert.
+ * The server RPC works on the package instead of the week — a cycle holds
+ * exactly lessons_per_week * 4 lessons, missing ones are appended on free slots
+ * after the last existing one — and it is idempotent, so calling it on load is
+ * safe. Guarded per teacher so it costs one round trip per session.
  */
-async function ensureInstancesForWeek(teacherId: string, ws: Date): Promise<void> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekEnd = addDays(ws, 6);
-
-  // Don't generate for fully past weeks
-  if (weekEnd < today) return;
-
-  const startStr = format(ws, "yyyy-MM-dd");
-  const endStr = format(weekEnd, "yyyy-MM-dd");
-
-  // Skip if already ensured this session (cleared on mutations)
-  const ensureKey = `${teacherId}-${startStr}`;
-  if (ensuredWeeks.has(ensureKey)) return;
-
-  // Get all templates for this teacher
-  const { data: templates } = await supabase
-    .from("student_lessons")
-    .select("student_id, day_of_week, start_time, end_time")
-    .eq("teacher_id", teacherId);
-
-  if (!templates || templates.length === 0) return;
-
-  // Get active (non-archived) student IDs
-  const templateStudentIds = [...new Set(templates.map((t) => t.student_id))];
-  const { data: activeStudents } = await supabase
-    .from("students")
-    .select("student_id")
-    .eq("teacher_id", teacherId)
-    .eq("is_archived", false)
-    .in("student_id", templateStudentIds);
-
-  if (!activeStudents || activeStudents.length === 0) return;
-  const activeStudentIds = new Set(activeStudents.map((s) => s.student_id));
-
-  // Check which students already have instances for this week
-  const { data: existingInstances } = await supabase
-    .from("lesson_instances")
-    .select("student_id")
-    .eq("teacher_id", teacherId)
-    .gte("lesson_date", startStr)
-    .lte("lesson_date", endStr);
-
-  const studentsWithInstances = new Set((existingInstances || []).map((i) => i.student_id));
-
-  // Find students with templates but no instances this week
-  const missingStudents = [...activeStudentIds].filter((id) => !studentsWithInstances.has(id));
-  if (missingStudents.length === 0) return;
-
-  // ── BATCH: Get tracking data + per-cycle instance details ──
-  const [trackingResult, cycleInstancesResult] = await Promise.all([
-    supabase
-      .from("student_lesson_tracking")
-      .select("student_id, package_cycle, lessons_per_week")
-      .eq("teacher_id", teacherId)
-      .in("student_id", missingStudents),
-    // All planned/completed instances for missing students. lesson_number is
-    // collected per-cycle so the next-number computation stays inside the
-    // current cycle (cycle resets restart numbering at 1 — global MAX would
-    // wrongly continue from the previous cycle's tail).
-    supabase
-      .from("lesson_instances")
-      .select("student_id, package_cycle, status, lesson_date, lesson_number")
-      .eq("teacher_id", teacherId)
-      .in("student_id", missingStudents)
-      .in("status", ["planned", "completed"]),
-  ]);
-
-  const trackingMap = new Map<string, { cycle: number; lpw: number }>();
-  (trackingResult.data || []).forEach((t) => {
-    trackingMap.set(t.student_id, { cycle: t.package_cycle, lpw: t.lessons_per_week });
-  });
-
-  // Per-student aggregates inside the *current* cycle only.
-  const cycleCountMap = new Map<string, number>();
-  const maxCompletedDateMap = new Map<string, string>();
-  const maxLessonNumInCycleMap = new Map<string, number>();
-  (cycleInstancesResult.data || []).forEach((row) => {
-    const tracking = trackingMap.get(row.student_id);
-    if (!tracking || row.package_cycle !== tracking.cycle) return;
-    cycleCountMap.set(row.student_id, (cycleCountMap.get(row.student_id) || 0) + 1);
-    const prevMax = maxLessonNumInCycleMap.get(row.student_id) || 0;
-    if (row.lesson_number > prevMax) maxLessonNumInCycleMap.set(row.student_id, row.lesson_number);
-    if (row.status === "completed") {
-      const current = maxCompletedDateMap.get(row.student_id);
-      if (!current || row.lesson_date > current) {
-        maxCompletedDateMap.set(row.student_id, row.lesson_date);
-      }
-    }
-  });
-
-  // Generate instances to insert
-  const instancesToInsert: Array<{
-    student_id: string;
-    teacher_id: string;
-    lesson_number: number;
-    lesson_date: string;
-    start_time: string;
-    end_time: string;
-    status: string;
-    package_cycle: number;
-  }> = [];
-
-  for (const studentId of missingStudents) {
-    const tracking = trackingMap.get(studentId);
-    if (!tracking) continue;
-
-    const totalRights = tracking.lpw * 4;
-    const currentCycle = tracking.cycle;
-    const existingInCycle = cycleCountMap.get(studentId) || 0;
-
-    if (existingInCycle >= totalRights) continue; // Package exhausted
-
-    const remainingSlots = totalRights - existingInCycle;
-    const studentTemplates = templates.filter((t) => t.student_id === studentId);
-    let nextNum = (maxLessonNumInCycleMap.get(studentId) || 0) + 1;
-    let generated = 0;
-    const lastCompletedDate = maxCompletedDateMap.get(studentId);
-
-    for (const tmpl of studentTemplates) {
-      if (generated >= remainingSlots) break;
-
-      const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
-      const lessonDate = addDays(ws, dayIndex);
-      const dateStr = format(lessonDate, "yyyy-MM-dd");
-
-      if (lastCompletedDate && dateStr <= lastCompletedDate) continue;
-
-      instancesToInsert.push({
-        student_id: studentId,
-        teacher_id: teacherId,
-        lesson_number: nextNum++,
-        lesson_date: dateStr,
-        start_time: tmpl.start_time,
-        end_time: tmpl.end_time,
-        status: "planned",
-        package_cycle: currentCycle,
-      });
-      generated++;
-    }
+async function ensurePackagesForTeacher(teacherId: string): Promise<void> {
+  if (ensuredTeachers.has(teacherId)) return;
+  ensuredTeachers.add(teacherId);
+  const result = await ensureCycleInstances(teacherId);
+  if (!result.success) {
+    // Not fatal: the schedule still renders whatever already exists.
+    console.error("ensureCycleInstances failed:", result.error);
+    ensuredTeachers.delete(teacherId);
   }
-
-  if (instancesToInsert.length > 0) {
-    await supabase.from("lesson_instances").insert(instancesToInsert);
-  }
-
-  // Mark this week as ensured for the session
-  ensuredWeeks.add(ensureKey);
-
 }
 
 /**
@@ -303,8 +172,9 @@ async function fetchActualLessonsForWeekCore(
   const startStr = format(ws, "yyyy-MM-dd");
   const endStr = format(weekEnd, "yyyy-MM-dd");
 
-  // Ensure instances exist for all template students this week
-  await ensureInstancesForWeek(teacherId, ws);
+  // Top the packages up before reading, so a student who is short of lessons
+  // (newly created, or template synced) shows a complete schedule.
+  await ensurePackagesForTeacher(teacherId);
 
   // Fetch instances + active students + profiles in parallel
   const [instancesResult, activeStudentsResult] = await Promise.all([

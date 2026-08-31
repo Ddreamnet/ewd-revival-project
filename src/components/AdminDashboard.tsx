@@ -286,8 +286,11 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
+    <div className="ewd-panel min-h-screen">
       <Header
+        title="Admin Paneli"
+        subtitle={profile?.full_name ? `Hoş geldin, ${profile.full_name}` : undefined}
+        badge="Yönetici"
         rightActions={
           <>
             <AdminNotificationBell adminId={profile?.user_id || ''} />
@@ -306,14 +309,9 @@ export function AdminDashboard() {
             </Button>
           </>
         }
-      >
-        <div className="text-center">
-          <h1 className="text-xl sm:text-2xl font-bold">Admin Paneli</h1>
-          <p className="text-sm sm:text-lg text-muted-foreground hidden sm:block">Hoş geldin, {profile?.full_name}</p>
-        </div>
-      </Header>
+      />
 
-      <div className="container mx-auto p-4">
+      <div className="mx-auto max-w-[1500px] p-3 sm:p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Teachers List */}
           <div className="lg:col-span-1">
@@ -335,16 +333,17 @@ export function AdminDashboard() {
                   <CardDescription>{selectedTeacher.email}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-1 sm:gap-2 border-b mb-4 overflow-x-auto pb-1">
+                  <div className="mb-4 flex gap-1.5 overflow-x-auto border-b-2 border-[color:var(--ewd-line)] pb-3">
                     {(["students", "schedule", "payments"] as const).map((tab) => (
-                      <Button
+                      <button
                         key={tab}
-                        variant={activeTab === tab ? "default" : "ghost"}
-                        className="rounded-b-none text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap flex-shrink-0"
+                        type="button"
+                        className="ewd-tab"
+                        data-active={activeTab === tab}
                         onClick={() => setActiveTab(tab)}
                       >
                         {tab === "students" ? "Öğrenciler" : tab === "schedule" ? "Ders programı" : "Ödemeler"}
-                      </Button>
+                      </button>
                     ))}
                   </div>
 

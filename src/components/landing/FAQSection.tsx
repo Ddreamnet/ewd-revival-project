@@ -1,104 +1,73 @@
-import { useState } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, Minus } from 'lucide-react';
+import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
+const QUESTION_KEYS = ["duration", "freeTrial", "platform", "lessonType", "login"] as const;
+
+/** Sık sorulan sorular — pembe blok, yıldız dokusu, tek açılır satır listesi. */
 export function FAQSection() {
   const { language, t } = useLanguage();
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
-  const faqItems = [
-    {
-      question: t.faq.questions.duration.question,
-      answer: t.faq.questions.duration.answer,
-    },
-    {
-      question: t.faq.questions.freeTrial.question,
-      answer: t.faq.questions.freeTrial.answer,
-    },
-    {
-      question: t.faq.questions.platform.question,
-      answer: t.faq.questions.platform.answer,
-    },
-    {
-      question: t.faq.questions.lessonType.question,
-      answer: t.faq.questions.lessonType.answer,
-      subItems: [
-        t.faq.questions.lessonType.subItems.oneOnOne,
-        t.faq.questions.lessonType.subItems.group,
-      ],
-    },
-    {
-      question: t.faq.questions.login.question,
-      answer: t.faq.questions.login.answer,
-    },
-  ];
-
-  const toggleItem = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
+  const [open, setOpen] = useState<number>(0);
 
   return (
     <section
       id="faq"
-      className="scroll-section py-16 md:py-24"
+      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24"
+      style={{ background: "var(--ewd-pink-soft)" }}
     >
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">
-            {t.faq.title[language]}
-          </h2>
-        </div>
+      <span
+        className="pointer-events-none absolute inset-0 opacity-[0.55]"
+        style={{ backgroundImage: "url(/ewd/pat/tile-star-pink.png)", backgroundSize: "300px" }}
+        aria-hidden="true"
+      />
+      <span className="ewd-scallop-t" style={{ ["--scallop" as string]: "#FBF5FF" }} aria-hidden="true" />
+      <span className="ewd-scallop-b" style={{ ["--scallop" as string]: "#FFF8EF" }} aria-hidden="true" />
 
-        {/* Accordion Items */}
-        <div className="space-y-4">
-          {faqItems.map((item, index) => (
-            <div key={index} className="overflow-hidden">
-              {/* Question Button */}
-              <button
-                onClick={() => toggleItem(index)}
-                className={`w-full flex items-center justify-between p-4 md:p-5 text-left transition-all duration-300 ${
-                  openIndex === index
-                    ? 'bg-landing-purple/30 rounded-t-2xl'
-                    : 'bg-landing-purple/20 rounded-2xl hover:bg-landing-purple/25'
-                }`}
-              >
-                <span className="text-base md:text-lg font-medium text-foreground pr-4">
-                  {item.question[language]}
-                </span>
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-landing-purple/40 flex items-center justify-center">
-                  {openIndex === index ? (
-                    <Minus className="w-5 h-5 text-landing-purple-dark" />
-                  ) : (
-                    <Plus className="w-5 h-5 text-landing-purple-dark" />
-                  )}
-                </div>
-              </button>
+      <div className="relative mx-auto flex max-w-[880px] flex-col items-center gap-2.5">
+        <h2 className="ewd-h2 text-center">{t.faq.title[language]}</h2>
+        <p className="mb-6 text-center text-[15px] font-semibold text-[#9D4368] sm:text-[16px]">
+          {t.faq.lead[language]}
+        </p>
 
-              {/* Answer Panel */}
+        <div
+          className="flex w-full flex-col gap-3 rounded-[28px] border-[3px] p-4 sm:rounded-[36px] sm:p-[22px]"
+          style={{
+            background: "#FFFDF8",
+            borderColor: "#F7B9D3",
+            boxShadow: "0 26px 40px -24px rgba(190,24,93,0.4)",
+          }}
+        >
+          {QUESTION_KEYS.map((key, index) => {
+            const isOpen = open === index;
+            const question = t.faq.questions[key];
+            return (
               <div
-                className={`transition-all duration-300 overflow-hidden ${
-                  openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                }`}
+                key={key}
+                className="rounded-[20px] transition-colors sm:rounded-[24px]"
+                style={{ background: isOpen ? "#FFE7F1" : "var(--ewd-pink-tint)" }}
               >
-                <div className="bg-landing-pink/30 rounded-b-2xl p-4 md:p-5">
-                  <p className="text-sm md:text-base text-foreground/80">
-                    {item.answer[language]}
-                  </p>
-                  {item.subItems && (
-                    <ul className="mt-3 space-y-2 pl-4">
-                      {item.subItems.map((subItem, subIndex) => (
-                        <li key={subIndex} className="text-sm md:text-base text-foreground/70 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-landing-purple-dark" />
-                          {subItem[language]}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(isOpen ? -1 : index)}
+                  aria-expanded={isOpen}
+                  className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-6"
+                >
+                  <span className="text-[16px] font-bold text-[#2E1065] sm:text-[18px]">
+                    {question.question[language]}
+                  </span>
+                  <span
+                    className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-full text-[22px] font-bold leading-none text-[#FFF8EF] transition-colors"
+                    style={{ background: isOpen ? "var(--ewd-purple)" : "var(--ewd-pink)" }}
+                    aria-hidden="true"
+                  >
+                    {isOpen ? "−" : "+"}
+                  </span>
+                </button>
+                {isOpen && (
+                  <p className="ewd-lead px-5 pb-5 pr-14 sm:px-6 sm:pb-6">{question.answer[language]}</p>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

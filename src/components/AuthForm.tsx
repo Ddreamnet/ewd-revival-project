@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -78,48 +75,66 @@ export function AuthForm() {
           <div className="login-board__surface">
             {/* Login card centered */}
             <div className="login-board__center">
-            <Card className="w-full max-w-sm bg-background/65 backdrop-blur-sm">
-              <CardContent className="pt-6">
-                  <div className="w-full">
-                    <div className="text-center mb-6">
-                      <h2 className="text-xl font-semibold">Giriş Yap</h2>
-                    </div>
+            <div
+              className="w-full max-w-sm rounded-[30px] border-[3px] px-6 py-7 backdrop-blur-sm"
+              style={{
+                background: "color-mix(in srgb, var(--ewd-cream-hi) 92%, transparent)",
+                borderColor: "var(--ewd-lilac-line)",
+                boxShadow: "0 26px 44px -24px rgba(0,0,0,0.5)",
+              }}
+            >
+              <div className="mb-5 text-center">
+                <h2 className="text-[22px] font-black tracking-[-0.01em] text-[color:var(--ewd-on-surface)]">
+                  Giriş Yap
+                </h2>
+                <p className="mt-1 text-[13px] font-semibold text-[color:var(--ewd-on-surface-soft)]">
+                  Öğrenci ve öğretmen paneli
+                </p>
+              </div>
 
-                    <form onSubmit={handleSignIn} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="signin-email">E-posta</Label>
-                          <Input
-                          id="signin-email"
-                          type="email"
-                          name="email"
-                          autoComplete="username"
-                          placeholder="E-posta adresinizi girin"
-                          value={signInData.email}
-                          onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
-                          required />
-
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="signin-password">Şifre</Label>
-                          <Input
-                          id="signin-password"
-                          type="password"
-                          name="password"
-                          autoComplete="current-password"
-                          placeholder="Şifrenizi girin"
-                          value={signInData.password}
-                          onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
-                          required />
-
-                        </div>
-                        <Button type="submit" className="w-full" disabled={isLoading}>
-                          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Giriş Yap
-                        </Button>
-                      </form>
-                  </div>
-                </CardContent>
-              </Card>
+              <form onSubmit={handleSignIn} className="space-y-3.5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="signin-email" className="text-[12px] font-extrabold uppercase tracking-[0.1em]">
+                    E-posta
+                  </Label>
+                  <input
+                    id="signin-email"
+                    className="ewd-field"
+                    type="email"
+                    name="email"
+                    autoComplete="username"
+                    placeholder="E-posta adresinizi girin"
+                    value={signInData.email}
+                    onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="signin-password" className="text-[12px] font-extrabold uppercase tracking-[0.1em]">
+                    Şifre
+                  </Label>
+                  <input
+                    id="signin-password"
+                    className="ewd-field"
+                    type="password"
+                    name="password"
+                    autoComplete="current-password"
+                    placeholder="Şifrenizi girin"
+                    value={signInData.password}
+                    onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="ewd-btn ewd-btn--purple w-full disabled:opacity-70"
+                  disabled={isLoading}
+                >
+                  {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Giriş Yap
+                </button>
+              </form>
+            </div>
             </div>
 
             {/* Shelf */}

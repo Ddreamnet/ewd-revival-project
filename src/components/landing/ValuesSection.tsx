@@ -1,323 +1,221 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import img1 from "@/assets/values-1.jpg";
 import img2 from "@/assets/values-2.jpg";
 import img3 from "@/assets/values-3.jpg";
 import img4 from "@/assets/values-4.jpg";
 import img5 from "@/assets/values-5.jpg";
-import signatureImg from "@/assets/ataturk-signature.png";
-import { useTranslation } from "@/contexts/LanguageContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import type { Language } from "@/lib/translations";
 
-const CARDS = [
-{
-  id: 1,
-  image: img1,
-  quote: {
-    tr: "Eğitimdir ki bir milleti ya hür, bağımsız, şanlı, yüksek bir topluluk halinde yaşatır; ya da esaret ve sefalete terk eder.",
-    en: "It is education that either enables a nation to live as a free, independent, honoured and elevated community, or abandons it to bondage and misery."
-  }
-},
-{
-  id: 2,
-  image: img2,
-  quote: {
-    tr: "Küçük hanımlar, küçük beyler! Sizler hepiniz geleceğin bir gülü, yıldızı ve ikbal ışığısınız. Memleketi asıl ışığa boğacak olan sizsiniz. Kendinizin ne kadar önemli, değerli olduğunuzu düşünerek ona göre çalışınız. Sizlerden çok şey bekliyoruz.",
-    en: "Little ladies, little gentlemen! You are all the roses, the stars, and the bright promise of the future. It is you who will bathe our country in true light. Be mindful of how important and valuable you are, and work accordingly. We expect great things from you."
-  }
-},
-{
-  id: 3,
-  image: img3,
-  quote: {
-    tr: "Çocuklar geleceğimizin güvencesi, yaşama sevincimizdir. Bugünün çocuğunu, yarının büyüğü olarak yetiştirmek hepimizin insanlık görevidir.",
-    en: "Children are the guarantee of our future and the joy of our lives. To raise today's child as tomorrow's adult is a duty of humanity that belongs to us all."
-  }
-},
-{
-  id: 4,
-  image: img4,
-  quote: {
-    tr: "Bugünün küçükleri yarının büyükleridir.",
-    en: "Today's little ones are tomorrow's great ones."
-  }
-},
-{
-  id: 5,
-  image: img5,
-  quote: {
-    tr: "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
-    en: "Teachers, the Republic asks of you generations who are free in thought, free in conscience, and free in learning."
-  }
-}];
-
-
-const TOTAL = CARDS.length;
-
-function mod(n: number, m: number) {
-  return (n % m + m) % m;
+interface ValueCard {
+  id: number;
+  image: string;
+  quote: Record<Language, string>;
 }
 
-export function ValuesSection() {
-  const { language } = useTranslation();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [animating, setAnimating] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef(0);
-  const touchDelta = useRef(0);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize, { passive: true });
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const go = useCallback(
-    (dir: 1 | -1) => {
-      if (animating) return;
-      setAnimating(true);
-      setActiveIndex((prev) => mod(prev + dir, TOTAL));
-      setTimeout(() => setAnimating(false), 400);
+const CARDS: ValueCard[] = [
+  {
+    id: 1,
+    image: img1,
+    quote: {
+      tr: "Öğretmenler! Yeni nesil sizin eseriniz olacaktır.",
+      en: "Teachers! The new generation will be your work.",
+      fr: "Enseignants ! La nouvelle génération sera votre œuvre.",
     },
-    [animating]
-  );
+  },
+  {
+    id: 2,
+    image: img2,
+    quote: {
+      tr: "Bugünün küçükleri yarının büyükleridir.",
+      en: "Today's little ones are tomorrow's great ones.",
+      fr: "Les petits d'aujourd'hui sont les grands de demain.",
+    },
+  },
+  {
+    id: 3,
+    image: img3,
+    quote: {
+      tr: "Eğitimdir ki bir milleti ya hür, bağımsız, şanlı, yüksek bir topluluk halinde yaşatır; ya da esaret ve sefalete terk eder.",
+      en: "It is education that either enables a nation to live as a free, independent, honoured community, or abandons it to bondage and misery.",
+      fr: "C'est l'éducation qui permet à une nation de vivre libre, indépendante et honorée, ou qui l'abandonne à la servitude et à la misère.",
+    },
+  },
+  {
+    id: 4,
+    image: img4,
+    quote: {
+      tr: "Çocuklar geleceğimizin güvencesi, yaşama sevincimizdir.",
+      en: "Children are the guarantee of our future and the joy of our lives.",
+      fr: "Les enfants sont la garantie de notre avenir et la joie de notre vie.",
+    },
+  },
+  {
+    id: 5,
+    image: img5,
+    quote: {
+      tr: "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
+      en: "Teachers, the Republic asks of you generations free in thought, free in conscience, and free in learning.",
+      fr: "Enseignants, la République attend de vous des générations libres de pensée, de conscience et de savoir.",
+    },
+  },
+];
 
-  // Touch events for mobile app compatibility (works in Capacitor)
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchDelta.current = 0;
-  };
+const mod = (n: number, m: number) => ((n % m) + m) % m;
 
-  const onTouchMove = (e: React.TouchEvent) => {
-    touchDelta.current = e.touches[0].clientX - touchStartX.current;
-  };
+/**
+ * Değerlerimiz — koyu mor blok üzerinde iki polaroid arasında duran alıntı
+ * kartı. Kart, Atatürk'ün eğitim üzerine sözleri arasında geziniyor.
+ */
+export function ValuesSection() {
+  const { language, t } = useLanguage();
+  const [index, setIndex] = useState(0);
 
-  const onTouchEnd = () => {
-    if (Math.abs(touchDelta.current) > 40) {
-      go(touchDelta.current < 0 ? 1 : -1);
-    }
-    touchDelta.current = 0;
-  };
+  const go = useCallback((dir: 1 | -1) => setIndex((prev) => mod(prev + dir, CARDS.length)), []);
 
-  // Mouse drag for desktop
-  const mouseDown = useRef(false);
-  const mouseStartX = useRef(0);
-
-  const onMouseDown = (e: React.MouseEvent) => {
-    mouseDown.current = true;
-    mouseStartX.current = e.clientX;
-  };
-
-  const onMouseUp = (e: React.MouseEvent) => {
-    if (!mouseDown.current) return;
-    mouseDown.current = false;
-    const diff = e.clientX - mouseStartX.current;
-    if (Math.abs(diff) > 40) {
-      go(diff < 0 ? 1 : -1);
-    }
-  };
-
-  const onMouseLeave = () => {
-    mouseDown.current = false;
-  };
-
-  // Keyboard support
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") go(-1);
-      if (e.key === "ArrowRight") go(1);
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [go]);
-
-  // Desktop: 3D carousel positions
-  const getCardProps = (cardIndex: number) => {
-    const offset = mod(cardIndex - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
-    const abs = Math.abs(offset);
-    const isCenter = offset === 0;
-    const isAdjacent = abs === 1;
-    const isFar = abs === 2;
-
-    let translateX = "0px";
-    let scale = 1;
-    let opacity = 1;
-    let zIndex = 10;
-    let blur = "blur(0px)";
-
-    if (isMobile) {
-      // Mobile: only show center card
-      if (isCenter) {
-        translateX = "0px"; scale = 1; opacity = 1; zIndex = 20; blur = "blur(0px)";
-      } else {
-        // Hide all non-center cards off-screen
-        translateX = offset > 0 ? "120%" : "-120%";
-        scale = 0.85; opacity = 0; zIndex = 1; blur = "blur(0px)";
-      }
-    } else {
-      // Desktop: keep 3D carousel
-      if (isCenter) {
-        translateX = "0px"; scale = 1; opacity = 1; zIndex = 20; blur = "blur(0px)";
-      } else if (isAdjacent) {
-        translateX = offset > 0 ? "70%" : "-70%";
-        scale = 0.84; opacity = 0.5; zIndex = 10; blur = "blur(1px)";
-      } else if (isFar) {
-        translateX = offset > 0 ? "130%" : "-130%";
-        scale = 0.7; opacity = 0.25; zIndex = 5; blur = "blur(2px)";
-      } else {
-        translateX = offset > 0 ? "200%" : "-200%";
-        scale = 0.6; opacity = 0; zIndex = 1; blur = "blur(3px)";
-      }
-    }
-
-    return { translateX, scale, opacity, zIndex, blur, isCenter };
-  };
-
-  // Shared arrow button component
-  const ArrowButton = ({ direction, className: extraClass }: { direction: -1 | 1; className?: string }) => (
-    <button
-      onClick={() => go(direction)}
-      aria-label={direction === -1 ? "Önceki" : "Sonraki"}
-      className={`z-30 w-11 h-11 rounded-full bg-landing-purple shadow-lg flex items-center justify-center hover:bg-landing-purple-dark hover:shadow-xl transition-all active:scale-95 ${extraClass ?? ""}`}
-    >
-      {direction === -1 ? (
-        <ChevronLeft className="h-6 w-6 text-white" />
-      ) : (
-        <ChevronRight className="h-6 w-6 text-white" />
-      )}
-    </button>
-  );
+  const current = CARDS[index];
+  const left = CARDS[mod(index - 1, CARDS.length)];
+  const right = CARDS[mod(index + 1, CARDS.length)];
 
   return (
-    <section id="values" className="scroll-section py-16 md:py-24 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-landing-purple-dark">
-            {language === "tr" ? "Değerlerimiz" : "Our Values"}
-          </h2>
+    <section
+      id="values"
+      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24"
+      style={{ background: "#2E1065" }}
+    >
+      <span
+        className="pointer-events-none absolute inset-0 opacity-[0.14]"
+        style={{ backgroundImage: "url(/ewd/pat/tile-star-purple.png)", backgroundSize: "300px" }}
+        aria-hidden="true"
+      />
+      <span className="ewd-scallop-t" style={{ ["--scallop" as string]: "#FFF8EF" }} aria-hidden="true" />
+
+      <div className="relative mx-auto flex max-w-[1180px] flex-col items-center gap-11">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <span className="text-[12px] font-extrabold uppercase tracking-[0.2em] text-[#C4A6E8]">
+            {t.values.badge[language]}
+          </span>
+          <h2 className="ewd-h2 text-[#FFF8EF]">{t.values.title[language]}</h2>
         </div>
 
-        {/* Carousel stage */}
-        <div className="relative" style={{ height: "clamp(380px, 90vw, 640px)" }}>
-          {/* Cards */}
+        <div className="flex w-full items-center justify-center">
+          <Polaroid image={left.image} caption={t.values.caption1[language]} rotation={-6} shift={46} />
+
           <div
-            ref={containerRef}
-            className="absolute inset-0 flex items-center justify-center select-none cursor-grab active:cursor-grabbing overflow-hidden"
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-            onMouseDown={onMouseDown}
-            onMouseUp={onMouseUp}
-            onMouseLeave={onMouseLeave}
+            className="relative z-10 flex w-full max-w-[452px] flex-col gap-4 rounded-[24px] px-7 py-9 sm:px-10 sm:pb-8 sm:pt-10"
+            style={{
+              background: "var(--ewd-cream)",
+              transform: "rotate(1deg)",
+              boxShadow: "0 34px 54px -22px rgba(0,0,0,0.72)",
+            }}
           >
-            {CARDS.map((card, cardIndex) => {
-              const { translateX, scale, opacity, zIndex, blur, isCenter } = getCardProps(cardIndex);
+            <span
+              className="absolute -left-[22px] -top-4 h-[26px] w-[108px] rotate-[-32deg]"
+              style={{ background: "var(--ewd-yellow)" }}
+              aria-hidden="true"
+            />
+            <span
+              className="absolute -bottom-3.5 -right-[22px] h-[26px] w-[108px] rotate-[-32deg]"
+              style={{ background: "var(--ewd-pink)" }}
+              aria-hidden="true"
+            />
 
-              return (
-                <div
-                  key={card.id}
-                  onClick={() => {
-                    if (!isCenter && !animating) {
-                      const offset =
-                        mod(cardIndex - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
-                      if (offset !== 0) go(offset > 0 ? 1 : -1);
-                    }
-                  }}
-                  style={{
-                    position: "absolute",
-                    transform: `translateX(${translateX}) scale(${scale})`,
-                    opacity,
-                    zIndex,
-                    filter: blur,
-                    transition: "transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease, filter 0.4s ease",
-                    width: "clamp(220px, 75vw, 420px)",
-                    maxWidth: "420px",
-                    cursor: isCenter ? "grab" : "pointer",
-                    pointerEvents: isMobile && !isCenter ? "none" : "auto",
-                  }}
-                >
-                  {/* Outer card frame */}
-                  <div
-                    className="rounded-3xl bg-white/90 dark:bg-card/90 dark:bg-card/90 shadow-xl overflow-hidden"
+            <span className="text-[62px] font-black leading-[0.6] text-[#DDC8F2]" aria-hidden="true">
+              “
+            </span>
+            <p className="min-h-[112px] text-[19px] font-bold leading-[1.45] text-[#2E1065] [text-wrap:pretty] sm:text-[22px]">
+              {current.quote[language]}
+            </p>
+            <span className="ewd-script relative z-10 self-end text-[26px] text-[#A253BE] sm:text-[31px]">
+              {t.values.quoteAuthor[language]}
+            </span>
+
+            <div className="relative z-10 flex items-center justify-between pt-1">
+              <div className="flex gap-2" role="tablist" aria-label={t.values.badge[language]}>
+                {CARDS.map((card, i) => (
+                  <button
+                    key={card.id}
+                    type="button"
+                    onClick={() => setIndex(i)}
+                    aria-label={`${i + 1}`}
+                    aria-selected={i === index}
+                    role="tab"
+                    className="h-2.5 rounded-full transition-all"
                     style={{
-                      boxShadow: isCenter
-                        ? "0 20px 60px -10px rgba(180,100,160,0.25), 0 8px 24px -4px rgba(180,100,160,0.15)"
-                        : "0 8px 24px -8px rgba(0,0,0,0.12)",
+                      width: i === index ? 22 : 10,
+                      background: i === index ? "var(--ewd-purple)" : "#DDC8F2",
                     }}
-                  >
-                    {/* Inner dashed border */}
-                    <div className="m-[5px] rounded-[18px] border border-dashed border-landing-purple/30 overflow-hidden">
-                      {/* Image area */}
-                      <div className="w-full overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
-                        <img
-                          src={card.image}
-                          alt={`Değer ${card.id}`}
-                          loading="lazy"
-                          width={420}
-                          height={315}
-                          className="w-full h-full object-cover grayscale"
-                          draggable={false}
-                        />
-                      </div>
-
-                      {/* Quote area */}
-                      <div className="px-5 pt-4 pb-5 bg-gradient-to-dark:from-card/80 b from-white/80 to-landing-pink/20">
-                        <span
-                          className="text-landing-purple-dark/30 font-serif leading-none select-none"
-                          style={{ fontSize: "3rem", lineHeight: 1 }}
-                          aria-hidden
-                        >
-                          "
-                        </span>
-                        <p className="text-foreground/80 text-sm leading-relaxed -mt-2 italic font-medium">
-                          {card.quote[language]}"
-                        </p>
-                        <div className="mt-4 flex justify-end items-center">
-                          <img
-                            src={signatureImg}
-                            alt="Mustafa Kemal Atatürk imzası"
-                            loading="lazy"
-                            width={160}
-                            height={52}
-                            className="h-10 w-auto object-contain opacity-75"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <NavButton onClick={() => go(-1)} label="‹">
+                  <ChevronLeft className="h-4 w-4" />
+                </NavButton>
+                <NavButton onClick={() => go(1)} label="›">
+                  <ChevronRight className="h-4 w-4" />
+                </NavButton>
+              </div>
+            </div>
           </div>
 
-          {/* Arrow buttons – both mobile and desktop */}
-          <ArrowButton direction={-1} className="absolute left-2 md:left-0 top-1/2 -translate-y-1/2" />
-          <ArrowButton direction={1} className="absolute right-2 md:right-0 top-1/2 -translate-y-1/2" />
+          <Polaroid image={right.image} caption={t.values.caption2[language]} rotation={6} shift={-46} />
         </div>
 
-        {/* Dot indicators */}
-        <div className="flex justify-center gap-2 mt-6">
-          {CARDS.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                if (animating) return;
-                const diff = mod(i - activeIndex + Math.floor(TOTAL / 2), TOTAL) - Math.floor(TOTAL / 2);
-                if (diff !== 0) {
-                  setAnimating(true);
-                  setActiveIndex(i);
-                  setTimeout(() => setAnimating(false), 400);
-                }
-              }}
-              aria-label={`Kart ${i + 1}`}
-              className={`transition-all duration-300 rounded-full h-2 ${
-                i === activeIndex ? "w-6 bg-landing-purple-dark" : "w-2 bg-landing-purple/35"
-              }`}
-            />
-          ))}
-        </div>
+        <p className="max-w-[620px] text-center text-[16px] font-medium leading-[1.65] text-[#D7C3EF] [text-wrap:pretty] sm:text-[17px]">
+          {t.values.lead[language]}
+        </p>
       </div>
     </section>
+  );
+}
+
+function Polaroid({
+  image,
+  caption,
+  rotation,
+  shift,
+}: {
+  image: string;
+  caption: string;
+  rotation: number;
+  shift: number;
+}) {
+  return (
+    <div
+      className="relative hidden w-[268px] shrink-0 rounded-[5px] px-3.5 pt-3.5 lg:block"
+      style={{
+        background: "#FFFDF8",
+        transform: `rotate(${rotation}deg) translateX(${shift}px)`,
+        boxShadow: "0 22px 34px -18px rgba(0,0,0,0.7)",
+      }}
+      aria-hidden="true"
+    >
+      <img src={image} alt="" loading="lazy" className="h-[246px] w-[240px] object-cover grayscale" />
+      <div className="ewd-script grid h-[60px] place-items-center text-[23px] text-[#6B5B7B]">{caption}</div>
+    </div>
+  );
+}
+
+function NavButton({
+  onClick,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="grid h-9 w-9 place-items-center rounded-full border-2 text-[#6D28D9] transition-colors hover:bg-[#F4EDFF]"
+      style={{ borderColor: "#DDC8F2" }}
+    >
+      {children}
+    </button>
   );
 }

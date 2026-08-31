@@ -9,7 +9,22 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import type { TemplateSlot } from "./instanceGeneration";
+
+/** One entry in a student's weekly template (student_lessons). */
+export interface TemplateSlot {
+  dayOfWeek: number; // 0=Sun, 1=Mon, ..., 6=Sat
+  startTime: string;
+  endTime: string;
+}
+
+/** A blocking lesson reported by the server, ready to render. */
+export interface ScheduleConflict {
+  studentName: string;
+  date: string;
+  timeRange: string;
+  type: "lesson" | "trial";
+  message: string;
+}
 
 interface RpcResult {
   success: boolean;
@@ -334,4 +349,177 @@ export async function getRemainingRights(
     remaining: Math.max(0, total - completed),
     cycle: currentCycle,
   };
+}
+
+// ─── Rescheduling ────────────────────────────────────────────────────────────
+// Every date/time change to a lesson goes through one of these. The server
+// resolves times from the template, checks conflicts, writes and renumbers the
+// chain inside a single transaction — the client does no date math and issues
+// no direct UPDATE against lesson_instances.
+
+export interface RescheduleResult {
+  success: boolean;
+  error?: string;
+  updated?: number;
+  created?: number;
+  /** true when the blocking lesson belongs to the same student */
+  conflict_self?: boolean;
+  conflict_student?: string;
+  conflict_date?: string;
+  conflict_time?: string;
+  /** Where each lesson actually landed — the server resolves omitted times. */
+  placements?: { id: string; lessonDate: string; startTime: string; endTime: string }[];
+}
+
+/** Turkish message for a failed reschedule, ready to drop into a toast. */
+export function describeRescheduleError(result: RescheduleResult): string {
+  if (result.error !== "conflict") {
+    return result.error || "İşlem tamamlanamadı";
+  }
+  const when = [result.conflict_date, result.conflict_time].filter(Boolean).join(" ");
+  if (result.conflict_student === "Deneme Dersi") {
+    return `Bu saatte bir deneme dersi var (${when}). Önce deneme dersini taşıyın.`;
+  }
+  if (result.conflict_self) {
+    return `Bu öğrencinin ${when} saatinde zaten bir dersi var. Başka bir saat seçin.`;
+  }
+  return `Bu saat ${result.conflict_student} öğrencisine ait (${when}). Önce o dersi taşıyın.`;
+}
+
+async function callReschedule(
+  fn: string,
+  args: Record<string, unknown>
+): Promise<RescheduleResult> {
+  const { data, error } = await supabase.rpc(fn as never, args as never);
+  if (error) {
+    console.error(`${fn} RPC error:`, error);
+    return { success: false, error: error.message };
+  }
+  return (data ?? { success: false, error: "Boş yanıt" }) as unknown as RescheduleResult;
+}
+
+/**
+ * Move one lesson to an explicit date and time.
+ * cascade=false pins the lesson where it is put: later template edits and chain
+ * shifts leave it alone. cascade=true carries every following planned lesson
+ * along behind it, each onto the next free slot.
+ */
+export function moveLesson(
+  instanceId: string,
+  lessonDate: string,
+  startTime: string,
+  endTime: string,
+  cascade: boolean
+): Promise<RescheduleResult> {
+  return callReschedule("rpc_move_lesson", {
+    p_instance_id: instanceId,
+    p_date: lessonDate,
+    p_start: startTime,
+    p_end: endTime,
+    p_cascade: cascade,
+  });
+}
+
+/** "Sonraki boş saate ertele": this lesson and every later one slide one slot. */
+export function postponeLesson(instanceId: string): Promise<RescheduleResult> {
+  return callReschedule("rpc_postpone_lesson", { p_instance_id: instanceId });
+}
+
+/** Undo a move — the lesson, or its whole shift group, returns to its original slot. */
+export function revertLesson(instanceId: string): Promise<RescheduleResult> {
+  return callReschedule("rpc_revert_lesson", { p_instance_id: instanceId });
+}
+
+/** Re-lay a set of lessons onto the free template slots from a point in time. */
+export function relayoutChain(
+  instanceIds: string[],
+  fromDate: string,
+  fromTime: string | null,
+  options?: { inclusive?: boolean; markOverride?: boolean }
+): Promise<RescheduleResult> {
+  return callReschedule("rpc_relayout_chain", {
+    p_instance_ids: instanceIds,
+    p_from_date: fromDate,
+    p_from_time: fromTime,
+    p_inclusive: options?.inclusive ?? false,
+    p_mark_override: options?.markOverride ?? false,
+    p_shift_group_id: null,
+  });
+}
+
+/** Set explicit dates on several lessons at once. Times are resolved server-side. */
+export function applyLessonDates(
+  studentId: string,
+  teacherId: string,
+  updates: { id: string; lessonDate: string; startTime?: string; endTime?: string }[]
+): Promise<RescheduleResult> {
+  return callReschedule("rpc_apply_chain_dates", {
+    p_student_id: studentId,
+    p_teacher_id: teacherId,
+    p_updates: updates.map((u) => ({ ...u, markOverride: true, manual: true })),
+    p_mark_override: false,
+    p_shift_group_id: null,
+  });
+}
+
+export interface FreeSlot {
+  success: boolean;
+  error?: string;
+  lessonDate?: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+/** First free template slot after a point in time (postpone preview, chain head). */
+export async function nextFreeSlot(
+  studentId: string,
+  teacherId: string,
+  fromDate: string,
+  fromTime?: string | null,
+  excludeIds: string[] = []
+): Promise<FreeSlot> {
+  const { data, error } = await supabase.rpc("rpc_next_free_slot" as never, {
+    p_student_id: studentId,
+    p_teacher_id: teacherId,
+    p_from_date: fromDate,
+    p_from_time: fromTime ?? null,
+    p_exclude: excludeIds,
+  } as never);
+  if (error) return { success: false, error: error.message };
+  return (data ?? { success: false }) as unknown as FreeSlot;
+}
+
+/** Nearest free slot *before* a point in time — powers the backward chain arrow. */
+export async function prevFreeSlot(
+  studentId: string,
+  teacherId: string,
+  beforeDate: string,
+  beforeTime: string,
+  excludeIds: string[] = []
+): Promise<FreeSlot> {
+  const { data, error } = await supabase.rpc("rpc_prev_free_slot" as never, {
+    p_student_id: studentId,
+    p_teacher_id: teacherId,
+    p_before_date: beforeDate,
+    p_before_time: beforeTime,
+    p_exclude: excludeIds,
+  } as never);
+  if (error) return { success: false, error: error.message };
+  return (data ?? { success: false }) as unknown as FreeSlot;
+}
+
+/**
+ * Top every active student's current package back up to lessons_per_week * 4.
+ * Idempotent, so the schedule view can call it on load without risk. This
+ * replaces the per-week generation the browser used to do, which recreated a
+ * lesson whenever the admin paged back to a week they had just emptied.
+ */
+export function ensureCycleInstances(
+  teacherId: string,
+  studentId?: string
+): Promise<RescheduleResult> {
+  return callReschedule("rpc_ensure_cycle_instances", {
+    p_teacher_id: teacherId,
+    p_student_id: studentId ?? null,
+  });
 }

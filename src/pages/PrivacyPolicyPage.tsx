@@ -1,51 +1,54 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { LanguageProvider } from '@/contexts/LanguageContext';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { Footer } from '@/components/landing/Footer';
 import { BackSwipeWrapper } from '@/components/BackSwipeWrapper';
 
-function PrivacyPolicyContent() {
+/** Bölüm kartları krem/leylak/pembe sırasıyla boyanır. */
+const TONES = [
+  { bg: 'var(--ewd-lilac-soft)', border: 'var(--ewd-lilac-line-soft)', ink: '#5B21B6' },
+  { bg: 'var(--ewd-pink-tint)', border: 'var(--ewd-pink-line)', ink: '#BE185D' },
+  { bg: 'var(--ewd-yellow-pale)', border: 'var(--ewd-yellow)', ink: '#8A6410' },
+];
+
+export default function PrivacyPolicyPage() {
   const { language, t } = useLanguage();
 
   return (
     <BackSwipeWrapper>
-    <div className="landing-body min-h-screen overflow-x-hidden">
-      <LandingHeader />
-      <main className="pt-28 md:pt-32 pb-16 px-4">
-        <div className="max-w-3xl mx-auto">
-          {/* Title */}
-          <h1 className="text-3xl md:text-4xl font-bold text-landing-purple-dark text-center mb-8">
-            {t.privacyPolicy.title[language]}
-          </h1>
+      <div className="landing-body ewd-light min-h-screen">
+        <LandingHeader />
 
-          {/* Sections */}
-          <div className="space-y-4">
-            {t.privacyPolicy.sections.map((section, index) => (
-              <div
-                key={index}
-                className="bg-landing-purple/20 rounded-2xl p-4 md:p-5"
-              >
-                <h2 className="text-lg font-bold text-landing-purple-dark mb-2">
-                  {section.title[language]}
-                </h2>
-                <p className="text-sm text-foreground/80 leading-relaxed">
-                  {section.content[language]}
-                </p>
-              </div>
-            ))}
+        <main className="px-5 pb-20 pt-12 sm:px-8" style={{ background: 'var(--ewd-cream)' }}>
+          <div className="mx-auto max-w-[820px]">
+            <h1 className="ewd-h2 mb-10 text-center">{t.privacyPolicy.title[language]}</h1>
+
+            <div className="flex flex-col gap-4">
+              {t.privacyPolicy.sections.map((section, index) => {
+                const tone = TONES[index % TONES.length];
+                return (
+                  <section
+                    key={section.title.tr}
+                    className="rounded-[28px] border-[3px] px-6 py-5 sm:px-7 sm:py-6"
+                    style={{ background: tone.bg, borderColor: tone.border }}
+                  >
+                    <h2
+                      className="mb-2 text-[17px] font-black tracking-[-0.01em] sm:text-[19px]"
+                      style={{ color: tone.ink }}
+                    >
+                      {section.title[language]}
+                    </h2>
+                    <p className="text-[14px] font-medium leading-[1.65] text-[#4C3A5E] [text-wrap:pretty] sm:text-[15px]">
+                      {section.content[language]}
+                    </p>
+                  </section>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </main>
-      <Footer />
-    </div>
-    </BackSwipeWrapper>
-  );
-}
+        </main>
 
-export default function PrivacyPolicyPage() {
-  return (
-    <LanguageProvider>
-      <PrivacyPolicyContent />
-    </LanguageProvider>
+        <Footer />
+      </div>
+    </BackSwipeWrapper>
   );
 }
