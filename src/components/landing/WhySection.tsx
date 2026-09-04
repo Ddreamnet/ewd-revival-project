@@ -1,12 +1,12 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const FEATURES = [
-  { key: "personalProgram", icon: "n-kisi.png" },
-  { key: "oneOnOne", icon: "n-ikili.png" },
-  { key: "liveZoom", icon: "n-video.png" },
-  { key: "speakingFocused", icon: "n-sohbet.png" },
-  { key: "regularTracking", icon: "n-pano.png" },
-  { key: "freeTrial", icon: "n-hediye.png" },
+  { key: "personalProgram", icon: "n-kisi.svg" },
+  { key: "oneOnOne", icon: "n-ikili.svg" },
+  { key: "liveZoom", icon: "n-video.svg" },
+  { key: "speakingFocused", icon: "n-sohbet.svg" },
+  { key: "regularTracking", icon: "n-pano.svg" },
+  { key: "freeTrial", icon: "n-hediye.svg" },
 ] as const;
 
 /**
@@ -21,7 +21,7 @@ export function WhySection() {
   return (
     <section
       id="why"
-      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24 lg:py-[104px]"
+      className="ewd-bulge-host scroll-section relative px-5 py-20 sm:px-8 md:py-24 lg:py-[104px]"
       style={{ background: "#6D28D9" }}
     >
       <span
@@ -29,8 +29,14 @@ export function WhySection() {
         style={{ backgroundImage: "url(/ewd/pat/tile-star-purple.png)", backgroundSize: "280px" }}
         aria-hidden="true"
       />
-      <span className="ewd-scallop-t" style={{ ["--scallop" as string]: "#F7ECFF" }} aria-hidden="true" />
-      <span className="ewd-scallop-b" style={{ ["--scallop" as string]: "#FFF8EF" }} aria-hidden="true" />
+      {/* Tarak geçişi — mor zemin yıldız dokusuyla birlikte üstteki ve alttaki
+          bölüme sarkar, desen kesilmeden devam eder. */}
+      <span className="ewd-bulge" style={{ ["--bulge" as string]: "#6D28D9" }} aria-hidden="true">
+        <span
+          className="ewd-bulge__tex opacity-[0.32]"
+          style={{ backgroundImage: "url(/ewd/pat/tile-star-purple.png)", backgroundSize: "280px" }}
+        />
+      </span>
 
       <div className="relative mx-auto grid max-w-[1180px] items-center gap-12 lg:grid-cols-[452px_1fr] lg:gap-[60px]">
         <div className="flex flex-col items-start gap-1">

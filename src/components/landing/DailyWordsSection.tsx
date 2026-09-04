@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ResetCountdown } from "@/components/words/ResetCountdown";
 import { WordBoard } from "@/components/words/WordBoard";
@@ -33,13 +31,6 @@ export function DailyWordsSection() {
             </span>
             <h2 className="ewd-h2 mt-2">{t.words.title[language]}</h2>
             <p className="ewd-lead max-w-[520px]">{t.words.lead[language]}</p>
-            <Link
-              to="/gunun-kelimeleri"
-              className="mt-3 inline-flex items-center gap-2 text-[15px] font-extrabold text-[#6D28D9] underline-offset-4 hover:underline"
-            >
-              {t.words.seeAll[language]}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
 
           <ResetCountdown className="shrink-0" />

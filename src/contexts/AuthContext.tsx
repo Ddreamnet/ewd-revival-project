@@ -1,12 +1,27 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import type { Branch } from "@/lib/branch";
 import { clearSupabaseStorage, saveLastEmail, purgeLegacyStoredPassword } from "@/lib/capacitorStorage";
+import { clearPanelCache, readCache, whenCacheReady, writeCache } from "@/lib/panelCache";
 import { disablePushTokens } from "@/lib/pushNotifications";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
 
 const DEV = import.meta.env.DEV;
+
+/**
+ * Profil önbelleği.
+ *
+ * Açılış hedefi: daha önce giriş yapmış kullanıcı splash'tan sonra doğrudan
+ * panelde olsun — ne login ekranı ne spinner. Oturum token'ı zaten native
+ * depoda; eksik olan tek şey rolü belirleyen profildi ve o ağdan geliyordu.
+ * Profili de yerelde tutunca route kararı ilk karede verilebiliyor, doğrulama
+ * arkada sürüyor.
+ */
+const PROFILE_CACHE_KEY = "auth-profile";
+// v2: profile artık `language` (dil şubesi) taşıyor — eski önbellek düşsün.
+const PROFILE_CACHE_VERSION = 2;
 
 export interface Profile {
   id: string;
@@ -15,6 +30,8 @@ export interface Profile {
   full_name: string;
   role: "teacher" | "student" | "admin";
   roles: ("teacher" | "student" | "admin")[];
+  /** Kullanıcının dil şubesi — İngilizce / Fransızca sistemleri ayrı. */
+  language: Branch;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +66,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const profileRef = useRef<Profile | null>(null);
   // Guard: mark true once the first auth event / getSession resolves
   const initDoneRef = useRef(false);
+
+  /** Önbellekteki profili, oturum sahibiyle eşleşiyorsa anında uygula. */
+  const hydrateFromCache = useCallback(async (userId: string): Promise<boolean> => {
+    try {
+      await whenCacheReady();
+      const cached = readCache<Profile>(PROFILE_CACHE_KEY, PROFILE_CACHE_VERSION);
+      if (!cached || cached.user_id !== userId) return false;
+      profileRef.current = cached;
+      setProfile(cached);
+      setLoading(false);
+      if (DEV) console.log("[Auth] profile restored from cache");
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const fetchProfile = useCallback(async (userId: string) => {
     if (isSigningOutRef.current) return;
@@ -89,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const merged: Profile = { ...profileResult.data, roles, role: primaryRole as Profile["role"] };
         profileRef.current = merged;
         setProfile(merged);
+        writeCache(PROFILE_CACHE_KEY, merged, PROFILE_CACHE_VERSION);
       }
     } catch (error) {
       if (!isSigningOutRef.current) {
@@ -206,7 +240,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(existingSession);
             setUser(existingSession.user);
             setLoading(true);
-            fetchProfile(existingSession.user.id);
+            // Önce önbellekten çiz (panel anında görünsün), sonra tazele.
+            hydrateFromCache(existingSession.user.id).finally(() => {
+              fetchProfile(existingSession.user.id);
+            });
           } else {
             setLoading(false);
           }
@@ -253,7 +290,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         appListenerHandle.then((h) => h.remove()).catch(() => {});
       }
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, hydrateFromCache]);
 
   // ── Auth actions ────────────────────────────────────────────────────────
 
@@ -340,6 +377,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await clearSupabaseStorage();
     } catch (e) {
       console.warn("[Auth] storage clear error:", e);
+    }
+
+    // Aynı cihazda başka bir hesap açıldığında önceki kullanıcının paneli
+    // bir an için görünmesin.
+    try {
+      await clearPanelCache();
+    } catch (e) {
+      console.warn("[Auth] panel cache clear error:", e);
     }
 
     if (DEV) console.log("[Auth] === SIGNOUT COMPLETE ===");

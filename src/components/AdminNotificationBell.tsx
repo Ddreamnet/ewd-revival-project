@@ -23,19 +23,38 @@ interface AdminNotification {
 
 interface AdminNotificationBellProps {
   adminId: string;
+  /** "panel": v2 panelinin yuvarlak ikon butonu. */
+  variant?: "default" | "panel";
+  /**
+   * Açık şubedeki öğretmenler. Bildirimler bu kümeye göre süzülür — admin
+   * Fransızca paneldeyken İngilizce şubenin uyarıları görünmez.
+   * `null` = öğretmen listesi henüz yüklenmedi, çekmeyi beklet.
+   */
+  teacherIds: string[] | null;
 }
 
-export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
+export function AdminNotificationBell({ adminId, variant = "default", teacherIds }: AdminNotificationBellProps) {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchNotifications = useCallback(async () => {
+    if (!teacherIds) return;
+
+    // Şubede hiç öğretmen yoksa `in()` boş listeyle sorgu atmak yerine
+    // doğrudan boş sonuç verilir.
+    if (teacherIds.length === 0) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('admin_notifications')
         .select('*')
+        .in('teacher_id', teacherIds)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -46,7 +65,7 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
     } catch (error: any) {
       console.error('Error fetching admin notifications:', error);
     }
-  }, []);
+  }, [teacherIds]);
 
   useEffect(() => {
     fetchNotifications();
@@ -93,11 +112,15 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
         },
         (payload) => {
           if (import.meta.env.DEV) console.log("New admin notification received:", payload);
+          const incoming = payload.new as AdminNotification;
+          // Diğer şubenin bildirimi bu panelde ne listeye ne de bildirime düşer.
+          if (teacherIds && !teacherIds.includes(incoming.teacher_id)) return;
+
           fetchNotifications();
-          
+
           toast({
             title: "Yeni Bildirim",
-            description: (payload.new as AdminNotification).message,
+            description: incoming.message,
           });
         }
       )
@@ -147,16 +170,27 @@ export function AdminNotificationBell({ adminId }: AdminNotificationBellProps) {
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs"
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </Badge>
-          )}
-        </Button>
+        {variant === "panel" ? (
+          <button
+            type="button"
+            className="pnl-iconbtn pnl-iconbtn--sm"
+            aria-label={unreadCount > 0 ? `Bildirimler — ${unreadCount} okunmamış` : "Bildirimler"}
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && <span className="pnl-badge-dot">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+          </button>
+        ) : (
+          <Button variant="ghost" size="icon" className="relative" aria-label={unreadCount > 0 ? `Bildirimler — ${unreadCount} okunmamış` : "Bildirimler"}>
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <Badge 
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs"
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Badge>
+            )}
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-[calc(100vw-2rem)] sm:w-96 max-w-[400px] p-0" align="end">
         <Card className="border-0 shadow-lg">

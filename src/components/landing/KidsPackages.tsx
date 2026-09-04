@@ -4,23 +4,23 @@ import { translations } from "@/lib/translations";
 type ItemRow = { key: string; icon: string };
 
 const CLASSIC_ITEMS: ItemRow[] = [
-  { key: "lessonsPerWeek", icon: "ic-takvim.png" },
-  { key: "speaking", icon: "ic-konusma.png" },
-  { key: "coreEnglish", icon: "ic-abc.png" },
-  { key: "listening", icon: "ic-kulaklik.png" },
-  { key: "games", icon: "ic-oyun.png" },
-  { key: "duration", icon: "ic-saat.png" },
-  { key: "options", icon: "ic-grup.png" },
+  { key: "lessonsPerWeek", icon: "ic-takvim.svg" },
+  { key: "speaking", icon: "ic-konusma.svg" },
+  { key: "coreEnglish", icon: "ic-abc.svg" },
+  { key: "listening", icon: "ic-kulaklik.svg" },
+  { key: "games", icon: "ic-oyun.svg" },
+  { key: "duration", icon: "ic-saat.svg" },
+  { key: "options", icon: "ic-grup.svg" },
 ];
 
 const SCHOOL_ITEMS: ItemRow[] = [
-  { key: "lessonsPerWeek", icon: "ic-takvim-p.png" },
-  { key: "parallel", icon: "ic-kitap-p.png" },
-  { key: "exams", icon: "ic-kupa.png" },
-  { key: "homework", icon: "ic-kalem.png" },
-  { key: "support", icon: "ic-abc.png" },
-  { key: "duration", icon: "ic-saat-p.png" },
-  { key: "options", icon: "ic-grup-p.png" },
+  { key: "lessonsPerWeek", icon: "ic-takvim-p.svg" },
+  { key: "parallel", icon: "ic-kitap-p.svg" },
+  { key: "exams", icon: "ic-kupa.svg" },
+  { key: "homework", icon: "ic-kalem.svg" },
+  { key: "support", icon: "ic-abc.svg" },
+  { key: "duration", icon: "ic-saat-p.svg" },
+  { key: "options", icon: "ic-grup-p.svg" },
 ];
 
 /** Çocuk ders paketleri — iki büyük kart, taşan 3D objeler ve şerit. */
@@ -60,8 +60,8 @@ export function KidsPackages() {
             medallionInk="#6D28D9"
             rowTitle="#6D28D9"
             dotted="#D6C6F7"
-            ribbon="art-ribbon-purple.png"
-            art="art-book-aa.png"
+            ribbon="art-ribbon-purple.svg"
+            art="art-book-aa.svg"
             artClass="right-3 top-3 w-[124px] lg:w-[152px]"
             sloganInk="#F6E3FD"
             shadow="0 30px 44px -22px rgba(46,16,101,0.45)"
@@ -74,8 +74,8 @@ export function KidsPackages() {
             medallionInk="#BE185D"
             rowTitle="#DB2777"
             dotted="#FAD3E4"
-            ribbon="art-ribbon-pink.png"
-            art="art-backpack.png"
+            ribbon="art-ribbon-pink.svg"
+            art="art-backpack.svg"
             artClass="right-3 top-2 w-[126px] lg:w-[156px]"
             sloganInk="#FFE9F2"
             shadow="0 30px 44px -22px rgba(190,24,93,0.45)"

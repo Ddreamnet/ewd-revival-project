@@ -50,6 +50,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       balance_events: {
         Row: {
           amount_minutes: number
@@ -180,6 +201,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          language: Database["public"]["Enums"]["app_language"]
           order_index: number
           teacher_id: string
           title: string
@@ -189,6 +211,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          language?: Database["public"]["Enums"]["app_language"]
           order_index?: number
           teacher_id?: string
           title: string
@@ -198,6 +221,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          language?: Database["public"]["Enums"]["app_language"]
           order_index?: number
           teacher_id?: string
           title?: string
@@ -390,6 +414,7 @@ export type Database = {
           id: string
           notes: string | null
           payment_date: string
+          rate_per_minute: number | null
           teacher_id: string
         }
         Insert: {
@@ -400,6 +425,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_date?: string
+          rate_per_minute?: number | null
           teacher_id: string
         }
         Update: {
@@ -410,6 +436,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_date?: string
+          rate_per_minute?: number | null
           teacher_id?: string
         }
         Relationships: []
@@ -420,6 +447,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          language: Database["public"]["Enums"]["app_language"]
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           user_id: string
@@ -429,6 +457,7 @@ export type Database = {
           email: string
           full_name: string
           id?: string
+          language?: Database["public"]["Enums"]["app_language"]
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_id: string
@@ -438,6 +467,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          language?: Database["public"]["Enums"]["app_language"]
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_id?: string
@@ -529,6 +559,153 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_content: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      site_moments: {
+        Row: {
+          caption_ar: string
+          caption_de: string
+          caption_en: string
+          caption_es: string
+          caption_fr: string
+          caption_ru: string
+          caption_tr: string
+          created_at: string
+          id: string
+          is_published: boolean
+          media_type: string
+          media_url: string
+          order_index: number
+          poster_url: string | null
+          tag_ar: string
+          tag_de: string
+          tag_en: string
+          tag_es: string
+          tag_fr: string
+          tag_ru: string
+          tag_tr: string
+          updated_at: string
+        }
+        Insert: {
+          caption_ar?: string
+          caption_de?: string
+          caption_en?: string
+          caption_es?: string
+          caption_fr?: string
+          caption_ru?: string
+          caption_tr?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          media_type: string
+          media_url: string
+          order_index?: number
+          poster_url?: string | null
+          tag_ar?: string
+          tag_de?: string
+          tag_en?: string
+          tag_es?: string
+          tag_fr?: string
+          tag_ru?: string
+          tag_tr?: string
+          updated_at?: string
+        }
+        Update: {
+          caption_ar?: string
+          caption_de?: string
+          caption_en?: string
+          caption_es?: string
+          caption_fr?: string
+          caption_ru?: string
+          caption_tr?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          media_type?: string
+          media_url?: string
+          order_index?: number
+          poster_url?: string | null
+          tag_ar?: string
+          tag_de?: string
+          tag_en?: string
+          tag_es?: string
+          tag_fr?: string
+          tag_ru?: string
+          tag_tr?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_testimonials: {
+        Row: {
+          author_label: string | null
+          created_at: string
+          id: string
+          is_published: boolean
+          order_index: number
+          quote_ar: string
+          quote_de: string
+          quote_en: string
+          quote_es: string
+          quote_fr: string
+          quote_ru: string
+          quote_tr: string
+          tags: Json
+          updated_at: string
+        }
+        Insert: {
+          author_label?: string | null
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          order_index?: number
+          quote_ar?: string
+          quote_de?: string
+          quote_en?: string
+          quote_es?: string
+          quote_fr?: string
+          quote_ru?: string
+          quote_tr: string
+          tags?: Json
+          updated_at?: string
+        }
+        Update: {
+          author_label?: string | null
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          order_index?: number
+          quote_ar?: string
+          quote_de?: string
+          quote_en?: string
+          quote_es?: string
+          quote_fr?: string
+          quote_ru?: string
+          quote_tr?: string
+          tags?: Json
+          updated_at?: string
+        }
+        Relationships: []
       }
       student_lesson_tracking: {
         Row: {
@@ -647,6 +824,7 @@ export type Database = {
           is_archived: boolean
           student_id: string
           teacher_id: string
+          zoom_link: string | null
         }
         Insert: {
           about_text?: string | null
@@ -656,6 +834,7 @@ export type Database = {
           is_archived?: boolean
           student_id: string
           teacher_id: string
+          zoom_link?: string | null
         }
         Update: {
           about_text?: string | null
@@ -665,6 +844,7 @@ export type Database = {
           is_archived?: boolean
           student_id?: string
           teacher_id?: string
+          zoom_link?: string | null
         }
         Relationships: [
           {
@@ -808,6 +988,81 @@ export type Database = {
           lesson_date?: string
           start_time?: string
           teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trip_activities: {
+        Row: {
+          created_at: string
+          day: string
+          id: string
+          order_index: number
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          id?: string
+          order_index?: number
+          text?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          id?: string
+          order_index?: number
+          text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trip_days: {
+        Row: {
+          day: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          day: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          day?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trip_photos: {
+        Row: {
+          caption: string
+          created_at: string
+          day: string
+          id: string
+          order_index: number
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          caption?: string
+          created_at?: string
+          day: string
+          id?: string
+          order_index?: number
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          day?: string
+          id?: string
+          order_index?: number
+          storage_path?: string
           updated_at?: string
         }
         Relationships: []
@@ -1001,8 +1256,13 @@ export type Database = {
         Args: { topic_orders: Json }
         Returns: undefined
       }
+      user_language: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_language"]
+      }
     }
     Enums: {
+      app_language: "en" | "fr"
       app_role: "admin" | "teacher" | "student"
       user_role: "teacher" | "student"
     }
@@ -1132,6 +1392,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_language: ["en", "fr"],
       app_role: ["admin", "teacher", "student"],
       user_role: ["teacher", "student"],
     },

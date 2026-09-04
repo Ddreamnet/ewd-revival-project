@@ -6,20 +6,26 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Footer } from "@/components/landing/Footer";
 import { BackSwipeWrapper } from "@/components/BackSwipeWrapper";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { Language } from "@/lib/translations";
-
-const LOCALES: Record<Language, string> = { tr: "tr-TR", en: "en-GB", fr: "fr-FR" };
+import { LOCALES, type Language } from "@/lib/translations";
 
 const BACK_LABEL: Record<Language, string> = {
   tr: "Blog'a dön",
   en: "Back to blog",
   fr: "Retour au blog",
+  ru: "Назад к блогу",
+  es: "Volver al blog",
+  de: "Zurück zum Blog",
+  ar: "العودة إلى المدونة",
 };
 
 const NOT_FOUND: Record<Language, string> = {
   tr: "Yazı bulunamadı.",
   en: "Post not found.",
   fr: "Article introuvable.",
+  ru: "Запись не найдена.",
+  es: "Entrada no encontrada.",
+  de: "Beitrag nicht gefunden.",
+  ar: "لم يتم العثور على المقال.",
 };
 
 /** Sayfa iskeleti — yükleme, hata ve içerik durumları aynı kabuğu paylaşır. */
@@ -76,7 +82,7 @@ export default function BlogPostPage() {
 
           {post.cover_image_url && (
             <div
-              className="mb-8 aspect-[16/9] overflow-hidden rounded-[28px] border-[3px]"
+              className="mb-8 aspect-[3/2] overflow-hidden rounded-[28px] border-[3px]"
               style={{ borderColor: "var(--ewd-lilac-line)" }}
             >
               <img src={post.cover_image_url} alt="" className="h-full w-full object-cover" />

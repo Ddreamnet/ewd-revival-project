@@ -27,8 +27,12 @@ serve(async (req) => {
     // Extract JWT token from Bearer header
     const token = authHeader.replace('Bearer ', '')
 
-    const { email, name, password } = await req.json()
-    console.log('Request data:', { email, name })
+    const { email, name, password, language } = await req.json()
+    console.log('Request data:', { email, name, language })
+
+    // Şube (dil) — İngilizce ve Fransızca panelleri ayrı çalışır. Belirtilmezse
+    // eski çağrılarla uyumlu kalmak için İngilizce kabul edilir.
+    const branch = language === 'fr' ? 'fr' : 'en'
 
     // Use the service role to verify the user and check admin role
     const supabaseAdmin = createClient(
@@ -71,7 +75,8 @@ serve(async (req) => {
       email_confirm: true,
       user_metadata: {
         full_name: name,
-        role: 'teacher'
+        role: 'teacher',
+        language: branch
       }
     })
 
@@ -93,6 +98,22 @@ serve(async (req) => {
     // Note: Profile is automatically created by the handle_new_user trigger
     // Wait a moment for the trigger to complete
     await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Trigger hatayı yutuyor (RAISE WARNING); şube yanlış yazılırsa öğretmen
+    // yanlış panelde belirir. Bu yüzden dili burada bir kez daha sabitliyoruz.
+    const { error: languageError } = await supabaseAdmin
+      .from('profiles')
+      .update({ language: branch })
+      .eq('user_id', authData.user.id)
+
+    if (languageError) {
+      console.error('Language update error:', languageError)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      return new Response(
+        JSON.stringify({ error: 'Failed to set teacher language branch' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
 
     // Assign teacher role to user_roles table
     const { error: roleInsertError } = await supabaseAdmin
@@ -133,6 +154,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         user_id: authData.user.id,
+        language: branch,
         message: 'Teacher account created successfully'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }

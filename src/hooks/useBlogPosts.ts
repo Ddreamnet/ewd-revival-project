@@ -69,14 +69,25 @@ export function useBlogPostBySlug(slug: string) {
     queryKey: ["blog-posts", "slug", slug],
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const bySlug = await supabase
         .from("blog_posts")
         .select("*")
         .eq("slug", slug)
         .eq("status", "published")
         .maybeSingle();
-      if (error) throw error;
-      return data as BlogPost | null;
+      if (bySlug.error) throw bySlug.error;
+      if (bySlug.data) return bySlug.data as BlogPost;
+
+      // Eski kayıtlarda slug alanı başlığın kendisi. Slug'lar temizlendiğinde
+      // paylaşılmış eski bağlantılar kırılmasın diye başlıkla da aranıyor.
+      const byTitle = await supabase
+        .from("blog_posts")
+        .select("*")
+        .eq("title", slug)
+        .eq("status", "published")
+        .maybeSingle();
+      if (byTitle.error) throw byTitle.error;
+      return (byTitle.data as BlogPost | null) ?? null;
     },
     enabled: !!slug,
   });

@@ -35,6 +35,7 @@ const daysOfWeek = DAYS_OF_WEEK;
 export function EditStudentDialog(props: EditStudentDialogProps) {
   const {
     name, setName,
+    zoomLink, setZoomLink, zoomSupported,
     lessonsPerWeek, lessons,
     lessonDates, originalLessonDates,
     loading, shifting, showConfirm, setShowConfirm,
@@ -68,6 +69,22 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
               required
             />
           </div>
+
+          {zoomSupported && (
+            <div className="space-y-2">
+              <Label htmlFor="zoomLink">Zoom Bağlantısı</Label>
+              <Input
+                id="zoomLink"
+                type="url"
+                value={zoomLink}
+                onChange={(e) => setZoomLink(e.target.value)}
+                placeholder="https://zoom.us/j/..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Öğrencinin panelinde ders saatlerinin yanında "Zoom'a katıl" düğmesi olarak görünür.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="lessonsPerWeek">Haftalık Ders Sayısı</Label>

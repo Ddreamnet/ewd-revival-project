@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #FFF8EF; font-family: 'Poppins', sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #A253BE; text-decoration: none; }
+  a:hover { color: #EC4899; }
+</style>
+</helmet>
+
+<div data-screen-label="Öğretmen Paneli" style="width: 1440px; margin: 0 auto; background: #FFF8EF; overflow: hidden;">
+
+  <div style="position: relative; background: #FFFDF8; border-bottom: 3px solid #F2E2DA;">
+    <div style="display: flex; height: 7px;">
+      <span style="flex: 3; background: #A253BE;"></span>
+      <span style="flex: 2; background: #EC4899;"></span>
+      <span style="flex: 1; background: #FBD34F;"></span>
+    </div>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 32px 0;">
+      <div style="display: flex; align-items: center; gap: 16px; min-width: 0;">
+        <img src="public/uploads/logo.webp" alt="English with Dilara" style="height: 58px; width: auto; display: block;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 22px; font-weight: 900; letter-spacing: -0.01em; color: #2E1065;">Öğretmen Paneli</span>
+            <span style="background: #F4EDFF; color: #A253BE; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 6px 12px; border-radius: 999px;">ÖĞRETMEN</span>
+          </div>
+          <span style="font-size: 13px; font-weight: 600; color: #6B5B7B;">Hoş geldin, Fatih Teacher</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="position: relative; width: 42px; height: 42px; border-radius: 999px; border: 2px solid #EFDCD2; display: grid; place-items: center; font-size: 17px; color: #6B5B7B; cursor: pointer;" style-hover="border-color: #C9B6F5;">
+          ✎
+          <span style="position: absolute; right: -3px; top: -3px; min-width: 20px; height: 20px; border-radius: 999px; background: #EC4899; color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; border: 2px solid #FFFDF8;">2</span>
+        </span>
+        <span style="width: 42px; height: 42px; border-radius: 999px; border: 2px solid #EFDCD2; display: grid; place-items: center; font-size: 16px; color: #6B5B7B; cursor: pointer;" style-hover="border-color: #C9B6F5;">☾</span>
+        <span style="font-size: 14px; font-weight: 800; color: #7C3AED; background: #FFF8EF; border: 2px solid #D6C0F0; padding: 12px 22px; border-radius: 999px; cursor: pointer;" style-hover="background: #FBF3FF;">Çıkış</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 14px 32px 16px;">
+      <span style="display: flex; align-items: center; gap: 10px; background: #F5B6D0; box-shadow: inset 0 0 0 2px #EC4899; border-radius: 999px; padding: 6px 20px 6px 6px; font-size: 15px; font-weight: 700; color: #2F2A3A; cursor: pointer;">
+        <span style="width: 32px; height: 32px; border-radius: 999px; overflow: hidden; flex-shrink: 0;"><img src="assets/ic/nav-dersler.png" alt="" style="width: 100%; height: 100%; object-fit: cover; object-position: left center; display: block;"></span>
+        Öğrencilerim
+      </span>
+      <span style="display: flex; align-items: center; gap: 10px; background: #F8C8DC; border-radius: 999px; padding: 6px 20px 6px 6px; font-size: 15px; font-weight: 700; color: #2F2A3A; cursor: pointer;" style-hover="background: #F5B6D0;">
+        <span style="width: 32px; height: 32px; border-radius: 999px; overflow: hidden; flex-shrink: 0;"><img src="assets/ic/nav-blog.png" alt="" style="width: 100%; height: 100%; object-fit: cover; object-position: left center; display: block;"></span>
+        Konular
+      </span>
+      <span style="display: flex; align-items: center; gap: 10px; background: #F8C8DC; border-radius: 999px; padding: 6px 20px 6px 6px; font-size: 15px; font-weight: 700; color: #2F2A3A; cursor: pointer;" style-hover="background: #F5B6D0;">
+        <span style="width: 32px; height: 32px; border-radius: 999px; overflow: hidden; flex-shrink: 0;"><img src="assets/ic/nav-iletisim.png" alt="" style="width: 100%; height: 100%; object-fit: cover; object-position: left center; display: block;"></span>
+        Derslerim
+      </span>
+      <span style="display: flex; align-items: center; gap: 9px; background: #FEF3C7; border: 2px solid #FBD34F; border-radius: 999px; padding: 9px 20px; font-size: 15px; font-weight: 800; color: #6B4A00; cursor: pointer;" style-hover="background: #FDECC0;">Bakiye <span style="background: #FBD34F; color: #6B4A00; font-size: 12px; font-weight: 900; padding: 3px 9px; border-radius: 999px;">₺4.800</span></span>
+    </div>
+  </div>
+
+  <div style="position: relative; padding: 26px 32px 24px; background-color: #FFF8EF; background-image: radial-gradient(#E7B4C8 2px, rgba(0,0,0,0) 2.1px); background-size: 30px 30px; border-bottom: 3px solid #F2E2DA;">
+    <div style="display: grid; grid-template-columns: 1fr 214px 214px; gap: 16px; align-items: stretch;">
+      <div style="position: relative; overflow: hidden; background: #6D28D9; border-radius: 28px; padding: 22px 26px; display: flex; align-items: center; gap: 24px;">
+        <div style="position: absolute; inset: 0; background-image: url(pat/tile-star-purple.png); background-size: 240px; opacity: 0.3;"></div>
+        <div style="position: relative; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+          <span style="white-space: nowrap; font-size: 11px; font-weight: 900; letter-spacing: 0.16em; color: #FBD34F;">SIRADAKİ DERS · 42 DK SONRA</span>
+          <span style="white-space: nowrap; font-size: 28px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; color: #FFF8EF;">Hira · 18:40–19:10</span>
+        </div>
+        <span style="position: relative; flex-shrink: 0; margin-left: auto; white-space: nowrap; font-size: 15px; font-weight: 800; color: #2E2E38; background: #FBD34F; padding: 15px 26px; border-radius: 999px; box-shadow: 0 5px 0 #D9A21B; cursor: pointer;" style-hover="background: #FCDD74;">Zoom'u aç</span>
+      </div>
+      <div style="background: #FFFDF8; border: 3px solid #DDCCF7; border-radius: 28px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: center; gap: 4px;">
+        <span style="font-size: 34px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; color: #2E1065;">3</span>
+        <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #9A87AC;">BUGÜNKÜ DERS</span>
+      </div>
+      <div style="background: #FFFDF8; border: 3px solid #FBD34F; border-radius: 28px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: center; gap: 4px;">
+        <span style="font-size: 34px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; color: #2E1065;">8</span>
+        <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #9A87AC;">BU HAFTA</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 372px 1fr; gap: 24px; padding: 26px 32px 40px;">
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 24px; font-weight: 900; letter-spacing: -0.02em; color: #2E1065;">Öğrencilerim</span>
+          <span style="font-size: 13px; font-weight: 600; color: #6B5B7B;">2 öğrenci kayıtlı</span>
+        </div>
+        <span style="width: 40px; height: 40px; border-radius: 999px; background: #A253BE; color: #fff; font-size: 22px; font-weight: 700; display: grid; place-items: center; box-shadow: 0 4px 0 #7E3D96; cursor: pointer;" style-hover="background: #B061CC;">+</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px; background: #FDF4FF; border: 2px solid #F0E1FA; border-radius: 999px; padding: 12px 18px;">
+        <span style="font-size: 14px; color: #9A87AC;">⌕</span>
+        <span style="font-size: 14px; font-weight: 500; color: #9A87AC;">Öğrenci ara…</span>
+      </div>
+
+      <div style="position: relative; background: #FFFDF8; border: 3px solid #A253BE; border-radius: 26px; padding: 18px 20px; box-shadow: 0 14px 24px -18px rgba(46,16,101,0.45); cursor: pointer;">
+        <span style="position: absolute; left: -3px; top: 26px; bottom: 26px; width: 6px; border-radius: 0 6px 6px 0; background: #A253BE;"></span>
+        <div style="display: flex; align-items: flex-start; gap: 14px;">
+          <span style="flex-shrink: 0; width: 46px; height: 46px; border-radius: 999px; background: #A253BE; color: #FFF8EF; font-size: 19px; font-weight: 900; display: grid; place-items: center;">H</span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #2E1065;">Hira</span>
+              <span style="flex-shrink: 0; white-space: nowrap; background: #DCFCE7; color: #15803D; font-size: 10px; font-weight: 900; letter-spacing: 0.08em; padding: 4px 9px; border-radius: 999px;">BUGÜN</span>
+            </div>
+            <span style="font-size: 13px; font-weight: 500; color: #9A87AC;">hira8@gmail.com</span>
+          </div>
+          <span style="flex-shrink: 0; width: 34px; height: 34px; border-radius: 12px; background: #F4EDFF; color: #A253BE; font-size: 15px; display: grid; place-items: center; cursor: pointer;" style-hover="background: #EFE0FF;">☰</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 0 12px;">
+          <span style="display: flex; align-items: center; gap: 7px; background: #DCFCE7; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 800; color: #15803D;"><span style="width: 8px; height: 8px; border-radius: 999px; background: #22C55E;"></span>Perşembe 18:40</span>
+          <span style="background: #F4F1F7; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 700; color: #A79BB2;">Salı ✓</span>
+          <span style="background: #F4F1F7; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 700; color: #A79BB2;">Pazartesi ✓</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding-top: 2px;">
+          <span style="flex: 1; height: 8px; border-radius: 999px; background: #EFE0FF; overflow: hidden;"><span style="display: block; width: 25%; height: 100%; border-radius: 999px; background: #A253BE;"></span></span>
+          <span style="font-size: 12px; font-weight: 800; color: #6B5B7B;">3 / 12 ders</span>
+        </div>
+      </div>
+
+      <div style="position: relative; background: #FFFDF8; border: 3px solid #EFDFF9; border-radius: 26px; padding: 18px 20px; cursor: pointer;" style-hover="border-color: #DDC8F2;">
+        <div style="display: flex; align-items: flex-start; gap: 14px;">
+          <span style="flex-shrink: 0; width: 46px; height: 46px; border-radius: 999px; background: #EC4899; color: #FFF8EF; font-size: 19px; font-weight: 900; display: grid; place-items: center;">F</span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #2E1065;">Feyza</span>
+            <span style="font-size: 13px; font-weight: 500; color: #9A87AC;">feyza1@gmail.com</span>
+          </div>
+          <span style="flex-shrink: 0; width: 34px; height: 34px; border-radius: 12px; background: #FFF1F7; color: #DB2777; font-size: 15px; display: grid; place-items: center;">☰</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 0 12px;">
+          <span style="display: flex; align-items: center; gap: 7px; background: #FFF1F7; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 800; color: #BE185D;"><span style="width: 8px; height: 8px; border-radius: 999px; background: #EC4899;"></span>Pazartesi 18:00</span>
+          <span style="background: #F4F1F7; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 700; color: #A79BB2;">Çarşamba ✓</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding-top: 2px;">
+          <span style="flex: 1; height: 8px; border-radius: 999px; background: #FBD5E4; overflow: hidden;"><span style="display: block; width: 58%; height: 100%; border-radius: 999px; background: #EC4899;"></span></span>
+          <span style="font-size: 12px; font-weight: 800; color: #6B5B7B;">7 / 12 ders</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 18px;">
+
+      <div style="position: relative; overflow: hidden; background: #FFFDF8; border: 3px solid #EFDFF9; border-radius: 32px; padding: 24px 26px;">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 28px;">
+          <div style="display: flex; align-items: center; gap: 22px;">
+            <span style="position: relative; flex-shrink: 0; width: 96px; height: 96px; border-radius: 999px; background: conic-gradient(#A253BE 0turn 0.026turn, #EFE0FF 0.026turn 1turn); display: grid; place-items: center;">
+              <span style="width: 74px; height: 74px; border-radius: 999px; background: #FFFDF8; display: grid; place-items: center; font-size: 13px; font-weight: 900; color: #2E1065;">%3</span>
+            </span>
+            <span style="font-size: 32px; font-weight: 900; letter-spacing: -0.02em; color: #2E1065;">Hira</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="display: flex; align-items: center; gap: 9px; white-space: nowrap; font-size: 14px; font-weight: 800; color: #fff; background: #A253BE; padding: 13px 22px; border-radius: 999px; box-shadow: 0 5px 0 #7E3D96; cursor: pointer;" style-hover="background: #B061CC;">Ödev yükle</span>
+            <span style="display: flex; align-items: center; gap: 9px; white-space: nowrap; font-size: 14px; font-weight: 800; color: #7C3AED; background: #FFF8EF; border: 2px solid #D6C0F0; padding: 11px 20px; border-radius: 999px; cursor: pointer;" style-hover="background: #FBF3FF;">Ödevler <span style="background: #EC4899; color: #fff; font-size: 11px; font-weight: 900; padding: 2px 8px; border-radius: 999px;">2</span></span>
+            <span style="display: flex; align-items: center; gap: 9px; white-space: nowrap; font-size: 14px; font-weight: 800; color: #8A6410; background: #FEF3C7; border: 2px solid #FBD34F; padding: 11px 20px; border-radius: 999px; cursor: pointer;" style-hover="background: #FDECC0;">Hakkında</span>
+            <span style="width: 42px; height: 42px; border-radius: 999px; border: 2px solid #EFDCD2; display: grid; place-items: center; font-size: 15px; color: #6B5B7B; cursor: pointer;" style-hover="border-color: #C9B6F5;">☰</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; background: #FEF3C7; border: 3px solid #FBD34F; border-radius: 24px; padding: 18px 22px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: 900; letter-spacing: 0.12em; color: #8A6410;">HİRA HAKKINDA</span>
+          <span style="font-size: 14px; font-weight: 500; line-height: 1.55; color: #5B4A6E; text-wrap: pretty;">Oyunla ilerlemeyi seviyor, yazma çalışmalarında desteğe ihtiyacı var. Okul sınavı 14 Mayıs'ta.</span>
+        </div>
+
+        <div style="margin-top: 22px; background: #F7EDFF; border-radius: 24px; padding: 18px 20px;">
+          <div style="display: flex; align-items: flex-end; gap: 8px;">
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #A253BE; color: #FFF8EF; font-size: 15px; font-weight: 900; display: grid; place-items: center;">1</span><span style="font-size: 11px; font-weight: 700; color: #9A87AC;">04.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #A253BE; color: #FFF8EF; font-size: 15px; font-weight: 900; display: grid; place-items: center;">2</span><span style="font-size: 11px; font-weight: 700; color: #9A87AC;">05.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #A253BE; color: #FFF8EF; font-size: 15px; font-weight: 900; display: grid; place-items: center;">3</span><span style="font-size: 11px; font-weight: 700; color: #9A87AC;">06.05</span></span>
+            <span style="flex: 1.3; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+              <span style="background: #FBD34F; color: #6B4A00; font-size: 9px; font-weight: 900; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 999px;">SIRADAKİ</span>
+              <span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 3px solid #A253BE; color: #6D28D9; font-size: 15px; font-weight: 900; display: grid; place-items: center; box-shadow: 0 0 0 4px rgba(162,83,190,0.16); cursor: pointer;">4</span>
+              <span style="font-size: 11px; font-weight: 800; color: #6D28D9;">11.05</span>
+            </span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 2px solid #E4D3F5; color: #B6A6C6; font-size: 15px; font-weight: 800; display: grid; place-items: center;">5</span><span style="font-size: 11px; font-weight: 700; color: #B6A6C6;">12.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 2px solid #E4D3F5; color: #B6A6C6; font-size: 15px; font-weight: 800; display: grid; place-items: center;">6</span><span style="font-size: 11px; font-weight: 700; color: #B6A6C6;">13.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 2px solid #E4D3F5; color: #B6A6C6; font-size: 15px; font-weight: 800; display: grid; place-items: center;">7</span><span style="font-size: 11px; font-weight: 700; color: #B6A6C6;">18.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 2px solid #E4D3F5; color: #B6A6C6; font-size: 15px; font-weight: 800; display: grid; place-items: center;">8</span><span style="font-size: 11px; font-weight: 700; color: #B6A6C6;">19.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 2px solid #E4D3F5; color: #B6A6C6; font-size: 15px; font-weight: 800; display: grid; place-items: center;">9</span><span style="font-size: 11px; font-weight: 700; color: #B6A6C6;">25.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 2px solid #E4D3F5; color: #B6A6C6; font-size: 15px; font-weight: 800; display: grid; place-items: center;">10</span><span style="font-size: 11px; font-weight: 700; color: #B6A6C6;">26.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 2px solid #E4D3F5; color: #B6A6C6; font-size: 15px; font-weight: 800; display: grid; place-items: center;">11</span><span style="font-size: 11px; font-weight: 700; color: #B6A6C6;">27.05</span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><span style="width: 100%; height: 46px; border-radius: 14px; background: #FFFDF8; border: 2px solid #E4D3F5; color: #B6A6C6; font-size: 15px; font-weight: 800; display: grid; place-items: center;">12</span><span style="font-size: 11px; font-weight: 700; color: #B6A6C6;">04.06</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: flex-end;">
+        <div style="display: flex; align-items: center; gap: 10px; background: #FDF4FF; border: 2px solid #F0E1FA; border-radius: 999px; padding: 10px 18px; min-width: 300px;">
+          <span style="font-size: 14px; color: #9A87AC;">⌕</span>
+          <span style="font-size: 14px; font-weight: 500; color: #9A87AC;">Konu veya kaynak ara…</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 14px; padding: 4px 0 2px;">
+          <span style="font-size: 12px; font-weight: 900; letter-spacing: 0.14em; color: #A253BE;">ÜNİTE 1 · TEMELLER</span>
+          <span style="flex: 1; border-top: 2px dashed #E4D3F5;"></span>
+          <span style="font-size: 12px; font-weight: 800; color: #9A87AC;">2 / 5</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px; background: #FFFDF8; border: 2px solid #DCFCE7; border-left: 6px solid #22C55E; border-radius: 22px; padding: 18px 22px; cursor: pointer;" style-hover="background: #F7FEF9;">
+          <span style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; background: #22C55E; color: #fff; font-size: 14px; font-weight: 900; display: grid; place-items: center;">✓</span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 18px; font-weight: 800; color: #2E1065;">Numbers</span>
+            <span style="font-size: 14px; font-weight: 500; color: #6B5B7B;">1'den 20'ye kadar sayıları eğlenceli oyunlarla öğrenelim.</span>
+          </div>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 12px;">
+            <span style="flex-shrink: 0; white-space: nowrap; background: #DCFCE7; color: #15803D; font-size: 12px; font-weight: 800; padding: 7px 13px; border-radius: 999px;">8 kaynak</span>
+            <span style="font-size: 16px; color: #A79BB2;">›</span>
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px; background: #FFFDF8; border: 2px solid #DCFCE7; border-left: 6px solid #22C55E; border-radius: 22px; padding: 18px 22px; cursor: pointer;" style-hover="background: #F7FEF9;">
+          <span style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; background: #22C55E; color: #fff; font-size: 14px; font-weight: 900; display: grid; place-items: center;">✓</span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 18px; font-weight: 800; color: #2E1065;">Numbers Worksheet</span>
+            <span style="font-size: 13px; font-weight: 600; color: #9A87AC;">Alıştırma · ödev olarak gönderildi</span>
+          </div>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 12px;">
+            <span style="flex-shrink: 0; white-space: nowrap; background: #DCFCE7; color: #15803D; font-size: 12px; font-weight: 800; padding: 7px 13px; border-radius: 999px;">5 kaynak</span>
+            <span style="font-size: 16px; color: #A79BB2;">›</span>
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px; background: #FFFDF8; border: 2px solid #EFDFF9; border-left: 6px solid #FBD34F; border-radius: 22px; padding: 18px 22px; cursor: pointer;" style-hover="border-color: #DDC8F2;">
+          <span style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; border: 3px solid #DDC8F2; display: block;"></span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 18px; font-weight: 800; color: #2E1065;">Colors</span>
+              <span style="flex-shrink: 0; white-space: nowrap; background: #FEF3C7; color: #8A6410; font-size: 10px; font-weight: 900; letter-spacing: 0.08em; padding: 4px 9px; border-radius: 999px;">BU DERSTE</span>
+            </div>
+            <span style="font-size: 14px; font-weight: 500; color: #6B5B7B;">Renkleri öğrenelim! Günlük hayatta gördüğümüz nesneleri renkleriyle tanıyalım.</span>
+          </div>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 12px;">
+            <span style="flex-shrink: 0; white-space: nowrap; background: #F4EDFF; color: #6D28D9; font-size: 12px; font-weight: 800; padding: 7px 13px; border-radius: 999px;">8 kaynak</span>
+            <span style="font-size: 16px; color: #A79BB2;">›</span>
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px; background: #FFFDF8; border: 2px solid #EFDFF9; border-left: 6px solid #EFDFF9; border-radius: 22px; padding: 18px 22px; cursor: pointer;" style-hover="border-color: #DDC8F2;">
+          <span style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; border: 3px solid #DDC8F2; display: block;"></span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 18px; font-weight: 800; color: #2E1065;">Colors Worksheet</span>
+            <span style="font-size: 13px; font-weight: 600; color: #9A87AC;">Alıştırma</span>
+          </div>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 12px;">
+            <span style="flex-shrink: 0; white-space: nowrap; background: #F4EDFF; color: #6D28D9; font-size: 12px; font-weight: 800; padding: 7px 13px; border-radius: 999px;">4 kaynak</span>
+            <span style="font-size: 16px; color: #A79BB2;">›</span>
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px; background: #FFFDF8; border: 2px solid #EFDFF9; border-left: 6px solid #EFDFF9; border-radius: 22px; padding: 18px 22px; cursor: pointer;" style-hover="border-color: #DDC8F2;">
+          <span style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; border: 3px solid #DDC8F2; display: block;"></span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 18px; font-weight: 800; color: #2E1065;">Alphabet</span>
+            <span style="font-size: 14px; font-weight: 500; color: #6B5B7B;">Alfabeyi öğrenelim.</span>
+          </div>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 12px;">
+            <span style="flex-shrink: 0; white-space: nowrap; background: #F4EDFF; color: #6D28D9; font-size: 12px; font-weight: 800; padding: 7px 13px; border-radius: 999px;">4 kaynak</span>
+            <span style="font-size: 16px; color: #A79BB2;">›</span>
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0 2px;">
+          <span style="font-size: 12px; font-weight: 900; letter-spacing: 0.14em; color: #A253BE;">ÜNİTE 2 · GÜNLÜK HAYAT</span>
+          <span style="flex: 1; border-top: 2px dashed #E4D3F5;"></span>
+          <span style="font-size: 12px; font-weight: 800; color: #9A87AC;">0 / 6</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px; background: #FFFDF8; border: 2px solid #EFDFF9; border-left: 6px solid #EFDFF9; border-radius: 22px; padding: 18px 22px; cursor: pointer;" style-hover="border-color: #DDC8F2;">
+          <span style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; border: 3px solid #DDC8F2; display: block;"></span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 18px; font-weight: 800; color: #2E1065;">Family Members</span>
+            <span style="font-size: 14px; font-weight: 500; color: #6B5B7B;">Aile üyelerini tanıtalım ve kendi ailemizi anlatalım.</span>
+          </div>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 12px;">
+            <span style="flex-shrink: 0; white-space: nowrap; background: #F4EDFF; color: #6D28D9; font-size: 12px; font-weight: 800; padding: 7px 13px; border-radius: 999px;">6 kaynak</span>
+            <span style="font-size: 16px; color: #A79BB2;">›</span>
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px; background: #FFFDF8; border: 2px solid #EFDFF9; border-left: 6px solid #EFDFF9; border-radius: 22px; padding: 18px 22px; cursor: pointer;" style-hover="border-color: #DDC8F2;">
+          <span style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; border: 3px solid #DDC8F2; display: block;"></span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 18px; font-weight: 800; color: #2E1065;">Food &amp; Drinks</span>
+            <span style="font-size: 14px; font-weight: 500; color: #6B5B7B;">Yemek ve içecek isimlerini öğrenip sipariş vermeyi çalışalım.</span>
+          </div>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 12px;">
+            <span style="flex-shrink: 0; white-space: nowrap; background: #F4EDFF; color: #6D28D9; font-size: 12px; font-weight: 800; padding: 7px 13px; border-radius: 999px;">7 kaynak</span>
+            <span style="font-size: 16px; color: #A79BB2;">›</span>
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 6px; border: 2px dashed #DDC8F2; border-radius: 22px; padding: 16px; font-size: 14px; font-weight: 800; color: #A253BE; cursor: pointer;" style-hover="background: #FBF3FF;">Kalan 69 konuyu göster ↓</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>

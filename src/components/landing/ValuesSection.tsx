@@ -22,6 +22,10 @@ const CARDS: ValueCard[] = [
       tr: "Öğretmenler! Yeni nesil sizin eseriniz olacaktır.",
       en: "Teachers! The new generation will be your work.",
       fr: "Enseignants ! La nouvelle génération sera votre œuvre.",
+      ru: "Учителя! Новое поколение будет вашим творением.",
+      es: "¡Maestros! La nueva generación será obra vuestra.",
+      de: "Lehrerinnen und Lehrer! Die neue Generation wird euer Werk sein.",
+      ar: "أيها المعلمون! الجيل الجديد سيكون من صنع أيديكم.",
     },
   },
   {
@@ -31,6 +35,10 @@ const CARDS: ValueCard[] = [
       tr: "Bugünün küçükleri yarının büyükleridir.",
       en: "Today's little ones are tomorrow's great ones.",
       fr: "Les petits d'aujourd'hui sont les grands de demain.",
+      ru: "Сегодняшние малыши — завтрашние великие.",
+      es: "Los pequeños de hoy son los grandes de mañana.",
+      de: "Die Kleinen von heute sind die Großen von morgen.",
+      ar: "صغار اليوم هم كبار الغد.",
     },
   },
   {
@@ -40,6 +48,10 @@ const CARDS: ValueCard[] = [
       tr: "Eğitimdir ki bir milleti ya hür, bağımsız, şanlı, yüksek bir topluluk halinde yaşatır; ya da esaret ve sefalete terk eder.",
       en: "It is education that either enables a nation to live as a free, independent, honoured community, or abandons it to bondage and misery.",
       fr: "C'est l'éducation qui permet à une nation de vivre libre, indépendante et honorée, ou qui l'abandonne à la servitude et à la misère.",
+      ru: "Именно образование либо даёт народу жить свободным, независимым, славным и достойным сообществом, либо оставляет его в рабстве и нищете.",
+      es: "Es la educación la que permite a una nación vivir como una comunidad libre, independiente y digna, o la abandona a la servidumbre y la miseria.",
+      de: "Es ist die Bildung, die eine Nation als freie, unabhängige und geachtete Gemeinschaft leben lässt — oder sie der Knechtschaft und dem Elend überlässt.",
+      ar: "إن التعليم هو ما يجعل الأمة تعيش حرة مستقلة عزيزة، أو يتركها للعبودية والبؤس.",
     },
   },
   {
@@ -49,6 +61,10 @@ const CARDS: ValueCard[] = [
       tr: "Çocuklar geleceğimizin güvencesi, yaşama sevincimizdir.",
       en: "Children are the guarantee of our future and the joy of our lives.",
       fr: "Les enfants sont la garantie de notre avenir et la joie de notre vie.",
+      ru: "Дети — залог нашего будущего и радость нашей жизни.",
+      es: "Los niños son la garantía de nuestro futuro y la alegría de nuestra vida.",
+      de: "Kinder sind die Sicherheit unserer Zukunft und die Freude unseres Lebens.",
+      ar: "الأطفال ضمانة مستقبلنا وفرحة حياتنا.",
     },
   },
   {
@@ -58,6 +74,10 @@ const CARDS: ValueCard[] = [
       tr: "Öğretmenler, Cumhuriyet sizden fikri hür, vicdanı hür, irfanı hür nesiller ister.",
       en: "Teachers, the Republic asks of you generations free in thought, free in conscience, and free in learning.",
       fr: "Enseignants, la République attend de vous des générations libres de pensée, de conscience et de savoir.",
+      ru: "Учителя, Республика ждёт от вас поколений, свободных в мысли, свободных в совести, свободных в знании.",
+      es: "Maestros, la República os pide generaciones libres de pensamiento, libres de conciencia y libres de saber.",
+      de: "Lehrerinnen und Lehrer, die Republik erwartet von euch Generationen, die frei im Denken, frei im Gewissen und frei im Wissen sind.",
+      ar: "أيها المعلمون، تطلب منكم الجمهورية أجيالاً حرة الفكر، حرة الضمير، حرة المعرفة.",
     },
   },
 ];
@@ -89,7 +109,8 @@ export function ValuesSection() {
         style={{ backgroundImage: "url(/ewd/pat/tile-star-purple.png)", backgroundSize: "300px" }}
         aria-hidden="true"
       />
-      <span className="ewd-scallop-t" style={{ ["--scallop" as string]: "#FFF8EF" }} aria-hidden="true" />
+      {/* Alt kenar: altındaki krem İletişim bölümü buraya doğru kabarır. */}
+      <span className="ewd-scallop-b" style={{ ["--scallop" as string]: "#FFF8EF" }} aria-hidden="true" />
 
       <div className="relative mx-auto flex max-w-[1180px] flex-col items-center gap-11">
         <div className="flex flex-col items-center gap-2 text-center">

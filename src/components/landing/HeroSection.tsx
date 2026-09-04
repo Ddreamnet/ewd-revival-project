@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { whatsappTrialLink } from "@/lib/whatsapp";
 
-const WHATSAPP_NUMBER = "905306792831";
 
 type Audience = "kids" | "adults";
 
@@ -17,13 +17,7 @@ export function HeroSection() {
   const { language, t } = useLanguage();
   const [audience, setAudience] = useState<Audience>("kids");
 
-  const whatsappText =
-    language === "tr"
-      ? "Merhaba, ücretsiz deneme dersi hakkında bilgi almak istiyorum."
-      : language === "fr"
-        ? "Bonjour, je souhaite des informations sur le cours d'essai gratuit."
-        : "Hello, I would like information about the free trial lesson.";
-  const whatsappLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappText)}`;
+  const whatsappLink = whatsappTrialLink(language);
 
   const lead = audience === "kids" ? t.hero.lead[language] : t.hero.leadAdults[language];
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -81,7 +75,7 @@ export function HeroSection() {
             <img
               src="/uploads/dilarateacher.png"
               alt={t.hero.teacherAlt[language]}
-              className="absolute bottom-0 left-1/2 h-[212px] w-auto -translate-x-1/2"
+              className="absolute -bottom-[2px] left-1/2 h-[212px] w-auto -translate-x-1/2"
               style={{ filter: "drop-shadow(0 12px 18px rgba(46,16,101,0.2))" }}
             />
           </div>
@@ -122,7 +116,7 @@ export function HeroSection() {
         </div>
 
         <div
-          className="relative flex items-end justify-center overflow-hidden rounded-[42px] border-[3px]"
+          className="relative flex items-end justify-end overflow-hidden rounded-[42px] border-[3px]"
           style={{ borderColor: "var(--ewd-pink-line)", background: "#FFF1F7" }}
         >
           <img
@@ -131,10 +125,11 @@ export function HeroSection() {
             aria-hidden="true"
             className="absolute inset-0 h-full w-full object-cover"
           />
+          {/* PNG'nin altında ~6px saydam pay var; kutuya tam dayanması için geri alınıyor. */}
           <img
             src="/uploads/dilarateacher.png"
             alt={t.hero.teacherAlt[language]}
-            className="relative h-[588px] w-auto"
+            className="relative -mb-[5px] h-[588px] w-auto"
             style={{ filter: "drop-shadow(0 18px 24px rgba(46,16,101,0.22))" }}
           />
         </div>
@@ -201,7 +196,7 @@ function EntryCards({ onNavigate, className }: { onNavigate: (id: string) => voi
         style={{ background: "var(--ewd-purple)" }}
       >
         <img
-          src="/ewd/assets/art-book-aa.png"
+          src="/ewd/assets/art-book-aa.svg"
           alt=""
           aria-hidden="true"
           className="absolute right-3 top-4 w-[112px] transition-transform duration-300 group-hover:-rotate-6 lg:w-[132px]"
@@ -225,10 +220,10 @@ function EntryCards({ onNavigate, className }: { onNavigate: (id: string) => voi
         style={{ background: "var(--ewd-yellow)" }}
       >
         <img
-          src="/ewd/assets/art-graduation.png"
+          src="/ewd/assets/art-graduation.svg"
           alt=""
           aria-hidden="true"
-          className="absolute -right-3 -top-1.5 w-[130px] transition-transform duration-300 group-hover:-rotate-6 lg:w-[150px]"
+          className="absolute right-3 top-3 w-[118px] transition-transform duration-300 group-hover:-rotate-6 lg:w-[138px]"
           style={{ filter: "drop-shadow(0 10px 16px rgba(80,60,0,0.22))" }}
         />
         <span className="relative whitespace-pre-line text-[22px] font-black leading-[1.05] tracking-[-0.01em] text-[#2E1065] lg:text-[24px]">

@@ -3,6 +3,8 @@
  * Eliminates duplicate interface definitions and prevents drift.
  */
 
+import type { Branch } from "./branch";
+
 // =============================================================================
 // STUDENT LESSON
 // =============================================================================
@@ -69,6 +71,8 @@ export interface Teacher {
   user_id: string;
   full_name: string;
   email: string;
+  /** Öğretmenin bağlı olduğu dil şubesi — öğrencileri de bu şubede sayılır. */
+  language: Branch;
   students: Student[];
 }
 

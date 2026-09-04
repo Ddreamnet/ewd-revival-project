@@ -4,16 +4,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, lazy, Suspense } from "react";
+import { useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { Capacitor } from "@capacitor/core";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthForm } from "@/components/AuthForm";
 import { Button } from "@/components/ui/button";
 
-const TeacherDashboard = lazy(() => import("./components/TeacherDashboard").then(m => ({ default: m.TeacherDashboard })));
-const StudentDashboard = lazy(() => import("./components/StudentDashboard").then(m => ({ default: m.StudentDashboard })));
-const AdminDashboard = lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const TeacherDashboard = lazy(() => import("./components/teacher/TeacherDashboard").then(m => ({ default: m.TeacherDashboard })));
+const StudentDashboard = lazy(() => import("./components/student/StudentDashboard").then(m => ({ default: m.StudentDashboard })));
+const AdminDashboard = lazy(() => import("./components/admin/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 
 // Eager-load the landing page for instant first paint
 import LandingPage from "./pages/LandingPage";
@@ -23,7 +23,8 @@ const WorkWithUsPage = lazy(() => import("./pages/WorkWithUsPage"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const BlogPage = lazy(() => import("./pages/BlogPage"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage"));
-const WordsPage = lazy(() => import("./pages/WordsPage"));
+const SiteGuidePage = lazy(() => import("./pages/SiteGuidePage"));
+const TripPage = lazy(() => import("./pages/TripPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Prefetch secondary routes after initial load
@@ -34,7 +35,6 @@ if (typeof window !== "undefined") {
       import("./pages/PrivacyPolicyPage");
       import("./pages/BlogPage");
       import("./pages/BlogPostPage");
-      import("./pages/WordsPage");
     }, 1000);
   }, { once: true });
 }
@@ -91,20 +91,45 @@ function DashboardRoutes() {
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
+    // Panel kendi kaydırma hafızasını tutuyor (sekmeye dönünce liste baştan
+    // yüklenmesin diye); burada sıfırlamak onu bozardı.
+    if (pathname.startsWith("/dashboard")) return;
     window.scrollTo(0, 0);
   }, [pathname]);
   return null;
 }
-// Hides the native splash screen once the app is ready (initializing === false)
+/**
+ * Native splash'ı ilk gerçek ekran boyanana kadar açık tutar.
+ *
+ * Eskiden yalnızca `initializing` bitince kapanıyordu; profil hâlâ
+ * yüklenirken kapandığı için kullanıcı splash'tan sonra bir spinner
+ * görüyordu. Artık panelin çizilebilir olduğu ana kadar açık kalıyor.
+ * Güvenlik ağı: ağ takılırsa 2.5 sn sonra yine de kapanır, kullanıcı
+ * splash'ta kilitli kalmasın.
+ */
 function SplashHider() {
-  const { initializing } = useAuthContext();
+  const { initializing, loading, profile } = useAuthContext();
+  const hidden = useRef(false);
+
+  const hide = useCallback(() => {
+    if (hidden.current || !Capacitor.isNativePlatform()) return;
+    hidden.current = true;
+    import("@capacitor/splash-screen").then(({ SplashScreen }) => {
+      SplashScreen.hide({ fadeOutDuration: 200 });
+    });
+  }, []);
+
   useEffect(() => {
-    if (!initializing && Capacitor.isNativePlatform()) {
-      import("@capacitor/splash-screen").then(({ SplashScreen }) => {
-        SplashScreen.hide({ fadeOutDuration: 200 });
-      });
-    }
-  }, [initializing]);
+    if (!Capacitor.isNativePlatform()) return;
+    const timer = setTimeout(hide, 2500);
+    return () => clearTimeout(timer);
+  }, [hide]);
+
+  useEffect(() => {
+    const ready = !initializing && !(loading && !profile);
+    if (ready) hide();
+  }, [initializing, loading, profile, hide]);
+
   return null;
 }
 
@@ -124,11 +149,15 @@ const App = () => (
               <Route path="/" element={<LandingPage />} />
               <Route path="/bizimle-calisin" element={<WorkWithUsPage />} />
               <Route path="/gizlilik-politikasi" element={<PrivacyPolicyPage />} />
+              {/* Menüde yer almaz — bağlantısı Admin Paneli › Site Yönetimi içinde. */}
+              <Route path="/site-rehberi" element={<SiteGuidePage />} />
               <Route path="/blog" element={<BlogPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
-              <Route path="/gunun-kelimeleri" element={<WordsPage />} />
               <Route path="/login" element={<AuthForm />} />
-              <Route path="/dashboard" element={<DashboardRoutes />} />
+              {/* Panel kendi alt yollarını yönetir (sekmeler, öğrenci detayı) — bu yüzden joker. */}
+              <Route path="/dashboard/*" element={<DashboardRoutes />} />
+              {/* Kişisel, admin dışında herkese 404 — girişi Admin Paneli başlığındaki kalp. */}
+              <Route path="/mytriptolove" element={<TripPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

@@ -15,6 +15,8 @@ import { downloadFileNative } from "@/lib/nativeDownload";
 import { Capacitor } from "@capacitor/core";
 
 interface HomeworkListDialogProps {
+  /** Dialog kabuğu olmadan sayfa içinde çizilir (öğrenci panelinde sekme). */
+  inline?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   studentId: string;
@@ -58,6 +60,7 @@ interface PreviewState {
 }
 
 export function HomeworkListDialog({ 
+  inline = false,
   open, 
   onOpenChange, 
   studentId, 
@@ -74,10 +77,10 @@ export function HomeworkListDialog({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (open) {
+    if (open || inline) {
       fetchHomeworks();
     }
-  }, [open, studentId, teacherId]);
+  }, [open, inline, studentId, teacherId]);
 
   // Cleanup object URL on unmount or when preview changes
   useEffect(() => {
@@ -299,17 +302,7 @@ export function HomeworkListDialog({
     return group.uploaded_by_user_id === group.student_id;
   };
 
-  return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle>Ödevler</DialogTitle>
-            <DialogDescription>
-              Tüm ödevleri görüntüleyin
-            </DialogDescription>
-          </DialogHeader>
-
+  const body = (
           <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
             {loading ? (
               <div className="flex justify-center py-8">
@@ -444,8 +437,25 @@ export function HomeworkListDialog({
               </div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+  );
+
+  return (
+    <>
+      {inline ? (
+        body
+      ) : (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle>Ödevler</DialogTitle>
+              <DialogDescription>
+                Tüm ödevleri görüntüleyin
+              </DialogDescription>
+            </DialogHeader>
+            {body}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Fullscreen preview — proper Dialog with scroll-lock and focus-trap */}
       <Dialog open={!!preview} onOpenChange={(isOpen) => { if (!isOpen) closePreview(); }}>

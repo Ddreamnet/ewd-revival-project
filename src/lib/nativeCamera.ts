@@ -55,3 +55,33 @@ export async function pickImageNative(
 export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
 }
+
+/**
+ * Native çoklu galeri seçimi — bir seferde birçok fotoğraf.
+ *
+ * Web'de `null` döner; orada `<input type="file" multiple>` kullanılır.
+ * Kullanıcı vazgeçerse boş dizi döner.
+ */
+export async function pickImagesNative(): Promise<File[] | null> {
+  if (!Capacitor.isNativePlatform()) return null;
+
+  try {
+    // `width` verilmiyor: küçültmeyi shrinkImage yapıyor, orası her platformda aynı.
+    const { photos } = await Camera.pickImages({ quality: 92, correctOrientation: true });
+
+    const files: File[] = [];
+    for (const [i, photo] of photos.entries()) {
+      const response = await fetch(photo.webPath);
+      const blob = await response.blob();
+      const format = photo.format || "jpeg";
+      const type = blob.type || `image/${format === "jpg" ? "jpeg" : format}`;
+      files.push(new File([blob], `photo_${Date.now()}_${i}.${format}`, { type }));
+    }
+    return files;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.toLowerCase().includes("cancel")) return [];
+    console.error("Native gallery error:", error);
+    throw error;
+  }
+}

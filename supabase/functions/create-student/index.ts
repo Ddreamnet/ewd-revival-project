@@ -97,6 +97,24 @@ serve(async (req) => {
       )
     }
 
+    // Öğrenci, öğretmeninin dil şubesine (İngilizce / Fransızca) girer.
+    // `students` tablosundaki trigger bunu zaten senkronluyor; burada
+    // metadata'ya da yazıyoruz ki profil ilk anda doğru şubede doğsun.
+    const { data: teacherProfile, error: teacherError } = await supabaseAdmin
+      .from('profiles')
+      .select('language')
+      .eq('user_id', teacherId)
+      .single()
+
+    if (teacherError || !teacherProfile) {
+      return new Response(
+        JSON.stringify({ error: 'Teacher not found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
+    const branch = teacherProfile.language ?? 'en'
+
     // Create the student user account
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -104,7 +122,8 @@ serve(async (req) => {
       email_confirm: true,
       user_metadata: {
         full_name: name,
-        role: 'student'
+        role: 'student',
+        language: branch
       }
     })
 
@@ -225,6 +244,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         user_id: authData.user.id,
+        language: branch,
         message: 'Student account created successfully'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }

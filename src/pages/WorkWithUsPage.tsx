@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { languageName } from '@/lib/translations';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { Footer } from '@/components/landing/Footer';
 import { BackSwipeWrapper } from '@/components/BackSwipeWrapper';
@@ -19,6 +20,9 @@ export default function WorkWithUsPage() {
     setIsSubmitting(true);
     try {
       const fd = new FormData(e.currentTarget);
+      // Ziyaretçinin sitedeki dili de gitsin — başvuruya hangi dilde
+      // dönüleceği aksi hâlde belli olmuyor.
+      fd.append('siteLanguage', languageName(language));
       const res = await fetch(FORMSPREE_ENDPOINT, {
         method: 'POST',
         body: fd,
@@ -55,7 +59,7 @@ export default function WorkWithUsPage() {
               <h1 className="ewd-h2 mt-1">{t.workWithUs.title[language]}</h1>
               <p className="ewd-lead max-w-[420px]">{t.workWithUs.note[language]}</p>
               <img
-                src="/ewd/assets/art-graduation.png"
+                src="/ewd/assets/art-graduation.svg"
                 alt=""
                 aria-hidden="true"
                 className="mt-4 hidden w-[220px] lg:block"
@@ -147,7 +151,7 @@ export default function WorkWithUsPage() {
           </div>
         </main>
 
-        <Footer />
+        <Footer topColor="#FBF5FF" />
       </div>
     </BackSwipeWrapper>
   );

@@ -1,12 +1,12 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const ITEMS = [
-  { key: "speaking", icon: "y-konusma.png" },
-  { key: "work", icon: "y-hedef.png" },
-  { key: "skills", icon: "y-kulaklik.png" },
-  { key: "duration", icon: "y-takvim.png" },
-  { key: "everyday", icon: "y-canta.png" },
-  { key: "options", icon: "y-grup.png" },
+  { key: "speaking", icon: "y-konusma.svg" },
+  { key: "work", icon: "y-hedef.svg" },
+  { key: "skills", icon: "y-kulaklik.svg" },
+  { key: "duration", icon: "y-takvim.svg" },
+  { key: "everyday", icon: "y-canta.svg" },
+  { key: "options", icon: "y-grup.svg" },
 ] as const;
 
 /** Yetişkin paketi — kareli kâğıt zemin üzerinde tek geniş çerçeveli kart. */
@@ -19,9 +19,13 @@ export function AdultPackages() {
   return (
     <section
       id="adult-packages"
-      className="ewd-grid-paper scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24"
+      className="ewd-grid-paper ewd-bulge-host scroll-section relative px-5 py-20 sm:px-8 md:py-24"
       style={{ backgroundColor: "#FBF5FF", ["--grid" as string]: "#E9DBF7" }}
     >
+      {/* Tarak geçişi — kareli zemin üstteki ve alttaki bölüme sarkar. */}
+      <span className="ewd-bulge" style={{ ["--bulge" as string]: "#FBF5FF" }} aria-hidden="true">
+        <span className="ewd-bulge__tex ewd-grid-paper" style={{ backgroundSize: "34px 34px" }} />
+      </span>
       <div className="mx-auto max-w-[1080px]">
         <div className="flex flex-col items-start justify-between gap-6 pb-9 md:flex-row md:items-end md:gap-10">
           <h2 className="ewd-h2 whitespace-pre-line">{t.adultPackages.title[language]}</h2>
@@ -48,7 +52,7 @@ export function AdultPackages() {
             aria-hidden="true"
           />
           <img
-            src="/ewd/assets/art-graduation.png"
+            src="/ewd/assets/art-graduation.svg"
             alt=""
             aria-hidden="true"
             className="pointer-events-none absolute right-4 top-3 hidden w-[210px] lg:block lg:w-[296px]"
@@ -74,7 +78,7 @@ export function AdultPackages() {
               className="flex items-center gap-3 self-start rounded-full px-5 py-3"
               style={{ background: "var(--ewd-purple-deep)" }}
             >
-              <img src="/ewd/assets/ic/y-bar.png" alt="" aria-hidden="true" className="w-6" />
+              <img src="/ewd/assets/ic/y-bar.svg" alt="" aria-hidden="true" className="w-6" />
               <span className="text-[15px] font-extrabold text-white sm:text-[18px]">{pack.levels[language]}</span>
             </div>
           </div>
@@ -100,7 +104,7 @@ export function AdultPackages() {
                 <span className="flex-1 text-[15px] font-semibold leading-snug text-[#2E1065]">
                   {pack.items[key][language]}
                 </span>
-                <img src="/ewd/assets/ic/y-check.png" alt="" aria-hidden="true" className="w-7 shrink-0" />
+                <img src="/ewd/assets/ic/y-check.svg" alt="" aria-hidden="true" className="w-7 shrink-0" />
               </div>
             ))}
           </div>
@@ -110,7 +114,7 @@ export function AdultPackages() {
             style={{ background: "var(--ewd-lilac)" }}
           >
             <div className="flex items-center gap-3.5">
-              <img src="/ewd/assets/ic/y-ampul.png" alt="" aria-hidden="true" className="w-7" />
+              <img src="/ewd/assets/ic/y-ampul.svg" alt="" aria-hidden="true" className="w-7" />
               <span className="text-[14px] font-bold text-[#6D28D9] sm:text-[15px]">{pack.footer[language]}</span>
             </div>
             <button type="button" onClick={scrollToContact} className="ewd-btn ewd-btn--purple ewd-btn--sm">

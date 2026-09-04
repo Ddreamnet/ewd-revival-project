@@ -1,23 +1,62 @@
 import { EN_WORDS } from "./bank.en";
 import { FR_WORDS } from "./bank.fr";
-import type { Category, Level, WordBank, WordEntry, WordLanguage } from "./types";
+import { RU_WORDS } from "./bank.ru";
+import { ES_WORDS } from "./bank.es";
+import { DE_WORDS } from "./bank.de";
+import { AR_WORDS } from "./bank.ar";
+import type { Category, Level, PartOfSpeech, WordBank, WordEntry, WordLanguage } from "./types";
 
 export * from "./types";
-export { EN_WORDS, FR_WORDS };
+export * from "./voice";
+export * from "./speechVoices";
+export { EN_WORDS, FR_WORDS, RU_WORDS, ES_WORDS, DE_WORDS, AR_WORDS };
 
-export const WORD_BANK: WordBank = { en: EN_WORDS, fr: FR_WORDS };
+export const WORD_BANK: WordBank = {
+  en: EN_WORDS,
+  fr: FR_WORDS,
+  ru: RU_WORDS,
+  es: ES_WORDS,
+  de: DE_WORDS,
+  ar: AR_WORDS,
+};
 
-/** Günün kelimeleri her akşam bu saatte (yerel saat) yenilenir. */
-export const RESET_HOUR = 20;
+/**
+ * Dil başına karıştırma tohumu. Sayılar rastgele seçilmiştir; önemli olan
+ * birbirlerinden farklı olmaları — aynı gün her dilde farklı bir üçlü çıksın.
+ */
+const LANGUAGE_SEEDS: Record<WordLanguage, number> = {
+  en: 0x5eed_e11,
+  fr: 0x5eed_f12,
+  ru: 0x5eed_a13,
+  es: 0x5eed_b14,
+  de: 0x5eed_c15,
+  ar: 0x5eed_d16,
+};
 
-/** Kart sayısı — hem günün seçiminde hem rastgele çekimde. */
-export const CARDS_PER_DAY = 3;
+/** Günün kelimeleri her sabah bu saatte (yerel saat) yenilenir. */
+export const RESET_HOUR = 9;
+
+/**
+ * Kartların sırası hiç değişmez: 1. kart isim ya da sıfat, 2. kart fiil,
+ * 3. kart zarf. Hem günün kelimelerinde hem de rastgele çekimde geçerlidir.
+ */
+export const DAILY_SLOTS: readonly (readonly PartOfSpeech[])[] = [
+  ["noun", "adjective"],
+  ["verb"],
+  ["adverb"],
+];
+
+/** Kart sayısı — slot sayısı kadar. */
+export const CARDS_PER_DAY = DAILY_SLOTS.length;
+
+/** Oklarla en fazla kaç gün geriye gidilebilir. */
+export const MAX_HISTORY_DAYS = 30;
 
 /* ------------------------------------------------------------------ zaman */
 
 /**
  * İçinde bulunulan "kelime günü"nün başlangıcı.
- * Saat 20.00'den önceyse gün dünkü 20.00'de başlamıştır.
+ * Saat 09.00'dan önceyse gün dünkü 09.00'da başlamıştır.
  */
 export function currentCycleStart(now: Date = new Date()): Date {
   const start = new Date(now);
@@ -33,6 +72,16 @@ export function nextResetAt(now: Date = new Date()): Date {
   const next = currentCycleStart(now);
   next.setDate(next.getDate() + 1);
   return next;
+}
+
+/**
+ * `offset` gün önceki döngünün başlangıcı (0 = bugün, -1 = dün).
+ * Saat bileşeni 09.00'da kaldığı için doğrudan `getDailyWords`'e verilebilir.
+ */
+export function cycleStartFor(offset: number, now: Date = new Date()): Date {
+  const start = currentCycleStart(now);
+  start.setDate(start.getDate() + offset);
+  return start;
 }
 
 /** Yenilenmeye kalan süre, saat / dakika / saniye olarak. */
@@ -94,37 +143,46 @@ export function filterWords(language: WordLanguage, filter: WordFilter = {}): Wo
 }
 
 /**
- * Günün kelimeleri.
+ * Günün kelimeleri — sırayla bir isim/sıfat, bir fiil, bir zarf.
  *
- * Havuz sabit bir tohumla bir kez karıştırılır, sonra gün numarasına göre
- * üçlü pencereler hâlinde okunur — böylece havuz tükenene kadar hiçbir kelime
- * tekrar etmez ve seçim her cihazda aynı olur.
+ * Her slotun havuzu sabit bir tohumla bir kez karıştırılır ve gün numarasına
+ * göre sırayla okunur. Böylece bir kelime ancak kendi havuzu bittiğinde geri
+ * döner (en geniş aralık) ve seçim her cihazda aynı olur. Havuz boyları
+ * slotlar arasında farklı olduğu için üçlü kombinasyonlar çok daha uzun süre
+ * tekrar etmez.
  */
 export function getDailyWords(
   language: WordLanguage,
   now: Date = new Date(),
-  count: number = CARDS_PER_DAY,
+  level: Level | "all" = "all",
 ): WordEntry[] {
-  const pool = WORD_BANK[language];
+  const pool = filterWords(language, { level });
   if (pool.length === 0) return [];
 
-  // Diller farklı tohum alır ki İngilizce ve Fransızca aynı ritimde ilerlemesin.
-  const order = seededShuffle(pool, language === "en" ? 0x5eed_e11 : 0x5eed_f12);
-  const windows = Math.max(1, Math.floor(order.length / count));
-  const offset = (((cycleDayIndex(now) % windows) + windows) % windows) * count;
+  const day = cycleDayIndex(now);
+  // Her dil farklı tohum alır ki hiçbir ikisi aynı ritimde ilerlemesin.
+  const base = LANGUAGE_SEEDS[language];
+  const chosen: WordEntry[] = [];
+  const taken = new Set<string>();
 
-  return Array.from({ length: Math.min(count, order.length) }, (_, i) => order[(offset + i) % order.length]);
-}
+  DAILY_SLOTS.forEach((slot, i) => {
+    // Slotun türünden kelime yoksa tüm havuza düşülür ki kart sayısı azalmasın.
+    const group = pool.filter((w) => slot.includes(w.pos));
+    const source = group.length > 0 ? group : pool;
+    const order = seededShuffle(source, (base + i * 0x0100_0193) >>> 0);
+    const cursor = ((day % order.length) + order.length) % order.length;
 
-/** Filtreye uyan havuzdan rastgele `count` kelime — her çağrıda değişir. */
-export function drawRandomWords(
-  language: WordLanguage,
-  filter: WordFilter = {},
-  count: number = CARDS_PER_DAY,
-): WordEntry[] {
-  const pool = filterWords(language, filter);
-  if (pool.length === 0) return [];
-  return seededShuffle(pool, (Math.random() * 2 ** 32) >>> 0).slice(0, Math.min(count, pool.length));
+    // Yedeğe düşüldüyse aynı kelime iki karta gelebilir; sıradakine kayılır.
+    for (let k = 0; k < order.length; k++) {
+      const candidate = order[(cursor + k) % order.length];
+      if (taken.has(candidate.id)) continue;
+      taken.add(candidate.id);
+      chosen.push(candidate);
+      break;
+    }
+  });
+
+  return chosen;
 }
 
 /** Bir filtre kombinasyonunda kaç kelime olduğunu söyler (boş durum mesajı için). */

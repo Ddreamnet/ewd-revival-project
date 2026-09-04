@@ -62,6 +62,51 @@
     --ewd-faint: #8b7a9e;
     --ewd-neutral: #6b7280;
 
+    /* ---- Panel v2 durum renkleri (handoff_panel/README "Tasarım token'ları") ----
+       Landing paletinin panele özgü uzantısı: ders durumu, geçmiş çipleri,
+       kesikli ayırıcılar, çerçeveli buton. Hepsinin koyu mod karşılığı var. */
+    --ewd-green-tint: #dcfce7;
+    --ewd-green-ink: #15803d;
+    --ewd-chip: #f4f1f7;
+    --ewd-chip-ink: #6f677f;
+    --ewd-muted: #77678a;
+    --ewd-muted-2: #7f6f96;
+    --ewd-muted-3: #9d8fae;
+    --ewd-lilac-line-2: #ddccf7;
+    --ewd-lilac-line-3: #e4d3f5;
+    --ewd-field-bg: #fdf4ff;
+    --ewd-outline-ink: #7c3aed;
+    --ewd-outline-line: #d6c0f0;
+    --ewd-outline-hover: #fbf3ff;
+    --ewd-yellow-ink-2: #8a6410;
+    --ewd-icon-line: #efdcd2;
+    --ewd-dot: #e7b4c8;
+    --ewd-pink-ink: #db2777;
+    /* Açık mor/krem zemin üzerine yazılan mor metin. Koyu modda
+       --ewd-purple-deep (#6d28d9) koyu zeminde okunmuyordu. */
+    --ewd-on-lilac: #6d28d9;
+    --ewd-pink-line-hover: #f5b6d0;
+    /* Marka moru/pembesi zemini iki modda da aynı kaldığı için üzerindeki
+       metin de sabit: --ewd-cream koyu modda koyulaşıyor ve mor blokta
+       yazıyı okunmaz hale getiriyordu. */
+    --ewd-on-purple: #fff8ef;
+    --ewd-on-purple-soft: #e4d3f5;
+    /* Zoom marka mavisi — derse bağlanma düğmesi. Moddan bağımsız. */
+    /* Katı butonların üzerindeki yazı: açık modda beyaz, koyuda lacivert. */
+    --ewd-btn-ink: #ffffff;
+    /* Yıldız dokusu — koyu modda mavi kopyayla değişir. */
+    --ewd-pat-star: url("/ewd/pat/tile-star-purple.png");
+    --ewd-pat-star-op: 0.3;
+    /* Panel hero bandının zemini — koyuda gece laciverti. */
+    --ewd-band: #6d28d9;
+    /* Odak halkası ve gölge tonu — koyu modda maviye döner. */
+    --ewd-focus-ring: rgb(162 83 190 / 0.14);
+    --ewd-shadow-tint: 46 16 101;
+
+    --ewd-zoom: #0b5cff;
+    --ewd-zoom-hover: #2a72ff;
+    --ewd-zoom-base: #0740b8;
+
     /* ---- Ölçü sistemi ---- */
     --ewd-r-pill: 999px;
     --ewd-r-card: 42px;
@@ -69,11 +114,11 @@
     --ewd-r-inner: 20px;
     --ewd-r-field: 16px;
 
-    --ewd-shadow-card: 0 26px 38px -18px rgb(46 16 101 / 0.18);
-    --ewd-shadow-card-strong: 0 30px 44px -22px rgb(46 16 101 / 0.45);
-    --ewd-shadow-inner: 0 2px 6px rgb(46 16 101 / 0.08);
-    --ewd-shadow-icon: drop-shadow(0 6px 10px rgb(46 16 101 / 0.16));
-    --ewd-shadow-icon-lg: drop-shadow(0 10px 16px rgb(46 16 101 / 0.24));
+    --ewd-shadow-card: 0 26px 38px -18px rgb(var(--ewd-shadow-tint) / 0.18);
+    --ewd-shadow-card-strong: 0 30px 44px -22px rgb(var(--ewd-shadow-tint) / 0.45);
+    --ewd-shadow-inner: 0 2px 6px rgb(var(--ewd-shadow-tint) / 0.08);
+    --ewd-shadow-icon: drop-shadow(0 6px 10px rgb(var(--ewd-shadow-tint) / 0.16));
+    --ewd-shadow-icon-lg: drop-shadow(0 10px 16px rgb(var(--ewd-shadow-tint) / 0.24));
 
     /* ---- 2. Panel yüzeyleri — AÇIK mod ----
        Panel bu token'lar üzerinden boyanır; landing sabit açık kalır. */
@@ -85,54 +130,116 @@
     --ewd-line-strong: #dcc9f2;
     --ewd-on-surface: #2e1065;
     --ewd-on-surface-soft: #6b5b7b;
-    --ewd-on-surface-faint: #9a87ac;
+    --ewd-on-surface-faint: #77678a;
     --ewd-accent: #a253be;
     --ewd-accent-base: #7e3d96;
     --ewd-accent-on: #ffffff;
     --ewd-accent-wash: #f4edff;
-    --ewd-panel-shadow: 0 18px 34px -22px rgb(46 16 101 / 0.28);
-    --ewd-panel-shadow-sm: 0 8px 18px -12px rgb(46 16 101 / 0.22);
+    --ewd-panel-shadow: 0 18px 34px -22px rgb(var(--ewd-shadow-tint) / 0.28);
+    --ewd-panel-shadow-sm: 0 8px 18px -12px rgb(var(--ewd-shadow-tint) / 0.22);
   }
 
   .dark {
     /* ---- 2b. Panel yüzeyleri — KOYU mod ----
-       Nötr lacivert yerine erik/mor bir koyu: markanın moru koyuda da sürüyor. */
-    --ewd-surface: #150e26;
-    --ewd-surface-2: #1e1533;
-    --ewd-surface-3: #261b40;
-    --ewd-surface-sunk: #120c1f;
-    --ewd-line: #33254f;
-    --ewd-line-strong: #453269;
-    --ewd-on-surface: #f2e9ff;
-    --ewd-on-surface-soft: #b7a5d4;
-    --ewd-on-surface-faint: #8a78a8;
-    --ewd-accent: #c084fc;
-    --ewd-accent-base: #7c3aed;
-    --ewd-accent-on: #1a1030;
-    --ewd-accent-wash: #2a1d45;
-    --ewd-panel-shadow: 0 18px 34px -20px rgb(0 0 0 / 0.7);
-    --ewd-panel-shadow-sm: 0 8px 18px -12px rgb(0 0 0 / 0.6);
+       "Gece defteri": zemin erik-mor değil lacivert. Marka moru koyuda
+       ekranı yakıyordu (doymuş menekşe + neredeyse siyah bir zemin);
+       yerine açık mavi vurgu, koyu yeşil ve yumuşatılmış pembe/sarı geldi.
+       Zemin bilerek dip karanlık değil: eskisinden ~2.6 kat daha aydınlık. */
+    --ewd-surface: #18213a;
+    --ewd-surface-2: #2a3650;
+    --ewd-surface-3: #334262;
+    --ewd-surface-sunk: #131a2e;
+    --ewd-line: #3d5081;
+    --ewd-line-strong: #55689a;
+    --ewd-on-surface: #eaf0ff;
+    --ewd-on-surface-soft: #b9c8e8;
+    --ewd-on-surface-faint: #94a6cc;
+    --ewd-accent: #7cc4f0;
+    --ewd-accent-base: #2f6fb5;
+    --ewd-accent-on: #0e1b31;
+    --ewd-accent-wash: #26355a;
+    --ewd-panel-shadow: 0 18px 34px -20px rgb(4 9 20 / 0.75);
+    --ewd-panel-shadow-sm: 0 8px 18px -12px rgb(4 9 20 / 0.6);
 
-    /* Koyu modda marka tonlarının okunabilir karşılıkları */
-    --ewd-cream: #1e1533;
-    --ewd-cream-hi: #261b40;
-    --ewd-ink: #f2e9ff;
-    --ewd-body: #b7a5d4;
-    --ewd-body-soft: #a794c6;
-    --ewd-text: #ece2ff;
-    --ewd-neutral: #9d8bbb;
-    --ewd-lilac: #2a1d45;
-    --ewd-lilac-soft: #2f2150;
-    --ewd-lilac-tint: #241a3c;
-    --ewd-lilac-line: #4a3670;
-    --ewd-lilac-line-soft: #3d2c5e;
-    --ewd-lilac-hair: #372a55;
-    --ewd-pink-tint: #331a2a;
-    --ewd-pink-soft: #4a2138;
-    --ewd-pink-line: #6b2f4c;
-    --ewd-pink-hair: #55253c;
-    --ewd-yellow-pale: #3a2e12;
-    --ewd-yellow-tint: #443616;
+    /* ---- Marka renkleri, koyu zemine göre yeniden ayarlandı ----
+       Açık moddaki doymuş hex'ler koyuda titriyordu. Koyuda dolgular
+       açılır, doygunluk düşer ve üzerlerindeki yazı beyaz yerine
+       lacivert mürekkep (--ewd-btn-ink) olur — 14px kalın metin için
+       beyazın veremediği 4.5:1'i böyle karşılıyoruz. */
+    --ewd-btn-ink: #0e1b31;
+    --ewd-purple: #62a5ea;
+    --ewd-purple-hover: #72b2f2;
+    --ewd-purple-base: #2f6cb4;
+    --ewd-purple-deep: #8ec0f7;
+    --ewd-purple-deeper: #6fa8ea;
+    --ewd-violet: #7fb3ef;
+    --ewd-pink: #e883ae;
+    --ewd-pink-hover: #f096bd;
+    --ewd-pink-base: #9e4a6d;
+    --ewd-pink-mid: #dd6f9e;
+    --ewd-yellow: #ecc255;
+    --ewd-yellow-hover: #f0c95f;
+    --ewd-yellow-base: #a37b28;
+    --ewd-yellow-ink: #2a2205;
+    --ewd-green: #45b98a;
+    --ewd-green-hover: #4fc796;
+    --ewd-green-base: #227a58;
+    --ewd-zoom: #59a3ee;
+    --ewd-zoom-hover: #63abf2;
+    --ewd-zoom-base: #2a63a8;
+    --ewd-on-purple: #eef4ff;
+    --ewd-on-purple-soft: #c6d6f2;
+    --ewd-faint: #94a6cc;
+    /* Yıldız dokusu koyuda mavi kopyaya geçer. */
+    --ewd-pat-star: url("/ewd/pat/tile-star-blue.png");
+    /* Koyu zeminde aynı opaklık bandı grileştiriyordu. */
+    --ewd-pat-star-op: 0.1;
+    --ewd-band: #1e3a75;
+    --ewd-focus-ring: rgb(124 196 240 / 0.22);
+    --ewd-shadow-tint: 3 8 20;
+
+    /* Koyu modda marka tonlarının okunur karşılıkları */
+    --ewd-cream: #2a3650;
+    --ewd-cream-hi: #334262;
+    --ewd-ink: #eaf0ff;
+    --ewd-body: #b9c8e8;
+    --ewd-body-soft: #a8bade;
+    --ewd-text: #e6eeff;
+    --ewd-neutral: #94a6cc;
+    --ewd-lilac: #26355a;
+    --ewd-lilac-soft: #3d5081;
+    --ewd-lilac-tint: #202b4b;
+    --ewd-lilac-line: #46598c;
+    --ewd-lilac-line-soft: #3a4c7a;
+    --ewd-lilac-hair: #33446f;
+    --ewd-pink-tint: #3a2739;
+    --ewd-pink-soft: #4d3049;
+    --ewd-pink-line: #703c5e;
+    --ewd-pink-hair: #452c42;
+    --ewd-yellow-pale: #3b3520;
+    --ewd-yellow-tint: #4a4227;
+
+    /* Panel v2 durum renklerinin koyu karşılıkları */
+    --ewd-cream-edge: #3d5081;
+    --ewd-green-tint: #1a3b30;
+    --ewd-green-ink: #5fd3a3;
+    --ewd-chip: #2f3d5e;
+    --ewd-chip-ink: #b3c2e2;
+    --ewd-muted: #adbcdd;
+    --ewd-muted-2: #9cadd2;
+    --ewd-muted-3: #8394ba;
+    --ewd-lilac-line-2: #425580;
+    --ewd-lilac-line-3: #3a4c7a;
+    --ewd-field-bg: #212c4b;
+    --ewd-outline-ink: #8fd2f7;
+    --ewd-outline-line: #46598c;
+    --ewd-outline-hover: #26355a;
+    --ewd-yellow-ink-2: #f0c95f;
+    --ewd-icon-line: #3a4c7a;
+    --ewd-dot: #2c3a5e;
+    --ewd-pink-ink: #f096bd;
+    --ewd-on-lilac: #8fd2f7;
+    --ewd-pink-line-hover: #8a4b73;
   }
 }
 
@@ -255,7 +362,7 @@
 
   .ewd-btn--purple {
     background: var(--ewd-purple);
-    color: #fff;
+    color: var(--ewd-btn-ink);
     box-shadow: 0 5px 0 var(--ewd-purple-base);
   }
   .ewd-btn--purple:hover {
@@ -267,7 +374,7 @@
 
   .ewd-btn--pink {
     background: var(--ewd-pink);
-    color: #fff;
+    color: var(--ewd-btn-ink);
     box-shadow: 0 5px 0 var(--ewd-pink-base);
   }
   .ewd-btn--pink:hover {
@@ -291,7 +398,7 @@
 
   .ewd-btn--wa {
     background: var(--ewd-green);
-    color: #fff;
+    color: var(--ewd-btn-ink);
     box-shadow: 0 5px 0 var(--ewd-green-base);
     padding-left: 0.8125rem;
   }
@@ -353,14 +460,15 @@
     border-radius: var(--ewd-r-pill);
     overflow: hidden;
     flex-shrink: 0;
-    box-shadow: 0 2px 6px rgb(46 16 101 / 0.22);
+    box-shadow: 0 2px 6px rgb(var(--ewd-shadow-tint) / 0.22);
     display: block;
   }
   .ewd-navpill__badge img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: left center;
+    /* `cover` + `left center`, kare olmayan rozetlerin sağını kırpıyordu. */
+    object-fit: contain;
+    object-position: center;
     display: block;
   }
 
@@ -369,7 +477,7 @@
     width: 42px;
     height: 42px;
     border-radius: var(--ewd-r-pill);
-    border: 2px solid #efdcd2;
+    border: 2px solid var(--ewd-icon-line);
     display: grid;
     place-items: center;
     font-size: 0.8125rem;
@@ -386,11 +494,223 @@
     background: var(--ewd-lilac-tint);
   }
 
+  /* ---- Dil seçimi ---- */
+  .ewd-lang {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 42px;
+    padding: 0 0.6rem 0 0.35rem;
+    border-radius: var(--ewd-r-pill);
+    border: 2px solid var(--ewd-icon-line);
+    background: transparent;
+    color: var(--ewd-body-soft);
+    font-size: 0.8125rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+      border-color 0.18s ease,
+      background-color 0.18s ease,
+      color 0.18s ease;
+  }
+  .ewd-lang:hover,
+  .ewd-lang[data-state="open"] {
+    border-color: var(--ewd-lilac-line);
+    background: var(--ewd-lilac-tint);
+    color: var(--ewd-purple-deep);
+  }
+  /* Bayrak yuvarlak bir madalyonun içinde durur; kenarlık kremle sınırı ayırır. */
+  .ewd-lang__flag {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 2px solid var(--ewd-cream-hi);
+    box-shadow: 0 0 0 1px var(--ewd-lilac-line-soft);
+  }
+  .ewd-lang__chev {
+    width: 13px;
+    height: 13px;
+    transition: transform 0.2s ease;
+  }
+  .ewd-lang[data-state="open"] .ewd-lang__chev {
+    transform: rotate(180deg);
+  }
+
+  .ewd-langmenu {
+    min-width: 11rem;
+    padding: 0.35rem;
+    border-radius: 22px;
+    border: 3px solid var(--ewd-lilac-line);
+    background: var(--ewd-cream-hi);
+    box-shadow: 0 24px 40px -26px rgb(var(--ewd-shadow-tint) / 0.55);
+  }
+  .ewd-langitem {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    border-radius: 15px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--ewd-body-soft);
+    cursor: pointer;
+    outline: none;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .ewd-langitem[data-highlighted],
+  .ewd-langitem:hover {
+    background: var(--ewd-lilac-tint);
+    color: var(--ewd-purple-deep);
+  }
+  .ewd-langitem[data-active="true"] {
+    background: var(--ewd-lilac);
+    color: var(--ewd-purple-deep);
+  }
+  .ewd-langitem__flag {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 2px solid var(--ewd-cream-hi);
+    box-shadow: 0 0 0 1px var(--ewd-lilac-line-soft);
+  }
+  /* Seçili dilin işareti — sağa yaslanmış küçük mor nokta. */
+  .ewd-langitem__dot {
+    margin-left: auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--ewd-purple-deep);
+  }
+
+  /* ---- Kelime kartlarının dil seçici düğmesi ---- */
+  /* Üst menüdeki dil anahtarının kontrol şeridine uyarlanmış hâli: aynı
+     madalyonlu bayrak, aynı mor vurgu; farkı, dilin adını da yazması. */
+  .ewd-wordlang {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 40px;
+    padding: 0 0.7rem 0 0.35rem;
+    border-radius: var(--ewd-r-pill);
+    border: 2px solid var(--ewd-lilac-line);
+    background: var(--ewd-lilac-tint);
+    color: var(--ewd-purple-deep);
+    font-size: 0.8125rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+      border-color 0.18s ease,
+      background-color 0.18s ease;
+  }
+  .ewd-wordlang:hover,
+  .ewd-wordlang[data-state="open"] {
+    border-color: var(--ewd-purple);
+    background: var(--ewd-lilac);
+  }
+  .ewd-wordlang__flag {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 2px solid var(--ewd-cream-hi);
+    box-shadow: 0 0 0 1px var(--ewd-lilac-line-soft);
+  }
+  /* Dar ekranda dilin adı yerini kısa koda bırakır; şerit tek satırda kalsın. */
+  .ewd-wordlang__name {
+    display: none;
+  }
+  @media (min-width: 480px) {
+    .ewd-wordlang__name {
+      display: inline;
+    }
+    .ewd-wordlang__code {
+      display: none;
+    }
+  }
+  .ewd-wordlang__chev {
+    width: 13px;
+    height: 13px;
+    transition: transform 0.2s ease;
+  }
+  .ewd-wordlang[data-state="open"] .ewd-wordlang__chev {
+    transform: rotate(180deg);
+  }
+  /* Listenin başlığı — "Kelime dili" */
+  .ewd-wordlang__heading {
+    padding: 0.35rem 0.6rem 0.45rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ewd-body-soft);
+  }
+  .ewd-wordlang__check {
+    margin-left: auto;
+    width: 15px;
+    height: 15px;
+    color: var(--ewd-purple-deep);
+  }
+
   /* ---- Kart ---- */
   .ewd-card {
     border-radius: var(--ewd-r-card);
     background: var(--ewd-cream-hi);
     box-shadow: var(--ewd-shadow-card);
+  }
+
+  /* ---- Kelime kartındaki 3D tür yazısı ---- */
+  .ewd-3dword {
+    display: inline-block;
+    font-weight: 900;
+    /* Uzun etiketler (ör. Rusça "существительное") ikinci satıra sarabilir;
+       satır aralığı bu yüzden 1'in biraz üstünde. */
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    color: var(--w3-face);
+    transform: rotate(-4deg);
+    -webkit-text-stroke: 3px var(--w3-ring);
+    paint-order: stroke fill;
+    text-shadow:
+      0 1px 0 var(--w3-edge),
+      0 2px 0 var(--w3-edge),
+      0 3px 0 var(--w3-edge),
+      0 4px 0 var(--w3-edge),
+      0 5px 0 var(--w3-edge),
+      0 6px 0 var(--w3-edge),
+      0 7px 0 var(--w3-edge),
+      0 8px 0 var(--w3-edge),
+      0 14px 20px rgb(var(--ewd-shadow-tint) / 0.28);
+  }
+
+  /* ---- Gün gezinme oku (kelime panosu) ---- */
+  .ewd-dayarrow {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--ewd-r-pill);
+    border: 2px solid var(--ewd-lilac-line);
+    background: transparent;
+    color: #6d28d9;
+    cursor: pointer;
+    transition:
+      background-color 0.18s ease,
+      border-color 0.18s ease,
+      opacity 0.18s ease;
+  }
+  .ewd-dayarrow:hover:not(:disabled) {
+    background: var(--ewd-lilac-tint);
+    border-color: var(--ewd-purple);
+  }
+  .ewd-dayarrow:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 
   /* ---- Rozeti taşan liste satırı ---- */
@@ -401,8 +721,9 @@
     gap: 1rem;
     background: var(--ewd-cream);
     border-radius: 22px;
+    min-height: 84px; /* rozet 76px genişlikte ~78px yükseliyor; satır kısa kalınca komşu satıra taşıyordu */
     padding: 17px 24px 17px 82px;
-    box-shadow: 0 10px 20px -12px rgb(20 4 50 / 0.5);
+    box-shadow: 0 10px 20px -12px rgb(var(--ewd-shadow-tint) / 0.5);
   }
   .ewd-row__icon {
     position: absolute;
@@ -479,7 +800,7 @@
   .ewd-field:focus {
     outline: none;
     border-color: var(--ewd-lilac-line);
-    box-shadow: 0 0 0 4px rgb(162 83 190 / 0.14);
+    box-shadow: 0 0 0 4px var(--ewd-focus-ring);
   }
 }
 
@@ -514,6 +835,54 @@
       var(--scallop, #fff8ef) 15px,
       transparent 15.5px
     );
+  }
+
+  /* Bölüm çıkıntısı — tarak geçişinin "sarkan" tarafı.
+     Şerit ayrı bir vektör değil: bölümün kendi zemini (renk + doku) üstten ve
+     alttan 18px dışarı taşırılıp yarım daire maskesiyle kırpılır. Böylece
+     desen komşu bölüme kesintisiz devam eder.
+     Barındıran bölüm .ewd-bulge-host olmalı — taşan 18px'i kırpmaz. */
+  .ewd-bulge-host {
+    /* Çıkıntı 18px dışarı taştığı için kırpılmamalı. Destekleyen tarayıcıda
+       kırpma korunur, yalnızca o 18px'e izin verilir (iOS 15'te @supports
+       düşer ve overflow: visible kalır). */
+    overflow: visible;
+  }
+  @supports (overflow-clip-margin: 18px) {
+    .ewd-bulge-host {
+      overflow: clip;
+      overflow-clip-margin: 18px;
+    }
+  }
+  .ewd-bulge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -18px;
+    bottom: -18px;
+    /* Alttaki bölüm DOM'da sonra geldiği için üstüne boyanmalı. */
+    z-index: 1;
+    background-color: var(--bulge, #fff8ef);
+    pointer-events: none;
+    -webkit-mask-image:
+      radial-gradient(circle at 18px 18px, #000 15px, transparent 15.5px),
+      radial-gradient(circle at 18px 0, #000 15px, transparent 15.5px);
+    mask-image:
+      radial-gradient(circle at 18px 18px, #000 15px, transparent 15.5px),
+      radial-gradient(circle at 18px 0, #000 15px, transparent 15.5px);
+    -webkit-mask-size: 36px 18px, 36px 18px;
+    mask-size: 36px 18px, 36px 18px;
+    -webkit-mask-repeat: repeat-x, repeat-x;
+    mask-repeat: repeat-x, repeat-x;
+    -webkit-mask-position: 0 0, 0 100%;
+    mask-position: 0 0, 0 100%;
+  }
+  /* Çıkıntının doku katmanı. Kutu bölümden 18px yukarıda başladığı için
+     desen 18px kaydırılır; faz bölümün kendi dokusuyla birebir tutar. */
+  .ewd-bulge__tex {
+    position: absolute;
+    inset: 0;
+    background-position: 0 18px;
   }
 
   /* Pul (stamp) kenarı — blog kartlarının dört yanındaki delik dizisi.
@@ -600,7 +969,7 @@
       repeating-linear-gradient(to bottom, var(--grid, #e9dbf7) 0 1px, transparent 1px 34px);
   }
   .ewd-tile-stars {
-    background-image: url("/ewd/pat/tile-star-purple.png");
+    background-image: var(--ewd-pat-star);
     background-size: 280px;
   }
 
@@ -663,7 +1032,7 @@
     color: var(--ewd-cream);
     overflow: hidden;
     box-shadow:
-      0 10px 18px -10px rgb(46 16 101 / 0.55),
+      0 10px 18px -10px rgb(var(--ewd-shadow-tint) / 0.55),
       inset 0 0 0 1px rgb(255 255 255 / 0.08);
   }
   /* Yaprağın ortasındaki menteşe çizgisi */
@@ -813,6 +1182,40 @@
    -------------------------------------------------------------------------- */
 @layer base {
   .ewd-light {
+    /* Koyu modda ezilen her token burada da geri çekilmeli; eksik kalan
+       --ewd-cream-edge landing başlığının altında koyu bir dikiş bırakıyordu. */
+    --ewd-cream-edge: #f2e2da;
+    --ewd-panel-shadow: 0 18px 34px -22px rgb(var(--ewd-shadow-tint) / 0.28);
+    --ewd-panel-shadow-sm: 0 8px 18px -12px rgb(var(--ewd-shadow-tint) / 0.22);
+    --ewd-btn-ink: #ffffff;
+    --ewd-pat-star: url("/ewd/pat/tile-star-purple.png");
+    --ewd-pat-star-op: 0.3;
+    --ewd-band: #6d28d9;
+    --ewd-focus-ring: rgb(162 83 190 / 0.14);
+    --ewd-shadow-tint: 46 16 101;
+    --ewd-purple: #a253be;
+    --ewd-purple-hover: #b061cc;
+    --ewd-purple-base: #7e3d96;
+    --ewd-purple-deep: #6d28d9;
+    --ewd-purple-deeper: #5b21b6;
+    --ewd-violet: #8b5cf6;
+    --ewd-pink: #ec4899;
+    --ewd-pink-hover: #f25ba6;
+    --ewd-pink-base: #be185d;
+    --ewd-pink-mid: #db2777;
+    --ewd-yellow: #fbd34f;
+    --ewd-yellow-hover: #fcdd74;
+    --ewd-yellow-base: #d9a21b;
+    --ewd-yellow-ink: #6b4a00;
+    --ewd-green: #22c55e;
+    --ewd-green-hover: #2ed06b;
+    --ewd-green-base: #15803d;
+    --ewd-zoom: #0b5cff;
+    --ewd-zoom-hover: #2a72ff;
+    --ewd-zoom-base: #0740b8;
+    --ewd-on-purple: #fff8ef;
+    --ewd-on-purple-soft: #e4d3f5;
+    --ewd-faint: #8b7a9e;
     --ewd-cream: #fff8ef;
     --ewd-cream-hi: #fffdf8;
     --ewd-ink: #2e1065;
@@ -840,11 +1243,35 @@
     --ewd-line-strong: #dcc9f2;
     --ewd-on-surface: #2e1065;
     --ewd-on-surface-soft: #6b5b7b;
-    --ewd-on-surface-faint: #9a87ac;
+    --ewd-on-surface-faint: #77678a;
     --ewd-accent: #a253be;
     --ewd-accent-base: #7e3d96;
     --ewd-accent-on: #ffffff;
     --ewd-accent-wash: #f4edff;
+    --ewd-green-tint: #dcfce7;
+    --ewd-green-ink: #15803d;
+    --ewd-chip: #f4f1f7;
+    --ewd-chip-ink: #6f677f;
+    --ewd-muted: #77678a;
+    --ewd-muted-2: #7f6f96;
+    --ewd-muted-3: #9d8fae;
+    --ewd-lilac-line-2: #ddccf7;
+    --ewd-lilac-line-3: #e4d3f5;
+    --ewd-field-bg: #fdf4ff;
+    --ewd-outline-ink: #7c3aed;
+    --ewd-outline-line: #d6c0f0;
+    --ewd-outline-hover: #fbf3ff;
+    --ewd-yellow-ink-2: #8a6410;
+    --ewd-icon-line: #efdcd2;
+    --ewd-dot: #e7b4c8;
+    --ewd-pink-ink: #db2777;
+    --ewd-on-lilac: #6d28d9;
+    --ewd-pink-line-hover: #f5b6d0;
+    --ewd-on-purple: #fff8ef;
+    --ewd-on-purple-soft: #e4d3f5;
+    --ewd-zoom: #0b5cff;
+    --ewd-zoom-hover: #2a72ff;
+    --ewd-zoom-base: #0740b8;
 
     color: var(--ewd-ink);
     background: var(--ewd-cream);

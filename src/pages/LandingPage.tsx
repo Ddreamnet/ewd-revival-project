@@ -1,19 +1,28 @@
-import { useEffect, useRef } from 'react';
+import { Suspense, lazy, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { RibbonBand } from '@/components/landing/RibbonBand';
-import { DailyWordsSection } from '@/components/landing/DailyWordsSection';
 import { WhySection } from '@/components/landing/WhySection';
 import { KidsPackages } from '@/components/landing/KidsPackages';
 import { AdultPackages } from '@/components/landing/AdultPackages';
+import { MomentsSection } from '@/components/landing/MomentsSection';
+import { TestimonialsSection } from '@/components/landing/TestimonialsSection';
 import { FAQSection } from '@/components/landing/FAQSection';
 import { BlogSection } from '@/components/landing/BlogSection';
 import { ValuesSection } from '@/components/landing/ValuesSection';
 import { ContactSection } from '@/components/landing/ContactSection';
 import { Footer } from '@/components/landing/Footer';
-import { StickyBubble } from '@/components/landing/StickyBubble';
 import { useAuthContext } from '@/contexts/AuthContext';
+
+/**
+ * Günün kelimeleri bölümü altı dilin kelime bankasını taşıyor (~860 kB kaynak,
+ * ~470 kB paket). Hero'nun altında kaldığı için tembel yükleniyor: ilk boyama
+ * bunu beklemiyor, bölüm görünür alana yaklaşırken iniyor.
+ */
+const DailyWordsSection = lazy(() =>
+  import('@/components/landing/DailyWordsSection').then((m) => ({ default: m.DailyWordsSection })),
+);
 import { Loader2 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -41,8 +50,10 @@ export default function LandingPage() {
     }
   }, [location.state, navigate, location.pathname]);
 
-  // Show loading while checking auth state
-  if (initializing) {
+  // Oturum açıkken landing hiç boyanmasın: yukarıdaki yönlendirme efekt
+  // içinde çalıştığı için sayfa bir kare tam olarak çiziliyordu — uygulamada
+  // panele geçerken pazarlama sayfasının parlaması bu yüzdendi.
+  if (initializing || user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -57,17 +68,20 @@ export default function LandingPage() {
       <main>
         <HeroSection />
         <RibbonBand />
-        <DailyWordsSection />
+        <Suspense fallback={<div style={{ minHeight: 420 }} aria-hidden="true" />}>
+          <DailyWordsSection />
+        </Suspense>
         <WhySection />
         <KidsPackages />
         <AdultPackages />
+        <MomentsSection />
+        <TestimonialsSection />
         <FAQSection />
         <BlogSection />
         <ValuesSection />
         <ContactSection />
       </main>
       <Footer />
-      <StickyBubble />
     </div>
   );
 }

@@ -1,8 +1,8 @@
-import type { Category } from "@/lib/words";
+import type { PartOfSpeech } from "@/lib/words";
 
 /**
- * Kart renk şeması. Üç kart yan yana dizildiğinde mor → pembe → sarı ritmi
- * oluşsun diye indekse göre sırayla uygulanır.
+ * Kart renk şeması. Renk kelimenin türünden gelir: her tür her zaman aynı
+ * rengi taşır, böylece kart daha okunmadan türü belli olur.
  */
 export interface CardTone {
   /** Ön yüz zemini */
@@ -23,8 +23,9 @@ export interface CardTone {
   base: string;
 }
 
-export const CARD_TONES: CardTone[] = [
-  {
+export const POS_TONES: Record<PartOfSpeech, CardTone> = {
+  // isim — mor
+  noun: {
     bg: "#A253BE",
     panel: "#F4E6FB",
     ink: "#FFF8EF",
@@ -34,7 +35,19 @@ export const CARD_TONES: CardTone[] = [
     wash: "#F7EFFF",
     base: "#7E3D96",
   },
-  {
+  // sıfat — turkuaz
+  adjective: {
+    bg: "#14B8A6",
+    panel: "#DDF7F3",
+    ink: "#FFF8EF",
+    inkSoft: "#C3EFE8",
+    edge: "#8FDFD3",
+    accent: "#0F766E",
+    wash: "#ECFDF9",
+    base: "#0D9488",
+  },
+  // fiil — pembe
+  verb: {
     bg: "#EC4899",
     panel: "#FFE3F0",
     ink: "#FFF8EF",
@@ -44,7 +57,8 @@ export const CARD_TONES: CardTone[] = [
     wash: "#FFF1F7",
     base: "#BE185D",
   },
-  {
+  // zarf — sarı
+  adverb: {
     bg: "#FBD34F",
     panel: "#FFF6DA",
     ink: "#2E1065",
@@ -54,28 +68,20 @@ export const CARD_TONES: CardTone[] = [
     wash: "#FFFAEA",
     base: "#D9A21B",
   },
-];
-
-export function toneFor(index: number): CardTone {
-  return CARD_TONES[index % CARD_TONES.length];
-}
-
-/** Konuya göre 3D obje — set `public/ewd/assets/ic/` içinde. */
-const CATEGORY_ART: Record<Category, string> = {
-  daily: "ic-saat.png",
-  school: "ic-abc.png",
-  work: "y-hedef.png",
-  feelings: "n-sohbet.png",
-  travel: "y-canta.png",
-  food: "gift.png",
-  nature: "ic-oyun.png",
-  people: "n-ikili.png",
-  home: "ic-kitap-p.png",
-  body: "y-kulaklik.png",
-  time: "fi-takvim.png",
-  tech: "fi-laptop.png",
+  // kalıp — turuncu
+  phrase: {
+    bg: "#F97316",
+    panel: "#FFEBD9",
+    ink: "#FFF8EF",
+    inkSoft: "#FCD9B8",
+    edge: "#F7C48F",
+    accent: "#C2410C",
+    wash: "#FFF4EA",
+    base: "#C2410C",
+  },
 };
 
-export function artFor(category: Category): string {
-  return `/ewd/assets/ic/${CATEGORY_ART[category]}`;
+/** Kartın rengi kelimenin türüyle sabittir. */
+export function toneFor(pos: PartOfSpeech): CardTone {
+  return POS_TONES[pos];
 }

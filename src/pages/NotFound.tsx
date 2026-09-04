@@ -19,6 +19,26 @@ const COPY: Record<Language, { title: string; lead: string; home: string }> = {
     lead: "L'adresse recherchée a peut-être changé, ou n'a jamais existé.",
     home: "Retour à l'accueil",
   },
+  ru: {
+    title: "Мы не нашли эту страницу",
+    lead: "Возможно, адрес изменился или его никогда не существовало.",
+    home: "Вернуться на главную",
+  },
+  es: {
+    title: "No encontramos esa página",
+    lead: "La dirección que buscas puede haber cambiado o no haber existido nunca.",
+    home: "Volver al inicio",
+  },
+  de: {
+    title: "Diese Seite haben wir nicht gefunden",
+    lead: "Die gesuchte Adresse wurde vielleicht verschoben oder hat nie existiert.",
+    home: "Zurück zur Startseite",
+  },
+  ar: {
+    title: "لم نتمكن من العثور على هذه الصفحة",
+    lead: "ربما تغيّر العنوان الذي تبحث عنه أو لم يكن موجوداً أصلاً.",
+    home: "العودة إلى الصفحة الرئيسية",
+  },
 };
 
 const NotFound = () => {
@@ -45,7 +65,7 @@ const NotFound = () => {
         }}
       >
         <img
-          src="/ewd/assets/art-book-aa.png"
+          src="/ewd/assets/art-book-aa.svg"
           alt=""
           aria-hidden="true"
           className="w-[120px]"

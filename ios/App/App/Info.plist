@@ -47,5 +47,15 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Ödev yükleme akışı @capacitor/camera kullanıyor. Bu üç anahtar
+	     olmadan iOS, kamera/galeri açılır açılmaz uygulamayı sonlandırır ve
+	     App Store incelemesi binary'yi reddeder. Metinler kullanıcıya izin
+	     sorulurken gösterildiği için Türkçe ve amaca özel. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Ödevlerinizin fotoğrafını çekip öğretmeninize gönderebilmeniz için kameraya erişim gerekiyor.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ödev olarak göndermek istediğiniz fotoğrafı seçebilmeniz için galeriye erişim gerekiyor.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Öğretmeninizin gönderdiği dosyaları cihazınıza kaydedebilmeniz için galeriye erişim gerekiyor.</string>
 </dict>
 </plist>

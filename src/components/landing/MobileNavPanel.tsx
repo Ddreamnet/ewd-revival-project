@@ -7,10 +7,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 /** Masaüstündeki nav pill'lerinin mobil karşılığı. */
 const ITEMS = [
-  { id: 'kids-packages', key: 'lessons', badge: 'nav-dersler.png', to: null },
-  { id: 'words', key: 'words', badge: 'ic-abc.png', to: '/gunun-kelimeleri' },
-  { id: 'contact', key: 'contact', badge: 'nav-iletisim.png', to: null },
-  { id: 'blog', key: 'blog', badge: 'nav-blog.png', to: '/blog' },
+  { id: 'kids-packages', key: 'lessons', badge: 'nav-dersler.svg', to: null },
+  { id: 'words', key: 'words', badge: 'ic-abc.svg', to: null },
+  { id: 'contact', key: 'contact', badge: 'nav-iletisim.svg', to: null },
+  { id: 'blog', key: 'blog', badge: 'nav-blog.svg', to: '/blog' },
 ] as const;
 
 interface MobileNavPanelProps {
@@ -67,8 +67,10 @@ export function MobileNavPanel({ onNavigateSection }: MobileNavPanelProps) {
           <span className="px-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9A87AC]">
             {t.header.language[language]}
           </span>
+          {/* Yedi dil bir pill şeridine sığmıyor; iki sütunlu bir ızgara hem
+              adları yazacak yer bırakıyor hem de parmakla rahat seçiliyor. */}
           <div
-            className="grid grid-cols-3 gap-1 rounded-full p-1"
+            className="grid grid-cols-2 gap-1 rounded-[20px] p-1"
             style={{ background: 'var(--ewd-lilac-tint)' }}
           >
             {LANGUAGES.map((lang) => {
@@ -79,15 +81,20 @@ export function MobileNavPanel({ onNavigateSection }: MobileNavPanelProps) {
                   type="button"
                   onClick={() => setLanguage(lang.code)}
                   aria-pressed={active}
-                  className="flex items-center justify-center gap-1 rounded-full py-2 text-[12px] font-extrabold transition-colors"
+                  className="flex items-center gap-1.5 rounded-[16px] px-2 py-2 text-[12px] font-extrabold transition-colors"
                   style={
                     active
                       ? { background: 'var(--ewd-purple)', color: '#fff' }
                       : { color: 'var(--ewd-body-soft)' }
                   }
                 >
-                  <span aria-hidden="true">{lang.flag}</span>
-                  {lang.label}
+                  <img
+                    src={lang.flagIcon}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-[18px] w-[18px] shrink-0 rounded-full object-cover"
+                  />
+                  <span className="truncate">{lang.name}</span>
                 </button>
               );
             })}

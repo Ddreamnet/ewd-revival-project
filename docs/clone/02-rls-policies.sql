@@ -134,9 +134,16 @@ FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
+-- Öğretmen ve öğrenci yalnızca kendi dil şubesinin müfredatını görür.
 CREATE POLICY "teacher_view_global_topics" ON public.global_topics
 FOR SELECT TO authenticated
-USING (public.has_role(auth.uid(), 'teacher'::app_role) OR teacher_id = auth.uid());
+USING (
+  teacher_id = auth.uid()
+  OR (
+    public.has_role(auth.uid(), 'teacher'::app_role)
+    AND language = public.user_language(auth.uid())
+  )
+);
 
 CREATE POLICY "student_view_global_topics" ON public.global_topics
 FOR SELECT TO authenticated
@@ -145,6 +152,7 @@ USING (
     SELECT 1 FROM public.students s
     WHERE s.student_id = auth.uid()
   )
+  AND language = public.user_language(auth.uid())
 );
 
 -- ============================================================================
@@ -171,6 +179,11 @@ USING (
   EXISTS (
     SELECT 1 FROM public.students s
     WHERE s.student_id = auth.uid()
+  )
+  AND EXISTS (
+    SELECT 1 FROM public.global_topics gt
+    WHERE gt.id = global_topic_resources.global_topic_id
+      AND gt.language = public.user_language(auth.uid())
   )
 );
 

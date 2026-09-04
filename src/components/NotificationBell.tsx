@@ -23,6 +23,11 @@ interface Notification {
 }
 
 interface NotificationBellProps {
+  /**
+   * "panel": v2 panelinin yuvarlak ikon butonu (48px, pembe sayaç).
+   * Varsayılan eski görünüm, hâlâ admin panelinde kullanılıyor.
+   */
+  variant?: "default" | "panel";
   userId: string; // Current user's ID (either teacher or student)
   teacherId: string; // Teacher ID for the relationship
   studentId?: string; // Student ID for the relationship (needed for student panel)
@@ -30,7 +35,7 @@ interface NotificationBellProps {
   onNotificationClick?: (studentId: string) => void; // Pass student_id when clicking notification
 }
 
-export function NotificationBell({ userId, teacherId, studentId, isStudent = false, onNotificationClick }: NotificationBellProps) {
+export function NotificationBell({ variant = "default", userId, teacherId, studentId, isStudent = false, onNotificationClick }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -169,16 +174,29 @@ export function NotificationBell({ userId, teacherId, studentId, isStudent = fal
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs"
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </Badge>
-          )}
-        </Button>
+        {variant === "panel" ? (
+          <button
+            type="button"
+            className="pnl-iconbtn pnl-iconbtn--sm"
+            aria-label={unreadCount > 0 ? `Bildirimler — ${unreadCount} okunmamış` : "Bildirimler"}
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="pnl-badge-dot">{unreadCount > 99 ? '99+' : unreadCount}</span>
+            )}
+          </button>
+        ) : (
+          <Button variant="ghost" size="icon" className="relative" aria-label={unreadCount > 0 ? `Bildirimler — ${unreadCount} okunmamış` : "Bildirimler"}>
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <Badge 
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs"
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Badge>
+            )}
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-[calc(100vw-2rem)] sm:w-96 max-w-[400px] p-0" align="end">
         <Card className="border-0 shadow-lg">

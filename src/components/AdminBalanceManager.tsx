@@ -14,14 +14,22 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Clock, CheckCircle2, Calendar, Plus, Minus, RotateCcw, Receipt } from "lucide-react";
+import { Clock, CheckCircle2, Calendar, Plus, Minus, RotateCcw, Receipt, FileText, Wallet, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { manualBalanceAdjust } from "@/lib/lessonService";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { useTeacherPay, invalidateTeacherPay } from "@/hooks/useTeacherPay";
+import { feeForMinutes, feeForPayment, formatMoney, ratePerMinute, saveTeacherPay, type TeacherPay } from "@/lib/teacherPay";
+import { useAuth } from "@/hooks/useAuth";
+import { branchLabel, type Branch } from "@/lib/branch";
 
 interface AdminBalanceManagerProps {
   teacherId: string;
+  /** Öğretmenin dil şubesi — ücret ayarı şube başına tutuluyor. */
+  branch: Branch;
+  /** Aktif öğrenci sayısı — ay sonu raporu adedi bununla ön dolduruluyor. */
+  activeStudentCount?: number;
 }
 
 interface BalanceData {
@@ -35,19 +43,78 @@ interface BalanceData {
 interface PaymentHistory {
   id: string;
   amount_minutes: number;
+  rate_per_minute: number | null;
   completed_regular_lessons: number;
   completed_trial_lessons: number;
   payment_date: string;
   notes: string | null;
 }
 
-export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
+export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 }: AdminBalanceManagerProps) {
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [minutesToAdd, setMinutesToAdd] = useState("");
   const [minutesToSubtract, setMinutesToSubtract] = useState("");
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+
+  const { profile } = useAuth();
+  const pay = useTeacherPay(branch);
+  const [reportCount, setReportCount] = useState("");
+  const [savingReports, setSavingReports] = useState(false);
+  const [rateForm, setRateForm] = useState<TeacherPay | null>(null);
+  const [savingRate, setSavingRate] = useState(false);
+
+  /** Bakiyedeki dakikanın para karşılığı. */
+  const money = (minutes: number) => formatMoney(feeForMinutes(minutes, pay), pay);
+
+  /**
+   * Ay sonu raporları. Her öğretmen her öğrencisi için bir rapor çıkarıyor;
+   * rapor başına `reportMinutes` dakika bakiyeye ekleniyor, böylece rapor da
+   * ders dakikasıyla aynı orandan ücretleniyor.
+   */
+  const handleAddReports = async () => {
+    const count = parseInt(reportCount || String(activeStudentCount), 10);
+    if (isNaN(count) || count <= 0) {
+      toast.error("Geçerli bir rapor sayısı girin");
+      return;
+    }
+    const minutes = count * pay.reportMinutes;
+    if (minutes <= 0) {
+      toast.error("Rapor başına dakika 0 olarak tanımlı");
+      return;
+    }
+    setSavingReports(true);
+    try {
+      const result = await manualBalanceAdjust(teacherId, minutes, `Ay sonu raporu x${count}`);
+      if (!result.success) {
+        toast.error(result.error || "Rapor eklenirken hata oluştu");
+        return;
+      }
+      toast.success(`${count} rapor eklendi (+${minutes} dk · ${money(minutes)})`);
+      setReportCount("");
+      fetchBalance();
+    } finally {
+      setSavingReports(false);
+    }
+  };
+
+  const handleSaveRate = async () => {
+    if (!rateForm) return;
+    setSavingRate(true);
+    try {
+      const { error } = await saveTeacherPay(rateForm, profile?.user_id, branch);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      invalidateTeacherPay(branch);
+      toast.success(`Ücret ayarı güncellendi. ${branchLabel(branch)} şubesindeki tüm öğretmenler için geçerli.`);
+      setRateForm(null);
+    } finally {
+      setSavingRate(false);
+    }
+  };
 
   useEffect(() => {
     fetchBalance();
@@ -166,6 +233,9 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
           amount_minutes: existingBalance.total_minutes,
           completed_regular_lessons: existingBalance.completed_regular_lessons,
           completed_trial_lessons: existingBalance.completed_trial_lessons,
+          // Oran satırla birlikte donuyor: ücret sonradan değişse de bu
+          // ödemenin tutarı olduğu gibi kalır.
+          rate_per_minute: ratePerMinute(pay),
         });
 
         if (historyError) throw historyError;
@@ -245,10 +315,13 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-2">
-                <Clock className="h-5 w-5 text-primary" />
-                <p className="text-sm font-medium text-muted-foreground">Toplam Bakiye</p>
+                <Wallet className="h-5 w-5 text-primary" />
+                <p className="text-sm font-medium text-muted-foreground">Ödenecek Tutar</p>
               </div>
-              <p className="text-xl sm:text-3xl font-bold text-primary">{formatMinutes(balance?.total_minutes || 0)}</p>
+              <p className="text-xl sm:text-3xl font-bold text-primary">{money(balance?.total_minutes || 0)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatMinutes(balance?.total_minutes || 0)} · {pay.lessonMinutes} dk = {formatMoney(pay.lessonFee, pay, true)}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -260,7 +333,10 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <CheckCircle2 className="h-5 w-5 text-blue-500" />
                 <p className="text-sm font-medium text-muted-foreground">Normal Dersler</p>
               </div>
-              <p className="text-lg sm:text-3xl font-bold">{balance?.completed_regular_lessons || 0} ders ({formatMinutes(balance?.regular_lessons_minutes || 0)})</p>
+              <p className="text-lg sm:text-3xl font-bold">{balance?.completed_regular_lessons || 0} ders</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatMinutes(balance?.regular_lessons_minutes || 0)} · {money(balance?.regular_lessons_minutes || 0)}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -272,7 +348,10 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 <Calendar className="h-5 w-5 text-purple-500" />
                 <p className="text-sm font-medium text-muted-foreground">Deneme Dersleri</p>
               </div>
-              <p className="text-lg sm:text-3xl font-bold">{balance?.completed_trial_lessons || 0} ders ({formatMinutes(balance?.trial_lessons_minutes || 0)})</p>
+              <p className="text-lg sm:text-3xl font-bold">{balance?.completed_trial_lessons || 0} ders</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatMinutes(balance?.trial_lessons_minutes || 0)} · {money(balance?.trial_lessons_minutes || 0)}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -285,6 +364,42 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
           <CardDescription>Öğretmen bakiyesine dakika ekleyin veya çıkarın</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Ay sonu raporları */}
+          <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <Label htmlFor="report-count" className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Ay Sonu Raporu
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Her öğrenci raporu bakiyeye {pay.reportMinutes} dk ekler
+              {activeStudentCount > 0 && ` · bu öğretmenin ${activeStudentCount} aktif öğrencisi var`}.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                id="report-count"
+                type="number"
+                min="1"
+                placeholder={activeStudentCount > 0 ? String(activeStudentCount) : "Rapor sayısı"}
+                value={reportCount}
+                onChange={(e) => setReportCount(e.target.value)}
+              />
+              <Button onClick={handleAddReports} disabled={savingReports} className="whitespace-nowrap">
+                <Plus className="h-4 w-4 mr-2" />
+                Rapor Ekle
+              </Button>
+            </div>
+            {(() => {
+              const count = parseInt(reportCount || String(activeStudentCount), 10);
+              if (isNaN(count) || count <= 0) return null;
+              const minutes = count * pay.reportMinutes;
+              return (
+                <p className="text-xs font-medium text-primary">
+                  {count} rapor = +{minutes} dk = {money(minutes)}
+                </p>
+              );
+            })()}
+          </div>
+
           {/* Add Minutes */}
           <div className="space-y-2">
             <Label htmlFor="add-minutes">Dakika Ekle</Label>
@@ -302,6 +417,11 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 Ekle
               </Button>
             </div>
+            {parseInt(minutesToAdd, 10) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Karşılığı: {money(parseInt(minutesToAdd, 10))}
+              </p>
+            )}
           </div>
 
           {/* Subtract Minutes */}
@@ -321,6 +441,11 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                 Çıkar
               </Button>
             </div>
+            {parseInt(minutesToSubtract, 10) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Karşılığı: {money(parseInt(minutesToSubtract, 10))}
+              </p>
+            )}
           </div>
 
           {/* Reset Balance */}
@@ -332,6 +457,77 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
             <p className="text-xs text-muted-foreground text-center mt-2">
               Öğretmen ödeme yaptıktan sonra bakiyeyi sıfırlayın
             </p>
+          </div>
+
+          {/* Ücret ayarı — şube başına */}
+          <div className="pt-4 border-t space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label className="flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  Ücret Ayarı · {branchLabel(branch)}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {pay.lessonMinutes} dk = {formatMoney(pay.lessonFee, pay, true)} ·
+                  {" "}dakika başı {formatMoney(ratePerMinute(pay), pay)} · rapor {pay.reportMinutes} dk
+                  {" "}— {branchLabel(branch)} şubesindeki tüm öğretmenler için geçerli
+                </p>
+              </div>
+              {rateForm === null && (
+                <Button variant="outline" size="sm" onClick={() => setRateForm(pay)} className="shrink-0">
+                  Düzenle
+                </Button>
+              )}
+            </div>
+
+            {rateForm !== null && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rate-minutes" className="text-xs">Ders süresi (dk)</Label>
+                    <Input
+                      id="rate-minutes"
+                      type="number"
+                      min="1"
+                      value={rateForm.lessonMinutes}
+                      onChange={(e) => setRateForm({ ...rateForm, lessonMinutes: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rate-fee" className="text-xs">Ders ücreti (₺)</Label>
+                    <Input
+                      id="rate-fee"
+                      type="number"
+                      min="0"
+                      value={rateForm.lessonFee}
+                      onChange={(e) => setRateForm({ ...rateForm, lessonFee: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rate-report" className="text-xs">Rapor başına (dk)</Label>
+                    <Input
+                      id="rate-report"
+                      type="number"
+                      min="0"
+                      value={rateForm.reportMinutes}
+                      onChange={(e) => setRateForm({ ...rateForm, reportMinutes: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Dakika başı {formatMoney(ratePerMinute(rateForm), rateForm)} · kayıtlı ödemeler
+                  kendi anındaki orandan hesaplanmaya devam eder.
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleSaveRate} disabled={savingRate || !rateForm.lessonMinutes}>
+                    Kaydet
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setRateForm(null)} disabled={savingRate}>
+                    İptal
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -357,7 +553,10 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-primary" />
-                          <p className="font-semibold text-lg">{formatMinutes(payment.amount_minutes)}</p>
+                          <p className="font-semibold text-lg">
+                            {formatMoney(feeForPayment(payment.amount_minutes, payment.rate_per_minute, pay), pay)}
+                          </p>
+                          <span className="text-xs text-muted-foreground">({formatMinutes(payment.amount_minutes)})</span>
                         </div>
                         <div className="flex gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
@@ -403,8 +602,9 @@ export function AdminBalanceManager({ teacherId }: AdminBalanceManagerProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Bakiyeyi Sıfırla</AlertDialogTitle>
             <AlertDialogDescription>
-              Bu işlem öğretmenin tüm bakiyesini (toplam dakika, normal ders sayısı, deneme dersi sayısı) sıfırlayacak
-              ve mevcut bakiye ödeme geçmişine kaydedilecek. Devam etmek istediğinize emin misiniz?
+              Bu işlem öğretmenin tüm bakiyesini ({formatMinutes(balance?.total_minutes || 0)} ·{" "}
+              {money(balance?.total_minutes || 0)}) sıfırlayacak ve mevcut bakiye ödeme geçmişine
+              kaydedilecek. Devam etmek istediğinize emin misiniz?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

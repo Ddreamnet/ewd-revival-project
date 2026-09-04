@@ -21,11 +21,16 @@ export function RibbonBand() {
       style={{ background: "var(--ewd-cream)" }}
       aria-hidden="true"
     >
+      {/* `slice`: şerit her genişlikte bandı doldurur, uçları ekranın dışına taşar. */}
+      {/* Şerit her zaman soldan sağa akar: yollar bu yönde çizili ve `startOffset`
+          sağdan sola bir belgede metni yolun başından geriye taşıyıp kırpıyordu.
+          Arapça metnin kendi içindeki sıralaması bundan etkilenmez. */}
       <svg
         viewBox="0 0 1440 236"
-        className="absolute left-1/2 top-1/2 h-full w-[1440px] -translate-x-1/2 -translate-y-1/2"
-        preserveAspectRatio="xMidYMid meet"
+        className="absolute inset-0 h-full w-full"
+        preserveAspectRatio="xMidYMid slice"
         role="presentation"
+        style={{ direction: "ltr" }}
       >
         <defs>
           <path id={yellowPath} d="M-60 168 C 300 66, 560 62, 770 138 C 990 216, 1200 196, 1500 108" fill="none" />

@@ -96,9 +96,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Uyarının hangi dil şubesinden geldiği ──
+    // Admin iki şubeyi de yönetiyor, yani bildirimi almalı; ama uygulama içi
+    // zil şubeye göre süzdüğü için telefona düşen bildirimin de hangi sisteme
+    // ait olduğunu söylemesi gerekiyor. Aksi halde admin İngilizce paneldeyken
+    // gelen bir Fransızca uyarısını yerinde bulamıyordu.
+    const { data: teacherProfile } = await supabase
+      .from("profiles")
+      .select("language")
+      .eq("user_id", record.teacher_id)
+      .maybeSingle();
+
+    const branch = teacherProfile?.language === "fr" ? "fr" : "en";
+    const branchLabel = branch === "fr" ? "Fransızca" : "İngilizce";
+
     // ── Send push to each admin ──
     const sendPushUrl = `${supabaseUrl}/functions/v1/send-push`;
-    const title = "Son Ders Uyarısı 💸";
+    const title = `Son Ders Uyarısı 💸 · ${branchLabel}`;
     const body = record.message || "Bir öğrencinin son dersi kaldı!";
     let allSuccess = true;
 
@@ -112,6 +126,7 @@ Deno.serve(async (req) => {
           admin_notification_id: String(record.id),
           student_id: String(record.student_id),
           teacher_id: String(record.teacher_id),
+          language: branch,
           type: "admin_last_lesson",
           deep_link: `/dashboard?action=student_settings&student_id=${record.student_id}&teacher_id=${record.teacher_id}`,
         },

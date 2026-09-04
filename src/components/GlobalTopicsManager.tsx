@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, Plus } from "lucide-react";
 import { getResourceIcon } from "@/lib/resourceUtils";
+import { branchLabel, type Branch } from "@/lib/branch";
 import { AddTopicDialog } from "./AddTopicDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { EditTopicDialog } from "./EditTopicDialog";
@@ -53,10 +54,26 @@ interface GlobalTopicsManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isAdmin?: boolean;
+  /**
+   * Dialog kabuğu olmadan, sayfa içinde çizilir.
+   * Öğretmen panelinde "Konular" artık bir sekme; admin panelinde hâlâ dialog.
+   */
+  inline?: boolean;
+  /**
+   * Hangi dil şubesinin müfredatı yönetiliyor. Admin panelde açık şube
+   * verilir; öğretmen panelinde belirtilmez, kullanıcının kendi şubesi geçerli.
+   */
+  language?: Branch;
 }
 
 // ============= COMPONENT =============
-export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: GlobalTopicsManagerProps) {
+export function GlobalTopicsManager({
+  open,
+  onOpenChange,
+  isAdmin = false,
+  inline = false,
+  language,
+}: GlobalTopicsManagerProps) {
   // State
   const [globalTopics, setGlobalTopics] = useState<GlobalTopic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,12 +88,16 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
   const { profile } = useAuth();
   const { toast } = useToast();
 
+  // Admin açık şubeyi bildirir; öğretmen kendi şubesinin müfredatını görür.
+  const branch: Branch = language ?? profile?.language ?? "en";
+
   // ============= EFFECTS =============
   useEffect(() => {
-    if (open && profile?.user_id) {
+    if ((open || inline) && profile?.user_id) {
       fetchGlobalTopics();
     }
-  }, [open, profile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, inline, profile, branch]);
 
   // ============= DATA FETCHING =============
   const fetchGlobalTopics = async () => {
@@ -84,7 +105,7 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
       const { data, error } = await supabase
         .from("global_topics")
         .select("*, global_topic_resources(*)")
-
+        .eq("language", branch)
         .order("order_index", { ascending: true })
         .order("order_index", { foreignTable: "global_topic_resources", ascending: true });
 
@@ -209,6 +230,7 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
         const { data: existingTopics, error: fetchError } = await supabase
           .from("global_topics")
           .select("order_index")
+          .eq("language", branch)
           .order("order_index", { ascending: false })
           .limit(1);
 
@@ -218,7 +240,8 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
         // Add to beginning - get existing topics to update their order
         const { data: existingTopics, error: fetchError } = await supabase
           .from("global_topics")
-          .select("id, order_index");
+          .select("id, order_index")
+          .eq("language", branch);
 
         if (fetchError) throw fetchError;
 
@@ -254,6 +277,7 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
           title,
           description,
           order_index: orderIndex,
+          language: branch,
         });
 
       if (error) throw error;
@@ -425,24 +449,14 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
   // getResourceIcon is now imported from @/lib/resourceUtils
 
   // ============= RENDER =============
-  return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
-              Global Konular Yönetimi
-            </DialogTitle>
-          </DialogHeader>
-
+  const body = (
           <div className="flex-1 overflow-y-auto">
             <div className="space-y-4">
               {/* Header Actions */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  {isAdmin 
-                    ? "Herhangi bir öğrenciye atanabilecek global konuları yönetin" 
+                  {isAdmin
+                    ? `${branchLabel(branch)} şubesinin global konuları — bu şubedeki her öğrenciye atanabilir`
                     : "Global konular ve kaynaklar"}
                 </p>
                 <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
@@ -479,10 +493,12 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
                 <Card className="text-center py-8">
                   <CardContent>
                     <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Henüz Global Konu Yok</h3>
+                    <h3 className="text-lg font-medium mb-2">
+                      {isAdmin ? `${branchLabel(branch)} şubesinde henüz global konu yok` : "Henüz Global Konu Yok"}
+                    </h3>
                     <p className="text-muted-foreground mb-4">
-                      {isAdmin 
-                        ? "Herhangi bir öğrenciye atanabilecek yeniden kullanılabilir konular oluşturun." 
+                      {isAdmin
+                        ? "Bu şubedeki her öğrenciye atanabilecek yeniden kullanılabilir konular oluşturun."
                         : "Henüz hiç global konu eklenmemiş."}
                     </p>
                     {isAdmin && (
@@ -537,8 +553,25 @@ export function GlobalTopicsManager({ open, onOpenChange, isAdmin = false }: Glo
               )}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+  );
+
+  return (
+    <>
+      {inline ? (
+        body
+      ) : (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
+                Global Konular Yönetimi
+              </DialogTitle>
+            </DialogHeader>
+            {body}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Dialogs */}
       <AddTopicDialog open={showAddTopic} onOpenChange={setShowAddTopic} onAddTopic={handleAddTopic} />

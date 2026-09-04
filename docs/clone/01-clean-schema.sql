@@ -25,6 +25,14 @@ BEGIN
   END IF;
 END $$;
 
+-- app_language enum (dil şubesi: İngilizce / Fransızca paralel panelleri)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_language') THEN
+    CREATE TYPE public.app_language AS ENUM ('en', 'fr');
+  END IF;
+END $$;
+
 -- ============================================================================
 -- BÖLÜM 2: BAĞIMSIZ FONKSİYONLAR (Tablolara bağımlı değil)
 -- ============================================================================
@@ -63,6 +71,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email text NOT NULL,
   full_name text NOT NULL,
   role public.user_role NOT NULL DEFAULT 'student',
+  -- Dil şubesi: öğretmende admin seçer, öğrenci öğretmeninden devralır.
+  language public.app_language NOT NULL DEFAULT 'en',
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now()
 );
@@ -137,6 +147,8 @@ CREATE TABLE IF NOT EXISTS public.global_topics (
   title text NOT NULL,
   description text,
   order_index integer NOT NULL DEFAULT 0,
+  -- Müfredat şubeye göre ayrılır; öğrenci yalnızca kendi şubesini görür.
+  language public.app_language NOT NULL DEFAULT 'en',
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now()
 );
@@ -336,6 +348,20 @@ AS $$
   )
 $$;
 
+-- Bir kullanıcının dil şubesi (RLS içinde güvenle çağrılır)
+CREATE OR REPLACE FUNCTION public.user_language(_user_id uuid)
+RETURNS public.app_language
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT language FROM public.profiles WHERE user_id = _user_id
+$$;
+
+REVOKE ALL ON FUNCTION public.user_language(uuid) FROM public;
+GRANT EXECUTE ON FUNCTION public.user_language(uuid) TO authenticated, service_role;
+
 -- ============================================================================
 -- BÖLÜM 5: İNDEKSLER
 -- ============================================================================
@@ -354,6 +380,9 @@ CREATE INDEX IF NOT EXISTS idx_student_lessons_week ON public.student_lessons(we
 -- lesson_overrides
 CREATE INDEX IF NOT EXISTS idx_lesson_overrides_student_teacher ON public.lesson_overrides(student_id, teacher_id);
 CREATE INDEX IF NOT EXISTS idx_lesson_overrides_dates ON public.lesson_overrides(original_date, new_date);
+
+-- profiles (şube süzgeci)
+CREATE INDEX IF NOT EXISTS profiles_language_role_idx ON public.profiles(language, role);
 
 -- global_topics
 CREATE INDEX IF NOT EXISTS idx_global_topics_teacher_id ON public.global_topics(teacher_id);
@@ -393,12 +422,13 @@ SECURITY DEFINER
 SET search_path = public, auth, pg_temp
 AS $$ 
 BEGIN 
-  INSERT INTO public.profiles (user_id, email, full_name, role) 
+  INSERT INTO public.profiles (user_id, email, full_name, role, language) 
   VALUES ( 
     NEW.id, 
     NEW.email, 
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', 'User'), 
-    COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'student') 
+    COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'student'), 
+    COALESCE((NEW.raw_user_meta_data->>'language')::public.app_language, 'en') 
   ); 
   RETURN NEW; 
 EXCEPTION 
@@ -583,12 +613,13 @@ BEGIN
     LEFT JOIN public.profiles p ON au.id = p.user_id
     WHERE p.user_id IS NULL
   LOOP
-    INSERT INTO public.profiles (user_id, email, full_name, role)
+    INSERT INTO public.profiles (user_id, email, full_name, role, language)
     VALUES (
       user_record.id,
       user_record.email,
       COALESCE(user_record.raw_user_meta_data->>'full_name', user_record.raw_user_meta_data->>'name', 'User'),
-      COALESCE((user_record.raw_user_meta_data->>'role')::public.user_role, 'student')
+      COALESCE((user_record.raw_user_meta_data->>'role')::public.user_role, 'student'),
+      COALESCE((user_record.raw_user_meta_data->>'language')::public.app_language, 'en')
     );
     sync_count := sync_count + 1;
   END LOOP;
@@ -638,6 +669,45 @@ BEGIN
 END;
 $$;
 
+-- Öğrenci, bağlandığı öğretmenin dil şubesini devralır
+CREATE OR REPLACE FUNCTION public.sync_student_language()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  teacher_lang public.app_language;
+BEGIN
+  SELECT language INTO teacher_lang FROM public.profiles WHERE user_id = NEW.teacher_id;
+  IF teacher_lang IS NOT NULL THEN
+    UPDATE public.profiles
+       SET language = teacher_lang
+     WHERE user_id = NEW.student_id
+       AND language IS DISTINCT FROM teacher_lang;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- Öğretmenin şubesi değişirse öğrencileri de taşınır
+CREATE OR REPLACE FUNCTION public.sync_teacher_students_language()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  UPDATE public.profiles p
+     SET language = NEW.language
+    FROM public.students s
+   WHERE s.teacher_id = NEW.user_id
+     AND p.user_id = s.student_id
+     AND p.language IS DISTINCT FROM NEW.language;
+  RETURN NEW;
+END;
+$$;
+
 -- ============================================================================
 -- BÖLÜM 7: TETİKLEYİCİLER (TRIGGERS)
 -- ============================================================================
@@ -646,6 +716,22 @@ $$;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Öğrenci öğretmenine bağlanınca / aktarılınca şubesi güncellensin
+DROP TRIGGER IF EXISTS students_sync_language ON public.students;
+CREATE TRIGGER students_sync_language
+  AFTER INSERT OR UPDATE OF teacher_id ON public.students
+  FOR EACH ROW EXECUTE FUNCTION public.sync_student_language();
+
+-- Öğretmen şube değiştirince öğrencileri de taşınsın
+-- (`NEW.role = 'teacher'` koşulu aşağıdaki UPDATE'in tetikleyiciyi
+--  tekrar çağırmasını engeller — öğrenci satırlarının rolü 'student'.)
+DROP TRIGGER IF EXISTS profiles_sync_teacher_students_language ON public.profiles;
+CREATE TRIGGER profiles_sync_teacher_students_language
+  AFTER UPDATE OF language ON public.profiles
+  FOR EACH ROW
+  WHEN (OLD.language IS DISTINCT FROM NEW.language AND NEW.role = 'teacher')
+  EXECUTE FUNCTION public.sync_teacher_students_language();
 
 -- Ödev yüklendiğinde bildirim gönder
 CREATE OR REPLACE TRIGGER on_homework_upload

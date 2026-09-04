@@ -1,7 +1,6 @@
 /**
- * Shared types and utilities for lesson tracking, scheduling, and overrides.
- * Eliminates duplicate interface definitions across LessonTracker, StudentLessonTracker,
- * EditStudentDialog, and LessonOverrideDialog.
+ * Ders takibi, programlama ve tarih değişiklikleri için ortak tipler ve
+ * yardımcılar. Panel v2'de öğretmen/öğrenci ders rayları da bunları kullanır.
  */
 
 /** Map of lesson number (string key) to date string (yyyy-MM-dd) */
@@ -74,16 +73,6 @@ export function parseLocalDate(dateStr: string | Date): Date {
 export function toDateStr(date: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
-}
-
-/**
- * Calculates tracker grid row configuration based on lessons per week.
- * Used by both LessonTracker (teacher) and StudentLessonTracker (student).
- */
-export function getRowConfig(lessonsPerWeek: number): { rows: number; buttonsPerRow: number } {
-  if (lessonsPerWeek === 1) return { rows: 1, buttonsPerRow: 4 };
-  if (lessonsPerWeek === 2) return { rows: 2, buttonsPerRow: 4 };
-  return { rows: 2, buttonsPerRow: 6 };
 }
 
 /**

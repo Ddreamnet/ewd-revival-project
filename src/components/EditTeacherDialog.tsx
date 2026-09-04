@@ -9,6 +9,7 @@ import { Loader2, Trash2, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { BRANCHES, branchLabel, type Branch } from "@/lib/branch";
 
 interface EditTeacherDialogProps {
   open: boolean;
@@ -16,6 +17,8 @@ interface EditTeacherDialogProps {
   onTeacherUpdated: () => void;
   teacherId: string;
   currentName: string;
+  /** Öğretmenin bulunduğu dil şubesi. */
+  currentBranch: Branch;
 }
 
 export function EditTeacherDialog({
@@ -24,8 +27,10 @@ export function EditTeacherDialog({
   onTeacherUpdated,
   teacherId,
   currentName,
+  currentBranch,
 }: EditTeacherDialogProps) {
   const [name, setName] = useState("");
+  const [branch, setBranch] = useState<Branch>(currentBranch);
   const [loading, setLoading] = useState(false);
   const [transferLoading, setTransferLoading] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
@@ -37,12 +42,13 @@ export function EditTeacherDialog({
   useEffect(() => {
     if (open) {
       setName(currentName);
+      setBranch(currentBranch);
       fetchStudents();
       fetchTeachers();
       setSelectedStudent("");
       setSelectedTeacher("");
     }
-  }, [open, currentName, teacherId]);
+  }, [open, currentName, currentBranch, teacherId]);
 
   const fetchStudents = async () => {
     try {
@@ -68,10 +74,13 @@ export function EditTeacherDialog({
 
   const fetchTeachers = async () => {
     try {
+      // Aktarım yalnızca aynı şube içinde yapılır: öğrenciyi Fransızca bir
+      // öğretmene vermek onu sessizce diğer sisteme taşırdı.
       const { data, error } = await supabase
         .from("profiles")
         .select("user_id, full_name, email")
         .eq("role", "teacher")
+        .eq("language", currentBranch)
         .neq("user_id", teacherId);
 
       if (error) throw error;
@@ -98,14 +107,17 @@ export function EditTeacherDialog({
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: name.trim() })
+        .update({ full_name: name.trim(), language: branch })
         .eq("user_id", teacherId);
 
       if (error) throw error;
 
       toast({
         title: "Başarılı",
-        description: "Öğretmen bilgileri güncellendi",
+        description:
+          branch === currentBranch
+            ? "Öğretmen bilgileri güncellendi"
+            : `Öğretmen ${branchLabel(branch)} şubesine taşındı — öğrencileri de birlikte taşındı`,
       });
 
       onTeacherUpdated();
@@ -182,6 +194,26 @@ export function EditTeacherDialog({
         .eq("student_id", studentUserId)
         .eq("teacher_id", teacherId);
 
+      // Bildirimlerin alıcısı da yeni öğretmen olmalı; aksi halde eski
+      // öğretmen bu öğrencinin ödev bildirimlerini almaya devam ederdi.
+      await supabase
+        .from("notifications")
+        .update({ recipient_id: selectedTeacher })
+        .eq("student_id", studentUserId)
+        .eq("recipient_id", teacherId);
+
+      // Planlanmış/işlenmiş ders kayıtları — bunlar taşınmadığında yeni
+      // öğretmenin panelinde öğrencinin hiç dersi görünmüyor, ders rayı ve
+      // "sıradaki ders" boş kalıyordu. Bakiye kayıtları (balance_events,
+      // teacher_balance) bilerek taşınmaz: geçmişte işlenen dersin ücreti
+      // onu işleyen öğretmenindir.
+      const { error: instancesError } = await supabase
+        .from("lesson_instances")
+        .update({ teacher_id: selectedTeacher })
+        .eq("student_id", studentUserId)
+        .eq("teacher_id", teacherId);
+      if (instancesError) throw instancesError;
+
       toast({
         title: "Başarılı",
         description: `${student.profiles.full_name} adlı öğrenci yeni öğretmene atandı`,
@@ -245,12 +277,20 @@ export function EditTeacherDialog({
       // 4. Delete payment history
       await supabase.from("payment_history").delete().eq("teacher_id", teacherId);
 
-      // 5. Delete profile (user account)
+      // 5. Bu cihazlara artık bildirim gitmesin + rol kaydı kalmasın.
+      //    Eskiden yalnızca profil siliniyordu; geriye yetim `user_roles` ve
+      //    `push_tokens` satırları kalıyor, silinen öğretmenin telefonuna
+      //    bildirim gitmeye devam edebiliyordu.
+      await supabase.from("push_tokens").delete().eq("user_id", teacherId);
+      await supabase.from("user_roles").delete().eq("user_id", teacherId);
+
+      // 6. Delete profile (user account)
       await supabase.from("profiles").delete().eq("user_id", teacherId);
 
       toast({
         title: "Başarılı",
-        description: "Öğretmen ve tüm verileri silindi",
+        description:
+          "Öğretmen ve verileri silindi. Giriş hesabının tamamen kapatılması için Supabase kullanıcısının da silinmesi gerekir.",
       });
 
       onTeacherUpdated();
@@ -284,6 +324,34 @@ export function EditTeacherDialog({
               placeholder="Ad Soyad"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Şube</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {BRANCHES.map((option) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  onClick={() => setBranch(option.code)}
+                  aria-pressed={branch === option.code}
+                  className={
+                    "rounded-lg border-2 px-3 py-3 text-sm font-bold transition-colors " +
+                    (branch === option.code
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-accent")
+                  }
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {branch !== currentBranch && (
+              <p className="text-xs font-medium text-destructive">
+                Kaydedilince öğretmen ve {students.length} öğrencisi {branchLabel(branch)} şubesine
+                taşınır.
+              </p>
+            )}
           </div>
 
           <Separator className="my-4" />

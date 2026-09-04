@@ -1,138 +1,107 @@
-import { Shuffle, CalendarDays } from "lucide-react";
+import { useState } from "react";
+import { Check, ChevronDown } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CATEGORIES, LEVELS, type Category, type Level, type WordLanguage } from "@/lib/words";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LEVELS, type Level, type WordLanguage } from "@/lib/words";
+import { WORD_LANGUAGE_LIST, WORD_LANGUAGE_META, wordLanguageName } from "@/lib/words/wordLanguages";
 
 export interface WordControlsValue {
   wordLanguage: WordLanguage;
   level: Level | "all";
-  category: Category | "all";
 }
 
 interface WordControlsProps {
   value: WordControlsValue;
   onChange: (next: WordControlsValue) => void;
-  /** Rastgele çekim yapıldığında çağrılır. */
-  onShuffle: () => void;
-  /** Rastgele moddayken günün kelimelerine dönmek için. */
-  onReset?: () => void;
-  isRandom: boolean;
 }
 
 /**
- * Kelime kartlarının üstündeki tek satırlık kontrol şeridi:
- * dil · seviye · konu · rastgele çek. Landing'de de sayfada da aynısı kullanılır.
+ * Kelime kartlarının altındaki tek satırlık kontrol şeridi: öğrenilecek dil ve
+ * seviye. Seçili seviyeye yeniden basmak tüm seviyelere döndürür.
+ *
+ * Dil sayısı altıya çıktığı için yan yana dizilen düğmeler yerine açılır bir
+ * liste kullanılıyor; liste, üst menüdeki dil anahtarıyla aynı görünümü
+ * paylaşır (`.ewd-langmenu` / `.ewd-langitem`) ki sayfada iki ayrı menü dili
+ * konuşmasın.
  */
-export function WordControls({ value, onChange, onShuffle, onReset, isRandom }: WordControlsProps) {
+export function WordControls({ value, onChange }: WordControlsProps) {
   const { language, t } = useLanguage();
+  const [open, setOpen] = useState(false);
 
   const set = (patch: Partial<WordControlsValue>) => onChange({ ...value, ...patch });
+  const current = WORD_LANGUAGE_META[value.wordLanguage];
 
   return (
     <div
       className="flex flex-wrap items-center justify-center gap-x-3 gap-y-3 rounded-[26px] border-2 px-4 py-3.5 sm:px-5"
       style={{ background: "var(--ewd-cream-hi)", borderColor: "var(--ewd-lilac-hair)" }}
     >
-      {/* Kelime dili — İngilizce / Fransızca */}
-      <div
-        className="flex items-center gap-1 rounded-full p-1"
-        style={{ background: "var(--ewd-lilac-tint)" }}
-        role="group"
-        aria-label={t.words.langLabel[language]}
-      >
-        {(["en", "fr"] as const).map((code) => {
-          const active = value.wordLanguage === code;
+      {/* Öğrenilecek dil — açılır liste */}
+      <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className="ewd-wordlang" aria-label={t.words.langPickerLabel[language]}>
+            <img src={current.flagIcon} alt="" aria-hidden="true" className="ewd-wordlang__flag" />
+            <span className="ewd-wordlang__name">{wordLanguageName(t, current.code, language)}</span>
+            <span className="ewd-wordlang__code" aria-hidden="true">
+              {current.label}
+            </span>
+            <ChevronDown className="ewd-wordlang__chev" aria-hidden="true" />
+          </button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="center" sideOffset={10} className="ewd-langmenu z-[60]">
+          <p className="ewd-wordlang__heading">{t.words.langLabel[language]}</p>
+          {WORD_LANGUAGE_LIST.map((lang) => {
+            const active = value.wordLanguage === lang.code;
+            return (
+              <DropdownMenuItem
+                key={lang.code}
+                onClick={() => set({ wordLanguage: lang.code })}
+                data-active={active}
+                className="ewd-langitem"
+              >
+                <img src={lang.flagIcon} alt="" aria-hidden="true" className="ewd-langitem__flag" />
+                {wordLanguageName(t, lang.code, language)}
+                {active && <Check className="ewd-wordlang__check" aria-hidden="true" />}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <span className="hidden h-6 w-px sm:block" style={{ background: "var(--ewd-lilac-hair)" }} />
+
+      {/* Seviye — A1'den C2'ye; seçiliye tekrar basınca filtre kalkar */}
+      <div className="flex flex-wrap items-center justify-center gap-1.5" role="group" aria-label={t.words.level[language]}>
+        {LEVELS.map((lvl) => {
+          const active = value.level === lvl;
           return (
             <button
-              key={code}
+              key={lvl}
               type="button"
-              onClick={() => set({ wordLanguage: code })}
+              onClick={() => set({ level: active ? "all" : lvl })}
               aria-pressed={active}
-              className="rounded-full px-3.5 py-1.5 text-[12px] font-extrabold uppercase tracking-[0.08em] transition-colors"
+              className="rounded-full border-2 px-3 py-1.5 text-[12px] font-extrabold transition-colors"
               style={
                 active
-                  ? { background: "var(--ewd-purple)", color: "#fff" }
-                  : { color: "var(--ewd-body-soft)" }
+                  ? { background: "var(--ewd-pink)", borderColor: "var(--ewd-pink)", color: "#fff" }
+                  : {
+                      background: "transparent",
+                      borderColor: "var(--ewd-lilac-hair)",
+                      color: "var(--ewd-body-soft)",
+                    }
               }
             >
-              {code === "en" ? "EN" : "FR"}
+              {lvl}
             </button>
           );
         })}
       </div>
-
-      <span className="hidden h-6 w-px sm:block" style={{ background: "var(--ewd-lilac-hair)" }} />
-
-      {/* Seviye — A1'den C2'ye */}
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t.words.level[language]}>
-        <LevelChip
-          label={t.words.allLevels[language]}
-          active={value.level === "all"}
-          onClick={() => set({ level: "all" })}
-        />
-        {LEVELS.map((lvl) => (
-          <LevelChip key={lvl} label={lvl} active={value.level === lvl} onClick={() => set({ level: lvl })} />
-        ))}
-      </div>
-
-      <span className="hidden h-6 w-px sm:block" style={{ background: "var(--ewd-lilac-hair)" }} />
-
-      {/* Konu */}
-      <label className="flex items-center gap-2">
-        <span className="sr-only">{t.words.category[language]}</span>
-        <select
-          value={value.category}
-          onChange={(e) => set({ category: e.target.value as Category | "all" })}
-          className="cursor-pointer rounded-full border-2 px-3.5 py-2 text-[13px] font-bold outline-none transition-colors"
-          style={{
-            background: "var(--ewd-cream)",
-            borderColor: "var(--ewd-lilac-hair)",
-            color: "var(--ewd-body-soft)",
-          }}
-        >
-          <option value="all">{t.words.allCategories[language]}</option>
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {t.words.categories[cat][language]}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {/* Eylem */}
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={onShuffle} className="ewd-btn ewd-btn--purple ewd-btn--sm">
-          <Shuffle className="h-4 w-4" />
-          {t.words.shuffle[language]}
-        </button>
-        {isRandom && onReset && (
-          <button type="button" onClick={onReset} className="ewd-btn ewd-btn--outline ewd-btn--sm">
-            <CalendarDays className="h-4 w-4" />
-            {t.words.backToToday[language]}
-          </button>
-        )}
-      </div>
     </div>
-  );
-}
-
-function LevelChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className="rounded-full border-2 px-3 py-1.5 text-[12px] font-extrabold transition-colors"
-      style={
-        active
-          ? { background: "var(--ewd-pink)", borderColor: "var(--ewd-pink)", color: "#fff" }
-          : {
-              background: "transparent",
-              borderColor: "var(--ewd-lilac-hair)",
-              color: "var(--ewd-body-soft)",
-            }
-      }
-    >
-      {label}
-    </button>
   );
 }

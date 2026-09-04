@@ -19,8 +19,6 @@ export function FAQSection() {
         style={{ backgroundImage: "url(/ewd/pat/tile-star-pink.png)", backgroundSize: "300px" }}
         aria-hidden="true"
       />
-      <span className="ewd-scallop-t" style={{ ["--scallop" as string]: "#FBF5FF" }} aria-hidden="true" />
-      <span className="ewd-scallop-b" style={{ ["--scallop" as string]: "#FFF8EF" }} aria-hidden="true" />
 
       <div className="relative mx-auto flex max-w-[880px] flex-col items-center gap-2.5">
         <h2 className="ewd-h2 text-center">{t.faq.title[language]}</h2>

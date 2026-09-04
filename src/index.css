@@ -4,6 +4,8 @@
 
 /* EWD görsel sistemi — token'lar, tipografi, bileşenler, dokular */
 @import "./styles/ewd.css";
+/* Panel v2 — öğretmen/öğrenci/admin panellerinin ortak bileşen katmanı */
+@import "./styles/panel.css";
 
 @tailwind base;
 @tailwind components;
@@ -70,10 +72,10 @@
 }
 
 .ProseMirror blockquote {
-  border-left: 3px solid hsl(280 50% 75%);
+  border-left: 3px solid var(--ewd-lilac-line);
   padding-left: 1rem;
   margin: 0.5em 0;
-  color: hsl(240 10% 40%);
+  color: var(--ewd-on-surface-soft);
   font-style: italic;
 }
 
@@ -86,7 +88,7 @@
 
 .ProseMirror .ProseMirror-placeholder::before {
   content: attr(data-placeholder);
-  color: hsl(240 10% 60%);
+  color: var(--ewd-on-surface-faint);
   pointer-events: none;
   position: absolute;
 }
@@ -159,57 +161,59 @@
   }
 
   .dark {
-    /* Erik-mor koyu palet — nötr lacivert yerine markanın moru sürüyor */
-    --background: 258 46% 10%;
-    --foreground: 265 100% 96%;
+    /* Gece laciverti — erik-mor koyu palet kaldırıldı; markanın moru
+       koyuda açık maviye, sarı/pembe yumuşatılmış tonlara devrediyor.
+       Değerler src/styles/ewd.css'teki .dark token'larıyla birebir. */
+    --background: 224 41% 16%;
+    --foreground: 223 100% 96%;
 
-    --card: 258 42% 14%;
-    --card-foreground: 265 100% 96%;
+    --card: 221 31% 24%;
+    --card-foreground: 223 100% 96%;
 
-    --popover: 258 42% 14%;
-    --popover-foreground: 265 100% 96%;
+    --popover: 221 31% 24%;
+    --popover-foreground: 223 100% 96%;
 
-    /* Koyu zeminde okunur mor #C084FC */
-    --primary: 270 95% 75%;
-    --primary-foreground: 260 60% 12%;
+    /* Koyu zeminde okunur açık mavi #62A5EA — üzerine lacivert mürekkep */
+    --primary: 210 76% 65%;
+    --primary-foreground: 218 56% 12%;
 
-    --secondary: 260 41% 19%;
-    --secondary-foreground: 265 100% 96%;
+    --secondary: 222 33% 28%;
+    --secondary-foreground: 223 100% 96%;
 
-    --muted: 258 41% 18%;
-    --muted-foreground: 263 35% 74%;
+    --muted: 223 41% 25%;
+    --muted-foreground: 221 35% 69%;
 
-    /* Koyuda sarı yerine erik-pembe vurgu */
-    --accent: 326 38% 21%;
-    --accent-foreground: 265 100% 96%;
+    /* Koyuda sarı vurgu yerine lacivert yıkama (hover zeminleri) */
+    --accent: 222 39% 28%;
+    --accent-foreground: 223 100% 96%;
 
-    --destructive: 348 60% 50%;
+    --destructive: 352 60% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 260 36% 23%;
-    --input: 258 42% 14%;
-    --ring: 270 95% 75%;
+    --border: 222 37% 32%;
+    --input: 224 39% 21%;
+    --ring: 210 76% 65%;
 
-    /* Kenar çubuğu — en koyu erik */
-    --sidebar-background: 259 44% 8%;
-    --sidebar-foreground: 263 35% 74%;
-    --sidebar-primary: 270 95% 75%;
-    --sidebar-primary-foreground: 260 60% 12%;
-    --sidebar-accent: 258 41% 18%;
-    --sidebar-accent-foreground: 265 100% 96%;
-    --sidebar-border: 260 36% 23%;
-    --sidebar-ring: 270 95% 75%;
+    /* Kenar çubuğu — en koyu lacivert */
+    --sidebar-background: 224 42% 13%;
+    --sidebar-foreground: 221 35% 69%;
+    --sidebar-primary: 210 76% 65%;
+    --sidebar-primary-foreground: 218 56% 12%;
+    --sidebar-accent: 223 41% 25%;
+    --sidebar-accent-foreground: 223 100% 96%;
+    --sidebar-border: 222 37% 32%;
+    --sidebar-ring: 210 76% 65%;
 
     /* Landing page dark variants (panel içi landing-* kullanımları için) */
-    --landing-pink: 335 45% 45%;
-    --landing-purple: 270 60% 62%;
-    --landing-purple-dark: 270 70% 78%;
-    --landing-yellow: 46 70% 55%;
-    --landing-yellow-light: 46 45% 40%;
+    --landing-pink: 335 52% 64%;
+    --landing-purple: 210 76% 65%;
+    --landing-purple-dark: 203 79% 71%;
+    --landing-yellow: 43 80% 63%;
+    --landing-yellow-light: 43 40% 38%;
 
     /* Custom tokens */
-    --elevated: 258 42% 16%;
-    --soft-panel: 258 44% 12%;
+    --elevated: 221 32% 29%;
+    --soft-panel: 224 40% 19%;
   }
 }
 
@@ -273,6 +277,10 @@
     --sb-size: 8px;
   }
 
+  .dark body {
+    --sb-thumb-color: rgba(98, 165, 234, 0.55);
+  }
+
   /* Custom Scrollbar - Floating Purple Design */
   body::-webkit-scrollbar {
     width: var(--sb-size);
@@ -294,11 +302,19 @@
     background-color: rgba(157, 89, 192, 0.88);
   }
 
+  .dark body::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(124, 196, 240, 0.8);
+  }
+
   /* Firefox fallback */
   @supports not selector(::-webkit-scrollbar) {
     body {
       scrollbar-color: rgba(157, 89, 192, 0.7) transparent;
       scrollbar-width: thin;
+    }
+
+    .dark body {
+      scrollbar-color: rgba(98, 165, 234, 0.55) transparent;
     }
   }
 }
@@ -319,7 +335,7 @@
 
   /* Section scroll margin for sticky header */
   .scroll-section {
-    scroll-margin-top: 100px;
+    scroll-margin-top: 116px;
   }
 
   /* Float animation for character */
@@ -341,11 +357,16 @@
   }
 }
 
+/* Güvenli alan — iki platform tek ifadede.
+   iOS (WKWebView) `env(safe-area-inset-*)` verir. Android'de Capacitor 8'in
+   SystemBars eklentisi API 35+ (edge-to-edge zorunlu) cihazlarda
+   `--safe-area-inset-*` değişkenlerini <html> üzerine yazar; orada `env()`
+   0 döner. max() ikisini de doğru toplar, masaüstünde 0 kalır. */
 :root {
-  --safe-area-top: env(safe-area-inset-top, 0px);
-  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-area-left: env(safe-area-inset-left, 0px);
-  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  --safe-area-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+  --safe-area-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
 }
 
 @layer utilities {
@@ -353,62 +374,57 @@
   .pb-safe { padding-bottom: var(--safe-area-bottom); }
 }
 
-/* ===== iOS Native Safe Area Overrides =====
-   Only active when Capacitor iOS adds .ios-native to <html>.
-   Desktop and Android never get this class — zero visual change. */
+/* ===== Native güvenli alan düzeltmeleri =====
+   `.native-shell` sınıfını main.tsx her iki native platformda da <html>
+   üzerine koyar (targetSdk 36 ile Android da edge-to-edge çiziyor).
+   Masaüstü tarayıcı bu sınıfı hiç almaz — görsel değişiklik sıfır. */
 
-.ios-native .landing-header {
+.native-shell .landing-header {
   padding-left: var(--safe-area-left);
   padding-right: var(--safe-area-right);
 }
 
-.ios-native .landing-header-inner {
+.native-shell .landing-header-inner {
   padding-top: var(--safe-area-top);
 }
 
-.ios-native .landing-header-row {
+.native-shell .landing-header-row {
   margin-top: 0; /* prevent double offset: pt-safe already handles top spacing */
 }
 
-.ios-native .landing-header-logo {
+.native-shell .landing-header-logo {
   top: calc(var(--safe-area-top) + 0.25rem); /* safe-area + original ~top-1 */
 }
 
 @media (min-width: 640px) {
-  .ios-native .landing-header-logo {
+  .native-shell .landing-header-logo {
     top: calc(var(--safe-area-top) + 0.5rem); /* ~top-2 */
   }
 }
 
 @media (min-width: 768px) {
-  .ios-native .landing-header-logo {
+  .native-shell .landing-header-logo {
     top: calc(var(--safe-area-top) + 0.75rem); /* ~top-3 */
   }
 }
 
-.ios-native .login-logo {
+.native-shell .login-logo {
   top: calc(var(--safe-area-top) + 0.25rem);
 }
 
 @media (min-width: 640px) {
-  .ios-native .login-logo {
+  .native-shell .login-logo {
     top: calc(var(--safe-area-top) + 0.5rem);
   }
 }
 
 @media (min-width: 768px) {
-  .ios-native .login-logo {
+  .native-shell .login-logo {
     top: calc(var(--safe-area-top) + 0.75rem);
   }
 }
 
-.ios-native .dashboard-header {
-  padding-top: var(--safe-area-top);
-  padding-left: var(--safe-area-left);
-  padding-right: var(--safe-area-right);
-}
-
-.ios-native .toast-viewport {
+.native-shell .toast-viewport {
   padding-top: var(--safe-area-top);
 }
 
@@ -1036,53 +1052,6 @@
   text-align: center;
   width: min(620px, 92%);
   margin-bottom: clamp(8px, 1.5vh, 16px);
-}
-
-.login-board__title-text {
-  pointer-events: none;
-  text-align: center;
-}
-
-.t-english {
-  font-family:
-    Poppins,
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Arial,
-    sans-serif;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: hsl(var(--foreground));
-  font-size: clamp(34px, 6.2vw, 56px);
-  line-height: 1.05;
-}
-
-.t-with {
-  font-family:
-    Poppins,
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Arial,
-    sans-serif;
-  font-weight: 700;
-  color: hsl(var(--foreground));
-  font-size: clamp(16px, 2.4vw, 22px);
-  margin-top: 2px;
-  transform: translateX(38px);
-}
-
-.t-dilara {
-  font-family: "Mystery Quest", serif;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: hsl(var(--foreground));
-  font-size: clamp(28px, 5.2vw, 44px);
-  margin-top: 6px;
-  transform: translateX(96px);
 }
 
 .login-board__center {

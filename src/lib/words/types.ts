@@ -1,7 +1,13 @@
 import type { Language } from "@/lib/translations";
 
-/** Öğrenilen dil — kelime kartlarının ön yüzü bu dilde. */
-export type WordLanguage = "en" | "fr";
+/**
+ * Öğrenilen dil — kelime kartlarının ön yüzü bu dilde.
+ *
+ * Arayüz dilinden (`Language`) ayrı bir kavram: ziyaretçi siteyi Türkçe
+ * gezerken kartların ön yüzünde Almanca kelimeler görebilir.
+ */
+export const WORD_LANGUAGES = ["en", "fr", "ru", "es", "de", "ar"] as const;
+export type WordLanguage = (typeof WORD_LANGUAGES)[number];
 
 /** Avrupa Dil Portfolyosu seviyeleri. */
 export const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;

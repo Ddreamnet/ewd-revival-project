@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 118" width="104" height="118" role="img">
+  <defs>
+    <linearGradient id="pk" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#FFA8CE"/><stop offset="1" stop-color="#F9599C"/></linearGradient>
+    <linearGradient id="vi" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#C4B0FC"/><stop offset="1" stop-color="#A78BFA"/></linearGradient>
+    <linearGradient id="ye" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#FDE08A"/><stop offset="1" stop-color="#FBCE45"/></linearGradient>
+    <linearGradient id="cr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFDF6"/><stop offset="1" stop-color="#F0E2C6"/></linearGradient>
+  </defs>
+  <path d="M20 8h64a6 6 0 0 1 6 6v84L52 78 20 98z" fill="#E5A81F"/>
+  <path d="M20 6h58a6 6 0 0 1 6 6v84L52 76 20 96z" fill="url(#ye)"/>
+  <path d="M20 6h58a6 6 0 0 1 6 6v6H20z" fill="#fff" opacity=".35"/>
+  <path d="M52 28l7.2 14.6 16.1 2.3-11.6 11.4 2.7 16L52 64.7 37.6 72.3l2.7-16-11.6-11.4 16.1-2.3z" fill="#7C4DE0"/>
+</svg>

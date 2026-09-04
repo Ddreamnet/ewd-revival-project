@@ -145,7 +145,7 @@ export function AdminBlogManager({ open, onOpenChange }: AdminBlogManagerProps) 
                     <div className="flex gap-1 shrink-0">
                       {post.status === "published" && (
                         <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                          <a href={`/blog/${post.slug}`} target="_blank" rel="noopener noreferrer"><Eye className="h-4 w-4" /></a>
+                          <a href={`/blog/${encodeURIComponent(post.slug)}`} target="_blank" rel="noopener noreferrer"><Eye className="h-4 w-4" /></a>
                         </Button>
                       )}
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(post)}>

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { whatsappTrialLink } from "@/lib/whatsapp";
+import { languageName } from "@/lib/translations";
 
 const FORMSPREE_ENDPOINT = "https://formspree.io/f/mzdjgzzo";
-const WHATSAPP_NUMBER = "905306792831";
 const INSTAGRAM_URL = "https://instagram.com/englishwithdilarateacher";
 
-const AGE_OPTIONS = ["myself", "age4_6", "age7_9", "age10_12", "age13_15", "age16_18"] as const;
 const WHY_ITEMS = ["personalProgram", "oneOnOne", "tracking", "freeTrial"] as const;
 
 /** İletişim — sol bilgi kartları, ortada form, sağda maskot. */
@@ -16,13 +16,7 @@ export function ContactSection() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const whatsappText =
-    language === "tr"
-      ? "Merhaba, ücretsiz deneme dersi hakkında bilgi almak istiyorum."
-      : language === "fr"
-        ? "Bonjour, je souhaite des informations sur le cours d'essai gratuit."
-        : "Hello, I would like information about the free trial lesson.";
-  const whatsappLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappText)}`;
+  const whatsappLink = whatsappTrialLink(language);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +30,9 @@ export function ContactSection() {
       fd.append("phone", formData.phone.trim());
       fd.append("message", formData.message.trim());
       fd.append("_gotcha", ""); // honeypot
+      // Ziyaretçinin sitedeki dili de gitsin — başvuruya hangi dilde
+      // dönüleceği aksi hâlde belli olmuyor.
+      fd.append("siteLanguage", languageName(language));
 
       const res = await fetch(FORMSPREE_ENDPOINT, {
         method: "POST",
@@ -141,23 +138,17 @@ export function ContactSection() {
                 maxLength={100}
               />
 
-              <select
+              {/* Yaşı veli kendi yazsın — hazır aralık listesi yerine serbest alan. */}
+              <input
+                type="text"
                 name="studentAge"
-                className="ewd-field cursor-pointer"
+                className="ewd-field"
+                placeholder={t.contact.form.studentAge[language]}
                 value={formData.studentAge}
                 onChange={(e) => setFormData({ ...formData, studentAge: e.target.value })}
                 required
-                style={{ color: formData.studentAge ? "var(--ewd-on-surface)" : "var(--ewd-on-surface-faint)" }}
-              >
-                <option value="" disabled>
-                  {t.contact.form.studentAge[language]}
-                </option>
-                {AGE_OPTIONS.map((key) => (
-                  <option key={key} value={key} style={{ color: "var(--ewd-on-surface)" }}>
-                    {t.contact.form.ageOptions[key][language]}
-                  </option>
-                ))}
-              </select>
+                maxLength={40}
+              />
 
               <div className="flex gap-2.5">
                 <span className="ewd-field !w-auto shrink-0 font-bold text-[#6B5B7B]">+90</span>

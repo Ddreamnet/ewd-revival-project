@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 
 interface ThemeToggleButtonProps {
   className?: string;
-  variant?: "landing" | "panel";
+  /** "panelV2": panel v2'nin 48px yuvarlak ikon butonu. */
+  variant?: "landing" | "panel" | "panelV2";
 }
 
 export function ThemeToggleButton({ className, variant = "panel" }: ThemeToggleButtonProps) {
@@ -13,6 +14,20 @@ export function ThemeToggleButton({ className, variant = "panel" }: ThemeToggleB
   const isDark = resolvedTheme === "dark";
 
   const toggle = () => setTheme(isDark ? "light" : "dark");
+
+  if (variant === "panelV2") {
+    return (
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={isDark ? "Açık temaya geç" : "Koyu temaya geç"}
+        title={isDark ? "Açık tema" : "Koyu tema"}
+        className={cn("pnl-iconbtn pnl-iconbtn--sm", className)}
+      >
+        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
+    );
+  }
 
   if (variant === "landing") {
     return (

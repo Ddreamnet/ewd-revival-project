@@ -62,11 +62,12 @@ export function AuthForm() {
 
       <div className="login-board-outer">
         {/* Title above the board — centered */}
-        <div className="login-board__title pr-[40px]" aria-label="English with Dilara title">
-          <div className="login-board__title-text">
-            <div className="t-english">English</div>
-            <div className="t-with">with</div>
-            <div className="t-dilara font-aprilia">DILARA</div>
+        <div className="login-board__title" aria-label="English with Dilara">
+          {/* Hero'daki kilit düzenin aynısı — site genelinde tek bir marka bloğu */}
+          <div className="ewd-lockup items-center">
+            <span className="ewd-lockup__english">ENGLISH</span>
+            <span className="ewd-lockup__with">with</span>
+            <span className="ewd-lockup__dilara">Dilara</span>
           </div>
         </div>
 

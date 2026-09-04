@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,23 +10,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { BRANCHES, branchLabel, type Branch } from "@/lib/branch";
 import { toast } from "sonner";
 
 interface CreateTeacherDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  /** Panelin açık olduğu şube — seçim buradan başlar. */
+  defaultBranch: Branch;
 }
 
 export function CreateTeacherDialog({
   open,
   onOpenChange,
   onSuccess,
+  defaultBranch,
 }: CreateTeacherDialogProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [branch, setBranch] = useState<Branch>(defaultBranch);
   const [loading, setLoading] = useState(false);
+
+  // Diyalog her açılışta panelin bulunduğu şubeyle başlar; admin Fransızca
+  // panelde "+" dediğinde İngilizce öğretmen oluşturması hata olurdu.
+  useEffect(() => {
+    if (open) setBranch(defaultBranch);
+  }, [open, defaultBranch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +69,7 @@ export function CreateTeacherDialog({
           email,
           name: fullName,
           password,
+          language: branch,
         },
       });
 
@@ -69,7 +81,7 @@ export function CreateTeacherDialog({
         throw new Error(response.data.error);
       }
 
-      toast.success("Öğretmen başarıyla oluşturuldu");
+      toast.success(`${branchLabel(branch)} öğretmeni oluşturuldu`);
       setFullName("");
       setEmail("");
       setPassword("");
@@ -122,6 +134,31 @@ export function CreateTeacherDialog({
                 placeholder="En az 6 karakter"
                 disabled={loading}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Şube</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {BRANCHES.map((option) => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    onClick={() => setBranch(option.code)}
+                    disabled={loading}
+                    aria-pressed={branch === option.code}
+                    className={
+                      "rounded-lg border-2 px-3 py-3 text-sm font-bold transition-colors disabled:opacity-60 " +
+                      (branch === option.code
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:bg-accent")
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Öğretmen yalnızca bu şubede görünür; öğrencileri de aynı şubeye eklenir.
+              </p>
             </div>
           </div>
           <DialogFooter>

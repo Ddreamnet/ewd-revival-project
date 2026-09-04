@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img">
+  <defs>
+    <linearGradient id="f" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#DCC6FF"/>
+      <stop offset="1" stop-color="#A87BF0"/>
+    </linearGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="d" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="2" flood-color="#3B1E6E" flood-opacity=".3"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="68" r="58" fill="#8B5AD8"/>
+  <circle cx="64" cy="62" r="58" fill="url(#f)"/>
+  <ellipse cx="48" cy="32" rx="27" ry="15" fill="url(#g)" transform="rotate(-20 48 32)"/>
+  <g filter="url(#d)">
+    <rect x="30" y="34" width="68" height="60" rx="10" fill="#FFFFFF"/>
+    <path d="M30 44a10 10 0 0 1 10-10h48a10 10 0 0 1 10 10v8H30z" fill="#FB6FA8"/>
+    <g fill="#8B5AD8"><rect x="44" y="22" width="9" height="22" rx="4.5"/><rect x="75" y="22" width="9" height="22" rx="4.5"/></g>
+    <g fill="#FB6FA8">
+      <rect x="42" y="62" width="12" height="10" rx="3"/><rect x="58" y="62" width="12" height="10" rx="3"/><rect x="74" y="62" width="12" height="10" rx="3"/>
+      <rect x="42" y="78" width="12" height="10" rx="3"/><rect x="58" y="78" width="12" height="10" rx="3"/>
+    </g></g>
+</svg>
