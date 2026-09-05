@@ -1186,6 +1186,10 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_close_teacher_payout: {
+        Args: { p_notes?: string; p_rate?: number; p_teacher_id: string }
+        Returns: Json
+      }
       rpc_complete_lesson: {
         Args: { p_instance_id: string; p_teacher_id: string }
         Returns: Json
@@ -1209,6 +1213,14 @@ export type Database = {
           p_teacher_id: string
         }
         Returns: Json
+      }
+      rpc_reorder_site_moments: {
+        Args: { p_orders: Json }
+        Returns: undefined
+      }
+      rpc_reorder_site_testimonials: {
+        Args: { p_orders: Json }
+        Returns: undefined
       }
       rpc_reset_package: {
         Args: {

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Maximize2, Play } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { MomentLightbox, type LightboxItem } from "@/components/landing/MomentLightbox";
 
 /** Fotoğraf karuselinin kendiliğinden ilerleme aralığı. */
 const AUTOPLAY_MS = 5000;
@@ -20,37 +21,66 @@ export function MomentsSection() {
 
   const [shotIndex, setShotIndex] = useState(0);
   const [clipIndex, setClipIndex] = useState(0);
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+
+  /* Büyütme diyaloğu: hangi şeridin kaçıncı karesi açık? */
+  const [zoom, setZoom] = useState<{ rail: "shots" | "clips"; index: number } | null>(null);
 
   /* Kullanıcı oka bastığında sayaç baştan başlasın; slayt elinin altından kaymasın. */
   const [autoplayKey, setAutoplayKey] = useState(0);
 
   useEffect(() => {
+    if (zoom) return; // Diyalog açıkken arkadaki şerit yerinde dursun.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(
       () => setShotIndex((i) => (i + 1) % shots.length),
       AUTOPLAY_MS,
     );
     return () => window.clearInterval(timer);
-  }, [shots.length, autoplayKey]);
+  }, [shots.length, autoplayKey, zoom]);
 
   const goToShot = useCallback((next: number) => {
     setShotIndex(next);
     setAutoplayKey((k) => k + 1);
   }, []);
 
-  /** Görünmeyen videoyu durdur — arkada ses/kare işlemeye devam etmesin. */
-  const goToClip = useCallback((next: number) => {
-    videoRefs.current.forEach((video, i) => {
-      if (video && i !== next) video.pause();
+  const goToClip = useCallback((next: number) => setClipIndex(next), []);
+
+  /* Diyalogda gezilen liste — açılan şeride göre fotoğraflar ya da videolar. */
+  const zoomItems = useMemo<LightboxItem[]>(() => {
+    if (!zoom) return [];
+    return zoom.rail === "shots"
+      ? shots.map((shot) => ({
+          kind: "photo" as const,
+          src: shot.src,
+          caption: shot.caption[language],
+          tag: shot.tag[language],
+        }))
+      : clips.map((clip) => ({
+          kind: "video" as const,
+          src: clip.src,
+          poster: clip.poster || undefined,
+          caption: clip.caption[language],
+          tag: t.moments.videoBadge[language],
+        }));
+  }, [zoom, shots, clips, language, t]);
+
+  /* Diyalogda çevrilen kare kapatınca şeritte de karşımıza çıksın. */
+  const closeZoom = useCallback(() => {
+    setZoom((open) => {
+      if (open?.rail === "shots") {
+        setShotIndex(open.index);
+        setAutoplayKey((k) => k + 1);
+      } else if (open?.rail === "clips") {
+        setClipIndex(open.index);
+      }
+      return null;
     });
-    setClipIndex(next);
   }, []);
 
   return (
     <section
       id="moments"
-      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24 lg:py-[100px]"
+      className="scroll-section ewd-section relative overflow-hidden px-5 sm:px-8"
       style={{ background: "#6D28D9" }}
     >
       <span
@@ -93,7 +123,12 @@ export function MomentsSection() {
         </div>
 
         {/* --------------------------------------------------------- iki şerit */}
-        <div className="grid gap-14 lg:grid-cols-2 lg:gap-[76px]">
+        {/* `minmax(0,1fr)`: grid item'ın varsayılan `min-width:auto` değeri, içindeki
+            şeridin min-content genişliğine (slaytların toplamı) kadar büyüyor ve
+            390px'lik ekranda kolonu 760px'e çıkarıyordu — "İleri" oku ve nokta
+            göstergelerinin çoğu ekran dışında kalıyordu. Panelde zaten bu desen
+            kullanılıyor (bkz. StudentDashboard). */}
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-[76px]">
           <Rail
             label={t.moments.photos[language]}
             dotColor="#EC4899"
@@ -104,15 +139,24 @@ export function MomentsSection() {
             nextLabel={t.moments.next[language]}
             goToLabel={t.moments.goTo[language]}
           >
-            {shots.map((shot) => (
+            {shots.map((shot, i) => (
               <Slide key={shot.src} caption={shot.caption[language]}>
-                <img
-                  src={shot.src}
-                  alt={shot.caption[language]}
-                  loading="lazy"
-                  className="h-full w-full object-cover object-top"
-                />
-                <Tag>{shot.tag[language]}</Tag>
+                <MediaButton
+                  label={`${shot.caption[language]} — ${t.moments.enlarge[language]}`}
+                  onClick={() => setZoom({ rail: "shots", index: i })}
+                >
+                  <img
+                    src={shot.src}
+                    alt={shot.caption[language]}
+                    loading="lazy"
+                    draggable={false}
+                    className="h-full w-full object-cover object-top transition-transform duration-[600ms] group-hover:scale-[1.05]"
+                  />
+                  <Tag>{shot.tag[language]}</Tag>
+                  <Corner>
+                    <Maximize2 className="h-5 w-5" strokeWidth={3} />
+                  </Corner>
+                </MediaButton>
               </Slide>
             ))}
           </Rail>
@@ -129,27 +173,63 @@ export function MomentsSection() {
           >
             {clips.map((clip, i) => (
               <Slide key={clip.src} caption={clip.caption[language]}>
-                {/* Poster olmadan, oynatılana kadar siyah bir kutu duruyordu. */}
-                <video
-                  ref={(el) => {
-                    videoRefs.current[i] = el;
-                  }}
-                  src={clip.src}
-                  poster={clip.poster || undefined}
-                  controls
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  controlsList="nodownload"
-                  className="h-full w-full object-cover"
-                />
-                <Tag>{t.moments.videoBadge[language]}</Tag>
+                <MediaButton
+                  label={`${clip.caption[language]} — ${t.moments.play[language]}`}
+                  onClick={() => setZoom({ rail: "clips", index: i })}
+                >
+                  {/* Poster olmadan, oynatılana kadar siyah bir kutu duruyordu;
+                      posteri olmayan kayıtta ilk kareyi videonun kendisi verir. */}
+                  {clip.poster ? (
+                    <img
+                      src={clip.poster}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      draggable={false}
+                      className="h-full w-full object-contain transition-transform duration-[600ms] group-hover:scale-[1.05]"
+                    />
+                  ) : (
+                    <video
+                      src={clip.src}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="pointer-events-none h-full w-full object-contain"
+                    />
+                  )}
+                  <Tag>{t.moments.videoBadge[language]}</Tag>
+                  <span
+                    className="pointer-events-none absolute left-1/2 top-1/2 grid h-[68px] w-[68px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[#6D28D9] transition-transform duration-300 group-hover:scale-110"
+                    style={{ background: "#FFF8EF", boxShadow: "0 6px 0 #C9B6F5" }}
+                  >
+                    <Play className="ml-1 h-7 w-7" strokeWidth={3} fill="currentColor" />
+                  </span>
+                </MediaButton>
               </Slide>
             ))}
           </Rail>
         </div>
       </div>
+
+      {zoom && (
+        <MomentLightbox
+          items={zoomItems}
+          index={zoom.index}
+          onIndexChange={(next) => setZoom((open) => (open ? { ...open, index: next } : open))}
+          onClose={closeZoom}
+          labels={{
+            close: t.moments.close[language],
+            prev: t.moments.prev[language],
+            next: t.moments.next[language],
+            goTo: t.moments.goTo[language],
+            play: t.moments.play[language],
+            pause: t.moments.pause[language],
+            soundOn: t.moments.soundOn[language],
+            soundOff: t.moments.soundOff[language],
+            hint: t.moments.swipeHint[language],
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -184,7 +264,9 @@ function Rail({
   const step = (delta: number) => onGo((index + delta + count) % count);
 
   return (
-    <div className="relative">
+    // `min-w-0` ikinci savunma: kapsayıcı ızgara değişse bile şerit
+    // kolonu şişirmesin.
+    <div className="relative min-w-0">
       <div className="flex items-center gap-3 px-2 pb-3.5">
         <span className="flex items-center gap-2.5 rounded-full bg-[#FFF8EF] py-[9px] pl-3 pr-[18px]">
           <span className="h-[22px] w-[22px] rounded-full" style={{ background: dotColor }} />
@@ -215,7 +297,7 @@ function Rail({
             onClick={() => onGo(i)}
             aria-label={`${goToLabel} ${i + 1}`}
             aria-current={i === index}
-            className="h-2.5 rounded-full transition-[width,background-color] duration-[400ms]"
+            className="ewd-hit-44 h-2.5 rounded-full transition-[width,background-color] duration-[400ms]"
             style={{
               width: i === index ? 34 : 10,
               background: i === index ? "#FBD34F" : "rgba(255,248,239,0.4)",
@@ -251,6 +333,44 @@ function Slide({ caption, children }: { caption: string; children: React.ReactNo
         {caption}
       </p>
     </div>
+  );
+}
+
+/**
+ * Medya kutusunun tamamını kaplayan düğme — tıklayınca kare büyütme
+ * diyaloğunda açılır. Kutu `overflow-hidden` olduğu için büyüyen görsel
+ * kenarlardan taşmaz.
+ */
+function MediaButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="group absolute inset-0 block h-full w-full cursor-zoom-in overflow-hidden text-left"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Sağ üst köşedeki "büyüt" işareti — üzerine gelince belirginleşir. */
+function Corner({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="pointer-events-none absolute right-[18px] top-[18px] grid h-10 w-10 place-items-center rounded-full text-[#6D28D9] opacity-80 transition-opacity duration-300 group-hover:opacity-100"
+      style={{ background: "#FFF8EF", boxShadow: "0 4px 0 #C9B6F5" }}
+    >
+      {children}
+    </span>
   );
 }
 

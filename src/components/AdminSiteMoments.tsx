@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import { hataGoster } from "@/lib/notify";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowDown, ArrowUp, Image as ImageIcon, Loader2, Trash2, Upload, Video } from "lucide-react";
 import { LANGUAGES, type Language } from "@/lib/translations";
@@ -85,7 +86,7 @@ export function AdminSiteMoments({ onChanged }: Props) {
       contentType: file.type || undefined,
     });
     if (error) {
-      toast({ title: "Yükleme başarısız", description: error.message, variant: "destructive" });
+      hataGoster(error, "Dosya yüklenemedi");
       return null;
     }
     return supabase.storage.from("site-media").getPublicUrl(path).data.publicUrl;
@@ -111,7 +112,7 @@ export function AdminSiteMoments({ onChanged }: Props) {
         is_published: true,
       });
       if (error) {
-        toast({ title: "Hata", description: error.message, variant: "destructive" });
+        hataGoster(error, "İşlem tamamlanamadı");
         continue;
       }
       inserted += 1;
@@ -150,7 +151,7 @@ export function AdminSiteMoments({ onChanged }: Props) {
     const { error } = await supabase.from("site_moments").update(patchValue).eq("id", id);
     setSavingId(null);
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      hataGoster(error, "İşlem tamamlanamadı");
       return;
     }
     onChanged();
@@ -160,7 +161,7 @@ export function AdminSiteMoments({ onChanged }: Props) {
     if (!confirm("Bu kareyi silmek istiyor musunuz?")) return;
     const { error } = await supabase.from("site_moments").delete().eq("id", row.id);
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      hataGoster(error, "İşlem tamamlanamadı");
       return;
     }
     // Depodaki dosya, aynı adresi kullanan başka bir kayıt olabileceği için
@@ -174,9 +175,16 @@ export function AdminSiteMoments({ onChanged }: Props) {
     if (target < 0 || target >= list.length) return;
     const reordered = [...list];
     [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
-    await Promise.all(
-      reordered.map((row, i) => supabase.from("site_moments").update({ order_index: i }).eq("id", row.id)),
-    );
+    // Tek RPC: önceden liste uzunluğu kadar ayrı UPDATE gidiyordu (20 öğede
+    // 20 istek) ve yarısı düşerse sıralama bozuk kalıyordu, geri alma yoktu.
+    const { error } = await supabase.rpc("rpc_reorder_site_moments", {
+      p_orders: reordered.map((row, i) => ({ id: row.id, order_index: i })),
+    });
+    if (error) {
+      hataGoster(error, "Sıralama güncellenemedi");
+      await fetchRows();
+      return;
+    }
     await fetchRows();
     onChanged();
   };

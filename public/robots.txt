@@ -1,14 +1,13 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# https://englishwithdilara.com/robots.txt
 
 User-agent: *
 Allow: /
+
+# Panel ve giriş: herkese açık içerik yok, taranmasına da gerek yok.
+# Kişisel ve yönetim içi sayfalar burada tek tek sayılmıyor — bu dosya
+# herkese açık, adresleri duyurmasın; onlar sayfanın kendisinde `noindex`
+# ile dizin dışında tutuluyor (src/App.tsx › RobotsMeta).
+Disallow: /dashboard
+Disallow: /login
+
+Sitemap: https://englishwithdilara.com/sitemap.xml

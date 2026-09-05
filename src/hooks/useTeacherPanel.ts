@@ -90,17 +90,22 @@ const EMPTY: TeacherPanelData = {
 async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
   // ── Tur 1: birbirine bağlı olmayan her şey paralel ────────────────
   const [studentsRes, trackingRes, balanceRes, homeworkRes, notifRes] = await Promise.all([
-    // `select("*")`: zoom_link göçü uygulanmamış kurulumlarda sorgu patlamasın.
     supabase
       .from("students")
-      .select("*, profiles!students_student_id_fkey (full_name, email)")
+      .select(
+        "id, student_id, teacher_id, about_text, zoom_link, profiles!students_student_id_fkey (full_name, email)",
+      )
       .eq("teacher_id", teacherId)
       .eq("is_archived", false),
     supabase
       .from("student_lesson_tracking")
       .select("student_id, package_cycle, lessons_per_week")
       .eq("teacher_id", teacherId),
-    supabase.from("teacher_balance").select("*").eq("teacher_id", teacherId).maybeSingle(),
+    supabase
+      .from("teacher_balance")
+      .select("total_minutes, completed_regular_lessons, completed_trial_lessons")
+      .eq("teacher_id", teacherId)
+      .maybeSingle(),
     supabase
       .from("homework_submissions")
       .select("id, batch_id, title, student_id, created_at, uploaded_by_user_id")

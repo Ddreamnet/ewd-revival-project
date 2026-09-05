@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { hataGoster } from "@/lib/notify";
 import { Loader2, Upload, X } from "lucide-react";
 
 interface AddResourceDialogProps {
@@ -190,12 +191,8 @@ export function AddResourceDialog({
       setWebUrl("");
       setSelectedFile(null);
       onOpenChange(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     } finally {
       setIsLoading(false);
     }
@@ -203,7 +200,7 @@ export function AddResourceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Öğrenme Kaynağı Ekle</DialogTitle>
           <DialogDescription>

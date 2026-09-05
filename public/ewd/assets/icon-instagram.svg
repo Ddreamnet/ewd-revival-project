@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 312" width="320" height="312" role="img" aria-hidden="true">
+  <!--
+    Instagram — setteki 3B ikonların (icon-mail, icon-whatsapp) diliyle çizildi:
+    pembe disk, üst soldan gelen ışık, beyaz kabartma simge, mor mercek, sarı
+    flaş noktası ve küçük bir kalp. Vektörel olduğu için her ölçüde net kalır.
+  -->
+  <defs>
+    <radialGradient id="ig-disk" cx="0.33" cy="0.26" r="0.92">
+      <stop offset="0" stop-color="#FF7FBE" />
+      <stop offset="0.34" stop-color="#FB4A9C" />
+      <stop offset="0.78" stop-color="#EF2585" />
+      <stop offset="1" stop-color="#D3126E" />
+    </radialGradient>
+    <linearGradient id="ig-rim" x1="0.18" y1="0" x2="0.78" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.72" />
+      <stop offset="0.42" stop-color="#FFFFFF" stop-opacity="0.06" />
+      <stop offset="1" stop-color="#A80D57" stop-opacity="0.42" />
+    </linearGradient>
+    <linearGradient id="ig-glass" x1="0.2" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" />
+      <stop offset="0.55" stop-color="#FBF3FF" />
+      <stop offset="1" stop-color="#E7D6F6" />
+    </linearGradient>
+    <linearGradient id="ig-lens" x1="0.2" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#A78BFA" />
+      <stop offset="1" stop-color="#7C3AED" />
+    </linearGradient>
+    <linearGradient id="ig-heart" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#FF9DCB" />
+      <stop offset="1" stop-color="#F0308C" />
+    </linearGradient>
+    <filter id="ig-cast" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#8E0B4A" flood-opacity="0.42" />
+    </filter>
+    <filter id="ig-blur" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9" />
+    </filter>
+  </defs>
+
+  <!-- zemin gölgesi -->
+  <ellipse cx="168" cy="288" rx="116" ry="17" fill="#B70E5F" opacity="0.28" filter="url(#ig-blur)" />
+
+  <!-- disk -->
+  <circle cx="156" cy="150" r="146" fill="url(#ig-disk)" />
+  <circle cx="156" cy="150" r="140" fill="none" stroke="url(#ig-rim)" stroke-width="11" opacity="0.75" />
+  <!-- üst soldan gelen parlama -->
+  <ellipse cx="98" cy="72" rx="58" ry="34" fill="#FFFFFF" opacity="0.34" transform="rotate(-32 98 72)" filter="url(#ig-blur)" />
+
+  <!-- kamera gövdesi -->
+  <g filter="url(#ig-cast)">
+    <rect
+      x="74"
+      y="68"
+      width="164"
+      height="164"
+      rx="50"
+      fill="none"
+      stroke="url(#ig-glass)"
+      stroke-width="24"
+    />
+    <circle cx="156" cy="150" r="43" fill="none" stroke="url(#ig-lens)" stroke-width="23" />
+    <circle cx="203" cy="103" r="12.5" fill="#FBD34F" />
+  </g>
+
+  <!-- kalp — settekilerin hepsinde bir tane var -->
+  <g filter="url(#ig-cast)" transform="translate(228 18) scale(2.9)">
+    <path
+      d="M12 21C12 21 2 14.6 2 8.6 2 5.5 4.4 3 7.5 3 9.4 3 11.1 4 12 5.5 12.9 4 14.6 3 16.5 3 19.6 3 22 5.5 22 8.6 22 14.6 12 21 12 21Z"
+      fill="url(#ig-heart)"
+    />
+  </g>
+</svg>

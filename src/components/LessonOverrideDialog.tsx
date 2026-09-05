@@ -192,7 +192,7 @@ export function LessonOverrideDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base">Ders Düzenle</DialogTitle>
             <DialogDescription className="text-sm">

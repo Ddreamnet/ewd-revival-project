@@ -445,7 +445,7 @@ export function HomeworkListDialog({
         body
       ) : (
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[600px] max-h-[90dvh] overflow-hidden flex flex-col">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>Ödevler</DialogTitle>
               <DialogDescription>

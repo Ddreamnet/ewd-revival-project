@@ -6,6 +6,7 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Footer } from "@/components/landing/Footer";
 import { BackSwipeWrapper } from "@/components/BackSwipeWrapper";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import { LOCALES, type Language } from "@/lib/translations";
 
 const BACK_LABEL: Record<Language, string> = {
@@ -46,12 +47,39 @@ export default function BlogPostPage() {
   const { language } = useLanguage();
   const { data: post, isLoading } = useBlogPostBySlug(slug || "");
 
+  // Hook koşulsuz: erken return'lerin üstünde durmalı.
+  useDocumentMeta({
+    title: post?.title ?? "Blog",
+    description: post?.excerpt ?? undefined,
+    image: post?.cover_image_url ?? undefined,
+    type: "article",
+    publishedTime: post?.published_at ?? post?.created_at,
+    modifiedTime: post?.updated_at,
+  });
+
   if (isLoading) {
+    /* Spinner yerine yazının kendi düzeni: kapak 3:2 kutusuyla, başlık ve
+       paragraf satırlarıyla aynı yüksekliği baştan ayırıyor, böylece içerik
+       gelince footer yerinden oynamıyor. */
     return (
       <Shell>
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[color:var(--ewd-purple)]" />
-        </div>
+        <article className="mx-auto max-w-[820px]" aria-busy="true">
+          <span className="mb-6 block h-[21px] w-28 animate-pulse rounded-full bg-black/5" />
+          <div
+            className="mb-8 aspect-[3/2] animate-pulse rounded-[28px] border-[3px] bg-black/5"
+            style={{ borderColor: "var(--ewd-lilac-line)" }}
+          />
+          <span className="mb-2 block h-[15px] w-32 animate-pulse rounded-full bg-black/5" />
+          <span className="mb-3 block h-[40px] w-full animate-pulse rounded-full bg-black/5" />
+          <span className="mb-7 block h-[40px] w-2/3 animate-pulse rounded-full bg-black/5" />
+          {[100, 96, 88, 94, 70].map((w, i) => (
+            <span
+              key={i}
+              className="mb-3 block h-[18px] animate-pulse rounded-full bg-black/5"
+              style={{ width: `${w}%` }}
+            />
+          ))}
+        </article>
       </Shell>
     );
   }
@@ -90,7 +118,8 @@ export default function BlogPostPage() {
           )}
 
           {post.published_at && (
-            <p className="mb-2 text-[12px] font-extrabold uppercase tracking-[0.12em] text-[#9A87AC]">
+            <p className="mb-2 text-[12px] font-extrabold uppercase tracking-[0.12em]"
+              style={{ color: "var(--ewd-body-soft)" }}>
               {new Date(post.published_at).toLocaleDateString(LOCALES[language], {
                 day: "numeric",
                 month: "long",

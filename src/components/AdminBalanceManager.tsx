@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Clock, CheckCircle2, Calendar, Plus, Minus, RotateCcw, Receipt, FileText, Wallet, Settings2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, hataGoster } from "@/lib/notify";
 import { manualBalanceAdjust } from "@/lib/lessonService";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -57,11 +57,19 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
   const [minutesToSubtract, setMinutesToSubtract] = useState("");
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  /**
+   * Para hareketi yapan tek bir işlem aynı anda yürüsün.
+   *
+   * Denetimde çıkan asıl açık buydu: "Ekle" ve "Çıkar" düğmeleri tıklandıktan
+   * sonra ekranda kalıyordu ve `disabled` yoktu; arka arkaya iki tık bakiyeye
+   * iki kez yazıyordu. Tek bir kilit hepsini kapsıyor — bir işlem sürerken
+   * diğer para düğmeleri de pasif, çünkü hepsi aynı bakiyeyi okuyup yazıyor.
+   */
+  const [busy, setBusy] = useState<null | "add" | "sub" | "reset" | "delete">(null);
 
   const { profile } = useAuth();
   const pay = useTeacherPay(branch);
   const [reportCount, setReportCount] = useState("");
-  const [savingReports, setSavingReports] = useState(false);
   const [rateForm, setRateForm] = useState<TeacherPay | null>(null);
   const [savingRate, setSavingRate] = useState(false);
 
@@ -74,6 +82,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
    * ders dakikasıyla aynı orandan ücretleniyor.
    */
   const handleAddReports = async () => {
+    if (busy) return;
     const count = parseInt(reportCount || String(activeStudentCount), 10);
     if (isNaN(count) || count <= 0) {
       toast.error("Geçerli bir rapor sayısı girin");
@@ -84,7 +93,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
       toast.error("Rapor başına dakika 0 olarak tanımlı");
       return;
     }
-    setSavingReports(true);
+    setBusy("add");
     try {
       const result = await manualBalanceAdjust(teacherId, minutes, `Ay sonu raporu x${count}`);
       if (!result.success) {
@@ -93,9 +102,11 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
       }
       toast.success(`${count} rapor eklendi (+${minutes} dk · ${money(minutes)})`);
       setReportCount("");
-      fetchBalance();
+      await fetchBalance();
+    } catch (error) {
+      hataGoster(error, "Rapor eklenirken hata oluştu");
     } finally {
-      setSavingReports(false);
+      setBusy(null);
     }
   };
 
@@ -126,7 +137,9 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
       setLoading(true);
       const { data, error } = await supabase
         .from("teacher_balance")
-        .select("*")
+        .select(
+          "total_minutes, completed_regular_lessons, completed_trial_lessons, regular_lessons_minutes, trial_lessons_minutes",
+        )
         .eq("teacher_id", teacherId)
         .maybeSingle();
 
@@ -144,8 +157,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
         });
       }
     } catch (error) {
-      console.error("Error fetching balance:", error);
-      toast.error("Bakiye bilgisi yüklenirken hata oluştu");
+      hataGoster(error, "Bakiye bilgisi yüklenirken hata oluştu");
     } finally {
       setLoading(false);
     }
@@ -155,7 +167,9 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
     try {
       const { data, error } = await supabase
         .from("payment_history")
-        .select("*")
+        .select(
+          "id, amount_minutes, rate_per_minute, completed_regular_lessons, completed_trial_lessons, payment_date, notes",
+        )
         .eq("teacher_id", teacherId)
         .order("payment_date", { ascending: false });
 
@@ -163,17 +177,19 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
 
       setPaymentHistory(data || []);
     } catch (error) {
-      console.error("Error fetching payment history:", error);
+      hataGoster(error, "Ödeme geçmişi yüklenemedi");
     }
   };
 
   const handleAddMinutes = async () => {
+    if (busy) return;
     const minutes = parseInt(minutesToAdd);
     if (isNaN(minutes) || minutes <= 0) {
       toast.error("Geçerli bir dakika değeri girin");
       return;
     }
 
+    setBusy("add");
     try {
       const result = await manualBalanceAdjust(teacherId, minutes, "Manuel dakika ekleme");
       if (!result.success) {
@@ -183,25 +199,31 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
 
       toast.success(`${minutes} dakika eklendi`);
       setMinutesToAdd("");
-      fetchBalance();
+      await fetchBalance();
     } catch (error) {
-      console.error("Error adding minutes:", error);
-      toast.error("Dakika eklenirken hata oluştu");
+      hataGoster(error, "Dakika eklenirken hata oluştu");
+    } finally {
+      setBusy(null);
     }
   };
 
   const handleSubtractMinutes = async () => {
+    if (busy) return;
     const minutes = parseInt(minutesToSubtract);
     if (isNaN(minutes) || minutes <= 0) {
       toast.error("Geçerli bir dakika değeri girin");
       return;
     }
 
+    // Bu yalnızca erken uyarı. Asıl yeterlilik kontrolü
+    // `rpc_manual_balance_adjust` içinde; buradaki `balance` bir önceki
+    // fetch'ten kalma olabilir ve hızlı iki tıkta güncel değeri göstermez.
     if (!balance || balance.total_minutes < minutes) {
       toast.error("Bakiyede yeterli dakika yok");
       return;
     }
 
+    setBusy("sub");
     try {
       const result = await manualBalanceAdjust(teacherId, -minutes, "Manuel dakika çıkarma");
       if (!result.success) {
@@ -211,74 +233,58 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
 
       toast.success(`${minutes} dakika çıkarıldı`);
       setMinutesToSubtract("");
-      fetchBalance();
+      await fetchBalance();
     } catch (error) {
-      console.error("Error subtracting minutes:", error);
-      toast.error("Dakika çıkarılırken hata oluştu");
+      hataGoster(error, "Dakika çıkarılırken hata oluştu");
+    } finally {
+      setBusy(null);
     }
   };
 
+  /**
+   * Bakiyeyi kapat ve ödemeyi geçmişe yaz.
+   *
+   * Eskiden bu iki adım istemcide ayrı sorgulardı: önce payment_history
+   * INSERT, sonra teacher_balance UPDATE. Aradaki bir hata "ödendi" kaydı
+   * bırakıp bakiyeyi olduğu gibi bırakıyordu. Artık tek RPC; içinde
+   * `SELECT ... FOR UPDATE` var, yani çift tıkta ikinci çağrı birincinin
+   * bitmesini bekliyor ve bakiye sıfırlandığı için ikinci kayıt düşmüyor.
+   */
   const handleResetBalance = async () => {
+    if (busy) return;
+    setBusy("reset");
     try {
-      const { data: existingBalance } = await supabase
-        .from("teacher_balance")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("rpc_close_teacher_payout", {
+        p_teacher_id: teacherId,
+        // Oran satırla birlikte donuyor: ücret sonradan değişse de bu
+        // ödemenin tutarı olduğu gibi kalır.
+        p_rate: ratePerMinute(pay),
+      });
+      if (error) throw error;
 
-      // Create payment history record before resetting
-      if (existingBalance && existingBalance.total_minutes > 0) {
-        const { error: historyError } = await supabase.from("payment_history").insert({
-          teacher_id: teacherId,
-          amount_minutes: existingBalance.total_minutes,
-          completed_regular_lessons: existingBalance.completed_regular_lessons,
-          completed_trial_lessons: existingBalance.completed_trial_lessons,
-          // Oran satırla birlikte donuyor: ücret sonradan değişse de bu
-          // ödemenin tutarı olduğu gibi kalır.
-          rate_per_minute: ratePerMinute(pay),
-        });
-
-        if (historyError) throw historyError;
+      const sonuc = (data ?? {}) as { success?: boolean; error?: string; paid_minutes?: number };
+      if (!sonuc.success) {
+        toast.error(sonuc.error || "Bakiye sıfırlanırken hata oluştu");
+        return;
       }
 
-      // Reset balance
-      if (existingBalance) {
-        const { error } = await supabase
-          .from("teacher_balance")
-          .update({
-            total_minutes: 0,
-            completed_regular_lessons: 0,
-            completed_trial_lessons: 0,
-            regular_lessons_minutes: 0,
-            trial_lessons_minutes: 0,
-          })
-          .eq("teacher_id", teacherId);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("teacher_balance").insert({
-          teacher_id: teacherId,
-          total_minutes: 0,
-          completed_regular_lessons: 0,
-          completed_trial_lessons: 0,
-          regular_lessons_minutes: 0,
-          trial_lessons_minutes: 0,
-        });
-
-        if (error) throw error;
-      }
-
-      toast.success("Bakiye sıfırlandı ve ödeme kaydedildi");
+      toast.success(
+        sonuc.paid_minutes
+          ? `Bakiye sıfırlandı, ${sonuc.paid_minutes} dk ödeme kaydedildi`
+          : "Bakiye zaten sıfırdı",
+      );
       setShowResetDialog(false);
-      fetchBalance();
-      fetchPaymentHistory();
+      await Promise.all([fetchBalance(), fetchPaymentHistory()]);
     } catch (error) {
-      console.error("Error resetting balance:", error);
-      toast.error("Bakiye sıfırlanırken hata oluştu");
+      hataGoster(error, "Bakiye sıfırlanırken hata oluştu");
+    } finally {
+      setBusy(null);
     }
   };
 
   const handleDeletePayment = async (paymentId: string) => {
+    if (busy) return;
+    setBusy("delete");
     try {
       const { error } = await supabase
         .from("payment_history")
@@ -288,10 +294,11 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
       if (error) throw error;
 
       toast.success("Ödeme kaydı silindi");
-      fetchPaymentHistory();
+      await fetchPaymentHistory();
     } catch (error) {
-      console.error("Error deleting payment:", error);
-      toast.error("Ödeme kaydı silinirken hata oluştu");
+      hataGoster(error, "Ödeme kaydı silinirken hata oluştu");
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -383,7 +390,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
                 value={reportCount}
                 onChange={(e) => setReportCount(e.target.value)}
               />
-              <Button onClick={handleAddReports} disabled={savingReports} className="whitespace-nowrap">
+              <Button onClick={handleAddReports} disabled={busy !== null} className="whitespace-nowrap">
                 <Plus className="h-4 w-4 mr-2" />
                 Rapor Ekle
               </Button>
@@ -412,7 +419,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
                 onChange={(e) => setMinutesToAdd(e.target.value)}
                 min="1"
               />
-              <Button onClick={handleAddMinutes} className="whitespace-nowrap">
+              <Button onClick={handleAddMinutes} disabled={busy !== null} className="whitespace-nowrap">
                 <Plus className="h-4 w-4 mr-2" />
                 Ekle
               </Button>
@@ -436,7 +443,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
                 onChange={(e) => setMinutesToSubtract(e.target.value)}
                 min="1"
               />
-              <Button onClick={handleSubtractMinutes} variant="secondary" className="whitespace-nowrap">
+              <Button onClick={handleSubtractMinutes} disabled={busy !== null} variant="secondary" className="whitespace-nowrap">
                 <Minus className="h-4 w-4 mr-2" />
                 Çıkar
               </Button>
@@ -609,7 +616,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleResetBalance} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleResetBalance} disabled={busy !== null} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Sıfırla ve Kaydet
             </AlertDialogAction>
           </AlertDialogFooter>

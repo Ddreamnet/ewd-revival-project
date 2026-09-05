@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { hataGoster } from "@/lib/notify";
 import { Loader2 } from "lucide-react";
 
 interface AddTopicDialogProps {
@@ -79,12 +80,8 @@ export function AddTopicDialog({
       setDescription("");
       setAddToEnd(false);
       onOpenChange(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     } finally {
       setIsLoading(false);
     }

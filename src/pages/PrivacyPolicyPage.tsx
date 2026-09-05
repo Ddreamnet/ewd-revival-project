@@ -2,6 +2,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { Footer } from '@/components/landing/Footer';
 import { BackSwipeWrapper } from '@/components/BackSwipeWrapper';
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 /** Bölüm kartları krem/leylak/pembe sırasıyla boyanır. */
 const TONES = [
@@ -12,6 +13,8 @@ const TONES = [
 
 export default function PrivacyPolicyPage() {
   const { language, t } = useLanguage();
+
+  useDocumentMeta({ title: t.privacyPolicy.title[language] });
 
   return (
     <BackSwipeWrapper>

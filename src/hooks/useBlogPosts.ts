@@ -32,9 +32,11 @@ export function usePublishedPosts(limit?: number) {
     queryKey: ["blog-posts", "published", limit],
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
+      // Liste kartı gövdeyi (`content`) göstermiyor; yazı başına onlarca kB
+      // HTML boşuna iniyordu. Detay sorgusu tam satırı çekmeye devam ediyor.
       let query = supabase
         .from("blog_posts")
-        .select("*")
+        .select("id, title, slug, excerpt, cover_image_url, status, published_at, created_at")
         .eq("status", "published")
         .order("published_at", { ascending: false });
       if (limit) query = query.limit(limit);
@@ -54,7 +56,7 @@ export function usePublishedPostsPaginated(page: number, pageSize = 9) {
       const to = from + pageSize - 1;
       const { data, error, count } = await supabase
         .from("blog_posts")
-        .select("*", { count: "exact" })
+        .select("id, title, slug, excerpt, cover_image_url, status, published_at, created_at", { count: "exact" })
         .eq("status", "published")
         .order("published_at", { ascending: false })
         .range(from, to);
@@ -100,7 +102,7 @@ export function useAllBlogPosts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("blog_posts")
-        .select("*")
+        .select("id, title, slug, excerpt, cover_image_url, status, published_at, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as BlogPost[];

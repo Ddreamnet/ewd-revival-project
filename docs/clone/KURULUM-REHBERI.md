@@ -7,8 +7,8 @@ Bu rehber, projeyi sıfırdan yeni bir Supabase projesine nasıl kuracağınız�
 ## 📋 Gereksinimler
 
 - Supabase hesabı
-- GitHub hesabı (opsiyonel, Lovable ile çalışıyorsanız gerekli değil)
-- Lovable hesabı (opsiyonel)
+- GitHub hesabı
+- Node.js 20+ ve npm
 
 ---
 
@@ -84,13 +84,12 @@ WHERE user_id = 'KULLANICI_UUID_BURAYA';
 
 ## 📦 AŞAMA 4: Kodu Klonlama
 
-### Seçenek A: Lovable ile
-1. Mevcut projenizde **Project Settings** → **Remix this project** seçeneğini kullanın
-2. Yeni projede dosyaları düzenleyin (aşağıya bakın)
-
-### Seçenek B: GitHub ile
-1. GitHub'dan projeyi fork/clone yapın
-2. Yeni bir Lovable projesi oluşturun ve repo'yu bağlayın
+1. Depoyu klonlayın (ya da GitHub'dan fork alın):
+   ```sh
+   git clone <REPO_URL> && cd ewd-revival-project
+   npm install
+   ```
+2. Aşağıdaki dosyaları yeni Supabase projenize göre düzenleyin.
 
 ### Düzenlenmesi Gereken Dosyalar
 

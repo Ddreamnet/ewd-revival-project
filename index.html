@@ -1,28 +1,199 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <title>English with Dilara</title>
-    <meta name="description" content="Dilara's Online Classroom" />
-    <meta name="author" content="Dilara" />
+    <!--
+      `maximum-scale=1.0` kaldırıldı: parmakla yakınlaştırmayı kapatıyordu
+      (WCAG 2.1 · 1.4.4 Metni Yeniden Boyutlandırma). `viewport-fit=cover` ve
+      `interactive-widget` çentikli ekran ve klavye davranışı için kalıyor.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
 
-    <!-- Sekme ikonu: logonun kendi yıldızı, uygulama ikonuyla aynı açık pembe
-         zeminde (#FFF5FB). Sekme boyutunda kuyruk kırpıldı — kuyrukla birlikte
-         yıldız 16/32 px'e sığmıyor, yüzü seçilmiyordu. .ico içinde 16/32/48
-         kareleri PNG olarak gömülü; modern tarayıcılar 32'liği doğrudan alır.
-         Ana ekran ikonu (apple-touch-icon) tam markayı, kuyruğuyla taşır. -->
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <!-- ── Kimlik ──────────────────────────────────────────────────────────
+         Başlık ve açıklama yol bazlı olarak `useDocumentMeta` ile değişiyor;
+         buradakiler ana sayfanın karşılığı ve JS çalıştırmayan botların
+         gördüğü tek sürüm. -->
+    <title>Online İngilizce Dersleri · English with Dilara</title>
+    <meta name="description" content="Çocuklar ve yetişkinler için online İngilizce dersleri. Oyun ve sohbetle ilerleyen birebir ya da küçük grup dersleri; ücretsiz deneme dersiyle başlayın." />
+    <link rel="canonical" href="https://englishwithdilara.com/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="author" content="English with Dilara" />
+    <meta name="theme-color" content="#FFF8EF" />
+
+    <!-- ── Bağlantı ısıtma ─────────────────────────────────────────────────
+         Supabase'e ilk istek oturum kontrolü için uygulama açılır açılmaz
+         gidiyor; TLS el sıkışması JS inerken başlasın. Başlıktaki logo da
+         ilk ekranda görünen tek büyük görsel. -->
+    <link rel="preconnect" href="https://hwwpbtcgppzuscbvjkde.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://hwwpbtcgppzuscbvjkde.supabase.co" />
+    <link rel="preload" as="image" href="/uploads/logo.webp" type="image/webp" fetchpriority="high" />
+
+    <!-- ── Simgeler ────────────────────────────────────────────────────────
+         Sekmede logonun yıldızı, zemini şeffaf duruyor: `favicon.svg` her
+         ölçekte keskin (1,5 kB) ve açık/koyu sekme çubuğunda aynı okunuyor.
+         `.ico` yalnızca SVG'yi desteklemeyen tarayıcılar ve /favicon.ico'yu
+         doğrudan isteyen tarayıcı botları için; içinde 16/32/48 kareleri
+         saydam PNG olarak duruyor ve 16'lık kare kalın hatlı ayrı bir
+         çizim (yazı ve allık o boyutta lekeye dönüşüyordu).
+         `sizes="32x32"`, SVG'yi destekleyen tarayıcının SVG'yi seçmesini
+         sağlayan işaret. Ana ekran ikonu tam markayı, kuyruğuyla taşır. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
 
-    <meta property="og:title" content="English with Dilara" />
-    <meta property="og:description" content="Dilara's Online Classroom" />
+    <!-- ── Ana ekrana eklendiğinde ─────────────────────────────────────── -->
+    <meta name="application-name" content="English with Dilara" />
+    <meta name="apple-mobile-web-app-title" content="EWD" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- Telefon numarası gibi görünen ders saatlerini iOS bağlantıya çevirmesin. -->
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- ── Paylaşım kartı ──────────────────────────────────────────────────
+         WhatsApp, Instagram ve arama sonucu önizlemeleri. Yol bazlı değerler
+         çalışma anında `useDocumentMeta` ile güncelleniyor. -->
+    <meta property="og:site_name" content="English with Dilara" />
+    <meta property="og:title" content="Online İngilizce Dersleri · English with Dilara" />
+    <meta property="og:description" content="Oyun ve sohbetle ilerleyen online İngilizce dersleri. Her öğrenciye kendi programı, her ders sonunda veliye geri bildirim." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://englishwithdilara.com/" />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:locale:alternate" content="de_DE" />
+    <meta property="og:locale:alternate" content="fr_FR" />
+    <meta property="og:locale:alternate" content="es_ES" />
+    <meta property="og:locale:alternate" content="ru_RU" />
+    <meta property="og:locale:alternate" content="ar_AR" />
+    <meta property="og:image" content="https://englishwithdilara.com/uploads/og-cover.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="English with Dilara — oyun ve sohbet üzerine kurulu online İngilizce dersleri" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Online İngilizce Dersleri · English with Dilara" />
+    <meta name="twitter:description" content="Oyun ve sohbetle ilerleyen online İngilizce dersleri. Her öğrenciye kendi programı, her ders sonunda veliye geri bildirim." />
+    <meta name="twitter:image" content="https://englishwithdilara.com/uploads/og-cover.jpg" />
+    <meta name="twitter:image:alt" content="English with Dilara — online İngilizce dersleri" />
+
+    <!-- ── Yapılandırılmış veri ────────────────────────────────────────────
+         Sayfa istemcide çizildiği için arama motorunun ilk HTML'de bulduğu
+         tek içerik bu. Puan/yorum sayısı gibi doğrulanamayan alanlar
+         bilerek yok. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "EducationalOrganization",
+          "@id": "https://englishwithdilara.com/#organization",
+          "name": "English with Dilara",
+          "alternateName": "EWD",
+          "url": "https://englishwithdilara.com/",
+          "description": "Çocuklar ve yetişkinler için oyun ve sohbet üzerine kurulu online İngilizce dersleri.",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://englishwithdilara.com/uploads/logo.webp",
+            "width": 1024,
+            "height": 1024
+          },
+          "image": "https://englishwithdilara.com/uploads/og-cover.jpg",
+          "email": "admin@englishwithdilara.com",
+          "telephone": "+90-530-679-28-31",
+          "areaServed": "Worldwide",
+          "availableLanguage": ["tr", "en", "de", "fr", "es", "ru", "ar"],
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": "admin@englishwithdilara.com",
+            "telephone": "+90-530-679-28-31",
+            "availableLanguage": ["tr", "en"]
+          },
+          "sameAs": [
+            "https://instagram.com/englishwithdilarateacher",
+            "https://wa.me/905306792831"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://englishwithdilara.com/#website",
+          "url": "https://englishwithdilara.com/",
+          "name": "English with Dilara",
+          "inLanguage": "tr",
+          "publisher": { "@id": "https://englishwithdilara.com/#organization" }
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://englishwithdilara.com/#faq",
+          "isPartOf": { "@id": "https://englishwithdilara.com/#website" },
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Ders süreleri ne kadar?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Çocuk dersleri 30 dakika, yetişkin dersleri 60 dakikadır. Çocuk derslerinin süresi, dijital ekran süresi önerilerine uygun olarak planlanmıştır."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Ücretsiz deneme dersi var mı?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Evet. Kayıt öncesinde ücretsiz bir deneme dersi yapıyoruz; bu derste seviyeyi ve hedefleri birlikte konuşup uygun paketi belirliyoruz."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Dersler hangi platformda yapılıyor?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Dersler canlı olarak Zoom üzerinden yapılır. Ders bağlantısı her ders öncesinde paylaşılır; ekstra bir program kurmanız gerekmez."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Birebir ders mi, grup dersi mi yapılıyor?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "İkisi de mümkün. Tüm paketlerde birebir ve küçük grup seçeneği var; grup dersleri benzer yaş ve seviyedeki öğrencilerle oluşturulur."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Neden giriş yapamıyorum?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Öğrenci paneli hesabı ilk kayıttan sonra tanımlanır. Giriş bilgileriniz gelmediyse veya şifrenizi hatırlamıyorsanız WhatsApp'tan yazın, hemen sıfırlayalım."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
 
   <body>
     <div id="root"></div>
+
+    <!-- JavaScript kapalıyken sayfa bomboş kalıyordu; marka, ne yapıldığı ve
+         iletişim en azından burada dursun. -->
+    <noscript>
+      <div style="max-width:34rem;margin:0 auto;padding:3rem 1.5rem;font:16px/1.6 system-ui,-apple-system,'Segoe UI',sans-serif;color:#3F2A16;text-align:center">
+        <img src="/uploads/logo.webp" alt="English with Dilara" width="160" height="160" style="width:160px;height:auto" />
+        <h1 style="font-size:1.5rem;margin:1.5rem 0 .75rem">English with Dilara</h1>
+        <p>Çocuklar ve yetişkinler için oyun ve sohbet üzerine kurulu online İngilizce dersleri. Her öğrenciye kendi programı, her ders sonunda veliye geri bildirim.</p>
+        <p>Siteyi görüntülemek için tarayıcınızda JavaScript'i açın. Dilerseniz doğrudan yazabilirsiniz:</p>
+        <p>
+          <a href="https://wa.me/905306792831" style="color:#7C3AED">WhatsApp</a> ·
+          <a href="mailto:admin@englishwithdilara.com" style="color:#7C3AED">admin@englishwithdilara.com</a> ·
+          <a href="https://instagram.com/englishwithdilarateacher" style="color:#7C3AED">Instagram</a>
+        </p>
+      </div>
+    </noscript>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

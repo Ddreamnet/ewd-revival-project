@@ -9,6 +9,8 @@ import { Card } from "@/components/ui/card";
 import { BlogPostEditor } from "./BlogPostEditor";
 import { useAllBlogPosts, useCreateBlogPost, useUpdateBlogPost, useDeleteBlogPost, generateSlug, type BlogPost } from "@/hooks/useBlogPosts";
 import { supabase } from "@/integrations/supabase/client";
+import { shrinkImage, BLOG_IMAGE } from "@/lib/imageResize";
+import { hataGoster } from "@/lib/notify";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Eye, ArrowLeft, ImageIcon } from "lucide-react";
 
@@ -62,16 +64,32 @@ export function AdminBlogManager({ open, onOpenChange }: AdminBlogManagerProps) 
     if (!slugManual) setSlug(generateSlug(val));
   };
 
+  const [uploadingCover, setUploadingCover] = useState(false);
+
   const handleCoverUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const ext = file.name.split(".").pop();
-    const path = `covers/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("blog-media").upload(path, file);
-    if (error) { toast({ title: "Hata", description: error.message, variant: "destructive" }); return; }
-    const { data } = supabase.storage.from("blog-media").getPublicUrl(path);
-    setCoverImageUrl(data.publicUrl);
-  }, [toast]);
+    if (!file || uploadingCover) return;
+    setUploadingCover(true);
+    try {
+      // Ham dosya doğrudan yükleniyordu; canlıda 1,9-2,5 MB'lık PNG kapaklar
+      // birikmişti. Kapak en fazla 820px kutuda gösteriliyor, 1600px yeter.
+      const shrunk = await shrinkImage(file, BLOG_IMAGE);
+      const ext = shrunk.type === "image/jpeg" ? "jpg" : (shrunk.name.split(".").pop() || "jpg");
+      const path = `covers/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("blog-media")
+        .upload(path, shrunk, { contentType: shrunk.type, cacheControl: "31536000" });
+      if (error) throw error;
+      const { data } = supabase.storage.from("blog-media").getPublicUrl(path);
+      setCoverImageUrl(data.publicUrl);
+    } catch (error) {
+      hataGoster(error, "Kapak görseli yüklenemedi");
+    } finally {
+      setUploadingCover(false);
+      // Aynı dosya tekrar seçilebilsin.
+      e.target.value = "";
+    }
+  }, [uploadingCover]);
 
   const save = async (status: "draft" | "published") => {
     if (!title.trim() || !slug.trim()) {
@@ -105,7 +123,7 @@ export function AdminBlogManager({ open, onOpenChange }: AdminBlogManagerProps) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setView("list"); resetForm(); } onOpenChange(v); }}>
-      <DialogContent className="w-[calc(100%-1rem)] max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {view === "edit" && (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { whatsappTrialLink } from "@/lib/whatsapp";
+import { WhatsAppMark } from "@/components/landing/WhatsAppMark";
 
 
 type Audience = "kids" | "adults";
@@ -62,7 +63,7 @@ export function HeroSection() {
                 aria-label={t.hero.ctaWhatsapp[language]}
                 className="ewd-btn ewd-btn--wa h-[54px] w-[54px] shrink-0 !p-0"
               >
-                <img src="/uploads/whatsappLogo.png" alt="" className="h-7 w-7" />
+                <WhatsAppMark className="h-7 w-7" />
               </a>
             </div>
           </div>
@@ -70,10 +71,10 @@ export function HeroSection() {
           {/* Kemer nişi — fotoğraf zemini yarım daire olarak kesiliyor */}
           <div className="relative mt-5 h-[212px]">
             <div className="absolute bottom-0 left-1/2 h-[188px] w-[86%] max-w-[340px] -translate-x-1/2 overflow-hidden rounded-t-[170px]">
-              <img src="/ewd/pat/b.png" alt="" aria-hidden="true" className="h-full w-full object-cover" />
+              <img src="/ewd/pat/b.webp" alt="" aria-hidden="true" className="h-full w-full object-cover" />
             </div>
             <img
-              src="/uploads/dilarateacher.png"
+              src="/uploads/dilarateacher.webp"
               alt={t.hero.teacherAlt[language]}
               className="absolute -bottom-[2px] left-1/2 h-[212px] w-auto -translate-x-1/2"
               style={{ filter: "drop-shadow(0 12px 18px rgba(46,16,101,0.2))" }}
@@ -109,7 +110,7 @@ export function HeroSection() {
               {t.hero.ctaTrial[language]}
             </button>
             <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="ewd-btn ewd-btn--wa">
-              <img src="/uploads/whatsappLogo.png" alt="" className="h-7 w-7" />
+              <WhatsAppMark className="h-7 w-7" />
               {t.hero.ctaWhatsapp[language]}
             </a>
           </div>
@@ -120,14 +121,14 @@ export function HeroSection() {
           style={{ borderColor: "var(--ewd-pink-line)", background: "#FFF1F7" }}
         >
           <img
-            src="/ewd/pat/b.png"
+            src="/ewd/pat/b.webp"
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           />
           {/* PNG'nin altında ~6px saydam pay var; kutuya tam dayanması için geri alınıyor. */}
           <img
-            src="/uploads/dilarateacher.png"
+            src="/uploads/dilarateacher.webp"
             alt={t.hero.teacherAlt[language]}
             className="relative -mb-[5px] h-[588px] w-auto"
             style={{ filter: "drop-shadow(0 18px 24px rgba(46,16,101,0.22))" }}

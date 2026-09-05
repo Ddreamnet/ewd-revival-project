@@ -4,7 +4,8 @@ import { languageName } from '@/lib/translations';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { Footer } from '@/components/landing/Footer';
 import { BackSwipeWrapper } from '@/components/BackSwipeWrapper';
-import { toast } from 'sonner';
+import { useDocumentMeta } from '@/hooks/useDocumentMeta';
+import { toast } from '@/lib/notify';
 
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/mwvrbpvp';
 
@@ -13,6 +14,8 @@ export default function WorkWithUsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+
+  useDocumentMeta({ title: t.workWithUs.title[language] });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -143,7 +146,7 @@ export default function WorkWithUsPage() {
                       : t.workWithUs.submit[language]}
                 </button>
 
-                <p className="text-center text-[12px] leading-relaxed text-[#9A87AC]">
+                <p className="text-center text-[12px] leading-relaxed text-[#7A6A8F]">
                   {t.workWithUs.note[language]}
                 </p>
               </form>

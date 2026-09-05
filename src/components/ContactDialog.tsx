@@ -7,7 +7,9 @@ export function ContactDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        {/* 640px altında yalnızca ikon görünüyor; etiket olmadan ekran
+            okuyucu isimsiz bir düğme okuyordu. */}
+        <Button variant="outline" size="sm" aria-label="İletişim">
           <Phone className="h-4 w-4" />
           <span className="hidden sm:inline ml-2">İletişim</span>
         </Button>

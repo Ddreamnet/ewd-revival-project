@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
@@ -37,6 +37,31 @@ if (typeof window !== "undefined") {
       import("./pages/BlogPostPage");
     }, 1000);
   }, { once: true });
+}
+
+/**
+ * Dizine ekleme kararı sayfanın kendisinde verilsin.
+ *
+ * `robots.txt` kişisel ve panel yollarını tek tek sayıyordu; dosya herkese
+ * açık olduğu için gizli kalması gereken adresleri de duyuruyordu. Artık
+ * robots.txt yalnızca panel ve giriş gibi genel yolları taramaya kapatıyor,
+ * geri kalanı burada `noindex` ile hallediliyor.
+ */
+const OZEL_YOLLAR = [/^\/dashboard/, /^\/login/, /^\/mytriptolove/, /^\/site-rehberi/];
+const ROBOTS_ACIK = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+
+function RobotsMeta() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    let el = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!el) {
+      el = document.createElement("meta");
+      el.name = "robots";
+      document.head.appendChild(el);
+    }
+    el.content = OZEL_YOLLAR.some((y) => y.test(pathname)) ? "noindex, nofollow" : ROBOTS_ACIK;
+  }, [pathname]);
+  return null;
 }
 
 const queryClient = new QueryClient();
@@ -134,16 +159,20 @@ function SplashHider() {
 }
 
 const App = () => (
+  <AppErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <LanguageProvider>
     <AuthProvider>
       <SplashHider />
       <TooltipProvider>
+        {/* Tek bildirim sistemi. Önceden `sonner` da mount ediliyordu ve aynı
+            panelde iki farklı konumda/stilde toast çıkıyordu; hepsi
+            `@/lib/notify` üzerinden buraya toplandı. */}
         <Toaster />
-        <Sonner />
         <BrowserRouter>
           <ScrollToTop />
+          <RobotsMeta />
           <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -167,6 +196,7 @@ const App = () => (
     </LanguageProvider>
     </ThemeProvider>
   </QueryClientProvider>
+  </AppErrorBoundary>
 );
 
 export default App;

@@ -182,7 +182,7 @@ export function UploadHomeworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) setShowAndroidPicker(false); onOpenChange(v); }}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[500px] max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Ödev Yükle</DialogTitle>
           <DialogDescription>

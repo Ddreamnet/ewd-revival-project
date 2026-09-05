@@ -1,5 +1,5 @@
 /**
- * Shared schedule grid logic for AdminWeeklySchedule and WeeklyScheduleDialog.
+ * Admin haftalık programı ve öğretmen ders programı ekranının ortak ızgara mantığı.
  * Supports both Template mode (student_lessons) and Actual mode (lesson_instances).
  */
 

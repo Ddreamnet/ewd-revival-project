@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { authHataMesaji } from "@/lib/notify";
 import { useNavigate, Link } from "react-router-dom";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,9 +37,10 @@ export function AuthForm() {
     try {
       const { error } = await signIn(signInData.email, signInData.password);
       if (error) {
+        // Supabase Auth İngilizce mesaj döndürüyor; kullanıcıya Türkçesi gitsin.
         toast({
-          title: "Hata",
-          description: error.message,
+          title: "Giriş yapılamadı",
+          description: authHataMesaji(error),
           variant: "destructive"
         });
       } else {
@@ -52,10 +54,11 @@ export function AuthForm() {
   return (
     <div className="login-board-wrap">
       {/* Logo - same position as landing page */}
-      <Link to="/" className="login-logo fixed left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
+      <Link to="/" aria-label="Ana sayfa" className="login-logo fixed left-2 sm:left-4 lg:left-8 top-1 sm:top-2 md:top-3 z-[60]">
         <img
           src="/uploads/logo.webp"
-          alt="English with Dilara"
+          alt=""
+          aria-hidden="true"
           className="h-20 sm:h-28 md:h-40 w-auto transform -rotate-[10deg] hover:scale-105 transition-transform duration-300 cursor-pointer" />
 
       </Link>

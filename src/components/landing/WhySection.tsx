@@ -21,7 +21,7 @@ export function WhySection() {
   return (
     <section
       id="why"
-      className="ewd-bulge-host scroll-section relative px-5 py-20 sm:px-8 md:py-24 lg:py-[104px]"
+      className="ewd-bulge-host scroll-section ewd-section relative px-5 sm:px-8"
       style={{ background: "#6D28D9" }}
     >
       <span

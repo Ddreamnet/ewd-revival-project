@@ -42,7 +42,7 @@ export function ResetCountdown({ className = "" }: { className?: string }) {
         ))}
       </div>
 
-      <div className="text-center text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#9A87AC]">
+      <div className="text-center text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#7A6A8F]">
         {t.words.countdownTitle[language]}
       </div>
 
@@ -83,7 +83,7 @@ function Flap({ value, label }: { value: number; label: string }) {
           </div>
         )}
       </div>
-      <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#9A87AC]">{label}</span>
+      <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#7A6A8F]">{label}</span>
     </div>
   );
 }

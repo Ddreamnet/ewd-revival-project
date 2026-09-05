@@ -53,7 +53,6 @@ export function useEditStudentDialog({
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   const [zoomLink, setZoomLink] = useState("");
   // Göç uygulanmadıysa alan hiç gösterilmesin, kaydetmede de gönderilmesin.
-  const [zoomSupported, setZoomSupported] = useState(false);
   const [studentUserId, setStudentUserId] = useState("");
   const [teacherUserId, setTeacherUserId] = useState("");
   const [canShiftBackward, setCanShiftBackward] = useState(false);
@@ -131,10 +130,9 @@ export function useEditStudentDialog({
 
   const initializeDialog = async () => {
     try {
-      // `select("*")`: zoom_link göçü uygulanmamış kurulumlarda sorgu patlamasın.
       const { data, error } = await supabase
         .from("students")
-        .select("*")
+        .select("student_id, teacher_id, zoom_link")
         .eq("id", studentId)
         .single();
 
@@ -142,7 +140,6 @@ export function useEditStudentDialog({
 
       setStudentUserId(data.student_id);
       setTeacherUserId(data.teacher_id);
-      setZoomSupported("zoom_link" in data);
       setZoomLink(data.zoom_link ?? "");
       await loadInstances(data.student_id, data.teacher_id);
     } catch (error: any) {
@@ -374,13 +371,11 @@ export function useEditStudentDialog({
       if (profileError) throw profileError;
 
       // Zoom bağlantısı — öğrenci panelinde ders saatlerinin yanında görünür.
-      if (zoomSupported) {
-        const { error: zoomError } = await supabase
-          .from("students")
-          .update({ zoom_link: zoomLink.trim() || null })
-          .eq("id", studentId);
-        if (zoomError) throw zoomError;
-      }
+      const { error: zoomError } = await supabase
+        .from("students")
+        .update({ zoom_link: zoomLink.trim() || null })
+        .eq("id", studentId);
+      if (zoomError) throw zoomError;
 
       // Check if template actually changed.
       // Both sides are normalized and order-insensitive: the DB hands back
@@ -692,7 +687,6 @@ export function useEditStudentDialog({
     setName,
     zoomLink,
     setZoomLink,
-    zoomSupported,
     lessonsPerWeek,
     lessons,
     lessonDates,

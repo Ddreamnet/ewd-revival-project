@@ -33,7 +33,7 @@ export function AdminSiteManager({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] w-[calc(100%-1rem)] max-w-5xl flex-col overflow-hidden">
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-5xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Site Yönetimi</DialogTitle>
         </DialogHeader>

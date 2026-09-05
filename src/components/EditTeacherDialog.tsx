@@ -308,7 +308,7 @@ export function EditTeacherDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Öğretmen Ayarları</DialogTitle>
         </DialogHeader>

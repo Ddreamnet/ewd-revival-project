@@ -14,6 +14,8 @@ import { ValuesSection } from '@/components/landing/ValuesSection';
 import { ContactSection } from '@/components/landing/ContactSection';
 import { Footer } from '@/components/landing/Footer';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 
 /**
  * Günün kelimeleri bölümü altı dilin kelime bankasını taşıyor (~860 kB kaynak,
@@ -28,6 +30,15 @@ import { Loader2 } from 'lucide-react';
 export default function LandingPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
+
+  // Başlık da açıklama da seçili dilden gelsin ki arama sonucu ve paylaşım
+  // kartı ziyaretçinin dilinde görünsün. Başlığa marka adını `useDocumentMeta`
+  // ekliyor: "Online İngilizce Dersleri · English with Dilara".
+  useDocumentMeta({
+    title: t.seo.homeTitle[language],
+    description: t.hero.lead[language],
+  });
   const scrollHandled = useRef(false);
   const { user, initializing } = useAuthContext();
 

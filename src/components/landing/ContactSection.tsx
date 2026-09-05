@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notify";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { whatsappTrialLink } from "@/lib/whatsapp";
+import { WhatsAppMark } from "@/components/landing/WhatsAppMark";
 import { languageName } from "@/lib/translations";
 
 const FORMSPREE_ENDPOINT = "https://formspree.io/f/mzdjgzzo";
 const INSTAGRAM_URL = "https://instagram.com/englishwithdilarateacher";
+const INSTAGRAM_HANDLE = "@englishwithdilarateacher";
 
 const WHY_ITEMS = ["personalProgram", "oneOnOne", "tracking", "freeTrial"] as const;
 
@@ -57,7 +59,7 @@ export function ContactSection() {
   return (
     <section
       id="contact"
-      className="scroll-section relative overflow-hidden px-5 pt-20 sm:px-8 md:pt-24"
+      className="scroll-section relative overflow-hidden px-5 pt-[var(--ewd-section-y)] sm:px-8"
       style={{ background: "var(--ewd-cream)" }}
     >
       <div className="mx-auto flex max-w-[1180px] flex-col items-center gap-3">
@@ -66,11 +68,11 @@ export function ContactSection() {
 
         <div className="flex flex-col gap-4 pt-4 sm:flex-row">
           <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="ewd-btn ewd-btn--wa">
-            <img src="/uploads/whatsappLogo.png" alt="" className="h-[30px] w-[30px]" />
+            <WhatsAppMark className="h-[26px] w-[26px]" />
             {t.contact.whatsapp[language]}
           </a>
           <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="ewd-btn ewd-btn--pink !pl-4">
-            <img src="/uploads/instagramLogo.png" alt="" className="h-[30px] w-[30px] rounded-lg" />
+            <img src="/uploads/instagramLogo.webp" alt="" className="h-[30px] w-[30px] rounded-lg" />
             {t.contact.instagram[language]}
           </a>
         </div>
@@ -87,9 +89,9 @@ export function ContactSection() {
                 style={{ backgroundImage: "url(/ewd/pat/tile-dot-yellow.png)", backgroundSize: "104px" }}
                 aria-hidden="true"
               />
-              <InfoRow icon="icon-call.png" text="0530 679 2831" />
-              <InfoRow icon="icon-globe.png" text="englishwithdilara.com" />
-              <InfoRow icon="icon-mail.png" text="admin@englishwithdilara.com" />
+              <InfoRow icon="icon-call.webp" text="0530 679 2831" href="tel:+905306792831" />
+              <InfoRow icon="icon-globe.webp" text="englishwithdilara.com" />
+              <InfoRow icon="icon-instagram.svg" text={INSTAGRAM_HANDLE} href={INSTAGRAM_URL} external />
             </div>
 
             <div
@@ -186,7 +188,7 @@ export function ContactSection() {
                     : t.contact.form.submit[language]}
               </button>
 
-              <p className="text-center text-[12px] leading-relaxed text-[#9A87AC]">
+              <p className="text-center text-[12px] leading-relaxed text-[#7A6A8F]">
                 {t.contact.form.note[language]}
               </p>
             </form>
@@ -195,7 +197,7 @@ export function ContactSection() {
           {/* ------------------------------------------------------- maskot */}
           <div className="hidden items-end justify-center lg:flex">
             <img
-              src="/uploads/dilarateacher.png"
+              src="/uploads/dilarateacher.webp"
               alt=""
               aria-hidden="true"
               className="h-[420px] w-auto"
@@ -208,11 +210,35 @@ export function ContactSection() {
   );
 }
 
-function InfoRow({ icon, text }: { icon: string; text: string }) {
-  return (
-    <div className="relative flex items-center gap-3.5">
+/** Sarı karttaki iletişim satırı — adresi olan satır tıklanabilir. */
+function InfoRow({
+  icon,
+  text,
+  href,
+  external,
+}: {
+  icon: string;
+  text: string;
+  href?: string;
+  external?: boolean;
+}) {
+  const body = (
+    <>
       <img src={`/ewd/assets/${icon}`} alt="" aria-hidden="true" className="w-[42px] shrink-0" />
       <span className="min-w-0 break-words text-[14px] font-bold text-[#4C3A5E] sm:text-[15px]">{text}</span>
-    </div>
+    </>
+  );
+
+  if (!href) {
+    return <div className="relative flex items-center gap-3.5">{body}</div>;
+  }
+  return (
+    <a
+      href={href}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      className="relative flex items-center gap-3.5 rounded-2xl transition-colors hover:text-[#BE185D]"
+    >
+      {body}
+    </a>
   );
 }

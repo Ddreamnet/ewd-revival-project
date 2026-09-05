@@ -7,9 +7,9 @@ const APP_STORE_URL = "https://apps.apple.com/tr/app/english-with-dilara/id67603
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.englishwithdilara.app";
 
 const SOCIALS = [
-  { label: "WhatsApp", icon: "icon-whatsapp.png", href: "https://wa.me/905306792831" },
-  { label: "Instagram", icon: "icon-send.png", href: "https://instagram.com/englishwithdilarateacher" },
-  { label: "E-posta", icon: "icon-mail.png", href: "mailto:admin@englishwithdilara.com" },
+  { label: "WhatsApp", icon: "icon-whatsapp.webp", href: "https://wa.me/905306792831" },
+  { label: "Instagram", icon: "icon-instagram.svg", href: "https://instagram.com/englishwithdilarateacher" },
+  { label: "E-posta", icon: "icon-mail.webp", href: "mailto:admin@englishwithdilara.com" },
 ];
 
 interface FooterProps {
@@ -29,23 +29,23 @@ export function Footer({ topColor = "var(--ewd-cream)" }: FooterProps = {}) {
 
       <div className="mx-auto grid max-w-[1180px] items-center gap-8 lg:grid-cols-[1fr_auto_1fr]">
         <div className="flex items-center justify-center gap-3.5 lg:justify-start">
-          <Link to="/">
-            <img src="/uploads/logo.webp" alt="English with Dilara" className="h-14 w-auto" />
+          <Link to="/" aria-label="Ana sayfa">
+            <img src="/uploads/logo.webp" alt="" aria-hidden="true" className="h-14 w-auto" />
           </Link>
           <span className="text-[14px] font-semibold text-[#C4A6E8]">{t.footer.tagline[language]}</span>
         </div>
 
         <nav className="flex flex-wrap items-center justify-center gap-x-7 gap-y-3 text-[15px] font-bold text-[#E4D3F5]">
-          <Link to="/bizimle-calisin" className="transition-colors hover:text-[#FBD34F]">
+          <Link to="/bizimle-calisin" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[#FBD34F]">
             {t.footer.workWithUs[language]}
           </Link>
-          <Link to="/gizlilik-politikasi" className="transition-colors hover:text-[#FBD34F]">
+          <Link to="/gizlilik-politikasi" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[#FBD34F]">
             {t.footer.privacyPolicy[language]}
           </Link>
           <button
             type="button"
             onClick={() => goToSection("words")}
-            className="font-bold transition-colors hover:text-[#FBD34F]"
+            className="inline-flex min-h-[44px] items-center font-bold transition-colors hover:text-[#FBD34F]"
           >
             {t.header.words[language]}
           </button>
@@ -60,7 +60,7 @@ export function Footer({ topColor = "var(--ewd-cream)" }: FooterProps = {}) {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={social.label}
-                className="transition-transform hover:-translate-y-0.5"
+                className="grid h-11 w-11 place-items-center transition-transform hover:-translate-y-0.5"
               >
                 <img src={`/ewd/assets/${social.icon}`} alt="" aria-hidden="true" className="w-[38px]" />
               </a>
@@ -73,7 +73,7 @@ export function Footer({ topColor = "var(--ewd-cream)" }: FooterProps = {}) {
                 href={PLAY_STORE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-xl px-4 py-2.5 text-[12px] font-bold text-[#E4D3F5] transition-colors hover:text-[#FBD34F]"
+                className="grid min-h-[44px] place-items-center rounded-xl px-4 text-[12px] font-bold text-[#E4D3F5] transition-colors hover:text-[#FBD34F]"
                 style={{ background: "rgba(255,248,239,0.12)" }}
               >
                 {t.footer.downloadGooglePlay[language]}
@@ -82,7 +82,7 @@ export function Footer({ topColor = "var(--ewd-cream)" }: FooterProps = {}) {
                 href={APP_STORE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-xl px-4 py-2.5 text-[12px] font-bold text-[#E4D3F5] transition-colors hover:text-[#FBD34F]"
+                className="grid min-h-[44px] place-items-center rounded-xl px-4 text-[12px] font-bold text-[#E4D3F5] transition-colors hover:text-[#FBD34F]"
                 style={{ background: "rgba(255,248,239,0.12)" }}
               >
                 {t.footer.downloadAppStore[language]}
@@ -92,7 +92,7 @@ export function Footer({ topColor = "var(--ewd-cream)" }: FooterProps = {}) {
         </div>
       </div>
 
-      <p className="mt-8 text-center text-[12px] text-[#9A7EC0]">
+      <p className="mt-8 text-center text-[12px] text-[#C4A6E8]">
         © {new Date().getFullYear()} English with Dilara. {t.footer.copyright[language]}
       </p>
     </footer>

@@ -21,7 +21,7 @@ export function BlogSection() {
   return (
     <section
       id="blog"
-      className="ewd-dots ewd-bulge-host scroll-section relative px-5 py-20 sm:px-8 md:py-24"
+      className="ewd-dots ewd-bulge-host scroll-section ewd-section relative px-5 sm:px-8"
       style={{
         backgroundColor: "var(--ewd-cream)",
         ["--dot" as string]: "#F0DCE4",

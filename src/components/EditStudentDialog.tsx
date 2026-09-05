@@ -35,7 +35,7 @@ const daysOfWeek = DAYS_OF_WEEK;
 export function EditStudentDialog(props: EditStudentDialogProps) {
   const {
     name, setName,
-    zoomLink, setZoomLink, zoomSupported,
+    zoomLink, setZoomLink,
     lessonsPerWeek, lessons,
     lessonDates, originalLessonDates,
     loading, shifting, showConfirm, setShowConfirm,
@@ -50,9 +50,29 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
     handleRealignChain, handleShiftForward, handleShiftBackward,
   } = useEditStudentDialog(props);
 
+  /**
+   * Zoom bağlantısının biçim kontrolü.
+   *
+   * `type="url"` tek başına `http://x` gibi bir şeyi de kabul ediyor ve alan
+   * zorunlu olmadığı için tarayıcı doğrulaması hiç çalışmayabiliyor. Öğrenciye
+   * gidecek bir bağlantı olduğu için en azından https ve geçerli bir adres
+   * olduğundan emin oluyoruz. Alan adını Zoom ile sınırlamıyoruz — bazı
+   * kurumlar kendi alt alan adlarını (ör. `firma.zoom.us`) ya da Meet/Teams
+   * kullanabiliyor.
+   */
+  const zoomLinkGecerli = (() => {
+    const deger = zoomLink.trim();
+    if (deger === "") return true; // boş bırakmak serbest
+    try {
+      return new URL(deger).protocol === "https:";
+    } catch {
+      return false;
+    }
+  })();
+
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Öğrenci Ayarları</DialogTitle>
         </DialogHeader>
@@ -70,21 +90,28 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
             />
           </div>
 
-          {zoomSupported && (
-            <div className="space-y-2">
-              <Label htmlFor="zoomLink">Zoom Bağlantısı</Label>
-              <Input
-                id="zoomLink"
-                type="url"
-                value={zoomLink}
-                onChange={(e) => setZoomLink(e.target.value)}
-                placeholder="https://zoom.us/j/..."
-              />
-              <p className="text-xs text-muted-foreground">
+          <div className="space-y-2">
+            <Label htmlFor="zoomLink">Zoom Bağlantısı</Label>
+            <Input
+              id="zoomLink"
+              type="url"
+              inputMode="url"
+              value={zoomLink}
+              onChange={(e) => setZoomLink(e.target.value)}
+              placeholder="https://zoom.us/j/..."
+              aria-describedby="zoomLink-hint"
+              aria-invalid={zoomLink.trim() !== "" && !zoomLinkGecerli}
+            />
+            {zoomLink.trim() !== "" && !zoomLinkGecerli ? (
+              <p className="text-xs font-semibold text-destructive">
+                Bağlantı https:// ile başlamalı. Zoom dışı bir adres girdiyseniz emin olun.
+              </p>
+            ) : (
+              <p id="zoomLink-hint" className="text-xs text-muted-foreground">
                 Öğrencinin panelinde ders saatlerinin yanında "Zoom'a katıl" düğmesi olarak görünür.
               </p>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="lessonsPerWeek">Haftalık Ders Sayısı</Label>
@@ -327,7 +354,11 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
           <Separator className="my-4" />
 
           <div className="flex gap-3">
-            <Button type="submit" disabled={loading || conflicts.length > 0} className="flex-1">
+            <Button
+              type="submit"
+              disabled={loading || conflicts.length > 0 || !zoomLinkGecerli}
+              className="flex-1"
+            >
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Kaydet
             </Button>

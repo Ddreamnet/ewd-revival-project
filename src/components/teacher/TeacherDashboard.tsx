@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import { LogOut, Moon, Sun, Wallet } from "lucide-react";
+import { CalendarDays, LogOut, Moon, Sun, Wallet } from "lucide-react";
 
 import { PanelShell } from "@/components/panel/PanelShell";
 import { PanelHeader } from "@/components/panel/PanelHeader";
@@ -37,6 +37,10 @@ import { StudentWorkspace } from "./StudentWorkspace";
 const BalanceScreen = lazy(() =>
   import("./BalanceScreen").then((m) => ({ default: m.BalanceScreen })),
 );
+/** Haftalık program da açılana kadar inmesin — panelin açılışını yavaşlatmasın. */
+const WeeklyScheduleScreen = lazy(() =>
+  import("./WeeklyScheduleScreen").then((m) => ({ default: m.WeeklyScheduleScreen })),
+);
 const StudentAboutDialog = lazy(() =>
   import("@/components/StudentAboutDialog").then((m) => ({ default: m.StudentAboutDialog })),
 );
@@ -67,6 +71,7 @@ export function TeacherDashboard() {
   const now = useMinuteTick();
   const summary = useMemo(() => summarize(panel.data, now), [panel.data, now]);
 
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /**
    * Mobilde ray, öğrenci seçilince katlanıyor. Sekiz kartlık liste 1.517px;
@@ -99,6 +104,7 @@ export function TeacherDashboard() {
     useMemo(
       () => ({
         balance: () => import("./BalanceScreen"),
+        schedule: () => import("./WeeklyScheduleScreen"),
       }),
       [],
     ),
@@ -223,6 +229,11 @@ export function TeacherDashboard() {
 
   /** Mobil taşma menüsü — başlık satırındaki ikincil eylemler. */
   const menuItems = [
+    {
+      label: "Ders programı",
+      icon: <CalendarDays className="h-4 w-4" />,
+      onSelect: () => setScheduleOpen(true),
+    },
     { label: "Bakiye", icon: <Wallet className="h-4 w-4" />, onSelect: () => setBalanceOpen(true) },
     {
       label: isDark ? "Açık tema" : "Koyu tema",
@@ -263,6 +274,14 @@ export function TeacherDashboard() {
             {/* Masaüstünde ayrı düğmeler, mobilde tek taşma menüsü. */}
             <div className="hidden items-center gap-2 md:flex">
               <ThemeToggleButton variant="panelV2" />
+              <button
+                type="button"
+                className="pnl-btn pnl-btn--soft"
+                onClick={() => setScheduleOpen(true)}
+              >
+                <CalendarDays className="h-4 w-4" />
+                Program
+              </button>
               <button
                 type="button"
                 className="pnl-btn pnl-btn--soft"
@@ -426,9 +445,26 @@ export function TeacherDashboard() {
         />
       )}
 
+      {/*
+        Haftalık program. Panel tek sayfa olduğu için bölüm olarak eklemek
+        yerine — bakiyede olduğu gibi — başlıktaki düğmeden açılan diyalog:
+        ana ekran "sıradaki ders + öğrenciler" odağını koruyor, program
+        gerektiğinde tam ekrana yakın bir alanda açılıyor.
+      */}
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Ders programım</DialogTitle>
+          </DialogHeader>
+          <Suspense fallback={<SectionFallback />}>
+            <WeeklyScheduleScreen teacherId={teacherId} active={scheduleOpen} />
+          </Suspense>
+        </DialogContent>
+      </Dialog>
+
       {/* Bakiye ekranda durmuyor; yalnızca bu diyalogda görünüyor. */}
       <Dialog open={balanceOpen} onOpenChange={setBalanceOpen}>
-        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg max-h-[88vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Bakiyem</DialogTitle>
           </DialogHeader>

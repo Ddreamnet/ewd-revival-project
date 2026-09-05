@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { hataGoster } from "@/lib/notify";
 import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
 import { AlertTriangle } from "lucide-react";
 
@@ -96,12 +97,8 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
       setConflicts([]);
       onOpenChange(false);
       onSuccess();
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import { hataGoster } from "@/lib/notify";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowDown, ArrowUp, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { CONTENT_LANGUAGES, emptyLocalized, type LocalizedValue } from "@/lib/siteContent";
@@ -114,7 +115,7 @@ export function AdminSiteTestimonials({ onChanged }: Props) {
 
     setSaving(false);
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      hataGoster(error, "İşlem tamamlanamadı");
       return;
     }
     toast({ title: "Kaydedildi", description: "Veli yorumu güncellendi" });
@@ -127,7 +128,7 @@ export function AdminSiteTestimonials({ onChanged }: Props) {
     if (!confirm("Bu yorumu kalıcı olarak silmek istiyor musunuz?")) return;
     const { error } = await supabase.from("site_testimonials").delete().eq("id", id);
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      hataGoster(error, "İşlem tamamlanamadı");
       return;
     }
     await fetchRows();
@@ -140,7 +141,7 @@ export function AdminSiteTestimonials({ onChanged }: Props) {
       .update({ is_published: !row.is_published })
       .eq("id", row.id);
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      hataGoster(error, "İşlem tamamlanamadı");
       return;
     }
     await fetchRows();
@@ -153,11 +154,12 @@ export function AdminSiteTestimonials({ onChanged }: Props) {
     const reordered = [...rows];
     [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
     setRows(reordered); // İyimser sıralama — istek dönmeden liste yerine oturur.
-    await Promise.all(
-      reordered.map((row, i) =>
-        supabase.from("site_testimonials").update({ order_index: i }).eq("id", row.id),
-      ),
-    );
+    // Tek RPC: önceden liste uzunluğu kadar ayrı UPDATE gidiyordu (20 öğede
+    // 20 istek) ve yarısı düşerse sıralama bozuk kalıyordu, geri alma yoktu.
+    const { error } = await supabase.rpc("rpc_reorder_site_testimonials", {
+      p_orders: reordered.map((row, i) => ({ id: row.id, order_index: i })),
+    });
+    if (error) hataGoster(error, "Sıralama güncellenemedi");
     await fetchRows();
     onChanged();
   };

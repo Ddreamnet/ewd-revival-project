@@ -101,7 +101,7 @@ export function ValuesSection() {
   return (
     <section
       id="values"
-      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24"
+      className="scroll-section ewd-section relative overflow-hidden px-5 sm:px-8"
       style={{ background: "#2E1065" }}
     >
       <span
@@ -162,7 +162,7 @@ export function ValuesSection() {
                     aria-label={`${i + 1}`}
                     aria-selected={i === index}
                     role="tab"
-                    className="h-2.5 rounded-full transition-all"
+                    className="ewd-hit-44 h-2.5 rounded-full transition-all"
                     style={{
                       width: i === index ? 22 : 10,
                       background: i === index ? "var(--ewd-purple)" : "#DDC8F2",
@@ -233,7 +233,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid h-9 w-9 place-items-center rounded-full border-2 text-[#6D28D9] transition-colors hover:bg-[#F4EDFF]"
+      className="ewd-hit-44 grid h-9 w-9 place-items-center rounded-full border-2 text-[#6D28D9] transition-colors hover:bg-[#F4EDFF]"
       style={{ borderColor: "#DDC8F2" }}
     >
       {children}

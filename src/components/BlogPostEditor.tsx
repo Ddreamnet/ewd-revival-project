@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { shrinkImage, BLOG_IMAGE } from "@/lib/imageResize";
+import { hataGoster } from "@/lib/notify";
 import { useToast } from "@/hooks/use-toast";
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2, Heading3,
@@ -60,12 +62,16 @@ export function BlogPostEditor({ content, onChange }: BlogPostEditorProps) {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
 
-    const ext = file.name.split(".").pop();
+    // Yazı içi görseller de sıkıştırılıyor: editör tam boy yapıştırıyordu.
+    const shrunk = await shrinkImage(file, BLOG_IMAGE);
+    const ext = shrunk.type === "image/jpeg" ? "jpg" : (shrunk.name.split(".").pop() || "jpg");
     const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-    const { error } = await supabase.storage.from("blog-media").upload(path, file);
+    const { error } = await supabase.storage
+      .from("blog-media")
+      .upload(path, shrunk, { contentType: shrunk.type, cacheControl: "31536000" });
     if (error) {
-      toast({ title: "Hata", description: "Görsel yüklenemedi: " + error.message, variant: "destructive" });
+      hataGoster(error, "Görsel yüklenemedi");
       return;
     }
 

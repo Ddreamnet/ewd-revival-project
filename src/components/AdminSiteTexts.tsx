@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { hataGoster } from "@/lib/notify";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, RotateCcw, Save, Search } from "lucide-react";
 import {
@@ -96,7 +97,7 @@ export function AdminSiteTexts({ onChanged }: Props) {
     setSaving(false);
 
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      hataGoster(error, "İşlem tamamlanamadı");
       return;
     }
     toast({ title: "Kaydedildi", description: `${rows.length} alan güncellendi` });
@@ -115,7 +116,7 @@ export function AdminSiteTexts({ onChanged }: Props) {
 
     const { error } = await supabase.from("site_content").delete().eq("key", path);
     if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+      hataGoster(error, "İşlem tamamlanamadı");
       return;
     }
     await fetchOverrides();

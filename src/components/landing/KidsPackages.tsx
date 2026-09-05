@@ -30,11 +30,11 @@ export function KidsPackages() {
   return (
     <section
       id="kids-packages"
-      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24"
+      className="scroll-section ewd-section relative overflow-hidden px-5 sm:px-8"
       style={{ background: "var(--ewd-cream)" }}
     >
       <img
-        src="/ewd/assets/sparkle-yellow.png"
+        src="/ewd/assets/sparkle-yellow.webp"
         alt=""
         aria-hidden="true"
         className="pointer-events-none absolute right-[70px] top-[88px] hidden w-12 opacity-85 lg:block"
@@ -151,8 +151,12 @@ function PackageCard({
         </h3>
       </header>
 
-      <div className="flex items-center gap-2.5 px-1 pb-4 pt-[18px]">
-        <img src="/ewd/assets/sparkle-yellow.png" alt="" aria-hidden="true" className="w-[15px]" />
+      {/* `relative` + sağ pay: üstteki 3D obje `absolute right-3 w-[124px]` ile
+          duruyor ve dar ekranda sloganın sağ yarısını kapatıyordu
+          ("THE PROGRAMME THAT MA▉▉▉H FUN"). Başlık satırı `relative` olduğu için
+          kurtuluyordu, bu satır değildi. Masaüstünde kart geniş, pay gerekmiyor. */}
+      <div className="relative flex items-center gap-2.5 px-1 pb-4 pt-[18px] pr-[112px] lg:pr-0">
+        <img src="/ewd/assets/sparkle-yellow.webp" alt="" aria-hidden="true" className="w-[15px] shrink-0" />
         <span
           className="text-[11px] font-extrabold uppercase leading-tight tracking-[0.1em] sm:text-[12px]"
           style={{ color: sloganInk }}
@@ -186,11 +190,11 @@ function PackageCard({
         className="mt-4 flex items-center justify-center gap-3 rounded-full px-5 py-3.5"
         style={{ background: "rgba(255,248,239,0.22)" }}
       >
-        <img src="/ewd/assets/sparkle-yellow.png" alt="" aria-hidden="true" className="w-4" />
+        <img src="/ewd/assets/sparkle-yellow.webp" alt="" aria-hidden="true" className="w-4" />
         <span className="text-center text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#FFF8EF] sm:text-[13px]">
           {pack.footer[language]}
         </span>
-        <img src="/ewd/assets/sparkle-yellow.png" alt="" aria-hidden="true" className="w-4" />
+        <img src="/ewd/assets/sparkle-yellow.webp" alt="" aria-hidden="true" className="w-4" />
       </div>
     </article>
   );

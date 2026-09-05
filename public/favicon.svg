@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 733 733" role="img" aria-label="English with Dilara">
+  <!--
+    Sekme ikonu: EWD logosunun yıldızı, zemin şeffaf. Yol, logonun kendi
+    dış hattından (public/uploads/logo.webp) çıkarıldı; yazı ve kuyruk
+    16-32 px'te okunmadığı için alınmadı. Kahverengi çerçeve, yolun içine
+    doğru kırpılan kalın bir çizgi: dışa taşmadığı için yıldızın hattı
+    logodakiyle aynı kalınlıkta kalıyor.
+  -->
+  <defs>
+    <linearGradient id="ewd-g" x1=".18" y1="0" x2=".82" y2="1">
+      <stop offset="0" stop-color="#FDCD52"/>
+      <stop offset=".55" stop-color="#FBBE2E"/>
+      <stop offset="1" stop-color="#F4B324"/>
+    </linearGradient>
+    <clipPath id="ewd-c">
+      <path d="M365 30L378 31L392 37L410 56L441 110L495 223L580 233L665 249L704 264L719 282L720 307L702 335L646 393L578 454L612 622L615 645L615 672L616 680L607 689L596 697L584 702L571 703L557 701L545 696L531 691L514 685L439 653L369 624L298 653L223 685L206 691L192 696L180 701L166 703L153 702L141 697L130 689L121 680L119 651L123 619L158 456L85 388L27 328L13 305L14 281L31 263L70 249L145 235L238 224L281 133L315 72L340 40L352 33L364 31Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#ewd-c)">
+    <path d="M365 30L378 31L392 37L410 56L441 110L495 223L580 233L665 249L704 264L719 282L720 307L702 335L646 393L578 454L612 622L615 645L615 672L616 680L607 689L596 697L584 702L571 703L557 701L545 696L531 691L514 685L439 653L369 624L298 653L223 685L206 691L192 696L180 701L166 703L153 702L141 697L130 689L121 680L119 651L123 619L158 456L85 388L27 328L13 305L14 281L31 263L70 249L145 235L238 224L281 133L315 72L340 40L352 33L364 31Z"
+          fill="url(#ewd-g)" stroke="#75330A" stroke-width="32" stroke-linejoin="round"/>
+  </g>
+  <circle cx="238.5" cy="354" r="30.5" fill="#F48721"/>
+  <circle cx="497.5" cy="354" r="30.5" fill="#F48721"/>
+  <ellipse cx="290.5" cy="307" rx="18.7" ry="30.5" fill="#532404"/>
+  <ellipse cx="446.5" cy="307" rx="18.7" ry="30.5" fill="#532404"/>
+  <path d="M322 355Q368.5 413 415 355" fill="none" stroke="#532404" stroke-width="16" stroke-linecap="round"/>
+</svg>

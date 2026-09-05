@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Plus, Download, Trash2, CheckCircle, Undo2, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { hataGoster } from "@/lib/notify";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { LessonOverrideDialog } from "./LessonOverrideDialog";
@@ -56,6 +57,14 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const [lessons, setLessons] = useState<StudentLesson[]>([]);
   const [trialLessons, setTrialLessons] = useState<TrialLesson[]>([]);
   const [loading, setLoading] = useState(true);
+  /**
+   * Onay diyaloglarındaki işlem sürerken ikinci tık girmesin.
+   *
+   * Radix `AlertDialogAction` tıklanınca diyaloğu kapatıyor, ama kapanma
+   * animasyonu bitene kadar düğme DOM'da ve tıklanabilir kalıyor. Deneme dersi
+   * tamamlama/geri alma bakiyeye yazdığı için o aralık mükerrer kayda açıktı.
+   */
+  const [busy, setBusy] = useState(false);
   const [studentColors, setStudentColors] = useState<Map<string, string>>(new Map());
   const [showAddTrial, setShowAddTrial] = useState(false);
   const [selectedTrialLesson, setSelectedTrialLesson] = useState<TrialLesson | null>(null);
@@ -184,15 +193,17 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   };
 
   const handleDeleteTrialLesson = async () => {
-    if (!selectedTrialLesson) return;
+    if (!selectedTrialLesson || busy) return;
+    setBusy(true);
     try {
       const { error } = await supabase.from("trial_lessons").delete().eq("id", selectedTrialLesson.id);
       if (error) throw error;
       toast({ title: "Başarılı", description: "Deneme dersi silindi" });
       fetchSchedule();
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     } finally {
+      setBusy(false);
       setShowDeleteAlert(false);
       setShowTrialActionDialog(false);
       setSelectedTrialLesson(null);
@@ -200,30 +211,34 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   };
 
   const handleMarkComplete = async () => {
-    if (!selectedTrialLesson) return;
+    if (!selectedTrialLesson || busy) return;
+    setBusy(true);
     try {
       const result = await completeTrialLesson(selectedTrialLesson.id, teacherId);
       if (!result.success) throw new Error(result.error || "İşlem başarısız");
       toast({ title: "Başarılı", description: "Ders işlendi olarak işaretlendi" });
       fetchSchedule();
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     } finally {
+      setBusy(false);
       setShowMarkAlert(false);
       setSelectedTrialLesson(null);
     }
   };
 
   const handleMarkIncomplete = async () => {
-    if (!selectedTrialLesson) return;
+    if (!selectedTrialLesson || busy) return;
+    setBusy(true);
     try {
       const result = await undoTrialLesson(selectedTrialLesson.id, teacherId);
       if (!result.success) throw new Error(result.error || "İşlem başarısız");
       toast({ title: "Başarılı", description: "Ders işlenmedi olarak geri alındı" });
       fetchSchedule();
-    } catch (error: any) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     } finally {
+      setBusy(false);
       setShowUnmarkAlert(false);
       setSelectedTrialLesson(null);
     }
@@ -353,7 +368,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
 
       {/* Trial Lesson Action Dialog */}
       <Dialog open={showTrialActionDialog} onOpenChange={setShowTrialActionDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Deneme Dersi İşlemleri</DialogTitle>
             <DialogDescription>
@@ -385,7 +400,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMarkComplete}>Onayla</AlertDialogAction>
+            <AlertDialogAction onClick={handleMarkComplete} disabled={busy}>Onayla</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -398,7 +413,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMarkIncomplete}>Onayla</AlertDialogAction>
+            <AlertDialogAction onClick={handleMarkIncomplete} disabled={busy}>Onayla</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -411,7 +426,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTrialLesson} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sil</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteTrialLesson} disabled={busy} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sil</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

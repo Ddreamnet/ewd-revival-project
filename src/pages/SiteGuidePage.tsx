@@ -325,7 +325,7 @@ export default function SiteGuidePage() {
                         />
                         <div className="min-w-0">
                           <p className="font-mono text-[12px] font-bold text-[#2E1065]">--ewd-{swatch.name}</p>
-                          <p className="text-[11px] font-semibold text-[#8B7A9E]">{swatch.value}</p>
+                          <p className="text-[11px] font-semibold text-[#7A6A8F]">{swatch.value}</p>
                           <p className="text-[12px] font-medium text-[#5B4A6E]">{swatch.note}</p>
                         </div>
                       </div>
@@ -344,7 +344,7 @@ export default function SiteGuidePage() {
                       <span className={row.cls === "ewd-label" ? `${row.cls} text-[#A253BE]` : row.cls}>
                         {row.sample}
                       </span>
-                      <span className="text-[12px] font-medium text-[#8B7A9E]">{row.note}</span>
+                      <span className="text-[12px] font-medium text-[#7A6A8F]">{row.note}</span>
                     </div>
                   ))}
                 </div>
@@ -392,7 +392,7 @@ export default function SiteGuidePage() {
               <div className="space-y-1.5">
                 {SECTIONS.map((section, i) => (
                   <div key={section.name} className="flex items-center gap-3">
-                    <span className="w-6 shrink-0 text-right font-mono text-[12px] font-bold text-[#8B7A9E]">
+                    <span className="w-6 shrink-0 text-right font-mono text-[12px] font-bold text-[#7A6A8F]">
                       {i + 1}
                     </span>
                     <span

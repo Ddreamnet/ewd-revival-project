@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { hataGoster } from "@/lib/notify";
 import { BookOpen, Plus } from "lucide-react";
 import { getResourceIcon } from "@/lib/resourceUtils";
 import { branchLabel, type Branch } from "@/lib/branch";
@@ -120,7 +121,7 @@ export function GlobalTopicsManager({
       }));
 
       setGlobalTopics(topicsWithSortedResources);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Hata",
         description: "Global konular getirilemedi",
@@ -167,7 +168,7 @@ export function GlobalTopicsManager({
       });
 
       if (error) throw error;
-    } catch (error: any) {
+    } catch (error) {
       // Revert on error
       toast({
         title: "Hata",
@@ -209,7 +210,7 @@ export function GlobalTopicsManager({
       });
 
       if (error) throw error;
-    } catch (error: any) {
+    } catch (error) {
       // Revert on error
       toast({
         title: "Hata",
@@ -289,12 +290,8 @@ export function GlobalTopicsManager({
 
       fetchGlobalTopics();
       setShowAddTopic(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     }
   };
 
@@ -319,12 +316,8 @@ export function GlobalTopicsManager({
       });
 
       fetchGlobalTopics();
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     }
   };
 
@@ -352,12 +345,8 @@ export function GlobalTopicsManager({
 
       fetchGlobalTopics();
       setShowAddResource(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     }
   };
 
@@ -380,12 +369,8 @@ export function GlobalTopicsManager({
 
       fetchGlobalTopics();
       setShowEditTopic(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     }
   };
 
@@ -416,12 +401,8 @@ export function GlobalTopicsManager({
 
       fetchGlobalTopics();
       setShowEditResource(false);
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     }
   };
 
@@ -437,12 +418,8 @@ export function GlobalTopicsManager({
       });
 
       fetchGlobalTopics();
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      hataGoster(error, "İşlem tamamlanamadı");
     }
   };
 
@@ -561,7 +538,7 @@ export function GlobalTopicsManager({
         body
       ) : (
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />

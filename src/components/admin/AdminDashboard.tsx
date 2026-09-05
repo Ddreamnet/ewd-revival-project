@@ -1,10 +1,11 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Heart, LogOut, Settings, UserPlus } from "lucide-react";
+import { Heart, LogOut, Moon, Settings, Sun, UserPlus } from "lucide-react";
 
 import { PanelShell } from "@/components/panel/PanelShell";
 import { PanelHeader } from "@/components/panel/PanelHeader";
 import { BottomTabBar, NavPills, type PanelTab } from "@/components/panel/PanelNav";
+import { PanelMenu } from "@/components/panel/PanelMenu";
 import { Avatar, EmptyState, IconButton, ScreenHeader } from "@/components/panel/PanelBits";
 import { toneForName } from "@/lib/panelFormat";
 
@@ -24,6 +25,7 @@ import { AdminStudentList } from "@/components/AdminStudentList";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminBranch } from "@/hooks/useAdminBranch";
+import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAdminTopicsCrud } from "@/hooks/useAdminTopicsCrud";
@@ -78,6 +80,9 @@ export function AdminDashboard() {
 
   // Panelin açık olduğu dil şubesi — İngilizce ve Fransızca sistemleri ayrı.
   const [branch, setBranch] = useAdminBranch();
+
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
@@ -341,6 +346,34 @@ export function AdminDashboard() {
     [teachers, toast, fetchTeachers],
   );
 
+  /**
+   * Mobil taşma menüsü — öğretmen ve öğrenci panelleriyle aynı desen.
+   *
+   * Öncesinde admin başlığında mobilde dört ayrı ikon düğmesi duruyordu
+   * (bildirim · gezi · tema · çıkış). PanelMenu'nün kendi notunun anlattığı
+   * durum tam buydu: dört düğme satırı yiyor ve başlık "Admin Pane…" diye
+   * kırpılıyordu. Bildirim zilini dışarıda bırakıyoruz — okunmamış rozetinin
+   * görünmesi gerekiyor; ikincil olan üçü menüye giriyor.
+   */
+  const adminMenuItems = [
+    {
+      label: "Gezi günlüğü",
+      icon: <Heart className="h-4 w-4" />,
+      onSelect: () => navigate("/mytriptolove"),
+    },
+    {
+      label: isDark ? "Açık tema" : "Koyu tema",
+      icon: isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />,
+      onSelect: () => setTheme(isDark ? "light" : "dark"),
+    },
+    {
+      label: signingOut ? "Çıkış yapılıyor…" : "Çıkış yap",
+      icon: <LogOut className="h-4 w-4" />,
+      onSelect: signOut,
+      disabled: signingOut,
+    },
+  ];
+
   const headerActions = (
     <>
       <AdminNotificationBell
@@ -348,22 +381,25 @@ export function AdminDashboard() {
         adminId={profile?.user_id ?? ""}
         teacherIds={branchTeacherIds}
       />
-      {/* Gezi günlüğü — panelde bir yeri yok, tek girişi bu düğme. */}
-      <IconButton label="Gezi günlüğü" onClick={() => navigate("/mytriptolove")}>
-        <Heart className="h-5 w-5" />
-      </IconButton>
-      <ThemeToggleButton variant="panelV2" />
-      <button
-        type="button"
-        className="pnl-btn pnl-btn--outline hidden md:inline-flex"
-        onClick={signOut}
-        disabled={signingOut}
-      >
-        {signingOut ? "Çıkış…" : "Çıkış"}
-      </button>
-      <IconButton label="Çıkış yap" className="md:hidden" onClick={signOut} disabled={signingOut}>
-        <LogOut className="h-5 w-5" />
-      </IconButton>
+      {/* Masaüstünde ayrı düğmeler, mobilde tek taşma menüsü. */}
+      <div className="hidden items-center gap-2 md:flex">
+        {/* Gezi günlüğü — panelde bir yeri yok, tek girişi bu düğme. */}
+        <IconButton label="Gezi günlüğü" onClick={() => navigate("/mytriptolove")}>
+          <Heart className="h-5 w-5" />
+        </IconButton>
+        <ThemeToggleButton variant="panelV2" />
+        <button
+          type="button"
+          className="pnl-btn pnl-btn--outline"
+          onClick={signOut}
+          disabled={signingOut}
+        >
+          {signingOut ? "Çıkış…" : "Çıkış"}
+        </button>
+      </div>
+      <div className="md:hidden">
+        <PanelMenu items={adminMenuItems} />
+      </div>
     </>
   );
 

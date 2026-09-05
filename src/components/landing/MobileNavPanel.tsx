@@ -64,7 +64,7 @@ export function MobileNavPanel({ onNavigateSection }: MobileNavPanelProps) {
         </nav>
 
         <div className="space-y-1.5">
-          <span className="px-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9A87AC]">
+          <span className="px-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7A6A8F]">
             {t.header.language[language]}
           </span>
           {/* Yedi dil bir pill şeridine sığmıyor; iki sütunlu bir ızgara hem
@@ -92,7 +92,7 @@ export function MobileNavPanel({ onNavigateSection }: MobileNavPanelProps) {
                     src={lang.flagIcon}
                     alt=""
                     aria-hidden="true"
-                    className="h-[18px] w-[18px] shrink-0 rounded-full object-cover"
+                    className="ewd-flagdot h-[18px] w-[18px] shrink-0 rounded-full object-cover"
                   />
                   <span className="truncate">{lang.name}</span>
                 </button>

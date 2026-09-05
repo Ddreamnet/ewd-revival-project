@@ -48,11 +48,12 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
   // yüzden öğretmen kimliğini ya da paket döngüsünü beklemeye gerek yok.
   // Önceki sürüm üç ardışık tur atıyordu (students → tracking → instances);
   // mobil bağlantıda her tur bir gidiş-dönüş gecikmesi demekti.
-  //
-  // `select("*")` (students): zoom_link göçü uygulanmamış kurulumlarda sorgu
-  // patlamasın, alan sessizce boş kalsın.
   const [relationRes, trackingRes, fixedRes, instancesRes] = await Promise.all([
-    supabase.from("students").select("*").eq("student_id", studentUserId).maybeSingle(),
+    supabase
+      .from("students")
+      .select("teacher_id, zoom_link")
+      .eq("student_id", studentUserId)
+      .maybeSingle(),
     supabase
       .from("student_lesson_tracking")
       .select("teacher_id, package_cycle, lessons_per_week")

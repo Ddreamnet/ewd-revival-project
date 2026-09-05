@@ -170,6 +170,23 @@ export const translations = {
     },
   },
 
+  // ------------------------------------------------------------------- SEO
+  // Sekme başlığı ve arama sonucundaki mavi satır. Marka adı `useDocumentMeta`
+  // tarafından sonuna eklendiği için burada yalnızca ne yapıldığı yazıyor —
+  // "English with Dilara" tek başına ne aradığını bilmeyen birine bir şey
+  // anlatmıyordu.
+  seo: {
+    homeTitle: {
+      tr: "Online İngilizce Dersleri",
+      en: "Online English Lessons",
+      fr: "Cours d'anglais en ligne",
+      ru: "Онлайн-уроки английского",
+      es: "Clases de inglés online",
+      de: "Online-Englischunterricht",
+      ar: "دروس إنجليزية عبر الإنترنت",
+    },
+  },
+
   // ------------------------------------------------------------------ Hero
   hero: {
     badgeKids: {
@@ -2417,6 +2434,70 @@ export const translations = {
       es: "Ir a",
       de: "Gehe zu",
       ar: "انتقل إلى",
+    },
+    /* Büyütme diyaloğu — çerçeveli görüntüleyici. */
+    enlarge: {
+      tr: "Büyüt",
+      en: "Enlarge",
+      fr: "Agrandir",
+      ru: "Увеличить",
+      es: "Ampliar",
+      de: "Vergrößern",
+      ar: "تكبير",
+    },
+    close: {
+      tr: "Kapat",
+      en: "Close",
+      fr: "Fermer",
+      ru: "Закрыть",
+      es: "Cerrar",
+      de: "Schließen",
+      ar: "إغلاق",
+    },
+    play: {
+      tr: "Oynat",
+      en: "Play",
+      fr: "Lire",
+      ru: "Воспроизвести",
+      es: "Reproducir",
+      de: "Abspielen",
+      ar: "تشغيل",
+    },
+    pause: {
+      tr: "Duraklat",
+      en: "Pause",
+      fr: "Pause",
+      ru: "Пауза",
+      es: "Pausa",
+      de: "Pause",
+      ar: "إيقاف مؤقت",
+    },
+    soundOn: {
+      tr: "Sesi aç",
+      en: "Unmute",
+      fr: "Activer le son",
+      ru: "Включить звук",
+      es: "Activar sonido",
+      de: "Ton an",
+      ar: "تشغيل الصوت",
+    },
+    soundOff: {
+      tr: "Sesi kapat",
+      en: "Mute",
+      fr: "Couper le son",
+      ru: "Выключить звук",
+      es: "Silenciar",
+      de: "Ton aus",
+      ar: "كتم الصوت",
+    },
+    swipeHint: {
+      tr: "Ok tuşlarıyla, sürükleyerek ya da kaydırarak gezinin",
+      en: "Use the arrow keys, drag or swipe to browse",
+      fr: "Naviguez avec les flèches, en glissant ou en balayant",
+      ru: "Листайте стрелками, перетаскиванием или свайпом",
+      es: "Navega con las flechas, arrastrando o deslizando",
+      de: "Mit den Pfeiltasten, per Ziehen oder Wischen blättern",
+      ar: "تصفّح بمفاتيح الأسهم أو بالسحب أو بالتمرير",
     },
     shots: [
       {

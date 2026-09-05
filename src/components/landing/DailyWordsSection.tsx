@@ -12,7 +12,7 @@ export function DailyWordsSection() {
   return (
     <section
       id="words"
-      className="scroll-section relative overflow-hidden px-5 py-20 sm:px-8 md:py-24"
+      className="scroll-section ewd-section relative overflow-hidden px-5 sm:px-8"
       style={{ background: "#F7ECFF" }}
     >
       {/* Yıldız dokusu + üstte tarak kenar */}

@@ -86,7 +86,7 @@ export function WordControls({ value, onChange }: WordControlsProps) {
               type="button"
               onClick={() => set({ level: active ? "all" : lvl })}
               aria-pressed={active}
-              className="rounded-full border-2 px-3 py-1.5 text-[12px] font-extrabold transition-colors"
+              className="grid min-h-[44px] min-w-[44px] place-items-center rounded-full border-2 px-3 text-[12px] font-extrabold transition-colors"
               style={
                 active
                   ? { background: "var(--ewd-pink)", borderColor: "var(--ewd-pink)", color: "#fff" }

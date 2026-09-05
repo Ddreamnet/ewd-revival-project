@@ -314,7 +314,7 @@ return (
 );
 ```
 5. **Role model is split-brain:** authorization uses `user_roles` (`has_role`) but the app and several DB functions still key off legacy `profiles.role` (`AdminDashboard.tsx:187`, `EditTeacherDialog.tsx:74`, `create_student_relationship`). Until §2.3 lands, `profiles.role` is client-influenced — migrate every check to `user_roles` and demote `profiles.role` to display-only.
-6. **`.env` is decorative:** `src/integrations/supabase/client.ts:6-8` hardcodes URL+key (Lovable-generated). Fine for an anon key, but the `.env` file then serves no purpose except leaking into git (§2.6). Read from `import.meta.env` and drop the file from tracking.
+6. **`.env` is decorative:** `src/integrations/supabase/client.ts:6-8` hardcodes URL+key (generated scaffold). Fine for an anon key, but the `.env` file then serves no purpose except leaking into git (§2.6). Read from `import.meta.env` and drop the file from tracking.
 7. **Network-dropout resume path:** on app resume, `TOKEN_REFRESHED` fires and profile is *not* refetched if already cached (good), but if the refresh fails while offline Supabase emits `SIGNED_OUT` in v2 only after retry exhaustion — the UI then bounces to `AuthForm` even though credentials would recover. Consider handling the `TOKEN_REFRESH_FAILED`-style flow by showing a "reconnecting…" state instead of the login form when `navigator.onLine === false`.
 8. Session security hygiene to schedule: enable leaked-password protection & MFA options in the dashboard, and set JWT expiry ≤ 1 h (defaults are fine but verify — dashboard config isn't in the repo).
 

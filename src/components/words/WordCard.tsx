@@ -86,7 +86,10 @@ export function WordCard({ entry, wordLanguage }: WordCardProps) {
             style={{ background: tone.panel }}
           >
             <span
-              className="absolute inset-0 opacity-40"
+              aria-hidden="true"
+              // Dekoratif desen; tıklamayı yutmamalı. Yutunca üstteki ses
+              // düğmesinin genişletilmiş dokunma alanı işe yaramıyordu.
+              className="pointer-events-none absolute inset-0 opacity-40"
               style={{
                 backgroundImage: "url(/ewd/pat/tile-dot-yellow.png)",
                 backgroundSize: "88px",
@@ -161,7 +164,7 @@ export function WordCard({ entry, wordLanguage }: WordCardProps) {
               >
                 {entry.word}
               </h3>
-              <span dir="ltr" className="text-[13px] font-semibold italic text-[#8B7A9E]">
+              <span dir="ltr" className="text-[13px] font-semibold italic text-[#7A6A8F]">
                 {entry.phonetic}
               </span>
             </div>
@@ -176,7 +179,7 @@ export function WordCard({ entry, wordLanguage }: WordCardProps) {
                 onKeyDown={(e) => e.stopPropagation()}
                 aria-label={t.words.listen[language]}
                 aria-pressed={activeKey === "word"}
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-full transition-transform hover:scale-105 active:scale-95 data-[speaking=true]:animate-pulse"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition-transform hover:scale-105 active:scale-95 data-[speaking=true]:animate-pulse"
                 data-speaking={activeKey === "word"}
                 style={{ background: tone.wash, color: tone.accent, border: `2px solid ${tone.edge}` }}
               >
@@ -208,11 +211,11 @@ export function WordCard({ entry, wordLanguage }: WordCardProps) {
                     onKeyDown={(e) => e.stopPropagation()}
                     aria-label={`${t.words.listen[language]} — ${t.words.example[language]}`}
                     aria-pressed={activeKey === "example"}
-                    className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full transition-transform hover:scale-105 active:scale-95 data-[speaking=true]:animate-pulse"
+                    className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full transition-transform hover:scale-105 active:scale-95 data-[speaking=true]:animate-pulse"
                     data-speaking={activeKey === "example"}
                     style={{ background: tone.wash, color: tone.accent }}
                   >
-                    <Volume2 className="h-[13px] w-[13px]" />
+                    <Volume2 className="h-[15px] w-[15px]" />
                   </button>
                 )}
               </div>
@@ -239,7 +242,7 @@ export function WordCard({ entry, wordLanguage }: WordCardProps) {
             )}
           </div>
 
-          <span className="mt-3 shrink-0 text-center text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9A87AC]">
+          <span className="mt-3 shrink-0 text-center text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7A6A8F]">
             {t.words.backHint[language]} ↻
           </span>
         </div>

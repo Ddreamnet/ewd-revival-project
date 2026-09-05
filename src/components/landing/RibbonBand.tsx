@@ -27,7 +27,7 @@ export function RibbonBand() {
           Arapça metnin kendi içindeki sıralaması bundan etkilenmez. */}
       <svg
         viewBox="0 0 1440 236"
-        className="absolute inset-0 h-full w-full"
+        className="pointer-events-none absolute inset-0 h-full w-full"
         preserveAspectRatio="xMidYMid slice"
         role="presentation"
         style={{ direction: "ltr" }}

@@ -6,6 +6,7 @@ import { Footer } from "@/components/landing/Footer";
 import { BackSwipeWrapper } from "@/components/BackSwipeWrapper";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LOCALES } from "@/lib/translations";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 const PAGE_SIZE = 9;
 
@@ -20,6 +21,11 @@ export default function BlogPage() {
   const { language, t } = useLanguage();
   const [page, setPage] = useState(0);
   const { data, isLoading } = usePublishedPostsPaginated(page, PAGE_SIZE);
+
+  useDocumentMeta({
+    title: t.blog.title[language],
+    description: t.blog.lead[language],
+  });
 
   const posts = data?.posts || [];
   const total = data?.total || 0;
@@ -48,8 +54,36 @@ export default function BlogPage() {
             </div>
 
             {isLoading && page === 0 ? (
-              <div className="flex justify-center py-16">
-                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[color:var(--ewd-purple)]" />
+              /* İskeletler gerçek kartla aynı ızgarada, aynı 3:2 kapak oranında
+                 ve aynı satır yüksekliklerinde duruyor. Öncesinde burada
+                 ~128px'lik ortalanmış bir spinner vardı ve yerini ~1200px'lik
+                 kart ızgarası alıyordu: footer bir anda aşağı fırlıyor, ölçülen
+                 CLS mobilde 0,54 / masaüstünde 0,66 çıkıyordu (Google'ın "kötü"
+                 eşiği 0,25). Aynı yüksekliği baştan ayırınca sayfa hiç kıpırdamıyor. */
+              <div className="grid gap-11 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label={t.blog.title[language]}>
+                {Array.from({ length: PAGE_SIZE }, (_, i) => {
+                  const tone = TONES[i % TONES.length];
+                  return (
+                    <div key={i} className="ewd-stamp block" style={{ ["--stamp" as string]: tone.bg }}>
+                      <span className="ewd-stamp__side ewd-stamp__side--l" aria-hidden="true" />
+                      <span className="ewd-stamp__side ewd-stamp__side--r" aria-hidden="true" />
+                      <div
+                        className="relative flex h-full flex-col items-center gap-3.5 rounded-[26px] px-7 pb-8 pt-7"
+                        style={{ background: tone.bg }}
+                      >
+                        <div className="aspect-[3/2] w-full animate-pulse rounded-[18px] bg-black/5" />
+                        <div className="flex w-full flex-col items-center gap-1.5">
+                          <span className="h-[13px] w-28 animate-pulse rounded-full bg-black/5" />
+                          <span className="mt-1 h-[22px] w-full animate-pulse rounded-full bg-black/5" />
+                          <span className="h-[22px] w-3/4 animate-pulse rounded-full bg-black/5" />
+                          <span className="mt-1.5 h-[15px] w-full animate-pulse rounded-full bg-black/5" />
+                          <span className="h-[15px] w-5/6 animate-pulse rounded-full bg-black/5" />
+                        </div>
+                        <span className="mt-auto h-[45px] w-32 animate-pulse rounded-full bg-black/5 pt-1" />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : !posts.length ? (
               <p className="py-16 text-center text-[15px] font-semibold text-[#6B5B7B]">

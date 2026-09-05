@@ -19,14 +19,18 @@ export function AdultPackages() {
   return (
     <section
       id="adult-packages"
-      className="ewd-grid-paper ewd-bulge-host scroll-section relative px-5 py-20 sm:px-8 md:py-24"
+      className="ewd-grid-paper ewd-bulge-host scroll-section ewd-section relative px-5 sm:px-8"
       style={{ backgroundColor: "#FBF5FF", ["--grid" as string]: "#E9DBF7" }}
     >
       {/* Tarak geçişi — kareli zemin üstteki ve alttaki bölüme sarkar. */}
       <span className="ewd-bulge" style={{ ["--bulge" as string]: "#FBF5FF" }} aria-hidden="true">
         <span className="ewd-bulge__tex ewd-grid-paper" style={{ backgroundSize: "34px 34px" }} />
       </span>
-      <div className="mx-auto max-w-[1080px]">
+      {/* Kapsayıcı diğer bölümlerle aynı (1180); dar görünüm iç sütunla
+          sağlanıyor. Öncesinde max-w-[1080px] kapsayıcıya konduğu için içerik
+          ortalanıyor ve sayfanın sol omurgası 130px → 180px kayıyordu. */}
+      <div className="ewd-container">
+        <div className="max-w-[1080px]">
         <div className="flex flex-col items-start justify-between gap-6 pb-9 md:flex-row md:items-end md:gap-10">
           <h2 className="ewd-h2 whitespace-pre-line">{t.adultPackages.title[language]}</h2>
           <p
@@ -121,6 +125,7 @@ export function AdultPackages() {
               {pack.cta[language]}
             </button>
           </div>
+        </div>
         </div>
       </div>
     </section>

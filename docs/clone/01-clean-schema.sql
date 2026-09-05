@@ -84,6 +84,10 @@ CREATE TABLE IF NOT EXISTS public.students (
   teacher_id uuid NOT NULL,
   student_id uuid NOT NULL,
   about_text text DEFAULT NULL,
+  -- Öğrencinin panelinde ders saatlerinin yanında "Zoom'a katıl" düğmesi
+  -- olarak görünür. Üretimde vardı ama bu klon şemasında eksikti; uygulama
+  -- da bu yüzden sütunun varlığını çalışma anında yoklamak zorunda kalıyordu.
+  zoom_link text DEFAULT NULL,
   is_archived boolean NOT NULL DEFAULT false,
   archived_at timestamp with time zone DEFAULT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now()

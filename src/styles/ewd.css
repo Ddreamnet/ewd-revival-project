@@ -59,7 +59,7 @@
     --ewd-text: #2f2a3a;
     --ewd-body: #5b4a6e;
     --ewd-body-soft: #6b5b7b;
-    --ewd-faint: #8b7a9e;
+    --ewd-faint: #7a6a8f;   /* krem üstünde 3.71 → 4.63 (WCAG AA) */
     --ewd-neutral: #6b7280;
 
     /* ---- Panel v2 durum renkleri (handoff_panel/README "Tasarım token'ları") ----
@@ -71,7 +71,7 @@
     --ewd-chip-ink: #6f677f;
     --ewd-muted: #77678a;
     --ewd-muted-2: #7f6f96;
-    --ewd-muted-3: #9d8fae;
+    --ewd-muted-3: #7d6f92; /* krem üstünde 2.86 → 4.54 (WCAG AA) */
     --ewd-lilac-line-2: #ddccf7;
     --ewd-lilac-line-3: #e4d3f5;
     --ewd-field-bg: #fdf4ff;
@@ -90,7 +90,7 @@
        metin de sabit: --ewd-cream koyu modda koyulaşıyor ve mor blokta
        yazıyı okunmaz hale getiriyordu. */
     --ewd-on-purple: #fff8ef;
-    --ewd-on-purple-soft: #e4d3f5;
+    --ewd-on-purple-soft: #f3e9fc; /* mor üstünde 3.31 → 4.62 (WCAG AA) */
     /* Zoom marka mavisi — derse bağlanma düğmesi. Moddan bağımsız. */
     /* Katı butonların üzerindeki yazı: açık modda beyaz, koyuda lacivert. */
     --ewd-btn-ink: #ffffff;
@@ -108,6 +108,15 @@
     --ewd-zoom-base: #0740b8;
 
     /* ---- Ölçü sistemi ---- */
+    /* Bölüm dikey ritmi. Denetimde masaüstünde üç ayrı değer ölçülmüştü
+       (96 / 100 / 104 px) — göz kararı konmuş, aralarında sistem yoktu.
+       Mobil zaten tek değerdeydi (80). Tek kaynak burası. */
+    --ewd-section-y: 80px;
+    /* Sayfa kapsayıcısı. Bölümler farklı max-width kullandığında (1180 / 1080 /
+       880) içerik ortalandığı için sol omurga 130 → 180 → 280 px diye kayıyordu.
+       Kapsayıcı sabit; daralması gereken bölüm iç sütununu daraltır. */
+    --ewd-container: 1180px;
+
     --ewd-r-pill: 999px;
     --ewd-r-card: 42px;
     --ewd-r-card-sm: 30px;
@@ -137,6 +146,27 @@
     --ewd-accent-wash: #f4edff;
     --ewd-panel-shadow: 0 18px 34px -22px rgb(var(--ewd-shadow-tint) / 0.28);
     --ewd-panel-shadow-sm: 0 8px 18px -12px rgb(var(--ewd-shadow-tint) / 0.22);
+  }
+
+  /* Bölüm dikey ritmi masaüstünde büyür. `:root`'tan SONRA gelmeli —
+     iki kural da aynı özgüllükte, sonraki kazanıyor. */
+  @media (min-width: 1024px) {
+    :root {
+      --ewd-section-y: 96px;
+    }
+  }
+
+  /* Landing bölümlerinin ortak kabuğu.
+     Dikey ritim ve kapsayıcı genişliği tek yerden; bölümler artık kendi
+     `py-24` / `py-[104px]` / `lg:py-[100px]` değerlerini taşımıyor. */
+  .ewd-section {
+    padding-top: var(--ewd-section-y);
+    padding-bottom: var(--ewd-section-y);
+  }
+  .ewd-container {
+    margin-inline: auto;
+    width: 100%;
+    max-width: var(--ewd-container);
   }
 
   .dark {
@@ -396,17 +426,20 @@
     box-shadow: 0 1px 0 var(--ewd-yellow-base);
   }
 
+  /* WhatsApp düğmesi markanın kendi yeşilini kullanır (#25D366) — sitenin
+     genel `--ewd-green` tonu değil; basılı gölgesi de markanın koyu yeşili.
+     Token'a dokunulmadı: panelde başka yerlerde kullanılıyor. */
   .ewd-btn--wa {
-    background: var(--ewd-green);
+    background: #25d366;
     color: var(--ewd-btn-ink);
-    box-shadow: 0 5px 0 var(--ewd-green-base);
+    box-shadow: 0 5px 0 #128c7e;
     padding-left: 0.8125rem;
   }
   .ewd-btn--wa:hover {
-    background: var(--ewd-green-hover);
+    background: #30e074;
   }
   .ewd-btn--wa:active {
-    box-shadow: 0 1px 0 var(--ewd-green-base);
+    box-shadow: 0 1px 0 #128c7e;
   }
 
   .ewd-btn--outline {
@@ -425,6 +458,8 @@
   }
 
   .ewd-btn--sm {
+    /* Küçük varyant 39px'e düşüyordu; parmak hedefi alt sınırı 44px. */
+    min-height: 44px;
     padding: 0.75rem 1.375rem;
     font-size: 0.875rem;
   }
@@ -474,8 +509,10 @@
 
   /* ---- Yuvarlak ikon düğmesi (dil, tema, menü) ---- */
   .ewd-iconbtn {
-    width: 42px;
-    height: 42px;
+    /* 44px: dokunma alanı alt sınırı (Apple HIG; WCAG 2.5.8 "Target Size").
+       42px iki piksel altındaydı. */
+    width: 44px;
+    height: 44px;
     border-radius: var(--ewd-r-pill);
     border: 2px solid var(--ewd-icon-line);
     display: grid;
@@ -527,6 +564,15 @@
     object-fit: cover;
     border: 2px solid var(--ewd-cream-hi);
     box-shadow: 0 0 0 1px var(--ewd-lilac-line-soft);
+  }
+  /* Türk bayrağının ay-yıldızı resmî ölçüde gönder tarafına yakın durur; kare
+     madalyona kırpılınca amblem sola kaçıyordu. Kırpma penceresini amblemin
+     merkezine kaydırıyoruz — bayrak dikdörtgen gösterildiği yerlerde (admin
+     dil listesi) olduğu gibi kalır. */
+  .ewd-lang__flag[src$="/tr.svg"],
+  .ewd-langitem__flag[src$="/tr.svg"],
+  .ewd-flagdot[src$="/tr.svg"] {
+    object-position: 23% center;
   }
   .ewd-lang__chev {
     width: 13px;
@@ -594,7 +640,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    height: 40px;
+    /* 44px dokunma alanı alt sınırı (Apple HIG / WCAG 2.5.8). */
+    height: 44px;
     padding: 0 0.7rem 0 0.35rem;
     border-radius: var(--ewd-r-pill);
     border: 2px solid var(--ewd-lilac-line);
@@ -690,6 +737,10 @@
 
   /* ---- Gün gezinme oku (kelime panosu) ---- */
   .ewd-dayarrow {
+    /* Görsel boyut tasarımdan 34px; dokunma alanı ::after ile 44px'e
+       genişletiliyor. Böylece şeridin ritmi bozulmadan parmak hedefi
+       standarda çıkıyor. */
+    position: relative;
     display: grid;
     place-items: center;
     width: 34px;
@@ -703,6 +754,38 @@
       background-color 0.18s ease,
       border-color 0.18s ease,
       opacity 0.18s ease;
+  }
+  /**
+   * Görsel boyutu küçük kalması gereken düğmeler için dokunma alanı.
+   *
+   * Tasarım bazı düğmeleri 28-34px istiyor (kelime kartındaki ses simgesi,
+   * gün okları, karusel noktaları). Parmak hedefi için alt sınır 44px
+   * (Apple HIG; WCAG 2.5.8). Kutuyu büyütmek şeridin ritmini bozardı, bu
+   * yüzden görünmez bir ::after ile yalnızca tıklama alanı genişletiliyor.
+   */
+  .ewd-hit-44 {
+    position: relative;
+  }
+  .ewd-hit-44::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(44px, 100%);
+    height: max(44px, 100%);
+    transform: translate(-50%, -50%);
+    border-radius: inherit;
+  }
+
+  .ewd-dayarrow::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    border-radius: inherit;
   }
   .ewd-dayarrow:hover:not(:disabled) {
     background: var(--ewd-lilac-tint);
@@ -1214,8 +1297,8 @@
     --ewd-zoom-hover: #2a72ff;
     --ewd-zoom-base: #0740b8;
     --ewd-on-purple: #fff8ef;
-    --ewd-on-purple-soft: #e4d3f5;
-    --ewd-faint: #8b7a9e;
+    --ewd-on-purple-soft: #f3e9fc; /* mor üstünde 3.31 → 4.62 (WCAG AA) */
+    --ewd-faint: #7a6a8f;   /* krem üstünde 3.71 → 4.63 (WCAG AA) */
     --ewd-cream: #fff8ef;
     --ewd-cream-hi: #fffdf8;
     --ewd-ink: #2e1065;
@@ -1254,7 +1337,7 @@
     --ewd-chip-ink: #6f677f;
     --ewd-muted: #77678a;
     --ewd-muted-2: #7f6f96;
-    --ewd-muted-3: #9d8fae;
+    --ewd-muted-3: #7d6f92; /* krem üstünde 2.86 → 4.54 (WCAG AA) */
     --ewd-lilac-line-2: #ddccf7;
     --ewd-lilac-line-3: #e4d3f5;
     --ewd-field-bg: #fdf4ff;
@@ -1268,7 +1351,7 @@
     --ewd-on-lilac: #6d28d9;
     --ewd-pink-line-hover: #f5b6d0;
     --ewd-on-purple: #fff8ef;
-    --ewd-on-purple-soft: #e4d3f5;
+    --ewd-on-purple-soft: #f3e9fc; /* mor üstünde 3.31 → 4.62 (WCAG AA) */
     --ewd-zoom: #0b5cff;
     --ewd-zoom-hover: #2a72ff;
     --ewd-zoom-base: #0740b8;

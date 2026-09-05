@@ -95,7 +95,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (DEV) console.log("[Auth] fetching profile for:", userId);
 
       const [profileResult, rolesResult] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", userId).single(),
+        // Profile arayüzünde ne varsa o: `*` her açılışta gereksiz sütun taşıyordu.
+        supabase
+          .from("profiles")
+          .select("id, user_id, email, full_name, role, language, created_at, updated_at")
+          .eq("user_id", userId)
+          .single(),
         supabase.from("user_roles").select("role").eq("user_id", userId),
       ]);
 
