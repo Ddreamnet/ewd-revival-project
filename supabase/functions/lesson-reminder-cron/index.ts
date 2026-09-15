@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     // =========================================================================
     const { data: instances, error: instancesError } = await supabase
       .from("lesson_instances")
-      .select("id, student_id, teacher_id, start_time")
+      .select("id, student_id, teacher_id, start_time, tur, aday_adi")
       .eq("lesson_date", todayStr)
       .eq("status", "planned")
       .eq("start_time", `${targetTime}:00`);
@@ -60,28 +60,17 @@ Deno.serve(async (req) => {
     }
 
     // =========================================================================
-    // 3. Also check trial lessons for today at target time
+    // 3. Build reminder list
     // =========================================================================
-    const targetDay = target.getDay();
-    const { data: trialLessons, error: trialError } = await supabase
-      .from("trial_lessons")
-      .select("id, teacher_id, start_time")
-      .eq("lesson_date", todayStr)
-      .eq("day_of_week", targetDay)
-      .eq("is_completed", false)
-      .eq("start_time", `${targetTime}:00`);
-
-    if (trialError) {
-      console.error("Error fetching trial lessons:", trialError);
-    }
-
-    // =========================================================================
-    // 4. Build reminder list
-    // =========================================================================
+    // Deneme dersleri için ayrı bir sorgu yok: onlar da lesson_instances
+    // satırı (tur = deneme), yukarıdaki sorgu zaten getiriyor. Ayrı kalsaydı
+    // aynı deneme iki kez hatırlatılırdı.
     interface LessonToRemind {
       lessonKey: string;
       studentId: string | null;
       teacherId: string;
+      /** Deneme dersinde aday adı; öğretmene giden bildirimde görünür. */
+      adayAdi: string | null;
     }
 
     const lessonsToRemind: LessonToRemind[] = [];
@@ -91,14 +80,7 @@ Deno.serve(async (req) => {
         lessonKey: `li_${inst.id}`,
         studentId: inst.student_id,
         teacherId: inst.teacher_id,
-      });
-    }
-
-    for (const trial of trialLessons || []) {
-      lessonsToRemind.push({
-        lessonKey: `tl_${trial.id}`,
-        studentId: null,
-        teacherId: trial.teacher_id,
+        adayAdi: inst.tur === "deneme" ? (inst.aday_adi ?? null) : null,
       });
     }
 
@@ -113,7 +95,7 @@ Deno.serve(async (req) => {
     }
 
     // =========================================================================
-    // 5. Get student names for teacher notifications
+    // 4. Get student names for teacher notifications
     // =========================================================================
     const studentIds = [...new Set(lessonsToRemind.map((l) => l.studentId).filter(Boolean))] as string[];
     const { data: profiles } = await supabase
@@ -127,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     // =========================================================================
-    // 6. Dedup + send push notifications
+    // 5. Dedup + send push notifications
     // =========================================================================
     interface PushRecipient {
       user_id: string;
@@ -140,7 +122,9 @@ Deno.serve(async (req) => {
     const pushRecipients: PushRecipient[] = [];
 
     for (const lesson of lessonsToRemind) {
-      const studentName = lesson.studentId ? (nameMap.get(lesson.studentId) || "Öğrenci") : "Deneme Dersi";
+      const studentName = lesson.studentId
+        ? (nameMap.get(lesson.studentId) || "Öğrenci")
+        : (lesson.adayAdi ? `${lesson.adayAdi} (deneme)` : "Deneme dersi");
 
       // Dedup for student
       if (lesson.studentId) {

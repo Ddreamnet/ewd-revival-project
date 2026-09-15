@@ -198,26 +198,6 @@ export async function manualBalanceAdjust(
 }
 
 /**
- * Complete a trial lesson (separate domain from regular lessons).
- */
-export async function completeTrialLesson(
-  trialId: string,
-  teacherId: string
-): Promise<RpcResult> {
-  const { data, error } = await supabase.rpc("rpc_complete_trial_lesson", {
-    p_trial_id: trialId,
-    p_teacher_id: teacherId,
-  });
-
-  if (error) {
-    console.error("completeTrialLesson RPC error:", error);
-    return { success: false, error: error.message };
-  }
-
-  return data as unknown as RpcResult;
-}
-
-/**
  * Get the next completable instance for a student (first planned by date in current cycle).
  */
 export async function getNextCompletableInstance(
@@ -283,26 +263,6 @@ export async function getLastCompletedInstance(
     .maybeSingle();
 
   return data || null;
-}
-
-/**
- * Undo a completed trial lesson (atomic RPC).
- */
-export async function undoTrialLesson(
-  trialId: string,
-  teacherId: string
-): Promise<RpcResult> {
-  const { data, error } = await supabase.rpc("rpc_undo_trial_lesson", {
-    p_trial_id: trialId,
-    p_teacher_id: teacherId,
-  });
-
-  if (error) {
-    console.error("undoTrialLesson RPC error:", error);
-    return { success: false, error: error.message };
-  }
-
-  return data as unknown as RpcResult;
 }
 
 // ─── Rescheduling ────────────────────────────────────────────────────────────
@@ -500,6 +460,26 @@ export function denemeEkle(
     p_bitis: bitis,
     p_aday_adi: adayAdi?.trim() || null,
   });
+}
+
+/**
+ * Deneme dersini takvimden siler.
+ *
+ * Bakiyeye dokunmaz: işlenmiş bir deneme silinse bile defterdeki kazanç
+ * satırı yerinde kalır (K7 — öğretmenin hakkı yenmez). Bakiyeden de düşmesi
+ * isteniyorsa önce "işlenmedi"ye alınır.
+ */
+export async function denemeSil(instanceId: string): Promise<RpcResult> {
+  const { error } = await supabase
+    .from("lesson_instances")
+    .delete()
+    .eq("id", instanceId)
+    .eq("tur", "deneme");
+  if (error) {
+    console.error("denemeSil error:", error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
 }
 
 export interface FreeSlot {

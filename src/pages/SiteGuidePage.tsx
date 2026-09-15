@@ -110,9 +110,8 @@ const TABLES = [
     group: "Dersler",
     rows: [
       ["student_lessons", "Haftalık şablon: hangi gün, hangi saat"],
-      ["lesson_instances", "Şablondan üretilen tekil ders kayıtları"],
-      ["student_lesson_tracking", "Paket döngüsü ve haftalık ders sayısı"],
-      ["trial_lessons", "Ücretsiz deneme dersleri"],
+      ["lesson_instances", "Tekil ders kayıtları — deneme dersleri de burada (tur = deneme)"],
+      ["student_lesson_tracking", "Paket döngüsü, haftalık ders sayısı ve paket boyu"],
       ["teacher_balance, balance_events, payment_history", "Öğretmen hakediş ve ödeme geçmişi"],
     ],
   },

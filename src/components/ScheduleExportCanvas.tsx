@@ -8,16 +8,8 @@ interface StudentLesson {
   note?: string;
 }
 
-interface TrialLesson {
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  is_completed: boolean;
-}
-
 interface ExportScheduleConfig {
   lessons: StudentLesson[];
-  trialLessons: TrialLesson[];
   studentColors: Record<string, string>;
 }
 
@@ -48,10 +40,9 @@ const formatTime = (time: string) => {
   }
 };
 
-const getAllTimeSlots = (lessons: StudentLesson[], trialLessons: TrialLesson[]) => {
+const getAllTimeSlots = (lessons: StudentLesson[]) => {
   const times = new Set<string>();
   lessons.forEach(lesson => times.add(lesson.start_time));
-  trialLessons.forEach(lesson => times.add(lesson.start_time));
   return Array.from(times).sort();
 };
 
@@ -60,19 +51,20 @@ const getLessonForDayAndTime = (lessons: StudentLesson[], dayIndex: number, time
   return lessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
 };
 
-const getTrialLessonForDayAndTime = (trialLessons: TrialLesson[], dayIndex: number, timeSlot: string) => {
-  const dbDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
-  return trialLessons.find(l => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot);
-};
-
+/**
+ * Dışa aktarılan resim, haftalık ders programının şablonudur. Deneme dersi
+ * tarihli tek seferlik bir kayıt — hangi haftaya ait olduğu resimde
+ * görünmediği için yinelenen bir slot gibi okunuyordu. Ekrandaki şablon kipi
+ * de denemeleri göstermiyor; resim artık onunla aynı şeyi anlatıyor.
+ */
 export const exportScheduleAsPNG = async (config: ExportScheduleConfig) => {
-  const { lessons, trialLessons, studentColors } = config;
-  
-  if (lessons.length === 0 && trialLessons.length === 0) {
+  const { lessons, studentColors } = config;
+
+  if (lessons.length === 0) {
     throw new Error("No lessons to export");
   }
 
-  const timeSlots = getAllTimeSlots(lessons, trialLessons);
+  const timeSlots = getAllTimeSlots(lessons);
   
   // Canvas dimensions
   const cellWidth = 160;
@@ -144,7 +136,6 @@ export const exportScheduleAsPNG = async (config: ExportScheduleConfig) => {
     DAYS.forEach((_, dayIndex) => {
       const x = timeColumnWidth + (dayIndex * cellWidth);
       const lesson = getLessonForDayAndTime(lessons, dayIndex, timeSlot);
-      const trialLesson = getTrialLessonForDayAndTime(trialLessons, dayIndex, timeSlot);
 
       if (lesson) {
         const colorClass = studentColors[lesson.student_id] || "bg-gray-100 border-gray-300 text-gray-900";
@@ -177,32 +168,6 @@ export const exportScheduleAsPNG = async (config: ExportScheduleConfig) => {
         ctx.font = "11px monospace";
         ctx.fillText(
           `${formatTime(lesson.start_time)} - ${formatTime(lesson.end_time)}`,
-          x + cellWidth / 2,
-          y + cellHeight / 2 + 10
-        );
-        
-        ctx.globalAlpha = 1.0;
-      } else if (trialLesson) {
-        const opacity = trialLesson.is_completed ? 0.5 : 1.0;
-        
-        // Trial lesson background
-        ctx.fillStyle = trialLesson.is_completed ? "#fecaca" : "#fca5a5";
-        ctx.globalAlpha = opacity;
-        ctx.fillRect(x + 4, y + 4, cellWidth - 8, cellHeight - 8);
-        
-        ctx.strokeStyle = trialLesson.is_completed ? "#fca5a5" : "#f87171";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x + 4, y + 4, cellWidth - 8, cellHeight - 8);
-        
-        // Trial lesson text
-        ctx.fillStyle = "#7f1d1d";
-        ctx.font = "bold 13px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("Deneme Dersi", x + cellWidth / 2, y + cellHeight / 2 - 10);
-        
-        ctx.font = "11px monospace";
-        ctx.fillText(
-          `${formatTime(trialLesson.start_time)} - ${formatTime(trialLesson.end_time)}`,
           x + cellWidth / 2,
           y + cellHeight / 2 + 10
         );

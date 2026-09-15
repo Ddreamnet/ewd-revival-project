@@ -4,11 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Download, Trash2, CheckCircle, Undo2, ChevronLeft, ChevronRight, CalendarX, Move, X } from "lucide-react";
+import { Plus, Download, ChevronLeft, ChevronRight, CalendarX, Move, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { hataGoster } from "@/lib/notify";
 import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { LessonOverrideDialog } from "./LessonOverrideDialog";
@@ -18,7 +16,7 @@ import type { StudentLessonBase } from "@/lib/types";
 
 import { format, addDays } from "date-fns";
 import { formatTime, toDbTime, toDateStr } from "@/lib/lessonTypes";
-import { completeTrialLesson, undoTrialLesson, gunuErtele, moveLesson, describeRescheduleWarnings } from "@/lib/lessonService";
+import { gunuErtele, moveLesson, describeRescheduleWarnings } from "@/lib/lessonService";
 import { getAllTimeSlots, getAllTimeSlotsActual, fetchActualLessonsForWeek, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
@@ -29,15 +27,6 @@ interface StudentLesson {
   start_time: string;
   end_time: string;
   note?: string;
-}
-
-interface TrialLesson {
-  id: string;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  is_completed: boolean;
-  lesson_date: string;
 }
 
 interface AdminWeeklyScheduleProps {
@@ -57,23 +46,9 @@ const STUDENT_COLORS = [
 
 export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklyScheduleProps) {
   const [lessons, setLessons] = useState<StudentLesson[]>([]);
-  const [trialLessons, setTrialLessons] = useState<TrialLesson[]>([]);
   const [loading, setLoading] = useState(true);
-  /**
-   * Onay diyaloglarındaki işlem sürerken ikinci tık girmesin.
-   *
-   * Radix `AlertDialogAction` tıklanınca diyaloğu kapatıyor, ama kapanma
-   * animasyonu bitene kadar düğme DOM'da ve tıklanabilir kalıyor. Deneme dersi
-   * tamamlama/geri alma bakiyeye yazdığı için o aralık mükerrer kayda açıktı.
-   */
-  const [busy, setBusy] = useState(false);
   const [studentColors, setStudentColors] = useState<Map<string, string>>(new Map());
   const [showAddTrial, setShowAddTrial] = useState(false);
-  const [selectedTrialLesson, setSelectedTrialLesson] = useState<TrialLesson | null>(null);
-  const [showTrialActionDialog, setShowTrialActionDialog] = useState(false);
-  const [showMarkAlert, setShowMarkAlert] = useState(false);
-  const [showUnmarkAlert, setShowUnmarkAlert] = useState(false);
-  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
   /** "Bu günü ertele" onayı bekleyen gün — öğretmen hasta olduğunda tek tık. */
   const [ertelenecekGun, setErtelenecekGun] = useState<Date | null>(null);
@@ -112,19 +87,6 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId, refreshKey, showTemplate, weekOffset]);
 
-  useEffect(() => {
-    if (!teacherId) return;
-    const channel = supabase
-      .channel('admin-trial-lessons-changes')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trial_lessons', filter: `teacher_id=eq.${teacherId}` }, () => {
-        clearWeekCache();
-        fetchSchedule();
-        if (!showTemplate) fetchActualSchedule();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [teacherId, showTemplate]);
-
   const fetchActualSchedule = async () => {
     const fetched = await fetchActualLessonsForWeek(teacherId, weekStart);
     setActualLessons(fetched);
@@ -141,17 +103,15 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
     try {
       setLoading(true);
 
-      // Step 1: students + trial_lessons in parallel (independent)
-      const [studentsRes, trialRes] = await Promise.all([
-        supabase.from("students").select("id, student_id").eq("teacher_id", teacherId).eq("is_archived", false),
-        supabase.from("trial_lessons").select("*").eq("teacher_id", teacherId).order("start_time", { ascending: true }),
-      ]);
+      // Step 1: aktif öğrenciler. Deneme dersleri ayrıca sorulmuyor — artık
+      // ders takviminin satırları, güncel kip sorgusuyla birlikte geliyorlar.
+      const studentsRes = await supabase
+        .from("students").select("id, student_id")
+        .eq("teacher_id", teacherId).eq("is_archived", false);
       if (studentsRes.error) throw studentsRes.error;
-      if (trialRes.error) throw trialRes.error;
 
       const activeStudentIds = (studentsRes.data || []).map(s => s.student_id);
       setOgrenciKayitlari(new Map((studentsRes.data || []).map(s => [s.student_id, s.id])));
-      setTrialLessons(trialRes.data || []);
 
       // Step 2: lessons + profiles in parallel (depend on activeStudentIds)
       const [lessonsRes, profilesRes] = await Promise.all([
@@ -180,8 +140,8 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   };
 
   const timeSlots = showTemplate
-    ? getAllTimeSlots(lessons, [])
-    : getAllTimeSlotsActual(actualLessons, trialLessons, lessons);
+    ? getAllTimeSlots(lessons)
+    : getAllTimeSlotsActual(actualLessons, lessons);
 
   const weekEnd = addDays(weekStart, 6);
   const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
@@ -189,11 +149,6 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const handleActualLessonClick = (lesson: ActualLesson) => {
     setSelectedActualLesson(lesson);
     setShowOverrideDialog(true);
-  };
-
-  const handleTrialLessonClick = (trial: TrialLesson) => {
-    setSelectedTrialLesson(trial);
-    setShowTrialActionDialog(true);
   };
 
   /**
@@ -270,63 +225,11 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
     if (!showTemplate) fetchActualSchedule();
   };
 
-  const handleDeleteTrialLesson = async () => {
-    if (!selectedTrialLesson || busy) return;
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("trial_lessons").delete().eq("id", selectedTrialLesson.id);
-      if (error) throw error;
-      toast({ title: "Başarılı", description: "Deneme dersi silindi" });
-      fetchSchedule();
-    } catch (error) {
-      hataGoster(error, "İşlem tamamlanamadı");
-    } finally {
-      setBusy(false);
-      setShowDeleteAlert(false);
-      setShowTrialActionDialog(false);
-      setSelectedTrialLesson(null);
-    }
-  };
-
-  const handleMarkComplete = async () => {
-    if (!selectedTrialLesson || busy) return;
-    setBusy(true);
-    try {
-      const result = await completeTrialLesson(selectedTrialLesson.id, teacherId);
-      if (!result.success) throw new Error(result.error || "İşlem başarısız");
-      toast({ title: "Başarılı", description: "Ders işlendi olarak işaretlendi" });
-      fetchSchedule();
-    } catch (error) {
-      hataGoster(error, "İşlem tamamlanamadı");
-    } finally {
-      setBusy(false);
-      setShowMarkAlert(false);
-      setSelectedTrialLesson(null);
-    }
-  };
-
-  const handleMarkIncomplete = async () => {
-    if (!selectedTrialLesson || busy) return;
-    setBusy(true);
-    try {
-      const result = await undoTrialLesson(selectedTrialLesson.id, teacherId);
-      if (!result.success) throw new Error(result.error || "İşlem başarısız");
-      toast({ title: "Başarılı", description: "Ders işlenmedi olarak geri alındı" });
-      fetchSchedule();
-    } catch (error) {
-      hataGoster(error, "İşlem tamamlanamadı");
-    } finally {
-      setBusy(false);
-      setShowUnmarkAlert(false);
-      setSelectedTrialLesson(null);
-    }
-  };
-
   const handleExportPNG = async () => {
     try {
       const colorRecord: Record<string, string> = {};
       studentColors.forEach((color, studentId) => { colorRecord[studentId] = color; });
-      await exportScheduleAsPNG({ lessons: lessons.map(l => ({ ...l, is_completed: false })), trialLessons, studentColors: colorRecord });
+      await exportScheduleAsPNG({ lessons: lessons.map(l => ({ ...l, is_completed: false })), studentColors: colorRecord });
       toast({ title: "Başarılı", description: "Ders programı PNG olarak indirildi" });
     } catch {
       toast({ title: "Hata", description: "PNG oluşturulamadı", variant: "destructive" });
@@ -343,7 +246,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
     );
   }
 
-  if (lessons.length === 0 && trialLessons.length === 0 && actualLessons.length === 0) {
+  if (lessons.length === 0 && actualLessons.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -360,7 +263,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
           </div>
         </CardHeader>
         <CardContent className="text-center py-8 text-muted-foreground">Bu öğretmenin henüz ders programı yok.</CardContent>
-        <AddTrialLessonDialog open={showAddTrial} onOpenChange={setShowAddTrial} teacherId={teacherId} onSuccess={fetchSchedule} />
+        <AddTrialLessonDialog open={showAddTrial} onOpenChange={setShowAddTrial} teacherId={teacherId} onSuccess={handleOverrideSuccess} />
       </Card>
     );
   }
@@ -457,14 +360,12 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
                         timeSlot={timeSlot}
                         lessons={lessons}
                         actualLessons={actualLessons}
-                        trialLessons={trialLessons}
                         weekStart={weekStart}
                         studentColors={studentColors}
                         onActualLessonClick={handleActualLessonClick}
                         tasinan={tasinan}
                         onTasimaBasla={setTasinan}
                         onHedefSec={handleHedefSec}
-                        onTrialLessonClick={handleTrialLessonClick}
                       />
                     ))}
                   </tr>
@@ -509,71 +410,6 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Trial Lesson Action Dialog */}
-      <Dialog open={showTrialActionDialog} onOpenChange={setShowTrialActionDialog}>
-        <DialogContent size="sm" animateHeight>
-          <DialogHeader>
-            <DialogTitle>Deneme Dersi İşlemleri</DialogTitle>
-            <DialogDescription>
-              {selectedTrialLesson && `${formatTime(selectedTrialLesson.start_time)} - ${formatTime(selectedTrialLesson.end_time)}`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 mt-4">
-            {selectedTrialLesson?.is_completed ? (
-              <Button variant="outline" className="w-full justify-start gap-3" onClick={() => { setShowTrialActionDialog(false); setShowUnmarkAlert(true); }}>
-                <Undo2 className="h-5 w-5 text-orange-500" />İşlendiyi Geri Al
-              </Button>
-            ) : (
-              <Button variant="outline" className="w-full justify-start gap-3" onClick={() => { setShowTrialActionDialog(false); setShowMarkAlert(true); }}>
-                <CheckCircle className="h-5 w-5 text-green-500" />İşlendi Olarak İşaretle
-              </Button>
-            )}
-            <Button variant="outline" className="w-full justify-start gap-3 text-destructive hover:text-destructive" onClick={() => { setShowTrialActionDialog(false); setShowDeleteAlert(true); }}>
-              <Trash2 className="h-5 w-5" />Deneme Dersini Sil
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={showMarkAlert} onOpenChange={setShowMarkAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Bu dersi işlediniz mi?</AlertDialogTitle>
-            <AlertDialogDescription>Deneme dersini tamamlandı olarak işaretlemek istediğinizden emin misiniz?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMarkComplete} disabled={busy}>Onayla</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={showUnmarkAlert} onOpenChange={setShowUnmarkAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>İşlenmedi olarak geri almak istiyor musunuz?</AlertDialogTitle>
-            <AlertDialogDescription>Deneme dersini işlenmedi durumuna geri almak istediğinizden emin misiniz?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMarkIncomplete} disabled={busy}>Onayla</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Deneme Dersini Sil</AlertDialogTitle>
-            <AlertDialogDescription>Bu deneme dersini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTrialLesson} disabled={busy} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sil</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <LessonOverrideDialog
         open={showOverrideDialog}
         onOpenChange={setShowOverrideDialog}
@@ -585,11 +421,11 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
           setShowOverrideDialog(false);
         }}
         onPaketiAc={
-          selectedActualLesson && ogrenciKayitlari.has(selectedActualLesson.student_id)
+          selectedActualLesson?.student_id && ogrenciKayitlari.has(selectedActualLesson.student_id)
             ? (l) => {
                 setPaketOgrencisi({
-                  recordId: ogrenciKayitlari.get(l.student_id)!,
-                  userId: l.student_id,
+                  recordId: ogrenciKayitlari.get(l.student_id!)!,
+                  userId: l.student_id!,
                   name: l.student_name,
                 });
                 setShowOverrideDialog(false);

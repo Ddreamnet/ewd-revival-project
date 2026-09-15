@@ -2,25 +2,15 @@ import type { DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar, AlertCircle } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { formatTime } from "@/lib/lessonTypes";
 import {
   getActualLessonsForDayAndTime,
-  getTrialLessonForDayAndTime,
   isSecondaryInBackToBack,
   getBackToBackGroupForLesson,
   dayIndexToDbDayOfWeek,
   ActualLesson,
 } from "@/hooks/useScheduleGrid";
-
-interface TrialLesson {
-  id: string;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  is_completed: boolean;
-  lesson_date: string;
-}
 
 interface StudentLesson {
   id: string;
@@ -38,11 +28,9 @@ interface ScheduleGridCellProps {
   timeSlot: string;
   lessons: StudentLesson[];
   actualLessons: ActualLesson[];
-  trialLessons: TrialLesson[];
   weekStart: Date;
   studentColors: Map<string, string>;
   onActualLessonClick: (lesson: ActualLesson) => void;
-  onTrialLessonClick: (trial: TrialLesson) => void;
   /** Taşınmak üzere seçilmiş ders — seçiliyken her hücre hedef olur. */
   tasinan?: ActualLesson | null;
   /** Sürüklemeye başlandı (masaüstü) ya da "Taşı" ile seçildi (dokunmatik). */
@@ -57,11 +45,9 @@ export function ScheduleGridCell({
   timeSlot,
   lessons,
   actualLessons,
-  trialLessons,
   weekStart,
   studentColors,
   onActualLessonClick,
-  onTrialLessonClick,
   tasinan = null,
   onTasimaBasla,
   onHedefSec,
@@ -112,20 +98,18 @@ export function ScheduleGridCell({
     : "";
 
   const slotLessons = getActualLessonsForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
-  const trialLesson = getTrialLessonForDayAndTime(trialLessons, dayIndex, timeSlot, weekStart);
 
   const visibleLessons = slotLessons.filter(
     (l) => !isSecondaryInBackToBack(actualLessons, dayIndex, l.id, weekStart)
   );
 
-  if (visibleLessons.length === 0 && !trialLesson) {
+  if (visibleLessons.length === 0) {
     return <td className={`border border-border p-2 ${hedefSinifi}`} {...hedefOzellikleri}></td>;
   }
 
   type RenderItem =
     | { type: "b2b"; lesson: ActualLesson; group: ActualLesson[] }
-    | { type: "single"; lesson: ActualLesson }
-    | { type: "trial"; trial: TrialLesson };
+    | { type: "single"; lesson: ActualLesson };
 
   const renderItems: RenderItem[] = [];
 
@@ -137,11 +121,17 @@ export function ScheduleGridCell({
       renderItems.push({ type: "single", lesson });
     }
   }
-  if (trialLesson && visibleLessons.length === 0) {
-    renderItems.push({ type: "trial", trial: trialLesson });
-  }
 
   const isMulti = renderItems.length > 1;
+
+  /**
+   * Kart rengi. Deneme dersinin öğrencisi yok, dolayısıyla öğrenci rengi de
+   * yok; eskiden ayrı bir dalda çizildiği için kırmızısı oraya gömülüydü.
+   */
+  const renkSinifi = (l: ActualLesson) =>
+    l.tur === "deneme"
+      ? "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
+      : (l.student_id && studentColors.get(l.student_id)) || "bg-gray-100 text-gray-800";
 
   return (
     <td className={`border border-border p-1 ${hedefSinifi}`} {...hedefOzellikleri}>
@@ -156,9 +146,7 @@ export function ScheduleGridCell({
                     variant="outline"
                     className={`${isMulti ? "flex-1 min-w-0 px-1 py-1" : "w-full py-2"} justify-center cursor-pointer relative ${
                       al.status === "completed" ? "opacity-40" : ""
-                    } ${al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
-                      studentColors.get(al.student_id) || "bg-gray-100 text-gray-800"
-                    }`}
+                    } ${al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${renkSinifi(al)}`}
                   >
                     <div className="text-center truncate">
                       <div className={`font-medium flex items-center justify-center gap-1 ${isMulti ? "text-[10px]" : ""}`}>
@@ -204,9 +192,7 @@ export function ScheduleGridCell({
                 variant="outline"
                 className={`${isMulti ? "flex-1 min-w-0 px-1 py-1" : "w-full py-2"} justify-center relative cursor-pointer ${
                   al.status === "completed" ? "opacity-40" : ""
-                } ${al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${tasinan?.id === al.id ? "opacity-30" : ""} ${
-                  studentColors.get(al.student_id) || "bg-gray-100 text-gray-800"
-                }`}
+                } ${al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${tasinan?.id === al.id ? "opacity-30" : ""} ${renkSinifi(al)}`}
                 draggable={!!onTasimaBasla}
                 onDragStart={() => onTasimaBasla?.(al)}
                 onClick={() => {
@@ -227,29 +213,9 @@ export function ScheduleGridCell({
                   <div className={`${isMulti ? "text-[9px]" : "text-xs"} mt-0.5 font-mono`}>
                     {formatTime(al.start_time)} - {formatTime(al.end_time)}
                   </div>
-                </div>
-              </Button>
-            );
-          }
-
-          if (item.type === "trial") {
-            const tl = item.trial;
-            return (
-              <Button
-                key={tl.id}
-                variant="outline"
-                className={`${isMulti ? "flex-1 min-w-0 px-1 py-1" : "w-full py-2"} border-2 transition-all ${
-                  tl.is_completed
-                    ? "bg-red-50/30 text-red-300 border-red-100 hover:bg-red-50/50 opacity-40"
-                    : "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"
-                }`}
-                onClick={() => onTrialLessonClick(tl)}
-              >
-                <div className="text-center w-full truncate">
-                  <div className={`font-medium ${isMulti ? "text-[10px]" : ""}`}>Deneme</div>
-                  <div className={`${isMulti ? "text-[9px]" : "text-xs"} mt-0.5 font-mono`}>
-                    {formatTime(tl.start_time)} - {formatTime(tl.end_time)}
-                  </div>
+                  {al.tur === "deneme" && al.aday_adi && (
+                    <div className={`${isMulti ? "text-[9px]" : "text-[10px]"} opacity-70`}>deneme</div>
+                  )}
                 </div>
               </Button>
             );

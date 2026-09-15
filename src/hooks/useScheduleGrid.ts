@@ -15,19 +15,16 @@ interface BaseLessonInfo {
   end_time: string;
 }
 
-interface TrialLessonInfo {
-  id: string;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  lesson_date: string;
-}
-
 /** Actual-mode lesson from lesson_instances */
 export interface ActualLesson {
   id: string;
-  student_id: string;
+  /** Deneme dersinde boş: aday henüz kayıtlı bir öğrenci değil. */
+  student_id: string | null;
+  /** Deneme dersinde aday adı, yoksa "Deneme". */
   student_name: string;
+  tur: "ders" | "deneme";
+  /** Deneme dersinde adminin yazdığı aday adı; boş olabilir. */
+  aday_adi: string | null;
   lesson_number: number;
   lesson_date: string;
   start_time: string;
@@ -96,51 +93,29 @@ export function dayIndexToDbDayOfWeek(dayIndex: number): number {
 }
 
 /**
- * Collects all unique time slots from lessons, trial lessons, and overrides.
+ * Şablon kipinin zaman ekseni: haftalık ders programındaki saatler.
  */
-export function getAllTimeSlots(
-  lessons: BaseLessonInfo[],
-  trialLessons: TrialLessonInfo[]
-): string[] {
+export function getAllTimeSlots(lessons: BaseLessonInfo[]): string[] {
   const allTimes = new Set<string>();
   lessons.forEach((l) => allTimes.add(l.start_time));
-  trialLessons.forEach((l) => allTimes.add(l.start_time));
   return Array.from(allTimes).sort();
 }
 
 /**
- * Collects all unique time slots from actual lessons (lesson_instances) + trial lessons.
+ * Güncel kipin zaman ekseni. Deneme dersleri de lesson_instances içinde
+ * olduğu için ayrıca eklenmiyor; artık eksende kendiliğinden yerleri var.
  */
 export function getAllTimeSlotsActual(
   actualLessons: ActualLesson[],
-  trialLessons: TrialLessonInfo[],
   templateLessons: BaseLessonInfo[] = []
 ): string[] {
   const allTimes = new Set<string>();
   actualLessons.forEach((l) => allTimes.add(l.start_time));
-  trialLessons.forEach((l) => allTimes.add(l.start_time));
   // Şablon saatleri de eksende olsun: o gün boş olan bir saat ancak satır
   // olarak varsa sürükleme hedefi olabilir. Ders yalnızca dolu saatlerden
   // üretildiğinde, "salıyı cumartesiye al" için bırakılacak hücre yoktu.
   templateLessons.forEach((l) => allTimes.add(l.start_time));
   return Array.from(allTimes).sort();
-}
-
-/**
- * Finds a trial lesson for a specific day and time slot in a given week.
- */
-export function getTrialLessonForDayAndTime<T extends TrialLessonInfo>(
-  trialLessons: T[],
-  dayIndex: number,
-  timeSlot: string,
-  weekStart?: Date
-): T | undefined {
-  const dbDayOfWeek = dayIndexToDbDayOfWeek(dayIndex);
-  const dateForDay = getDateForDayIndex(dayIndex, weekStart);
-  const dateStr = format(dateForDay, "yyyy-MM-dd");
-  return trialLessons.find(
-    (l) => l.day_of_week === dbDayOfWeek && l.start_time === timeSlot && l.lesson_date === dateStr
-  );
 }
 
 /**
@@ -186,7 +161,7 @@ async function fetchActualLessonsForWeekCore(
   const [instancesResult, activeStudentsResult] = await Promise.all([
     supabase
       .from("lesson_instances")
-      .select("id, student_id, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count, is_manual_override, created_at")
+      .select("id, student_id, tur, aday_adi, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count, is_manual_override, created_at")
       .eq("teacher_id", teacherId)
       .gte("lesson_date", startStr)
       .lte("lesson_date", endStr)
@@ -203,8 +178,12 @@ async function fetchActualLessonsForWeekCore(
   const realInstances = instancesResult.data || [];
   const allActiveStudentIds = new Set((activeStudentsResult.data || []).map((s) => s.student_id));
 
-  // Filter real instances to active students only
-  const filteredInstances = realInstances.filter((i) => allActiveStudentIds.has(i.student_id));
+  // Arşivlenmiş öğrencinin eski kayıtları takvimde görünmesin. Deneme
+  // dersinin öğrencisi yok (aday henüz kayıtlı değil), o yüzden bu süzgecin
+  // dışında: takvimde öğretmenin slotunu tutan gerçek bir satır.
+  const filteredInstances = realInstances.filter(
+    (i) => i.tur === "deneme" || allActiveStudentIds.has(i.student_id)
+  );
 
   // Hayalet dersler kaldırıldı.
   //
@@ -213,22 +192,26 @@ async function fetchActualLessonsForWeekCore(
   // dördüncü temsiliydi. Paket boyu artık paket satırında saklandığı ve hak
   // bitince ders üretilmediği için bir önizlemeye gerek kalmadı: takvimde ne
   // varsa gerçek odur. Yeni paket açıldığında dersler kendiliğinden belirir.
-  const allResults = filteredInstances.map((inst) => ({ ...inst, isGhost: false }));
+  if (filteredInstances.length === 0) return [];
 
-  // Fetch student names for all unique student IDs
-  const allStudentIds = [...new Set(allResults.map((i) => i.student_id))];
-  if (allStudentIds.length === 0) return [];
+  const allStudentIds = [...new Set(filteredInstances.map((i) => i.student_id))].filter(
+    (id): id is string => !!id
+  );
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("user_id, full_name")
-    .in("user_id", allStudentIds);
+  const { data: profiles } = allStudentIds.length
+    ? await supabase.from("profiles").select("user_id, full_name").in("user_id", allStudentIds)
+    : { data: [] };
 
   const nameMap = new Map((profiles || []).map((p) => [p.user_id, p.full_name]));
 
-  return allResults.map((inst) => ({
+  return filteredInstances.map((inst) => ({
     ...inst,
-    student_name: nameMap.get(inst.student_id) || "Bilinmeyen",
+    tur: inst.tur === "deneme" ? ("deneme" as const) : ("ders" as const),
+    student_name:
+      inst.tur === "deneme"
+        ? inst.aday_adi?.trim() || "Deneme"
+        : nameMap.get(inst.student_id) || "Bilinmeyen",
+    isGhost: false,
   }));
 }
 
@@ -278,12 +261,15 @@ export function getActualLessonsForDayAndTime(
 
   const bestPerStudent = new Map<string, ActualLesson>();
   for (const l of matched) {
-    const existing = bestPerStudent.get(l.student_id);
-    if (!existing) { bestPerStudent.set(l.student_id, l); continue; }
+    // Denemenin öğrencisi yok; kendi kimliğiyle anahtarlanır, yoksa aynı
+    // hücredeki iki deneme tek satıra iner.
+    const anahtar = l.student_id ?? l.id;
+    const existing = bestPerStudent.get(anahtar);
+    if (!existing) { bestPerStudent.set(anahtar, l); continue; }
     // Aynı öğrencinin aynı hücredeki iki kaydından en yenisi kalır.
     const lTs = l.created_at || "";
     const eTs = existing.created_at || "";
-    if (lTs > eTs) bestPerStudent.set(l.student_id, l);
+    if (lTs > eTs) bestPerStudent.set(anahtar, l);
   }
   return Array.from(bestPerStudent.values());
 }
@@ -316,6 +302,7 @@ export function getBackToBackGroups(
     for (let j = i + 1; j < dayLessons.length; j++) {
       if (processed.has(dayLessons[j].id)) continue;
       if (
+        current.student_id !== null &&
         dayLessons[j].student_id === current.student_id &&
         dayLessons[j].start_time === current.end_time
       ) {

@@ -289,8 +289,10 @@ export function EditTeacherDialog({
         await supabase.from("global_topics").delete().in("id", globalTopicIds);
       }
 
-      // 2. Delete trial lessons
-      await supabase.from("trial_lessons").delete().eq("teacher_id", teacherId);
+      // 2. Deneme dersleri de ders takviminin satırları (tur = deneme);
+      //    öğretmenin bütün ders kayıtları zaten aşağıda siliniyor ama
+      //    denemenin öğrencisi olmadığı için o süzgece takılmaz.
+      await supabase.from("lesson_instances").delete().eq("teacher_id", teacherId).eq("tur", "deneme");
 
       // 3. Bakiye: teacher_balance artık bir görünüm, silinemez. Bakiyeyi
       //    oluşturan iki kaynak siliniyor — açılış kaydı ve defter satırları.
@@ -331,7 +333,7 @@ export function EditTeacherDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md">
+      <DialogContent size="md" animateHeight>
         <DialogHeader>
           <DialogTitle>Öğretmen Ayarları</DialogTitle>
         </DialogHeader>

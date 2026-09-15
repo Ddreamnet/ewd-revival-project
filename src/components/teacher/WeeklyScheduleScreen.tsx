@@ -3,7 +3,6 @@ import { addDays, format, isSameDay } from "date-fns";
 import { tr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
 import { EmptyState } from "@/components/panel/PanelBits";
 import { hataGoster } from "@/lib/notify";
 import { formatTime } from "@/lib/lessonTypes";
@@ -40,18 +39,6 @@ interface Props {
 /** Pazartesi'den başlayan gün dizisi — DB'de Pazar 0, Pazartesi 1. */
 const GUNLER = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
-/**
- * Deneme dersi kaydında öğrenci adı yok — tablo yalnızca öğretmenin takvimine
- * ayrılmış bir slot tutuyor (henüz kayıtlı öğrenci olmadığı için).
- */
-interface DenemeDersi {
-  id: string;
-  lesson_date: string;
-  start_time: string;
-  end_time: string;
-  is_completed: boolean;
-}
-
 /** Bir günün satırı — normal ve deneme dersleri tek listede. */
 interface GunDersi {
   id: string;
@@ -67,7 +54,6 @@ interface GunDersi {
 export function WeeklyScheduleScreen({ teacherId, active }: Props) {
   const [haftaFarki, setHaftaFarki] = useState(0);
   const [dersler, setDersler] = useState<ActualLesson[]>([]);
-  const [denemeler, setDenemeler] = useState<DenemeDersi[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
 
   const haftaBasi = useMemo(() => getWeekStartForOffset(haftaFarki), [haftaFarki]);
@@ -78,31 +64,14 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
     if (!teacherId) return;
     setYukleniyor(true);
     try {
-      const baslangic = format(haftaBasi, "yyyy-MM-dd");
-      const bitis = format(haftaSonu, "yyyy-MM-dd");
-
-      // Normal dersler önbellekli yardımcıdan; deneme dersleri aynı hafta
-      // aralığında tek sorguyla. İkisi paralel gidiyor.
-      const [normal, denemeRes] = await Promise.all([
-        fetchActualLessonsForWeek(teacherId, haftaBasi),
-        supabase
-          .from("trial_lessons")
-          .select("id, lesson_date, start_time, end_time, is_completed")
-          .eq("teacher_id", teacherId)
-          .gte("lesson_date", baslangic)
-          .lte("lesson_date", bitis)
-          .order("start_time"),
-      ]);
-
-      if (denemeRes.error) throw denemeRes.error;
-      setDersler(normal);
-      setDenemeler((denemeRes.data ?? []) as DenemeDersi[]);
+      // Deneme dersleri de ders takviminin satırları; ayrı sorgu kalktı.
+      setDersler(await fetchActualLessonsForWeek(teacherId, haftaBasi));
     } catch (error) {
       hataGoster(error, "Ders programı yüklenemedi");
     } finally {
       setYukleniyor(false);
     }
-  }, [teacherId, haftaBasi, haftaSonu]);
+  }, [teacherId, haftaBasi]);
 
   useEffect(() => {
     if (!active) return;
@@ -131,30 +100,16 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
         id: l.id,
         baslangic: l.start_time,
         bitis: l.end_time,
-        ogrenci: l.student_name,
-        dersNo: l.lesson_number,
+        ogrenci: l.tur === "deneme" ? `${l.student_name} (deneme)` : l.student_name,
+        dersNo: l.tur === "deneme" ? null : l.lesson_number,
         tamamlandi: l.status === "completed",
-        deneme: false,
+        deneme: l.tur === "deneme",
         tasindi: Boolean(l.original_date) || l.is_manual_override,
-      });
-    }
-    for (const d of denemeler) {
-      const i = indeks(d.lesson_date);
-      if (i < 0) continue;
-      kutular[i].push({
-        id: d.id,
-        baslangic: d.start_time,
-        bitis: d.end_time,
-        ogrenci: "Deneme dersi",
-        dersNo: null,
-        tamamlandi: d.is_completed,
-        deneme: true,
-        tasindi: false,
       });
     }
     kutular.forEach((g) => g.sort((a, b) => a.baslangic.localeCompare(b.baslangic)));
     return kutular;
-  }, [dersler, denemeler, haftaBasi]);
+  }, [dersler, haftaBasi]);
 
   const toplam = gunlereGore.reduce((n, g) => n + g.length, 0);
   const bugun = new Date();

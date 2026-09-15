@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { CalendarIcon, ArrowRight, RotateCcw, AlertTriangle, History, Move, ListOrdered } from "lucide-react";
+import { CalendarIcon, ArrowRight, RotateCcw, AlertTriangle, History, Move, ListOrdered, Check, Undo2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,9 @@ import {
   postponeLesson,
   revertLesson,
   nextFreeSlot,
+  completeLesson,
+  undoCompleteLesson,
+  denemeSil,
   describeRescheduleError,
   describeRescheduleWarnings,
   type RescheduleResult,
@@ -79,11 +82,21 @@ export function LessonOverrideDialog({
   const [showPostponeConfirm, setShowPostponeConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [postponeTarget, setPostponeTarget] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const wasMoved = !!lesson?.original_date;
   const isCompleted = lesson?.status === "completed";
+  /**
+   * Deneme dersi de bu panelden yönetiliyor.
+   *
+   * Eskiden takvimde ayrı bir kırmızı kart ve ayrı bir diyalog vardı: yalnızca
+   * işaretle/geri al/sil. Taşınamıyordu, çünkü deneme başka bir tabloda
+   * yaşıyordu. Artık aynı satır tipinde — tek fark paketinin ve zincirinin
+   * olmaması, yani kaydırma ve erteleme onun için anlamsız.
+   */
+  const deneme = lesson?.tur === "deneme";
 
   useEffect(() => {
     if (!open || !lesson) return;
@@ -95,7 +108,8 @@ export function LessonOverrideDialog({
     setPostponeTarget(null);
 
     // Preview where "Sonraki Boş Saate Ertele" would land, so the confirmation
-    // can name a real date instead of a vague promise.
+    // can name a real date instead of a vague promise. Denemenin şablonu yok.
+    if (!lesson.student_id) return;
     nextFreeSlot(lesson.student_id, teacherId, lesson.lesson_date, lesson.start_time, [lesson.id])
       .then((slot) => setPostponeTarget(slot.success ? slot.lessonDate ?? null : null))
       .catch(() => setPostponeTarget(null));
@@ -197,6 +211,53 @@ export function LessonOverrideDialog({
     }
   };
 
+  /** Denemeyi işlendi/işlenmedi yapar — normal dersin RPC'siyle aynı yol. */
+  const handleDenemeIsaretle = async (islendi: boolean) => {
+    if (!lesson) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = islendi
+        ? await completeLesson(lesson.id, teacherId)
+        : await undoCompleteLesson(lesson.id, teacherId);
+      if (!result.success) {
+        setError(result.error || "İşlem tamamlanamadı");
+        toast({ title: "Hata", description: result.error || "İşlem tamamlanamadı", variant: "destructive" });
+        return;
+      }
+      clearWeekCache();
+      toast({
+        title: "Başarılı",
+        description: islendi ? "Deneme dersi işlendi" : "Deneme dersi geri alındı",
+      });
+      onSuccess();
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDenemeSil = async () => {
+    if (!lesson) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await denemeSil(lesson.id);
+      if (!result.success) {
+        setError(result.error || "Silinemedi");
+        toast({ title: "Hata", description: result.error || "Silinemedi", variant: "destructive" });
+        return;
+      }
+      clearWeekCache();
+      toast({ title: "Başarılı", description: "Deneme dersi silindi" });
+      onSuccess();
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   if (!lesson) return null;
 
   const currentDate = parseLocalDate(lesson.lesson_date);
@@ -204,9 +265,11 @@ export function LessonOverrideDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent size="sm">
+        <DialogContent size="sm" animateHeight>
           <DialogHeader>
-            <DialogTitle className="text-base">Ders Düzenle</DialogTitle>
+            <DialogTitle className="text-base">
+              {deneme ? "Deneme Dersi" : "Ders Düzenle"}
+            </DialogTitle>
             <DialogDescription className="text-sm">
               {lesson.student_name} — {format(currentDate, "d MMMM yyyy, EEEE", { locale: tr })}
               <br />
@@ -235,7 +298,7 @@ export function LessonOverrideDialog({
             </div>
           )}
 
-          {(onTasi || onPaketiAc) && (
+          {(onTasi || (onPaketiAc && !deneme)) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {onTasi && (
                 <Button
@@ -248,7 +311,7 @@ export function LessonOverrideDialog({
                   Takvimden taşı
                 </Button>
               )}
-              {onPaketiAc && (
+              {onPaketiAc && !deneme && (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -314,24 +377,26 @@ export function LessonOverrideDialog({
               </div>
             </div>
 
-            <label
-              htmlFor="cascade-move"
-              className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50"
-            >
-              <Checkbox
-                id="cascade-move"
-                checked={cascade}
-                onCheckedChange={(v) => setCascade(v === true)}
-                className="mt-0.5"
-              />
-              <span className="text-xs leading-snug">
-                <span className="font-medium block">Sonraki dersler de kaysın</span>
-                <span className="text-muted-foreground">
-                  İşaretli değilse yalnızca bu ders taşınır ve sabitlenir — telafi dersi böyle
-                  konur. İşaretliyse bu dersten sonraki planlı dersler de birer boş saat ileri alınır.
+            {!deneme && (
+              <label
+                htmlFor="cascade-move"
+                className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50"
+              >
+                <Checkbox
+                  id="cascade-move"
+                  checked={cascade}
+                  onCheckedChange={(v) => setCascade(v === true)}
+                  className="mt-0.5"
+                />
+                <span className="text-xs leading-snug">
+                  <span className="font-medium block">Sonraki dersler de kaysın</span>
+                  <span className="text-muted-foreground">
+                    İşaretli değilse yalnızca bu ders taşınır ve sabitlenir — telafi dersi böyle
+                    konur. İşaretliyse bu dersten sonraki planlı dersler de birer boş saat ileri alınır.
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
+            )}
 
             {error && (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
@@ -355,16 +420,32 @@ export function LessonOverrideDialog({
           <Separator />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowPostponeConfirm(true)}
-              disabled={saving}
-              className="text-xs"
-            >
-              <ArrowRight className="h-3.5 w-3.5 mr-1 shrink-0" />
-              Bu ders yapılmadı
-            </Button>
+            {deneme ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDenemeIsaretle(!isCompleted)}
+                disabled={saving}
+                className="text-xs"
+              >
+                {isCompleted ? (
+                  <><Undo2 className="h-3.5 w-3.5 mr-1 shrink-0" />İşlenmedi'ye al</>
+                ) : (
+                  <><Check className="h-3.5 w-3.5 mr-1 shrink-0" />İşlendi olarak işaretle</>
+                )}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPostponeConfirm(true)}
+                disabled={saving}
+                className="text-xs"
+              >
+                <ArrowRight className="h-3.5 w-3.5 mr-1 shrink-0" />
+                Bu ders yapılmadı
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -376,6 +457,19 @@ export function LessonOverrideDialog({
               Geri Al
             </Button>
           </div>
+
+          {deneme && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={saving}
+              className="text-xs text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1 shrink-0" />
+              Deneme dersini sil
+            </Button>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -404,6 +498,30 @@ export function LessonOverrideDialog({
           <AlertDialogFooter>
             <AlertDialogCancel>Vazgeç</AlertDialogCancel>
             <AlertDialogAction onClick={handlePostpone}>Ertele</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deneme dersini sil</AlertDialogTitle>
+            <AlertDialogDescription>
+              {format(currentDate, "d MMMM yyyy", { locale: tr })} tarihli deneme dersi takvimden
+              kaldırılacak.
+              {isCompleted
+                ? " Ders işlenmiş olduğu için öğretmenin bakiyesine giren kayıt yerinde kalır; bakiyeden de düşmesini istiyorsanız önce “İşlenmedi'ye al” deyin."
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDenemeSil}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sil
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
