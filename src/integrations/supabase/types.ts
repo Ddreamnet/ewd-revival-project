@@ -995,42 +995,6 @@ export type Database = {
           },
         ]
       }
-      trial_lessons: {
-        Row: {
-          created_at: string
-          day_of_week: number
-          end_time: string
-          id: string
-          is_completed: boolean
-          lesson_date: string
-          start_time: string
-          teacher_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          day_of_week: number
-          end_time: string
-          id?: string
-          is_completed?: boolean
-          lesson_date?: string
-          start_time: string
-          teacher_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          day_of_week?: number
-          end_time?: string
-          id?: string
-          is_completed?: boolean
-          lesson_date?: string
-          start_time?: string
-          teacher_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       trip_activities: {
         Row: {
           created_at: string
@@ -1270,10 +1234,6 @@ export type Database = {
         Args: { p_instance_id: string; p_teacher_id: string }
         Returns: Json
       }
-      rpc_complete_trial_lesson: {
-        Args: { p_teacher_id: string; p_trial_id: string }
-        Returns: Json
-      }
       rpc_deneme_ekle: {
         Args: {
           p_aday_adi?: string
@@ -1351,10 +1311,6 @@ export type Database = {
       }
       rpc_undo_complete_lesson: {
         Args: { p_instance_id: string; p_teacher_id: string }
-        Returns: Json
-      }
-      rpc_undo_trial_lesson: {
-        Args: { p_teacher_id: string; p_trial_id: string }
         Returns: Json
       }
       my_teacher_zoom_link: { Args: never; Returns: string }
