@@ -12,7 +12,7 @@ import { readCache, writeCache } from "@/lib/panelCache";
 import { toDateStr, toInputTime, parseLocalDate } from "@/lib/lessonTypes";
 import type { PanelLesson } from "./useTeacherPanel";
 
-const CACHE_VERSION = 4;  // Zoom bağlantısı öğretmenin profilinden geliyor
+const CACHE_VERSION = 5;  // Dersler öğretmene göre de süzülüyor
 
 /** Haftalık sabit ders slotu (student_lessons şablonu). */
 export interface FixedLesson {
@@ -65,7 +65,7 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
       .eq("student_id", studentUserId),
     supabase
       .from("lesson_instances")
-      .select("id, lesson_number, lesson_date, start_time, end_time, status, is_manual_override, package_cycle")
+      .select("id, teacher_id, lesson_number, lesson_date, start_time, end_time, status, is_manual_override, package_cycle")
       .eq("student_id", studentUserId)
       .in("status", ["planned", "completed"])
       .order("lesson_date", { ascending: true })
@@ -84,10 +84,15 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
   const cycle = trackingRes.data?.package_cycle ?? 1;
   const perWeek = trackingRes.data?.lessons_per_week ?? 1;
 
-  // Döngü filtresi istemcide: satır sayısı öğrenci başına küçük (bir paket
-  // 4–12 ders) ve böylece sorgu tracking'i beklemiyor.
+  // Döngü ve öğretmen filtresi istemcide: satır sayısı öğrenci başına küçük
+  // (bir paket 4–12 ders) ve böylece sorgu tracking'i beklemiyor.
+  //
+  // Öğretmen filtresi şart: sorgu yalnızca `student_id` ile süzülüyor, yani
+  // öğrenci daha önce başka bir öğretmendeyse onun dersleri de geliyordu.
+  // Aynı döngü numarasına denk gelenler listeye karışıyor ve öğrenci 8
+  // derslik pakette 16 ders görüyordu — ilerleme sayacı da o oranda yanlıştı.
   const lessons: PanelLesson[] = (instancesRes.data ?? [])
-    .filter((r) => r.package_cycle === cycle)
+    .filter((r) => r.package_cycle === cycle && r.teacher_id === teacherId)
     .map((r) => ({
       id: r.id,
       number: r.lesson_number,
