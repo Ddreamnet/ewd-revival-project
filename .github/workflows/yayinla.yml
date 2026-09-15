@@ -1,0 +1,94 @@
+# ============================================================================
+# YAYINLA — derle ve cPanel'e gönder
+# ============================================================================
+# Elle yükleme bir klasörü atlamaya çok açıktı: 15 Eylül'de blog klasörleri
+# yüklenmeyince 8 sayfa eski HTML'i vermeye devam etti ve hiçbir yerde hata
+# görünmedi. Burada derleme de gönderme de tek yerde ve sonunda doğrulanıyor.
+#
+# ── Bir kerelik kurulum ─────────────────────────────────────────────────────
+# GitHub → Settings → Secrets and variables → Actions
+#
+#   Secrets (gizli):
+#     FTP_SUNUCU     ftp.englishwithdilara.com   (ya da cPanel'in verdiği adres)
+#     FTP_KULLANICI  cPanel FTP kullanıcı adı
+#     FTP_SIFRE      o kullanıcının şifresi
+#
+#   Variables (gizli değil, istersen boş bırak):
+#     FTP_DIZIN      public_html/     (sitenin durduğu klasör; sonunda / olmalı)
+#     FTP_PROTOKOL   ftps             (sunucun TLS desteklemiyorsa: ftp)
+#
+# ── Kullanım ────────────────────────────────────────────────────────────────
+# GitHub → Actions → "Yayınla" → Run workflow.
+#
+# Tetikleyici bilerek elle: Lovable de `main` dalına yazıyor, her push'ta
+# otomatik deploy açarsak yarım bir düzenleme doğrudan canlıya gidebilir.
+# Otomatiğe geçmek istersen aşağıdaki `push` bloğunun yorumunu kaldır.
+
+name: Yayınla
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+concurrency:
+  group: yayinla
+  cancel-in-progress: false
+
+jobs:
+  yayinla:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: Node kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: Derle
+        # sitemap üret → vite build → ön işleme.
+        # Ön işleme için Chrome gerekiyor; ubuntu-latest'te hazır geliyor.
+        run: npm run build
+        env:
+          PRERENDER_BROWSER: /usr/bin/google-chrome
+
+      - name: Derlemeyi denetle
+        # Ön işleme sessizce atlanırsa ya da .htaccess düşerse yarım bir site
+        # göndermeyelim. Bunlar olmadan devam etmenin anlamı yok.
+        run: |
+          test -f dist/index.html          || { echo "✗ dist/index.html yok"; exit 1; }
+          test -f dist/.htaccess           || { echo "✗ dist/.htaccess yok — panel yolları 404 verir"; exit 1; }
+          test -f dist/blog/index.html     || { echo "✗ blog listesi ön işlenmemiş"; exit 1; }
+          yazi=$(find dist/blog -mindepth 2 -name index.html | wc -l)
+          test "$yazi" -ge 1               || { echo "✗ hiçbir blog yazısı ön işlenmemiş"; exit 1; }
+          echo "✓ $yazi blog yazısı, .htaccess ve ana sayfa yerinde"
+
+      - name: cPanel'e gönder
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SUNUCU }}
+          username: ${{ secrets.FTP_KULLANICI }}
+          password: ${{ secrets.FTP_SIFRE }}
+          protocol: ${{ vars.FTP_PROTOKOL || 'ftps' }}
+          local-dir: ./dist/
+          server-dir: ${{ vars.FTP_DIZIN || 'public_html/' }}
+          # Sunucuda bir durum dosyası tutar ve sonraki gönderimlerde yalnızca
+          # değişenleri yükler. İlk çalıştırma her şeyi gönderir.
+          state-name: .ftp-deploy-sync-state.json
+          # Açıkken sunucudaki her şeyi siler. Kapalı kalsın: public_html'de
+          # bu siteye ait olmayan dosyalar varsa onlara dokunulmasın.
+          dangerous-clean-slate: false
+
+      - name: Canlıyı doğrula
+        # Gönderim bittiği hâlde bir sayfanın eski kalması mümkün (FTP hatası,
+        # yanlış dizin). Her sayfanın bu derlemenin varlıklarını çağırdığını
+        # kontrol eder; tutmazsa iş kırmızı yanar.
+        run: |
+          sleep 10
+          npm run kontrol

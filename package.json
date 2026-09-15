@@ -12,7 +12,8 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "preview": "vite preview",
     "build:sitemap": "node scripts/build-sitemap.mjs",
-    "prerender": "node scripts/prerender.mjs"
+    "prerender": "node scripts/prerender.mjs",
+    "kontrol": "node scripts/yayin-kontrol.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
