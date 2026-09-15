@@ -482,6 +482,26 @@ export function gunuErtele(
   });
 }
 
+/**
+ * Deneme dersi ekler. Aday henüz kayıtlı olmadığı için öğrenci bağlantısı yok;
+ * yalnızca adı tutuluyor (K6). Çakışma engel değil, dönen `warnings` içinde.
+ */
+export function denemeEkle(
+  teacherId: string,
+  tarih: string,
+  bas: string,
+  bitis: string,
+  adayAdi?: string
+): Promise<RescheduleResult & { id?: string }> {
+  return callReschedule("rpc_deneme_ekle", {
+    p_teacher_id: teacherId,
+    p_tarih: tarih,
+    p_bas: bas,
+    p_bitis: bitis,
+    p_aday_adi: adayAdi?.trim() || null,
+  });
+}
+
 export interface FreeSlot {
   success: boolean;
   error?: string;

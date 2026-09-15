@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { hataGoster } from "@/lib/notify";
-import { checkTeacherConflicts, ConflictInfo } from "@/lib/conflictDetection";
+import { denemeEkle, describeRescheduleWarnings } from "@/lib/lessonService";
+import { toDbTime } from "@/lib/lessonTypes";
 import { AlertTriangle } from "lucide-react";
 
 interface AddTrialLessonDialogProps {
@@ -17,84 +16,77 @@ interface AddTrialLessonDialogProps {
   onSuccess: () => void;
 }
 
+/**
+ * Deneme dersi ekleme.
+ *
+ * İki şey değişti. Birincisi: kayıt artık doğrudan tabloya yazılmıyor,
+ * `rpc_deneme_ekle` üzerinden gidiyor — deneme dersi de ders takviminin bir
+ * satırı (tur = deneme), yani taşınabiliyor, işlenebiliyor, geri alınabiliyor.
+ *
+ * İkincisi: çakışma kontrolü buradan kalktı. Eskiden istemcide ayrı bir
+ * sorgu vardı (`conflictDetection.ts`), sunucudaki kontrolün ikinci bir
+ * kopyasıydı ve yalnızca uyarı gösterip kaydı yine de yazıyordu. Artık tek
+ * kontrol sunucuda; sonuç `warnings` olarak geri geliyor.
+ *
+ * Gün seçici yerine tarih: eskiden "önümüzdeki salı" hesaplanıyordu, bu da
+ * iki hafta sonrasına deneme koymayı imkânsız kılıyordu.
+ */
 export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess }: AddTrialLessonDialogProps) {
-  const [dayOfWeek, setDayOfWeek] = useState<string>("");
+  const [tarih, setTarih] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [adayAdi, setAdayAdi] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
+  const [uyarilar, setUyarilar] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const days = [
-    { value: "1", label: "Pazartesi" },
-    { value: "2", label: "Salı" },
-    { value: "3", label: "Çarşamba" },
-    { value: "4", label: "Perşembe" },
-    { value: "5", label: "Cuma" },
-    { value: "6", label: "Cumartesi" },
-    { value: "0", label: "Pazar" },
-  ];
-
-  // Calculate the next occurrence of a specific day of week
-  const getNextDayOfWeek = (targetDay: number): string => {
-    const today = new Date();
-    const currentDay = today.getDay();
-    let daysUntilTarget = targetDay - currentDay;
-    if (daysUntilTarget < 0) {
-      daysUntilTarget += 7;
-    }
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() + daysUntilTarget);
-    return targetDate.toISOString().split("T")[0];
+  const sifirla = () => {
+    setTarih("");
+    setStartTime("");
+    setEndTime("");
+    setAdayAdi("");
+    setUyarilar(null);
   };
 
   const handleSubmit = async () => {
-    if (!dayOfWeek || !startTime || !endTime) {
+    if (!tarih || !startTime || !endTime) {
       toast({
-        title: "Eksik Bilgi",
-        description: "Lütfen tüm alanları doldurun",
+        title: "Eksik bilgi",
+        description: "Tarih, başlangıç ve bitiş saatini doldurun",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (toDbTime(endTime) <= toDbTime(startTime)) {
+      toast({
+        title: "Hata",
+        description: "Bitiş saati başlangıçtan sonra olmalı",
         variant: "destructive",
       });
       return;
     }
 
     setLoading(true);
-    setConflicts([]);
+    setUyarilar(null);
     try {
-      const lessonDate = getNextDayOfWeek(parseInt(dayOfWeek));
-
-      // Check for conflicts against ACTUAL schedule
-      const foundConflicts = await checkTeacherConflicts(
-        teacherId,
-        lessonDate,
-        startTime + ":00",
-        endTime + ":00"
-      );
-
-      if (foundConflicts.length > 0) {
-        setConflicts(foundConflicts);
-        // Warning only — don't block save
+      const sonuc = await denemeEkle(teacherId, tarih, toDbTime(startTime), toDbTime(endTime), adayAdi);
+      if (!sonuc.success) {
+        toast({
+          title: "Hata",
+          description: sonuc.error || "Deneme dersi eklenemedi",
+          variant: "destructive",
+        });
+        return;
       }
 
-      const { error } = await supabase.from("trial_lessons").insert({
-        teacher_id: teacherId,
-        day_of_week: parseInt(dayOfWeek),
-        start_time: startTime,
-        end_time: endTime,
-        lesson_date: lessonDate,
-      });
+      const cakisma = describeRescheduleWarnings(sonuc);
+      toast(
+        cakisma
+          ? { title: "Eklendi — o saatte başka ders de var", description: cakisma }
+          : { title: "Başarılı", description: "Deneme dersi eklendi" }
+      );
 
-      if (error) throw error;
-
-      toast({
-        title: "Başarılı",
-        description: "Deneme dersi eklendi",
-      });
-
-      setDayOfWeek("");
-      setStartTime("");
-      setEndTime("");
-      setConflicts([]);
+      sifirla();
       onOpenChange(false);
       onSuccess();
     } catch (error) {
@@ -106,60 +98,74 @@ export function AddTrialLessonDialog({ open, onOpenChange, teacherId, onSuccess 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md">
+      <DialogContent size="md" animateHeight>
         <DialogHeader>
           <DialogTitle>Deneme Dersi Ekle</DialogTitle>
+          <DialogDescription>
+            Aday henüz kayıtlı bir öğrenci değil; takvimde yer tutar, işlendi işaretlenince
+            bakiyeye girer.
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+
+        <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Gün</Label>
-            <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-              <SelectTrigger>
-                <SelectValue placeholder="Gün seçin" />
-              </SelectTrigger>
-              <SelectContent>
-                {days.map((day) => (
-                  <SelectItem key={day.value} value={day.value}>
-                    {day.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="deneme-tarih">Tarih</Label>
+            <Input
+              id="deneme-tarih"
+              type="date"
+              value={tarih}
+              onChange={(e) => setTarih(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="deneme-bas">Başlangıç</Label>
+              <Input
+                id="deneme-bas"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deneme-bitis">Bitiş</Label>
+              <Input
+                id="deneme-bitis"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Başlangıç Saati</Label>
-            <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            <Label htmlFor="deneme-aday">Aday adı <span className="text-muted-foreground">(isteğe bağlı)</span></Label>
+            <Input
+              id="deneme-aday"
+              value={adayAdi}
+              onChange={(e) => setAdayAdi(e.target.value)}
+              placeholder="Programda bu adla görünür"
+            />
           </div>
 
-          <div className="space-y-2">
-            <Label>Bitiş Saati</Label>
-            <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-          </div>
-
-          {/* Conflict warnings */}
-          {conflicts.length > 0 && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1.5">
-              <div className="flex items-center gap-2 text-destructive font-medium text-sm">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                Çakışma Tespit Edildi
+          {uyarilar && (
+            <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
+              <div className="flex items-start gap-2 text-amber-700 dark:text-amber-400 text-xs">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{uyarilar}</span>
               </div>
-              {conflicts.map((c, i) => (
-                <div key={i} className="text-xs text-destructive/80">
-                  {c.studentName} — {c.timeRange} ({c.type === "trial" ? "Deneme" : "Ders"})
-                </div>
-              ))}
             </div>
           )}
+        </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => { setConflicts([]); onOpenChange(false); }}>
-              İptal
-            </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
-              {loading ? "Ekleniyor..." : "Onayla"}
-            </Button>
-          </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSubmit} disabled={loading} className="flex-1">
+            {loading ? "Ekleniyor..." : "Ekle"}
+          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            Vazgeç
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

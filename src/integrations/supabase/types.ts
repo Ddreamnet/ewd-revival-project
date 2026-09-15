@@ -276,6 +276,7 @@ export type Database = {
       }
       lesson_instances: {
         Row: {
+          aday_adi: string | null
           created_at: string | null
           end_time: string
           id: string
@@ -290,11 +291,13 @@ export type Database = {
           shift_group_id: string | null
           start_time: string
           status: string
-          student_id: string
+          student_id: string | null
           teacher_id: string
+          tur: string
           updated_at: string | null
         }
         Insert: {
+          aday_adi?: string | null
           created_at?: string | null
           end_time: string
           id?: string
@@ -309,11 +312,13 @@ export type Database = {
           shift_group_id?: string | null
           start_time: string
           status?: string
-          student_id: string
+          student_id?: string | null
           teacher_id: string
+          tur?: string
           updated_at?: string | null
         }
         Update: {
+          aday_adi?: string | null
           created_at?: string | null
           end_time?: string
           id?: string
@@ -328,8 +333,9 @@ export type Database = {
           shift_group_id?: string | null
           start_time?: string
           status?: string
-          student_id?: string
+          student_id?: string | null
           teacher_id?: string
+          tur?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -1266,6 +1272,20 @@ export type Database = {
       }
       rpc_complete_trial_lesson: {
         Args: { p_teacher_id: string; p_trial_id: string }
+        Returns: Json
+      }
+      rpc_deneme_ekle: {
+        Args: {
+          p_aday_adi?: string
+          p_bas: string
+          p_bitis: string
+          p_tarih: string
+          p_teacher_id: string
+        }
+        Returns: Json
+      }
+      rpc_deneme_tasi: {
+        Args: { p_bas: string; p_bitis: string; p_instance_id: string; p_tarih: string }
         Returns: Json
       }
       rpc_delete_student: {
