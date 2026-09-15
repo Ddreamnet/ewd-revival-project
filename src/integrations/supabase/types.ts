@@ -1296,6 +1296,18 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_ogrenciyi_aktar: {
+        Args: { p_ogrenci: string; p_yeni_ogretmen: string }
+        Returns: Json
+      }
+      rpc_ogrenci_notu_kaydet: {
+        Args: { p_metin: string; p_ogrenci: string }
+        Returns: Json
+      }
+      ogrencim_mi: {
+        Args: { p_ogrenci: string }
+        Returns: boolean
+      }
       rpc_manual_balance_adjust: {
         Args: {
           p_amount_minutes: number

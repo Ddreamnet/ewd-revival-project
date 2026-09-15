@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/panelCache";
 import { parseLocalDate, toDateStr, toInputTime, getDayName } from "@/lib/lessonTypes";
 
-const CACHE_VERSION = 4;  // Paket boyu tracking'ten okunuyor
+const CACHE_VERSION = 5;  // Ödevler öğrenci listesine göre süzülüyor
 
 export interface PanelLesson {
   id: string;
@@ -91,7 +91,7 @@ const EMPTY: TeacherPanelData = {
 
 async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
   // ── Tur 1: birbirine bağlı olmayan her şey paralel ────────────────
-  const [studentsRes, trackingRes, balanceRes, homeworkRes, notifRes, profileRes] = await Promise.all([
+  const [studentsRes, trackingRes, balanceRes, notifRes, profileRes] = await Promise.all([
     supabase
       .from("students")
       .select(
@@ -108,12 +108,6 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
       .select("total_minutes, completed_regular_lessons, completed_trial_lessons")
       .eq("teacher_id", teacherId)
       .maybeSingle(),
-    supabase
-      .from("homework_submissions")
-      .select("id, batch_id, title, student_id, created_at, uploaded_by_user_id")
-      .eq("teacher_id", teacherId)
-      .order("created_at", { ascending: false })
-      .limit(150),
     supabase
       .from("notifications")
       .select("homework_id, is_read")
@@ -160,20 +154,43 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
     is_manual_override: boolean | null;
   }[] = [];
 
+  // Ödevler öğrenci listesine göre süzülüyor, öğretmen kimliğine göre değil.
+  // Transfer artık homework_submissions.teacher_id'yi değiştirmiyor (ödevi kim
+  // verdiyse odur, K7); yeni öğretmen ödevleri eşleşme üzerinden görür ve eski
+  // öğretmenin listesinden kendiliğinden düşer.
+  let homeworkRows: {
+    id: string;
+    batch_id: string;
+    title: string;
+    student_id: string;
+    created_at: string;
+    uploaded_by_user_id: string | null;
+  }[] = [];
+
   if (studentIds.length > 0) {
-    const { data, error } = await supabase
-      .from("lesson_instances")
-      .select(
-        "id, student_id, lesson_number, lesson_date, start_time, end_time, status, package_cycle, is_manual_override",
-      )
-      .eq("teacher_id", teacherId)
-      .in("student_id", studentIds)
-      .in("package_cycle", cycles.length > 0 ? cycles : [1])
-      .in("status", ["planned", "completed"])
-      .order("lesson_date", { ascending: true })
-      .order("start_time", { ascending: true });
-    if (error) throw error;
-    instanceRows = data ?? [];
+    const [instRes, hwRes] = await Promise.all([
+      supabase
+        .from("lesson_instances")
+        .select(
+          "id, student_id, lesson_number, lesson_date, start_time, end_time, status, package_cycle, is_manual_override",
+        )
+        .eq("teacher_id", teacherId)
+        .in("student_id", studentIds)
+        .in("package_cycle", cycles.length > 0 ? cycles : [1])
+        .in("status", ["planned", "completed"])
+        .order("lesson_date", { ascending: true })
+        .order("start_time", { ascending: true }),
+      supabase
+        .from("homework_submissions")
+        .select("id, batch_id, title, student_id, created_at, uploaded_by_user_id")
+        .in("student_id", studentIds)
+        .order("created_at", { ascending: false })
+        .limit(150),
+    ]);
+    if (instRes.error) throw instRes.error;
+    if (hwRes.error) throw hwRes.error;
+    instanceRows = instRes.data ?? [];
+    homeworkRows = hwRes.data ?? [];
   }
 
   const instancesByStudent = new Map<string, typeof instanceRows>();
@@ -221,7 +238,7 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
   );
 
   const groups = new Map<string, PanelHomeworkGroup>();
-  for (const hw of homeworkRes.data ?? []) {
+  for (const hw of homeworkRows) {
     const existing = groups.get(hw.batch_id);
     if (existing) {
       existing.fileCount += 1;

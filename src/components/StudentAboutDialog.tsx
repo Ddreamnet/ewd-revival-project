@@ -17,6 +17,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Undo, Redo, Heading1, Heading2, Heading3, Palette } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
+import { ogrenciNotuKaydet } from "@/lib/lessonService";
 import {
   Popover,
   PopoverContent,
@@ -149,12 +150,15 @@ export function StudentAboutDialog({
     setSaving(true);
     try {
       const htmlContent = editor.getHTML();
-      const { error } = await supabase
-        .from("students")
-        .update({ about_text: htmlContent === "<p></p>" ? null : htmlContent })
-        .eq("student_id", studentId);
-
-      if (error) throw error;
+      // Doğrudan tabloya yazılıyordu. students üzerinde öğretmenin UPDATE
+      // hakkı olmadığı için öğretmen panelinden yazılan not hiç kaydedilmiyor,
+      // üstelik hata da vermiyordu: Supabase eşleşmeyen bir UPDATE'i başarı
+      // sayıp 0 satır döndürüyor, ekranda "Bilgiler kaydedildi" çıkıyordu.
+      const sonuc = await ogrenciNotuKaydet(
+        studentId,
+        htmlContent === "<p></p>" ? null : htmlContent
+      );
+      if (!sonuc.success) throw new Error(sonuc.error || "Kaydedilemedi");
 
       toast.success("Bilgiler kaydedildi");
       await onSaved?.();

@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BRANCHES, branchLabel, type Branch } from "@/lib/branch";
+import { ogrenciyiAktar } from "@/lib/lessonService";
 
 interface EditTeacherDialogProps {
   open: boolean;
@@ -166,78 +167,22 @@ export function EditTeacherDialog({
 
     setTransferLoading(true);
     try {
-      // Get student info
       const student = students.find((s) => s.id === selectedStudent);
       if (!student) throw new Error("Öğrenci bulunamadı");
 
-      const studentUserId = student.profiles.user_id;
-
-      // Update students table
-      const { error: studentsError } = await supabase
-        .from("students")
-        .update({ teacher_id: selectedTeacher })
-        .eq("id", selectedStudent);
-
-      if (studentsError) throw studentsError;
-
-      // Update topics table
-      await supabase
-        .from("topics")
-        .update({ teacher_id: selectedTeacher })
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherId);
-
-      // Update student_lessons table
-      await supabase
-        .from("student_lessons")
-        .update({ teacher_id: selectedTeacher })
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherId);
-
-      // Update student_lesson_tracking table
-      await supabase
-        .from("student_lesson_tracking")
-        .update({ teacher_id: selectedTeacher })
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherId);
-
-      // Update homework_submissions table
-      await supabase
-        .from("homework_submissions")
-        .update({ teacher_id: selectedTeacher })
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherId);
-
-      // Update notifications table
-      await supabase
-        .from("notifications")
-        .update({ teacher_id: selectedTeacher })
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherId);
-
-      // Bildirimlerin alıcısı da yeni öğretmen olmalı; aksi halde eski
-      // öğretmen bu öğrencinin ödev bildirimlerini almaya devam ederdi.
-      await supabase
-        .from("notifications")
-        .update({ recipient_id: selectedTeacher })
-        .eq("student_id", studentUserId)
-        .eq("recipient_id", teacherId);
-
-      // Planlanmış/işlenmiş ders kayıtları — bunlar taşınmadığında yeni
-      // öğretmenin panelinde öğrencinin hiç dersi görünmüyor, ders rayı ve
-      // "sıradaki ders" boş kalıyordu. Bakiye kayıtları (balance_events,
-      // teacher_balance) bilerek taşınmaz: geçmişte işlenen dersin ücreti
-      // onu işleyen öğretmenindir.
-      const { error: instancesError } = await supabase
-        .from("lesson_instances")
-        .update({ teacher_id: selectedTeacher })
-        .eq("student_id", studentUserId)
-        .eq("teacher_id", teacherId);
-      if (instancesError) throw instancesError;
+      // Tek RPC, tek işlem. Burada sekiz ardışık UPDATE vardı: işlem yoktu ve
+      // altısının hatası hiç kontrol edilmiyordu, yani yarıda kesilen bir
+      // transfer sessizce yarım kalıyordu — öğrencinin dersleri eski
+      // öğretmende, şablonu yenisinde. Neyin taşınıp neyin kaldığı artık
+      // sunucuda tek yerde tanımlı (K7).
+      const sonuc = await ogrenciyiAktar(student.profiles.user_id, selectedTeacher);
+      if (!sonuc.success) throw new Error(sonuc.error || "Öğrenci atanamadı");
 
       toast({
         title: "Başarılı",
-        description: `${student.profiles.full_name} adlı öğrenci yeni öğretmene atandı`,
+        description:
+          `${student.profiles.full_name} yeni öğretmene atandı` +
+          (sonuc.ders ? ` · ${sonuc.ders} ders taşındı` : ""),
       });
 
       fetchStudents();

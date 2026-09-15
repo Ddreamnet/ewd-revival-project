@@ -482,6 +482,54 @@ export async function denemeSil(instanceId: string): Promise<RpcResult> {
   return { success: true };
 }
 
+/**
+ * Öğrenciyi başka bir öğretmene aktarır.
+ *
+ * Eskiden bu iş tarayıcıda sekiz ardışık UPDATE'ti: işlem yoktu, altısının
+ * hatası kontrol edilmiyordu, yarıda kesilirse öğrenci yarı taşınmış kalıyordu
+ * — dersler eski öğretmende, şablonu yenisinde. Artık tek RPC, tek işlem.
+ *
+ * Bakiye, ödeme geçmişi, konu ve ödev kayıtları bilerek taşınmaz (K7):
+ * işlenen dersin ücreti onu işleyenindir, konuyu kim yazdıysa odur. Yeni
+ * öğretmen bunları eşleşme üzerinden görür.
+ */
+export async function ogrenciyiAktar(
+  ogrenciUserId: string,
+  yeniOgretmenId: string
+): Promise<RpcResult & { ders?: number; sablon?: number; takip?: number; bildirim?: number }> {
+  const { data, error } = await supabase.rpc("rpc_ogrenciyi_aktar", {
+    p_ogrenci: ogrenciUserId,
+    p_yeni_ogretmen: yeniOgretmenId,
+  });
+  if (error) {
+    console.error("ogrenciyiAktar RPC error:", error);
+    return { success: false, error: error.message };
+  }
+  return data as unknown as RpcResult & { ders?: number };
+}
+
+/**
+ * Öğrencinin "hakkında" notunu kaydeder.
+ *
+ * Doğrudan tabloya yazılıyordu ama students üzerinde öğretmenin UPDATE hakkı
+ * yok: öğretmenin yazdığı not sessizce kayboluyordu (eşleşmeyen UPDATE hata
+ * değil, 0 satır). Tek alanlık RPC hem öğretmene hem admine açık.
+ */
+export async function ogrenciNotuKaydet(
+  ogrenciUserId: string,
+  metin: string | null
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc("rpc_ogrenci_notu_kaydet", {
+    p_ogrenci: ogrenciUserId,
+    p_metin: metin,
+  });
+  if (error) {
+    console.error("ogrenciNotuKaydet RPC error:", error);
+    return { success: false, error: error.message };
+  }
+  return data as unknown as RpcResult;
+}
+
 export interface FreeSlot {
   success: boolean;
   error?: string;
