@@ -1,0 +1,23 @@
+# Satır sonları depoda her zaman LF. Windows ve WSL arasında gidip gelen
+# düzenlemeler yüzünden 400'e yakın dosya, tek bir içerik değişikliği
+# olmadan "değişmiş" görünüyordu; bu dosya o gürültüyü bir kez temizleyip
+# tekrarını engelliyor.
+* text=auto eol=lf
+
+# İkili dosyalar dokunulmadan kalsın (git çoğunu kendi tanır, bunlar garanti).
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ico   binary
+*.gif   binary
+*.mp4   binary
+*.m4a   binary
+*.mp3   binary
+*.pdf   binary
+*.zip   binary
+*.keystore binary
+*.jar   binary
+
+# Windows toolchain'inin CRLF beklediği tek yer.
+*.bat   text eol=crlf
