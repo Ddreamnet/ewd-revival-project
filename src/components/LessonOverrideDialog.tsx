@@ -25,6 +25,7 @@ import {
   revertLesson,
   nextFreeSlot,
   describeRescheduleError,
+  describeRescheduleWarnings,
   type RescheduleResult,
 } from "@/lib/lessonService";
 import { clearWeekCache, type ActualLesson } from "@/hooks/useScheduleGrid";
@@ -119,7 +120,14 @@ export function LessonOverrideDialog({
       }
       clearWeekCache();
       setError(null);
-      toast({ title: "Başarılı", description: successMessage });
+      // Çakışma artık işlemi durdurmuyor: ders taşındı, o saatte başka bir
+      // ders de var. Bildirim bunu söylüyor, kararı admin veriyor.
+      const uyari = describeRescheduleWarnings(result);
+      toast(
+        uyari
+          ? { title: "Taşındı — o saatte başka ders de var", description: uyari }
+          : { title: "Başarılı", description: successMessage }
+      );
       onSuccess();
       onOpenChange(false);
       return true;

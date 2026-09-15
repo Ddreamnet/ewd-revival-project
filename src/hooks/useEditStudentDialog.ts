@@ -14,7 +14,9 @@ import {
   relayoutChain,
   prevFreeSlot,
   describeRescheduleError,
+  describeRescheduleWarnings,
   type RescheduleResult,
+  type RescheduleWarning,
   type ScheduleConflict,
   type TemplateSlot,
 } from "@/lib/lessonService";
@@ -51,6 +53,8 @@ export function useEditStudentDialog({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
+  /** İşlem yapıldı ama o saatlerde başka ders de var — engel değil, bilgi. */
+  const [warnings, setWarnings] = useState<RescheduleWarning[]>([]);
   // Göç uygulanmadıysa alan hiç gösterilmesin, kaydetmede de gönderilmesin.
   const [studentUserId, setStudentUserId] = useState("");
   const [teacherUserId, setTeacherUserId] = useState("");
@@ -329,11 +333,16 @@ export function useEditStudentDialog({
         changed.map((c) => lessonDates[c.id]),
         lessons.map((l) => l.dayOfWeek)
       );
+      const cakisma = describeRescheduleWarnings(result);
       toast({
-        title: "Başarılı",
-        description: warning
-          ? `Ders tarihleri güncellendi. ${warning}`
-          : "Ders tarihleri güncellendi",
+        title: cakisma ? "Güncellendi — o saatte başka ders de var" : "Başarılı",
+        description: [
+          "Ders tarihleri güncellendi",
+          warning || null,
+          cakisma ? `Çakışan saatler: ${cakisma}` : null,
+        ]
+          .filter(Boolean)
+          .join(". "),
       });
 
       setShowConfirm(false);
@@ -490,8 +499,10 @@ export function useEditStudentDialog({
   const reportFailure = (result: RescheduleResult): boolean => {
     if (result.success) {
       setConflicts([]);
+      setWarnings(result.warnings ?? []);
       return true;
     }
+    setWarnings([]);
     const message = describeRescheduleError(result);
     setConflicts(
       result.error === "conflict"
@@ -534,7 +545,12 @@ export function useEditStudentDialog({
       clearWeekCache();
       await fetchInstances();
       onStudentUpdated();
-      if (successMessage) toast({ title: "Başarılı", description: successMessage });
+      const uyari = describeRescheduleWarnings(result);
+      if (uyari) {
+        toast({ title: "Taşındı — o saatte başka ders de var", description: uyari });
+      } else if (successMessage) {
+        toast({ title: "Başarılı", description: successMessage });
+      }
     } catch (error: any) {
       toast({ title: "Hata", description: error.message || "İşlem başarısız", variant: "destructive" });
     } finally {
@@ -689,6 +705,7 @@ export function useEditStudentDialog({
     updateRemainingDays,
     setUpdateRemainingDays,
     conflicts,
+    warnings,
     completedCount,
     totalLessons,
     sortedLessonsForDisplay,

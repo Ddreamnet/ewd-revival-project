@@ -357,6 +357,16 @@ export async function getRemainingRights(
 // chain inside a single transaction — the client does no date math and issues
 // no direct UPDATE against lesson_instances.
 
+/** Bir dersin, başka bir dersin ya da deneme dersinin üstüne denk gelmesi. */
+export interface RescheduleWarning {
+  /** yyyy-MM-dd */
+  date: string;
+  /** "HH:MM - HH:MM" */
+  time: string;
+  /** Çakışılan öğrencinin adı, ya da "Deneme Dersi". */
+  student: string;
+}
+
 export interface RescheduleResult {
   success: boolean;
   error?: string;
@@ -369,6 +379,32 @@ export interface RescheduleResult {
   conflict_time?: string;
   /** Where each lesson actually landed — the server resolves omitted times. */
   placements?: { id: string; lessonDate: string; startTime: string; endTime: string }[];
+  /**
+   * İşlem yapıldı, ama şu saatlerde başka bir ders de var. Çakışma artık
+   * işlemi durdurmuyor: admin özgür, sistem yalnızca haber veriyor.
+   */
+  warnings?: RescheduleWarning[];
+}
+
+/**
+ * Başarılı bir taşımanın çakışma özeti; çakışma yoksa null.
+ *
+ * Üçten fazlasını saymıyoruz — bildirimin işi listeyi vermek değil, admini
+ * programa bakmaya çağırmak.
+ */
+export function describeRescheduleWarnings(result: RescheduleResult): string | null {
+  const uyarilar = result.warnings ?? [];
+  if (uyarilar.length === 0) return null;
+
+  const gun = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}`;
+  const ilk = uyarilar
+    .slice(0, 3)
+    .map((u) => `${gun(u.date)} ${u.time} · ${u.student}`)
+    .join(" — ");
+
+  return uyarilar.length > 3
+    ? `${ilk} ve ${uyarilar.length - 3} yer daha`
+    : ilk;
 }
 
 /** Turkish message for a failed reschedule, ready to drop into a toast. */

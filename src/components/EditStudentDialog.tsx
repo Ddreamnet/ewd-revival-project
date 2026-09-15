@@ -40,7 +40,7 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
     loading, shifting, showConfirm, setShowConfirm,
     showResetConfirm, setShowResetConfirm,
     updateRemainingDays, setUpdateRemainingDays,
-    conflicts, completedCount, totalLessons,
+    conflicts, warnings, completedCount, totalLessons,
     sortedLessonsForDisplay, canShiftBackward, hasRealignableInstances,
     handleLessonsPerWeekChange, updateLesson, updateLessonDate,
     handleDateSubmit, handleMarkLastLesson, handleUndoLastLesson,
@@ -142,6 +142,20 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
           </div>
 
           {/* Conflict warnings */}
+          {warnings.length > 0 && (
+            <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 space-y-1.5">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-medium text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Yapıldı — bu saatlerde başka ders de var
+              </div>
+              {warnings.map((u, i) => (
+                <div key={i} className="text-xs text-amber-700/80 dark:text-amber-400/80">
+                  {u.date.slice(8, 10)}.{u.date.slice(5, 7)} · {u.time} · {u.student}
+                </div>
+              ))}
+            </div>
+          )}
+
           {conflicts.length > 0 && (
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1.5">
               <div className="flex items-center gap-2 text-destructive font-medium text-sm">
