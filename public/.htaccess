@@ -1,0 +1,62 @@
+# ============================================================================
+# Apache / cPanel yapılandırması
+# ============================================================================
+# Site tek sayfalık bir uygulama, ama bir kısmı ön işleniyor (bkz.
+# scripts/prerender.mjs). Sunucunun sırası şu olmalı:
+#
+#   1. Gerçek dosya varsa onu ver          (assets, görseller, sitemap.xml)
+#   2. O yol için ön işlenmiş sayfa varsa onu ver   (/blog/yazi/index.html)
+#   3. Kalan her yolu uygulamaya bırak     (/login, /dashboard/*, /site-rehberi)
+#
+# Üçüncü adım olmazsa panel adresleri doğrudan açıldığında ya da sayfa
+# yenilendiğinde Apache 404 döner.
+
+Options -MultiViews
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1) Gerçek dosya: olduğu gibi gitsin.
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
+  # 2) Ön işlenmiş sayfa: yönlendirmeden, doğrudan ver.
+  RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f
+  RewriteRule ^(.*?)/?$ /$1/index.html [L]
+
+  # 3) Geri kalan her yol uygulamanın kendisi.
+  RewriteRule ^ /index.html [L]
+</IfModule>
+
+# ── Önbellek ────────────────────────────────────────────────────────────────
+# assets/ altındaki dosya adları içerik özetini taşıyor (index-CL1IYvMG.js):
+# içerik değişince ad da değişir, o yüzden sonsuza kadar önbelleklenebilirler.
+# index.html ve sitemap ise her zaman taze okunmalı, yoksa yeni sürüm
+# ziyaretçiye günlerce ulaşmaz.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|woff2?|ttf|otf|eot|svg|png|jpe?g|webp|gif|ico|mp4|m4a|mp3)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  <FilesMatch "\.(html|xml|webmanifest|json)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# ── Sıkıştırma ──────────────────────────────────────────────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE application/xml image/svg+xml
+  AddOutputFilterByType DEFLATE application/manifest+json
+</IfModule>
+
+# ── Tür eşlemeleri ──────────────────────────────────────────────────────────
+# Bazı paylaşımlı sunucularda tanımlı değiller; tanımsızsa tarayıcı dosyayı
+# indirmeye çalışır.
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+  AddType image/svg+xml            .svg
+  AddType font/woff2               .woff2
+</IfModule>
