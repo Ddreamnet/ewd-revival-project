@@ -112,11 +112,16 @@ export function getAllTimeSlots(
  */
 export function getAllTimeSlotsActual(
   actualLessons: ActualLesson[],
-  trialLessons: TrialLessonInfo[]
+  trialLessons: TrialLessonInfo[],
+  templateLessons: BaseLessonInfo[] = []
 ): string[] {
   const allTimes = new Set<string>();
   actualLessons.forEach((l) => allTimes.add(l.start_time));
   trialLessons.forEach((l) => allTimes.add(l.start_time));
+  // Şablon saatleri de eksende olsun: o gün boş olan bir saat ancak satır
+  // olarak varsa sürükleme hedefi olabilir. Ders yalnızca dolu saatlerden
+  // üretildiğinde, "salıyı cumartesiye al" için bırakılacak hücre yoktu.
+  templateLessons.forEach((l) => allTimes.add(l.start_time));
   return Array.from(allTimes).sort();
 }
 

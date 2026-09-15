@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { CalendarIcon, ArrowRight, RotateCcw, AlertTriangle, History } from "lucide-react";
+import { CalendarIcon, ArrowRight, RotateCcw, AlertTriangle, History, Move, ListOrdered } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,10 @@ interface LessonOverrideDialogProps {
   lesson: ActualLesson | null;
   teacherId: string;
   onSuccess: () => void;
+  /** "Taşı": paneli kapatır, dersi takvimde hedef seçmeye hazır hâle getirir. */
+  onTasi?: (lesson: ActualLesson) => void;
+  /** "Paketi aç": öğrencinin bütün paketini aynı ekranda gösterir. */
+  onPaketiAc?: (lesson: ActualLesson) => void;
 }
 
 /**
@@ -63,6 +67,8 @@ export function LessonOverrideDialog({
   lesson,
   teacherId,
   onSuccess,
+  onTasi,
+  onPaketiAc,
 }: LessonOverrideDialogProps) {
   const [newDate, setNewDate] = useState<Date | undefined>();
   const [newStartTime, setNewStartTime] = useState("");
@@ -226,6 +232,33 @@ export function LessonOverrideDialog({
             <div className="rounded-md border border-muted bg-muted/50 p-2.5 text-xs text-muted-foreground">
               Bu ders işlenmiş olarak işaretli. Tarihini değiştirmek bakiyeyi etkilemez, ancak
               geçmiş kaydını değiştirir.
+            </div>
+          )}
+
+          {(onTasi || onPaketiAc) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {onTasi && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => onTasi(lesson)}
+                >
+                  <Move className="h-3.5 w-3.5 mr-1 shrink-0" />
+                  Takvimden taşı
+                </Button>
+              )}
+              {onPaketiAc && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => onPaketiAc(lesson)}
+                >
+                  <ListOrdered className="h-3.5 w-3.5 mr-1 shrink-0" />
+                  Paketi aç
+                </Button>
+              )}
             </div>
           )}
 

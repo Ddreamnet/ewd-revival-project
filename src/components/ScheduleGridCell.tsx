@@ -1,3 +1,4 @@
+import type { DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -42,6 +43,12 @@ interface ScheduleGridCellProps {
   studentColors: Map<string, string>;
   onActualLessonClick: (lesson: ActualLesson) => void;
   onTrialLessonClick: (trial: TrialLesson) => void;
+  /** Taşınmak üzere seçilmiş ders — seçiliyken her hücre hedef olur. */
+  tasinan?: ActualLesson | null;
+  /** Sürüklemeye başlandı (masaüstü) ya da "Taşı" ile seçildi (dokunmatik). */
+  onTasimaBasla?: (lesson: ActualLesson) => void;
+  /** Hedef hücre seçildi: bırakma ya da dokunma. */
+  onHedefSec?: (dayIndex: number, timeSlot: string) => void;
 }
 
 export function ScheduleGridCell({
@@ -55,6 +62,9 @@ export function ScheduleGridCell({
   studentColors,
   onActualLessonClick,
   onTrialLessonClick,
+  tasinan = null,
+  onTasimaBasla,
+  onHedefSec,
 }: ScheduleGridCellProps) {
   if (showTemplate) {
     const lesson = lessons.find(
@@ -83,6 +93,24 @@ export function ScheduleGridCell({
   }
 
   // GÜNCEL MODE
+  //
+  // Her hücre bir hedef: boş olan da, dolu olan da. Dolu bir saate bırakmak
+  // artık engellenmiyor — sunucu yazıyor ve çakışmayı uyarı olarak bildiriyor.
+  const tasimaModu = !!tasinan;
+  const hedefOzellikleri = {
+    onDragOver: (e: DragEvent) => {
+      if (onHedefSec) e.preventDefault();
+    },
+    onDrop: (e: DragEvent) => {
+      e.preventDefault();
+      onHedefSec?.(dayIndex, timeSlot);
+    },
+    onClick: tasimaModu ? () => onHedefSec?.(dayIndex, timeSlot) : undefined,
+  };
+  const hedefSinifi = tasimaModu
+    ? "outline-dashed outline-1 outline-primary/40 cursor-copy hover:bg-primary/5"
+    : "";
+
   const slotLessons = getActualLessonsForDayAndTime(actualLessons, dayIndex, timeSlot, weekStart);
   const trialLesson = getTrialLessonForDayAndTime(trialLessons, dayIndex, timeSlot, weekStart);
 
@@ -91,7 +119,7 @@ export function ScheduleGridCell({
   );
 
   if (visibleLessons.length === 0 && !trialLesson) {
-    return <td className="border border-border p-2"></td>;
+    return <td className={`border border-border p-2 ${hedefSinifi}`} {...hedefOzellikleri}></td>;
   }
 
   type RenderItem =
@@ -116,7 +144,7 @@ export function ScheduleGridCell({
   const isMulti = renderItems.length > 1;
 
   return (
-    <td className="border border-border p-1">
+    <td className={`border border-border p-1 ${hedefSinifi}`} {...hedefOzellikleri}>
       <div className="flex gap-0.5 h-full">
         {renderItems.map((item) => {
           if (item.type === "b2b") {
@@ -178,8 +206,21 @@ export function ScheduleGridCell({
                   al.isGhost ? "cursor-default" : "cursor-pointer"
                 } ${!al.isGhost && al.status === "completed" ? "opacity-40" : ""} ${
                   !al.isGhost && al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""
-                } ${studentColors.get(al.student_id) || "bg-gray-100 text-gray-800"}`}
-                onClick={() => !al.isGhost && onActualLessonClick(al)}
+                } ${tasinan?.id === al.id ? "opacity-30" : ""} ${
+                  studentColors.get(al.student_id) || "bg-gray-100 text-gray-800"
+                }`}
+                draggable={!al.isGhost && !!onTasimaBasla}
+                onDragStart={() => !al.isGhost && onTasimaBasla?.(al)}
+                onClick={() => {
+                  if (al.isGhost) return;
+                  // Taşıma sürerken hücreye dokunmak hedefi seçer; ders
+                  // panelini açmak bu modda beklenmeyen bir sonuç olurdu.
+                  if (tasimaModu) {
+                    onHedefSec?.(dayIndex, timeSlot);
+                    return;
+                  }
+                  onActualLessonClick(al);
+                }}
               >
                 {al.isGhost && <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />}
                 <div className="text-center truncate">

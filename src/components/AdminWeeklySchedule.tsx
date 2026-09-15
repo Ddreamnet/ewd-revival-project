@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Download, Trash2, CheckCircle, Undo2, ChevronLeft, ChevronRight, CalendarX } from "lucide-react";
+import { Plus, Download, Trash2, CheckCircle, Undo2, ChevronLeft, ChevronRight, CalendarX, Move, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { hataGoster } from "@/lib/notify";
@@ -13,10 +13,12 @@ import { AddTrialLessonDialog } from "./AddTrialLessonDialog";
 import { exportScheduleAsPNG } from "./ScheduleExportCanvas";
 import { LessonOverrideDialog } from "./LessonOverrideDialog";
 import { ScheduleGridCell } from "./ScheduleGridCell";
+import { EditStudentDialog } from "./EditStudentDialog";
+import type { StudentLessonBase } from "@/lib/types";
 
 import { format, addDays } from "date-fns";
-import { formatTime } from "@/lib/lessonTypes";
-import { completeTrialLesson, undoTrialLesson, gunuErtele, describeRescheduleWarnings } from "@/lib/lessonService";
+import { formatTime, toDbTime, toDateStr } from "@/lib/lessonTypes";
+import { completeTrialLesson, undoTrialLesson, gunuErtele, moveLesson, describeRescheduleWarnings } from "@/lib/lessonService";
 import { getAllTimeSlots, getAllTimeSlotsActual, fetchActualLessonsForWeek, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
@@ -76,6 +78,13 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   /** "Bu günü ertele" onayı bekleyen gün — öğretmen hasta olduğunda tek tık. */
   const [ertelenecekGun, setErtelenecekGun] = useState<Date | null>(null);
   const [gunErteleniyor, setGunErteleniyor] = useState(false);
+  /** Taşınmak üzere seçilmiş ders: sürüklenen ya da "Taşı" ile işaretlenen. */
+  const [tasinan, setTasinan] = useState<ActualLesson | null>(null);
+  /** Takvimden açılan öğrenci ayarları — paket listesinin ikinci kapısı. */
+  const [paketOgrencisi, setPaketOgrencisi] = useState<
+    { recordId: string; userId: string; name: string } | null
+  >(null);
+  const [ogrenciKayitlari, setOgrenciKayitlari] = useState<Map<string, string>>(new Map());
   const [actualLessons, setActualLessons] = useState<ActualLesson[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
   const weekStart = getWeekStartForOffset(weekOffset);
@@ -134,13 +143,14 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
 
       // Step 1: students + trial_lessons in parallel (independent)
       const [studentsRes, trialRes] = await Promise.all([
-        supabase.from("students").select("student_id").eq("teacher_id", teacherId).eq("is_archived", false),
+        supabase.from("students").select("id, student_id").eq("teacher_id", teacherId).eq("is_archived", false),
         supabase.from("trial_lessons").select("*").eq("teacher_id", teacherId).order("start_time", { ascending: true }),
       ]);
       if (studentsRes.error) throw studentsRes.error;
       if (trialRes.error) throw trialRes.error;
 
       const activeStudentIds = (studentsRes.data || []).map(s => s.student_id);
+      setOgrenciKayitlari(new Map((studentsRes.data || []).map(s => [s.student_id, s.id])));
       setTrialLessons(trialRes.data || []);
 
       // Step 2: lessons + profiles in parallel (depend on activeStudentIds)
@@ -171,7 +181,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
 
   const timeSlots = showTemplate
     ? getAllTimeSlots(lessons, [])
-    : getAllTimeSlotsActual(actualLessons, trialLessons);
+    : getAllTimeSlotsActual(actualLessons, trialLessons, lessons);
 
   const weekEnd = addDays(weekStart, 6);
   const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
@@ -216,6 +226,45 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
       setGunErteleniyor(false);
       setErtelenecekGun(null);
     }
+  };
+
+  /**
+   * Sürükleyip bıraktığın (ya da "Taşı" modunda dokunduğun) hücreye taşır.
+   *
+   * Süre dersin kendi süresidir: 19:20–19:50 bir ders 20:00 slotuna
+   * bırakıldığında 20:00–20:30 olur. Hedef doluysa işlem yine yapılır,
+   * sunucu çakışmayı uyarı olarak bildirir.
+   */
+  const handleHedefSec = async (dayIndex: number, timeSlot: string) => {
+    const ders = tasinan;
+    if (!ders) return;
+    setTasinan(null);
+
+    const hedefTarih = toDateStr(addDays(weekStart, dayIndex));
+    const baslangic = toDbTime(timeSlot);
+    if (hedefTarih === ders.lesson_date && baslangic === toDbTime(ders.start_time)) return;
+
+    const dk = (t: string) => {
+      const [h, m] = toDbTime(t).split(":").map(Number);
+      return h * 60 + m;
+    };
+    const sure = Math.max(1, dk(ders.end_time) - dk(ders.start_time));
+    const bitisDk = dk(baslangic) + sure;
+    const bitis = `${String(Math.floor(bitisDk / 60) % 24).padStart(2, "0")}:${String(bitisDk % 60).padStart(2, "0")}:00`;
+
+    const sonuc = await moveLesson(ders.id, hedefTarih, baslangic, bitis, false);
+    if (!sonuc.success) {
+      toast({ title: "Hata", description: sonuc.error || "Ders taşınamadı", variant: "destructive" });
+      return;
+    }
+    const uyari = describeRescheduleWarnings(sonuc);
+    toast({
+      title: uyari ? "Taşındı — o saatte başka ders de var" : "Ders taşındı",
+      description: uyari ?? `${ders.student_name} · ${format(addDays(weekStart, dayIndex), "d MMMM")} ${formatTime(baslangic)}`,
+    });
+    clearWeekCache();
+    fetchSchedule();
+    if (!showTemplate) fetchActualSchedule();
   };
 
   const handleOverrideSuccess = () => {
@@ -352,6 +401,20 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
           )}
         </CardHeader>
         <CardContent>
+          {tasinan && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+              <span className="flex items-center gap-2 min-w-0">
+                <Move className="h-4 w-4 shrink-0 text-primary" />
+                <span className="truncate">
+                  <strong>{tasinan.student_name}</strong> taşınıyor — hedef saate dokunun
+                </span>
+              </span>
+              <Button variant="ghost" size="sm" onClick={() => setTasinan(null)} className="shrink-0">
+                <X className="h-4 w-4 mr-1" />
+                Vazgeç
+              </Button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[800px]">
               <thead>
@@ -401,6 +464,9 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
                         weekStart={weekStart}
                         studentColors={studentColors}
                         onActualLessonClick={handleActualLessonClick}
+                        tasinan={tasinan}
+                        onTasimaBasla={setTasinan}
+                        onHedefSec={handleHedefSec}
                         onTrialLessonClick={handleTrialLessonClick}
                       />
                     ))}
@@ -517,7 +583,44 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
         lesson={selectedActualLesson}
         teacherId={teacherId}
         onSuccess={handleOverrideSuccess}
+        onTasi={(l) => {
+          setTasinan(l);
+          setShowOverrideDialog(false);
+        }}
+        onPaketiAc={
+          selectedActualLesson && ogrenciKayitlari.has(selectedActualLesson.student_id)
+            ? (l) => {
+                setPaketOgrencisi({
+                  recordId: ogrenciKayitlari.get(l.student_id)!,
+                  userId: l.student_id,
+                  name: l.student_name,
+                });
+                setShowOverrideDialog(false);
+              }
+            : undefined
+        }
       />
+
+      {/* Paket listesinin ikinci kapısı: takvimden de aynı ekran açılıyor,
+          yani iki yüzeyde farklı davranan iki ayrı liste kalmıyor. */}
+      {paketOgrencisi && (
+        <EditStudentDialog
+          open
+          onOpenChange={(acik) => !acik && setPaketOgrencisi(null)}
+          onStudentUpdated={handleOverrideSuccess}
+          studentId={paketOgrencisi.recordId}
+          currentName={paketOgrencisi.name}
+          currentLessons={lessons
+            .filter((l) => l.student_id === paketOgrencisi.userId)
+            .map<StudentLessonBase>((l) => ({
+              id: l.id,
+              dayOfWeek: l.day_of_week,
+              startTime: l.start_time,
+              endTime: l.end_time,
+              note: l.note ?? undefined,
+            }))}
+        />
+      )}
     </>
   );
 }
