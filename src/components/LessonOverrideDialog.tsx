@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { CalendarIcon, ArrowRight, RotateCcw, AlertTriangle, History } from "lucide-react";
 import { format } from "date-fns";
@@ -49,9 +49,6 @@ interface LessonOverrideDialogProps {
   onSuccess: () => void;
 }
 
-/** How a manual date change treats the lessons that come after it. */
-type MoveMode = "single" | "cascade";
-
 /**
  * The one place a lesson's date or time is changed.
  *
@@ -70,7 +67,8 @@ export function LessonOverrideDialog({
   const [newDate, setNewDate] = useState<Date | undefined>();
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
-  const [moveMode, setMoveMode] = useState<MoveMode>("single");
+  /** Taşımadan sonraki dersler de kaysın mı — iki yüzeyde de aynı tek bayrak. */
+  const [cascade, setCascade] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPostponeConfirm, setShowPostponeConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
@@ -86,7 +84,7 @@ export function LessonOverrideDialog({
     setNewDate(parseLocalDate(lesson.lesson_date));
     setNewStartTime(toInputTime(lesson.start_time));
     setNewEndTime(toInputTime(lesson.end_time));
-    setMoveMode("single");
+    setCascade(false);
     setError(null);
     setPostponeTarget(null);
 
@@ -154,11 +152,11 @@ export function LessonOverrideDialog({
         toDateStr(newDate),
         toDbTime(newStartTime),
         toDbTime(newEndTime),
-        moveMode === "cascade"
+        cascade
       );
       settle(
         result,
-        moveMode === "cascade"
+        cascade
           ? `Ders ${format(newDate, "d MMMM", { locale: tr })} tarihine alındı, sonraki dersler kaydırıldı`
           : `Ders ${format(newDate, "d MMMM", { locale: tr })} tarihine alındı`
       );
@@ -283,39 +281,24 @@ export function LessonOverrideDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm">Sonraki dersler ne olsun?</Label>
-              <RadioGroup
-                value={moveMode}
-                onValueChange={(v) => setMoveMode(v as MoveMode)}
-                className="gap-2"
-              >
-                <label
-                  htmlFor="mode-single"
-                  className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50"
-                >
-                  <RadioGroupItem value="single" id="mode-single" className="mt-0.5" />
-                  <span className="text-xs leading-snug">
-                    <span className="font-medium block">Yerinde kalsın</span>
-                    <span className="text-muted-foreground">
-                      Sadece bu ders taşınır. Ders sabitlenir; program değişse de yerinde kalır.
-                    </span>
-                  </span>
-                </label>
-                <label
-                  htmlFor="mode-cascade"
-                  className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50"
-                >
-                  <RadioGroupItem value="cascade" id="mode-cascade" className="mt-0.5" />
-                  <span className="text-xs leading-snug">
-                    <span className="font-medium block">Onlar da kaysın</span>
-                    <span className="text-muted-foreground">
-                      Bu dersten sonraki tüm planlı dersler birer boş saat ileri alınır.
-                    </span>
-                  </span>
-                </label>
-              </RadioGroup>
-            </div>
+            <label
+              htmlFor="cascade-move"
+              className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50"
+            >
+              <Checkbox
+                id="cascade-move"
+                checked={cascade}
+                onCheckedChange={(v) => setCascade(v === true)}
+                className="mt-0.5"
+              />
+              <span className="text-xs leading-snug">
+                <span className="font-medium block">Sonraki dersler de kaysın</span>
+                <span className="text-muted-foreground">
+                  İşaretli değilse yalnızca bu ders taşınır ve sabitlenir — telafi dersi böyle
+                  konur. İşaretliyse bu dersten sonraki planlı dersler de birer boş saat ileri alınır.
+                </span>
+              </span>
+            </label>
 
             {error && (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
@@ -343,11 +326,11 @@ export function LessonOverrideDialog({
               variant="outline"
               size="sm"
               onClick={() => setShowPostponeConfirm(true)}
-              disabled={saving || isCompleted}
+              disabled={saving}
               className="text-xs"
             >
               <ArrowRight className="h-3.5 w-3.5 mr-1 shrink-0" />
-              Sonraki Boş Saate Ertele
+              Bu ders yapılmadı
             </Button>
             <Button
               variant="outline"
@@ -366,7 +349,7 @@ export function LessonOverrideDialog({
       <AlertDialog open={showPostponeConfirm} onOpenChange={setShowPostponeConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Sonraki Boş Saate Ertele</AlertDialogTitle>
+            <AlertDialogTitle>Bu ders yapılmadı</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div>
                 <p>

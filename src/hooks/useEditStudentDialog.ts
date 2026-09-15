@@ -12,7 +12,7 @@ import {
   getLastCompletedInstance,
   applyLessonDates,
   relayoutChain,
-  prevFreeSlot,
+  araVer,
   describeRescheduleError,
   describeRescheduleWarnings,
   type RescheduleResult,
@@ -58,7 +58,6 @@ export function useEditStudentDialog({
   // Göç uygulanmadıysa alan hiç gösterilmesin, kaydetmede de gönderilmesin.
   const [studentUserId, setStudentUserId] = useState("");
   const [teacherUserId, setTeacherUserId] = useState("");
-  const [canShiftBackward, setCanShiftBackward] = useState(false);
   /** Last completed instance across ALL cycles — the backward/realign boundary.
    *  Loaded with the instances so chain checks stay synchronous. */
   const [lastCompletedAnchor, setLastCompletedAnchor] = useState<{ lessonDate: string; startTime: string } | null>(null);
@@ -574,70 +573,35 @@ export function useEditStudentDialog({
     );
   };
 
-  /** Shift the whole planned chain forward by one free slot. */
-  const handleShiftForward = async () => {
-    const realignable = getRealignableInstances();
-    if (realignable.length === 0) return;
-    const first = realignable[0];
-    await runChainOp(() =>
-      relayoutChain(
-        realignable.map((i) => i.id),
-        first.lesson_date,
-        toDbTime(first.start_time)
-      )
-    );
-  };
-
-  /** Shift the whole planned chain back by one free slot, never past the last
-   *  completed lesson or into the past. */
-  const handleShiftBackward = async () => {
-    const realignable = getRealignableInstances();
-    if (realignable.length === 0) return;
-    const first = realignable[0];
-    const ids = realignable.map((i) => i.id);
-
-    const slot = await prevFreeSlot(
-      studentUserId,
-      teacherUserId,
-      first.lesson_date,
-      toDbTime(first.start_time),
-      ids
-    );
-    if (!slot.success || !slot.lessonDate || !slot.startTime) {
-      setCanShiftBackward(false);
-      toast({ title: "Bilgi", description: "Daha geriye kaydırılamaz" });
+  /**
+   * Ara ver (tatil): seçilen aralık boşalır, aralıktaki ve sonrasındaki
+   * planlı dersler aralığın bitiminden itibaren ilk uygun slotlara kayar.
+   *
+   * Bunun yerine önceden iki ok vardı — zinciri birer slot ileri ve geri
+   * kaydıran. Gerçek ihtiyaç "iki hafta tatil" olduğunda o oklara dört kez
+   * basmak gerekiyordu ve kaçıncı basışta olunduğu ekranda görünmüyordu.
+   */
+  const handleAraVer = async (baslangic: string, bitis: string) => {
+    if (!baslangic || !bitis) {
+      toast({ title: "Eksik bilgi", description: "Başlangıç ve bitiş tarihi seçin", variant: "destructive" });
       return;
     }
-
-    await runChainOp(() =>
-      relayoutChain(ids, slot.lessonDate!, slot.startTime!, { inclusive: true })
-    );
-  };
-
-  /** Is there room to shift back? Asked once per instance load, not per keystroke. */
-  useEffect(() => {
-    let cancelled = false;
-    const realignable = getRealignableInstances();
-    if (realignable.length === 0 || !studentUserId || !teacherUserId) {
-      setCanShiftBackward(false);
+    if (bitis < baslangic) {
+      toast({ title: "Hata", description: "Bitiş tarihi başlangıçtan önce olamaz", variant: "destructive" });
       return;
     }
-    const first = realignable[0];
-    prevFreeSlot(
-      studentUserId,
-      teacherUserId,
-      first.lesson_date,
-      toDbTime(first.start_time),
-      realignable.map((i) => i.id)
-    )
-      .then((slot) => { if (!cancelled) setCanShiftBackward(!!slot.success); })
-      .catch(() => { if (!cancelled) setCanShiftBackward(false); });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instances, studentUserId, teacherUserId]);
-
+    await runChainOp(
+      () => araVer(studentUserId, teacherUserId, baslangic, bitis),
+      "Ara verildi, dersler ileri kaydırıldı"
+    );
+  };
 
   const hasRealignableInstances = getRealignableInstances().length > 0;
+
+  /** Kaydedilmemiş tarih değişikliği sayısı — listenin altındaki önizleme. */
+  const pendingDateChanges = Object.keys(lessonDates).filter(
+    (id) => lessonDates[id] !== originalLessonDates[id],
+  ).length;
 
   // Derived state
   const completedCount = instances.filter((i) => i.status === "completed").length;
@@ -706,10 +670,10 @@ export function useEditStudentDialog({
     setUpdateRemainingDays,
     conflicts,
     warnings,
+    pendingDateChanges,
     completedCount,
     totalLessons,
     sortedLessonsForDisplay,
-    canShiftBackward,
     hasRealignableInstances,
 
     // Handlers
@@ -725,7 +689,6 @@ export function useEditStudentDialog({
     handleDeleteStudent,
     handleArchiveStudent,
     handleRealignChain,
-    handleShiftForward,
-    handleShiftBackward,
+    handleAraVer,
   };
 }

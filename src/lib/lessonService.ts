@@ -498,6 +498,36 @@ export function applyLessonDates(
   });
 }
 
+/**
+ * Ara ver (tatil): verilen aralığı boşaltır, aralıktaki ve sonrasındaki
+ * planlı dersler aralığın bitiminden itibaren ilk uygun slotlara sırasını
+ * bozmadan kayar. Hak sayısı değişmez, paket yalnızca uzar.
+ */
+export function araVer(
+  studentId: string,
+  teacherId: string,
+  baslangic: string,
+  bitis: string
+): Promise<RescheduleResult> {
+  return callReschedule("rpc_ara_ver", {
+    p_student_id: studentId,
+    p_teacher_id: teacherId,
+    p_baslangic: baslangic,
+    p_bitis: bitis,
+  });
+}
+
+/** Bir günün tamamını erteler: o gün dersi olan herkesin dersleri birer slot kayar. */
+export function gunuErtele(
+  teacherId: string,
+  tarih: string
+): Promise<RescheduleResult & { students?: number }> {
+  return callReschedule("rpc_gunu_ertele", {
+    p_teacher_id: teacherId,
+    p_tarih: tarih,
+  });
+}
+
 export interface FreeSlot {
   success: boolean;
   error?: string;

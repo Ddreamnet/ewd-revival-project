@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Download, Trash2, CheckCircle, Undo2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Download, Trash2, CheckCircle, Undo2, ChevronLeft, ChevronRight, CalendarX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { hataGoster } from "@/lib/notify";
@@ -16,7 +16,7 @@ import { ScheduleGridCell } from "./ScheduleGridCell";
 
 import { format, addDays } from "date-fns";
 import { formatTime } from "@/lib/lessonTypes";
-import { completeTrialLesson, undoTrialLesson } from "@/lib/lessonService";
+import { completeTrialLesson, undoTrialLesson, gunuErtele, describeRescheduleWarnings } from "@/lib/lessonService";
 import { getAllTimeSlots, getAllTimeSlotsActual, fetchActualLessonsForWeek, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
@@ -73,6 +73,9 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const [showUnmarkAlert, setShowUnmarkAlert] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
+  /** "Bu günü ertele" onayı bekleyen gün — öğretmen hasta olduğunda tek tık. */
+  const [ertelenecekGun, setErtelenecekGun] = useState<Date | null>(null);
+  const [gunErteleniyor, setGunErteleniyor] = useState(false);
   const [actualLessons, setActualLessons] = useState<ActualLesson[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
   const weekStart = getWeekStartForOffset(weekOffset);
@@ -184,6 +187,35 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const handleTrialLessonClick = (trial: TrialLesson) => {
     setSelectedTrialLesson(trial);
     setShowTrialActionDialog(true);
+  };
+
+  /**
+   * Bir günün tamamını erteler: o gün dersi olan her öğrencinin dersleri
+   * birer boş saat ileri kayar. Öğretmen hasta olduğunda tek işlem.
+   */
+  const handleGunuErtele = async () => {
+    if (!ertelenecekGun) return;
+    setGunErteleniyor(true);
+    try {
+      const sonuc = await gunuErtele(teacherId, format(ertelenecekGun, "yyyy-MM-dd"));
+      if (!sonuc.success) {
+        toast({ title: "Hata", description: sonuc.error || "Gün ertelenemedi", variant: "destructive" });
+        return;
+      }
+      const uyari = describeRescheduleWarnings(sonuc);
+      toast({
+        title: sonuc.students
+          ? `${sonuc.students} öğrencinin dersleri kaydırıldı`
+          : "Bu günde kaydırılacak ders yok",
+        description: uyari ? `Çakışan saatler: ${uyari}` : undefined,
+      });
+      clearWeekCache();
+      fetchSchedule();
+      if (!showTemplate) fetchActualSchedule();
+    } finally {
+      setGunErteleniyor(false);
+      setErtelenecekGun(null);
+    }
   };
 
   const handleOverrideSuccess = () => {
@@ -325,9 +357,30 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
               <thead>
                 <tr>
                   <th className="border border-border p-2 bg-muted font-medium text-sm">Saat</th>
-                  {DAYS.map((day) => (
-                    <th key={day} className="border border-border p-2 bg-muted font-medium text-sm">{day}</th>
-                  ))}
+                  {DAYS.map((day, dayIndex) => {
+                    const gunTarihi = addDays(weekStart, dayIndex);
+                    return (
+                      <th key={day} className="border border-border p-2 bg-muted font-medium text-sm">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span>{day}</span>
+                          {!showTemplate && (
+                            <button
+                              type="button"
+                              onClick={() => setErtelenecekGun(gunTarihi)}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              title={`${day} gününün tüm derslerini ertele`}
+                              aria-label={`${format(gunTarihi, "d MMMM")} gününün tüm derslerini ertele`}
+                            >
+                              <CalendarX className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-[11px] font-normal text-muted-foreground">
+                          {format(gunTarihi, "dd.MM")}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -365,6 +418,33 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
         teacherId={teacherId}
         onSuccess={() => { clearWeekCache(); fetchSchedule(); if (!showTemplate) fetchActualSchedule(); }}
       />
+
+      <AlertDialog open={!!ertelenecekGun} onOpenChange={(a) => !a && setErtelenecekGun(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bu günün tüm derslerini ertele</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <p>
+                  {ertelenecekGun && format(ertelenecekGun, "d MMMM yyyy, EEEE")} günü dersi olan
+                  her öğrencinin dersleri birer boş saate ileri alınacak.
+                </p>
+                <ul className="list-disc list-inside mt-3 space-y-1 text-sm">
+                  <li>Her öğrencinin o günden sonraki planlı dersleri de birlikte kayar.</li>
+                  <li>Elle sabitlenmiş dersler yerinde kalır.</li>
+                  <li>Kimsenin ders hakkı değişmez.</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={gunErteleniyor}>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGunuErtele} disabled={gunErteleniyor}>
+              {gunErteleniyor ? "Kaydırılıyor..." : "Günü ertele"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Trial Lesson Action Dialog */}
       <Dialog open={showTrialActionDialog} onOpenChange={setShowTrialActionDialog}>

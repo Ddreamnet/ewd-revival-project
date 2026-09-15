@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2, Archive, AlertTriangle, ChevronLeft, ChevronRight, AlignLeft } from "lucide-react";
+import { Loader2, Trash2, Archive, AlertTriangle, AlignLeft, CalendarOff } from "lucide-react";
 import { formatTime } from "@/lib/lessonTypes";
 import { DAYS_OF_WEEK } from "@/lib/types";
 import type { StudentLessonBase } from "@/lib/types";
@@ -36,18 +37,23 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
   const {
     name, setName,
     lessonsPerWeek, lessons,
-    lessonDates, originalLessonDates,
+    lessonDates,
     loading, shifting, showConfirm, setShowConfirm,
     showResetConfirm, setShowResetConfirm,
     updateRemainingDays, setUpdateRemainingDays,
-    conflicts, warnings, completedCount, totalLessons,
-    sortedLessonsForDisplay, canShiftBackward, hasRealignableInstances,
+    conflicts, warnings, pendingDateChanges, completedCount, totalLessons,
+    sortedLessonsForDisplay, hasRealignableInstances,
     handleLessonsPerWeekChange, updateLesson, updateLessonDate,
     handleDateSubmit, handleMarkLastLesson, handleUndoLastLesson,
     handleResetAllLessons, confirmDateUpdate, handleSubmit,
     handleDeleteStudent, handleArchiveStudent,
-    handleRealignChain, handleShiftForward, handleShiftBackward,
+    handleRealignChain, handleAraVer,
   } = useEditStudentDialog(props);
+
+  // "Ara ver" tarih aralığı — yalnızca bu diyalog için yerel.
+  const [araBaslangic, setAraBaslangic] = useState("");
+  const [araBitis, setAraBitis] = useState("");
+  const [araVerAcik, setAraVerAcik] = useState(false);
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -177,30 +183,19 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Label className="text-base font-medium">İşlenen Dersler</Label>
-                {/* Chain control arrows */}
                 {hasRealignableInstances && (
                   <div className="flex items-center gap-1">
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={handleShiftBackward}
-                      disabled={loading || shifting || !canShiftBackward}
-                      title="Zinciri 1 slot geri kaydır"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={handleShiftForward}
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => setAraVerAcik(true)}
                       disabled={loading || shifting}
-                      title="Zinciri 1 slot ileri kaydır"
+                      title="Seçilen tarih aralığını boşalt, dersleri ileri kaydır"
                     >
-                      <ChevronRight className="h-4 w-4" />
+                      <CalendarOff className="h-3.5 w-3.5" />
+                      Ara ver
                     </Button>
                     <Button
                       type="button"
@@ -209,16 +204,16 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
                       className="h-7 text-xs gap-1"
                       onClick={handleRealignChain}
                       disabled={loading || shifting}
-                      title="Zinciri yeniden hizala"
+                      title="Dağılmış paketi haftalık programa göre yeniden diz"
                     >
                       <AlignLeft className="h-3.5 w-3.5" />
-                      Hizala
+                      Programa göre diz
                     </Button>
                   </div>
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {completedCount < lessonsPerWeek * 4 && (
+                {completedCount < totalLessons && (
                   <Button type="button" variant="default" size="sm" onClick={handleMarkLastLesson} disabled={loading || shifting}>
                     Son Dersi İşaretle
                   </Button>
@@ -267,11 +262,25 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
                   </div>
                 </div>
               ))}
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox
+                  id="cascade-remaining"
+                  checked={updateRemainingDays}
+                  onCheckedChange={(v) => setUpdateRemainingDays(v === true)}
+                />
+                Değişiklikten sonraki dersler de kaysın
+              </label>
+              {pendingDateChanges > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {pendingDateChanges} ders değişecek
+                  {updateRemainingDays ? ", sonrakiler de kayacak" : ""}.
+                </p>
+              )}
               <Button
                 type="button"
                 variant="default"
                 onClick={handleDateSubmit}
-                disabled={loading || Object.keys(lessonDates).every((key) => lessonDates[key] === originalLessonDates[key])}
+                disabled={loading || pendingDateChanges === 0}
                 className="w-full"
               >
                 Tarihleri Onayla
@@ -337,6 +346,54 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
             </Button>
           </div>
         </form>
+
+        {/* Ara ver (tatil) — tarih aralığı */}
+        <AlertDialog open={araVerAcik} onOpenChange={setAraVerAcik}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Ara ver</AlertDialogTitle>
+              <AlertDialogDescription>
+                Seçtiğiniz aralık boşalır. Aralıktaki ve sonrasındaki planlı dersler, sırası
+                bozulmadan aralığın bitiminden itibaren ilk uygun saatlere kayar. Ders hakkı
+                değişmez, paket yalnızca uzar.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="ara-baslangic" className="text-sm">Başlangıç</Label>
+                <Input
+                  id="ara-baslangic"
+                  type="date"
+                  value={araBaslangic}
+                  onChange={(e) => setAraBaslangic(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ara-bitis" className="text-sm">Bitiş (dâhil)</Label>
+                <Input
+                  id="ara-bitis"
+                  type="date"
+                  value={araBitis}
+                  onChange={(e) => setAraBitis(e.target.value)}
+                />
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  await handleAraVer(araBaslangic, araBitis);
+                  setAraVerAcik(false);
+                  setAraBaslangic("");
+                  setAraBitis("");
+                }}
+                disabled={!araBaslangic || !araBitis || shifting}
+              >
+                Ara ver
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Tarih onaylama dialogu */}
         <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
