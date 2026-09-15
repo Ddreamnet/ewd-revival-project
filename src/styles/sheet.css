@@ -1,0 +1,465 @@
+/* ==========================================================================
+   EWD Sheet — tek örtü yüzeyi
+   --------------------------------------------------------------------------
+   Eskiden ortada açılan bir pencere vardı: masaüstünde de telefonda da
+   ekranın göbeğinde duran, kenarından tutulamayan, yalnızca ✕ ile kapanan
+   bir kutu. Yerine iki geometrili tek bir yüzey geldi — bir onay, bir form,
+   bir liste, bir görüntüleyici; hepsi bu ikisinden birine oturuyor:
+
+     · lg (1024px) ve üstü → SAĞ ÇEKMECE. Pencere yüksekliğince, kenardan
+       panelin kendi oluğu kadar içeride. Örtü "açılır kutu" değil "ikinci
+       kolon" okunur; arkadaki sayfa kararmış bir fotoğraf değil, hâlâ orada
+       duran bir iş.
+     · lg altı → ALT KART. Üstü yuvarlak, tutamaklı, güvenli alana ve ekran
+       klavyesine duyarlı; her yerinden aşağı çekilerek kapanır.
+
+   Hareket tamamen burada, `data-state` üzerinden: Radix düğümü animasyon
+   bitene kadar sökmediği için kapanış gerçekten oynar. Sürükleme sırasında
+   JS `--sheet-drag`, `--sheet-out-dur` ve `--scrim-p` değişkenlerini sürer
+   (bkz. components/ui/sheet-core.tsx).
+
+   Katmansız yazıldı: Radix'in içerik düğümü çağrı yerinden Tailwind
+   yardımcı sınıfı taşıyabiliyor (`sm:max-w-lg` gibi) ve onların kazanması
+   gerek — @layer components içine alınsaydı burası her zaman kaybederdi.
+   ========================================================================== */
+
+:root {
+  /* Giriş uzun (kart yerine otururken görülsün), çıkış kısa (kullanıcı çoktan
+     gitmeye karar verdi). Kapanışın sabit süresi, sürükleyerek kapatmada
+     JS'in hesapladığı --sheet-out-dur ile eziliyor. */
+  --ewd-sheet-in: 0.42s;
+  --ewd-sheet-out: 0.24s;
+  /* iOS'un alt kart eğrisi (Ionic → Vaul): hızlı çıkar, uzun oturur. */
+  --ewd-sheet-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ewd-sheet-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ewd-sheet-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* Ekran klavyesinin kapladığı yükseklik (useKeyboardInset yazar). */
+  --ewd-sheet-kb: 0px;
+  /* Kartın zemini ve çizgisi — panelin kart diline (.pnl-card) eşit. */
+  --ewd-sheet-bg: var(--ewd-surface-2);
+  --ewd-sheet-line: var(--ewd-lilac-soft);
+  --ewd-sheet-scrim-rgb: 46 16 101;
+}
+
+.dark {
+  --ewd-sheet-scrim-rgb: 4 9 20;
+}
+
+/* --------------------------------------------------------------------------
+   Perde
+   --------------------------------------------------------------------------
+   z-48/49: Radix Select ve Popover içerikleri z-50'de portal'lanır ve bir
+   formun İÇİNDEKİ açılır liste kartın önünde durmak zorunda. Panelin alt
+   sekme çubuğu (45) ve başlığı (40) ise kartın altında kalır.
+   -------------------------------------------------------------------------- */
+.ewd-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 48;
+  /* --scrim-p: kart sürüklenirken perde de onunla birlikte açılır. */
+  background: rgb(var(--ewd-sheet-scrim-rgb) / calc(0.42 * var(--scrim-p, 1)));
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: background-color 0.32s var(--ewd-sheet-ease);
+}
+.ewd-sheet-scrim[data-state="open"] {
+  animation: ewd-sheet-fade var(--ewd-sheet-out) var(--ewd-sheet-ease-out) both;
+}
+.ewd-sheet-scrim[data-state="closed"] {
+  animation: ewd-sheet-fade var(--ewd-sheet-out) var(--ewd-sheet-ease-out) reverse both;
+}
+@media (min-width: 1024px) {
+  /* Masaüstünde perde daha hafif: çekmece bir kolon gibi durur. */
+  .ewd-sheet-scrim {
+    background: rgb(var(--ewd-sheet-scrim-rgb) / calc(0.26 * var(--scrim-p, 1)));
+  }
+}
+@keyframes ewd-sheet-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Kart
+   -------------------------------------------------------------------------- */
+.ewd-sheet {
+  /* Gesture bar payı, klavye açıkken erir: kart zaten klavyenin üstünde,
+     altına bir de güvenli alan koymak ortada boşluk bırakıyor. */
+  --ewd-sheet-safe: max(0px, var(--pnl-sa-bottom, 0px) - var(--ewd-sheet-kb, 0px));
+  position: fixed;
+  z-index: 49;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ewd-sheet-bg);
+  color: var(--ewd-on-surface);
+  border: 3px solid var(--ewd-sheet-line);
+  box-shadow: 0 24px 60px -28px rgb(var(--ewd-shadow-tint) / 0.55);
+  outline: none;
+  overflow: hidden;
+  /* Sürükleme geri dönüşü: parmak bırakılınca kart bu eğriyle yerine oturur.
+     Sürükleme karelerinde inline `transition: none` bunu bastırır. */
+  transition: transform 0.34s var(--ewd-sheet-ease);
+  /* Kompozitöre "bu düğüm oynayacak" demek — düşük güçlü Android'de
+     sürüklemenin ilk karesindeki takılmayı kaldırıyor. */
+  will-change: transform;
+}
+.ewd-sheet[data-animate-height] {
+  transition: transform 0.34s var(--ewd-sheet-ease), height 0.32s var(--ewd-sheet-ease);
+}
+/* Sürüklenirken metin seçilmesin — parmağın altındaki paragraf maviye
+   dönerse hareket "kaydırma" değil "seçme" okunur. */
+.ewd-sheet[data-dragged] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Kabuksuz kullanım (tam ekran görüntüleyici): geometriyi çağrı yeri kurar,
+   buradan yalnızca yığın sırası ve sade bir solma gelir. Kayma yok — tam
+   ekranı kaplayan opak bir yüzeyin nereden geldiği zaten görünmüyor. */
+.ewd-sheet-bare {
+  position: fixed;
+  z-index: 49;
+  outline: none;
+}
+.ewd-sheet-bare[data-state="open"] {
+  animation: ewd-sheet-fade 0.2s var(--ewd-sheet-ease-out) both;
+}
+.ewd-sheet-bare[data-state="closed"] {
+  animation: ewd-sheet-fade 0.16s var(--ewd-sheet-ease-in) reverse both;
+}
+/* Kabuksuz içeriğin arkasındaki perde boşa çizim: içerik zaten opak ve tam
+   ekran. Bulanıklık özellikle mobil GPU'da pahalı. */
+.ewd-sheet-scrim[data-bare] {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ewd-sheet-bare[data-state="open"],
+  .ewd-sheet-bare[data-state="closed"] {
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Masaüstü: sağ çekmece --------------------------------------------- */
+@media (min-width: 1024px) {
+  .ewd-sheet {
+    top: calc(18px + var(--pnl-sa-top, 0px));
+    right: calc(20px + var(--pnl-sa-right, 0px));
+    bottom: calc(20px + var(--pnl-sa-bottom, 0px));
+    width: 480px;
+    max-width: calc(100vw - 40px);
+    border-radius: 26px;
+  }
+  .ewd-sheet[data-size="sm"] {
+    width: 400px;
+    /* Kısa bir soru pencere boyunca uzamaz: yukarıdan asılı, içeriği kadar. */
+    bottom: auto;
+    max-height: calc(100dvh - 40px);
+  }
+  .ewd-sheet[data-size="lg"] {
+    width: 640px;
+  }
+  .ewd-sheet[data-size="full"] {
+    width: min(1080px, 92vw);
+  }
+  .ewd-sheet[data-state="open"] {
+    animation: ewd-sheet-in-right var(--ewd-sheet-in) var(--ewd-sheet-ease-out) both;
+  }
+  .ewd-sheet[data-state="closed"] {
+    animation: ewd-sheet-out-right var(--ewd-sheet-out) var(--ewd-sheet-ease-in) both;
+  }
+  /* Tutamak yalnızca dokunmatik geometride var. */
+  .ewd-sheet-grab {
+    display: none;
+  }
+}
+@keyframes ewd-sheet-in-right {
+  from {
+    transform: translate3d(36px, 0, 0);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+@keyframes ewd-sheet-out-right {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(28px, 0, 0);
+    opacity: 0;
+  }
+}
+
+/* ---- Dar ekran: alt kart ------------------------------------------------ */
+@media (max-width: 1023.98px) {
+  .ewd-sheet {
+    left: 0;
+    right: 0;
+    /* Klavye açıkken kart onun üstüne çıkar (useKeyboardInset). */
+    bottom: var(--ewd-sheet-kb, 0px);
+    width: 100%;
+    max-height: min(92dvh, calc(100dvh - var(--ewd-sheet-kb, 0px) - 24px));
+    border-radius: 26px 26px 0 0;
+    border-bottom: 0;
+    box-shadow: 0 -18px 50px -24px rgb(var(--ewd-shadow-tint) / 0.6);
+    /* Kart her yerinden sürüklenir; perde de sürükleme yüzeyi. Kaydırma
+       alanları (.ewd-sheet-body) zinciri keser, kendi kaydırmalarını korur. */
+    touch-action: none;
+  }
+  .ewd-sheet[data-size="lg"] {
+    height: min(88dvh, 820px);
+  }
+  .ewd-sheet[data-size="full"] {
+    height: calc(94dvh - var(--ewd-sheet-kb, 0px));
+    max-height: calc(94dvh - var(--ewd-sheet-kb, 0px));
+  }
+  .ewd-sheet[data-state="open"] {
+    animation: ewd-sheet-in-up var(--ewd-sheet-in) var(--ewd-sheet-ease) both;
+  }
+  /* Sürükleme başlayınca giriş animasyonunun dolgusu kalkar: animasyon
+     değeri inline transform'u ezer — kalsaydı kart parmağı izlemez,
+     bırakınca birden kapanırdı. */
+  .ewd-sheet[data-state="open"][data-dragged] {
+    animation: none;
+  }
+  /* Çıkış sürüklendiği yerden (--sheet-drag) devam eder; süresi kalan yola
+     ve bırakma hızına göre (--sheet-out-dur), düğmeyle kapanışta varsayılan. */
+  .ewd-sheet[data-state="closed"] {
+    animation: ewd-sheet-out-down var(--sheet-out-dur, var(--ewd-sheet-out)) var(--ewd-sheet-ease) both;
+  }
+}
+@keyframes ewd-sheet-in-up {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes ewd-sheet-out-down {
+  from {
+    transform: translate3d(0, var(--sheet-drag, 0px), 0);
+  }
+  to {
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Tutamak
+   -------------------------------------------------------------------------- */
+.ewd-sheet-grab {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 9px 0 3px;
+  cursor: grab;
+  /* Tutamak kaydırmaz, sürükler. */
+  touch-action: none;
+}
+.ewd-sheet[data-dragged] .ewd-sheet-grab {
+  cursor: grabbing;
+}
+.ewd-sheet-grip {
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--ewd-lilac-line);
+  transition: background-color 0.18s ease;
+}
+.ewd-sheet[data-dragged] .ewd-sheet-grip {
+  background: var(--ewd-purple);
+}
+
+/* --------------------------------------------------------------------------
+   Kapatma düğmesi
+   --------------------------------------------------------------------------
+   Kartın kendisine tutturulur, başlık şeridine değil: şerit kaydığında ✕
+   onunla gitmesin. Başlık ona yer bırakır (.ewd-sheet-head sağ boşluğu).
+   -------------------------------------------------------------------------- */
+.ewd-sheet-x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 2px solid var(--ewd-lilac-line-soft);
+  background: var(--ewd-surface);
+  color: var(--ewd-on-surface-soft);
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.ewd-sheet-x:hover {
+  background: var(--ewd-lilac-tint);
+  color: var(--ewd-on-surface);
+}
+.ewd-sheet-x:active {
+  transform: scale(0.94);
+}
+.ewd-sheet-x:focus-visible {
+  outline: 3px solid var(--ewd-focus-ring);
+  outline-offset: 2px;
+}
+@media (max-width: 1023.98px) {
+  /* Tutamağın altına iner: üstte tutamakla aynı hizada durursa ikisi de
+     16px'lik bir şeride sıkışıyor. */
+  .ewd-sheet-x {
+    top: 24px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Gövde — kaydıran orta
+   --------------------------------------------------------------------------
+   İçeriğin tamamı buraya girer (başlık ve eylem şeridi dahil): sürükleme
+   kancası dokunuşla kart kökü arasındaki kaydırıcıları arıyor, kaydıran
+   düğüm kökün KENDİSİ olsaydı "liste aşağı inmişken aşağı çekmek kartı
+   kapatmasın" kuralı çalışmazdı.
+
+   Kendisi de flex kolon: kendi `flex-1 overflow-y-auto` bölgesini kuran
+   karmaşık içerikler (haftalık program, konu yöneticisi) eskisi gibi
+   çalışsın, kaydırma orada kalsın.
+   -------------------------------------------------------------------------- */
+.ewd-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Kart içindeki kaydırma sayfayı sürüklemesin. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Yatay kayan şeritler ve resim yakınlaştırma serbest kalsın. */
+  touch-action: pan-y pinch-zoom;
+  padding: 18px 20px 20px;
+  scrollbar-width: thin;
+}
+@media (max-width: 1023.98px) {
+  .ewd-sheet-body {
+    padding: 14px 16px calc(18px + var(--ewd-sheet-safe, 0px));
+    gap: 14px;
+  }
+}
+.ewd-sheet-body::-webkit-scrollbar {
+  width: 8px;
+}
+.ewd-sheet-body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--ewd-lilac-line-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Başlık şeridi
+   --------------------------------------------------------------------------
+   Gövdenin üstüne yapışır: uzun bir formda "burası neydi" sorusu kaydırma
+   yüzünden cevapsız kalmasın. Negatif kenar boşlukları şeridi kartın
+   kenarlarına kadar taşır, böylece altından geçen içerik görünmez.
+   -------------------------------------------------------------------------- */
+.ewd-sheet-head {
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: -18px -20px 0;
+  padding: 18px 58px 12px 20px;
+  background: var(--ewd-sheet-bg);
+  border-bottom: 2px solid var(--ewd-lilac-hair);
+  /* Şerit kartın kulbudur (sheet-core.tsx aynı işleyicileri verir): burada
+     kaydırma değil sürükleme. */
+  touch-action: none;
+  text-align: left;
+}
+@media (max-width: 1023.98px) {
+  .ewd-sheet-head {
+    top: -14px;
+    margin: -14px -16px 0;
+    padding: 6px 56px 10px 16px;
+  }
+}
+/* Onay kartının başlığı ayırıcı çizgi taşımaz: iki satır yazı ve iki
+   düğmelik bir kartta çizgi, olmayan bir bölümü işaret ediyor. */
+.ewd-sheet-head--plain {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+.ewd-sheet-title {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--ewd-on-surface);
+}
+.ewd-sheet-desc {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ewd-on-surface-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Eylem şeridi
+   --------------------------------------------------------------------------
+   `margin-top: auto` kısa içerikte şeridi kartın dibine iter, uzun içerikte
+   hiçbir şey yapmaz; `position: sticky` ise kaydırırken görünür tutar. İkisi
+   birlikte: düğmeler her zaman elin altında.
+   -------------------------------------------------------------------------- */
+.ewd-sheet-foot {
+  position: sticky;
+  bottom: -20px;
+  z-index: 2;
+  margin: auto -20px -20px;
+  padding: 14px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  background: var(--ewd-sheet-bg);
+  border-top: 2px solid var(--ewd-lilac-hair);
+}
+@media (max-width: 1023.98px) {
+  .ewd-sheet-foot {
+    bottom: calc(-18px - var(--ewd-sheet-safe, 0px));
+    margin: auto -16px calc(-18px - var(--ewd-sheet-safe, 0px));
+    padding: 12px 16px calc(12px + var(--ewd-sheet-safe, 0px));
+  }
+  /* Dar ekranda düğmeler tam genişlik: başparmak için 44px'lik hedefler. */
+  .ewd-sheet-foot > * {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Hareket azaltma
+   --------------------------------------------------------------------------
+   Kayma ve solma kalkar; kart yine belirir ve kaybolur, ama yol almaz.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .ewd-sheet[data-state="open"],
+  .ewd-sheet[data-state="closed"],
+  .ewd-sheet-scrim[data-state="open"],
+  .ewd-sheet-scrim[data-state="closed"] {
+    animation-duration: 0.01ms !important;
+  }
+  .ewd-sheet,
+  .ewd-sheet-scrim {
+    transition: none !important;
+  }
+}
