@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 /**
- * Pembe inci çerçeve — `cerceve.jpeg` referansının vektörel karşılığı.
+ * Pembe inci çerçeve — tasarımdaki `cerceve.jpeg` referansının vektörel
+ * karşılığı (referans görsel `eski-dosyalar-2026-09-06.zip` içinde).
  *
  * Referans bir fotoğraftı: ölçeklenince bulanıklaşır, dört köşesi sabit oranda
  * gerilirdi. Burada çerçeve tek bir SVG olarak çiziliyor; kalınlık her zaman

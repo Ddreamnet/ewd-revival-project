@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Statik yollar. Blog yazıları burada yok: SPA'da sunucu tarafı üretim olmadığı
-  için liste elle güncellenmek zorunda kalırdı ve bayatlardı. Yazılara /blog
-  sayfasındaki bağlantılardan ulaşılıyor.
+  ÜRETİLMİŞ DOSYA — elle düzenlemeyin.
+  Kaynak: scripts/build-sitemap.mjs · `npm run build` sırasında yenilenir.
+  Statik yollar betiğin içinde, blog yazıları Supabase'ten geliyor.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
@@ -15,7 +15,56 @@
       <image:title>English with Dilara — online İngilizce dersleri</image:title>
     </image:image>
   </url>
-  <url><loc>https://englishwithdilara.com/blog</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://englishwithdilara.com/bizimle-calisin</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://englishwithdilara.com/gizlilik-politikasi</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url>
+    <loc>https://englishwithdilara.com/blog</loc>
+    <lastmod>2026-09-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://englishwithdilara.com/bizimle-calisin</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://englishwithdilara.com/gizlilik-politikasi</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://englishwithdilara.com/blog/ingilizceyi-anliyorum-ama-konusamiyorum-sorunu-nasil-cozulur</loc>
+    <lastmod>2026-09-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://englishwithdilara.com/blog/cocugumun-ingilizce-seviyesini-nasil-anlayabilirim</loc>
+    <lastmod>2026-09-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://englishwithdilara.com/blog/online-ingilizce-dersi-cocuklar-icin-verimli-olur-mu</loc>
+    <lastmod>2026-09-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://englishwithdilara.com/blog/ingilizce-sinavlarina-hazirlanirken-en-sik-yapilan-4-hata-nedir</loc>
+    <lastmod>2026-09-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://englishwithdilara.com/blog/english-with-dilarada-odev-yukleme-nasil-yapilir-site-nasil-kullanilir</loc>
+    <lastmod>2026-09-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://englishwithdilara.com/blog/cocugumu-ingilizce-icin-nasil-motive-edebilirim</loc>
+    <lastmod>2026-09-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
 </urlset>

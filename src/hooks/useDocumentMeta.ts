@@ -1,5 +1,8 @@
 import { useEffect } from "react";
 
+import { useLanguage } from "@/contexts/LanguageContext";
+import { SITE_URL, tamUrl } from "@/lib/site";
+
 /**
  * Sayfa başlığı ve paylaşım etiketleri.
  *
@@ -25,9 +28,16 @@ interface Meta {
   publishedTime?: string;
   /** ISO tarih; yalnızca `type: "article"` için yazılır. */
   modifiedTime?: string;
+  /**
+   * Sayfanın "asıl" adresi. Varsayılan olarak açık olan yol kullanılır; aynı
+   * içeriğe birden çok yoldan ulaşılabiliyorsa (blog yazılarının eski
+   * başlık-adresleri gibi) doğru olanı burada söyleyin ki arama motoru
+   * ikisini ayrı sayfa saymasın.
+   */
+  canonical?: string;
 }
 
-const SITE_ADI = "English with Dilara";
+export const SITE_ADI = "English with Dilara";
 const VARSAYILAN_GORSEL = "/uploads/og-cover.jpg";
 
 /** `og:locale` Facebook'un dil_ÜLKE biçimini ister; `<html lang>` yalnızca dili taşıyor. */
@@ -74,23 +84,33 @@ export function useDocumentMeta({
   type = "website",
   publishedTime,
   modifiedTime,
+  canonical,
 }: Meta) {
+  const { language } = useLanguage();
+
   useEffect(() => {
     const oncekiBaslik = document.title;
-    const tamBaslik = title === SITE_ADI ? title : `${title} · ${SITE_ADI}`;
+    // Marka adı başlıkta zaten geçiyorsa (ana sayfa kendi tam başlığını
+    // veriyor) dokunma; diğer sayfalarda sona eklenir.
+    const tamBaslik = title.includes(SITE_ADI) ? title : `${title} · ${SITE_ADI}`;
     document.title = tamBaslik;
 
-    const url = window.location.origin + window.location.pathname;
-    const gorsel = new URL(image || VARSAYILAN_GORSEL, window.location.origin).toString();
+    // Adresler yayındaki alan adına göre kurulur, bakılan kopyaya göre değil —
+    // ön işlemede yerel sunucunun, Capacitor'da `capacitor://`nin adresi
+    // sızıyordu. Bkz. `@/lib/site`.
+    const url = tamUrl(canonical ?? window.location.pathname);
+    const gorsel = new URL(image || VARSAYILAN_GORSEL, SITE_URL).toString();
 
     metaYaz("property", "og:title", tamBaslik);
     metaYaz("property", "og:type", type);
     metaYaz("property", "og:url", url);
     metaYaz("property", "og:image", gorsel);
     metaYaz("property", "og:site_name", SITE_ADI);
-    // Dil, `LanguageProvider` tarafından `<html lang>`e yazılıyor; paylaşım
-    // kartı da aynı dili söylesin.
-    metaYaz("property", "og:locale", OG_LOCALE[document.documentElement.lang] ?? "tr_TR");
+    // Dil doğrudan bağlamdan okunuyor. `<html lang>` üzerinden okunduğunda
+    // yanlış çıkıyordu: React'te çocuk efektleri ebeveynden önce çalışır, yani
+    // sayfa bu etiketi yazarken `LanguageProvider` henüz `lang`i güncellememiş
+    // oluyordu — İngilizce çizilen sayfa `og:locale="tr_TR"` diyordu.
+    metaYaz("property", "og:locale", OG_LOCALE[language] ?? "tr_TR");
     metaYaz("name", "twitter:card", "summary_large_image");
     metaYaz("name", "twitter:title", tamBaslik);
     metaYaz("name", "twitter:image", gorsel);
@@ -112,5 +132,5 @@ export function useDocumentMeta({
     return () => {
       document.title = oncekiBaslik;
     };
-  }, [title, description, image, type, publishedTime, modifiedTime]);
+  }, [title, description, image, type, publishedTime, modifiedTime, canonical, language]);
 }

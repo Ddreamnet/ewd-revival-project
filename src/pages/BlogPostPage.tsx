@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { ArrowLeft } from "lucide-react";
@@ -6,8 +7,10 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Footer } from "@/components/landing/Footer";
 import { BackSwipeWrapper } from "@/components/BackSwipeWrapper";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useDocumentMeta } from "@/hooks/useDocumentMeta";
+import { SITE_ADI, useDocumentMeta } from "@/hooks/useDocumentMeta";
+import { kirintiYolu, SITE_URL, useStructuredData } from "@/hooks/useStructuredData";
 import { LOCALES, type Language } from "@/lib/translations";
+import { ozetCikar } from "@/lib/site";
 
 const BACK_LABEL: Record<Language, string> = {
   tr: "Blog'a dön",
@@ -44,18 +47,56 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { data: post, isLoading } = useBlogPostBySlug(slug || "");
 
   // Hook koşulsuz: erken return'lerin üstünde durmalı.
   useDocumentMeta({
     title: post?.title ?? "Blog",
-    description: post?.excerpt ?? undefined,
+    // Yazıların `excerpt`i boş; açıklama yazılmayınca hepsi arama sonucunda
+    // sitenin genel tanıtım cümlesiyle çıkıyordu.
+    description: post?.excerpt || ozetCikar(post?.content),
     image: post?.cover_image_url ?? undefined,
     type: "article",
     publishedTime: post?.published_at ?? post?.created_at,
     modifiedTime: post?.updated_at,
+    // Yazılar eski başlık-adresinden de açılıyor (useBlogPostBySlug'daki
+    // başlıkla arama yedeği). Asıl adres her zaman slug'lı olan.
+    canonical: post ? `/blog/${encodeURIComponent(post.slug)}` : undefined,
   });
+
+  // Yazının kendi künyesi + kırıntı yolu. Yazı gelmeden yazılmaz: eksik
+  // alanlarla gönderilen künye arama konsolunda uyarı üretiyor.
+  useStructuredData(
+    useMemo(() => {
+      if (!post) return null;
+      const url = `${SITE_URL}/blog/${post.slug}`;
+      return {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BlogPosting",
+            "@id": `${url}#yazi`,
+            headline: post.title,
+            url,
+            mainEntityOfPage: url,
+            inLanguage: language,
+            ...((post.excerpt || ozetCikar(post.content)) ? { description: post.excerpt || ozetCikar(post.content) } : {}),
+            ...(post.cover_image_url ? { image: post.cover_image_url } : {}),
+            datePublished: post.published_at ?? post.created_at,
+            dateModified: post.updated_at ?? post.published_at ?? post.created_at,
+            author: { "@type": "Organization", name: SITE_ADI, url: `${SITE_URL}/` },
+            publisher: { "@id": `${SITE_URL}/#organization` },
+          },
+          kirintiYolu([
+            { ad: t.header.home[language], yol: "/" },
+            { ad: t.blog.title[language], yol: "/blog" },
+            { ad: post.title },
+          ]),
+        ],
+      };
+    }, [post, language, t]),
+  );
 
   if (isLoading) {
     /* Spinner yerine yazının kendi düzeni: kapak 3:2 kutusuyla, başlık ve

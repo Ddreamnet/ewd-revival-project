@@ -23,7 +23,20 @@ function isSupported(value: unknown): value is Language {
   return typeof value === 'string' && (SUPPORTED as string[]).includes(value);
 }
 
-/** Kayıtlı tercih yoksa tarayıcı diline bak, o da tutmazsa Türkçe'ye düş. */
+/**
+ * Kayıtlı tercih varsa o, yoksa Türkçe.
+ *
+ * Önceden tarayıcı dili okunuyordu. Sonucu şuydu: tarayıcısı İngilizce olan
+ * herkese — Googlebot dâhil, ki çoğunlukla en-US yerelinde tarar — ana sayfa
+ * baştan sona İngilizce açılıyordu. Site Türkiye'ye satış yapıyor ve hedef
+ * kitle Türkçe arıyor; Google'ın indekslediği sayfa da onların gördüğü sayfa
+ * olmalı.
+ *
+ * Dil seçici başlıkta duruyor ve seçim `localStorage`'a yazılıyor, yani
+ * yabancı ziyaretçi tek tıkla kendi diline geçiyor ve bir daha sorulmuyor.
+ * Herkese — insan da bot da — aynı sayfa gösteriliyor; arama motoruna ayrı
+ * içerik sunmuyoruz.
+ */
 function detectLanguage(): Language {
   if (typeof window === 'undefined') return 'tr';
 
@@ -31,14 +44,9 @@ function detectLanguage(): Language {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (isSupported(stored)) return stored;
   } catch {
-    // Özel sekme / kapalı depolama — tarayıcı diline devam et.
+    // Özel sekme / kapalı depolama — varsayılana düş.
   }
 
-  const candidates = navigator.languages?.length ? navigator.languages : [navigator.language];
-  for (const tag of candidates) {
-    const base = tag?.toLowerCase().split('-')[0];
-    if (isSupported(base)) return base;
-  }
   return 'tr';
 }
 

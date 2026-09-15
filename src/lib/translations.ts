@@ -185,6 +185,27 @@ export const translations = {
       de: "Online-Englischunterricht",
       ar: "دروس إنجليزية عبر الإنترنت",
     },
+    // Arama sonucunda başlığın altında görünen satır. Bu iki sayfada açıklama
+    // yoktu; Google da sayfayı JS ile çizmeden okuyamadığı için altlarına ya
+    // hiçbir şey ya da rastgele bir metin yazıyordu.
+    workWithUsDescription: {
+      tr: "English with Dilara'da İngilizce öğretmeni olarak çalışmak için başvurun. Formu doldurun, uygun pozisyon açıldığında size dönelim.",
+      en: "Apply to teach English at English with Dilara. Fill in the form and we will get back to you when a suitable position opens.",
+      fr: "Postulez pour enseigner l'anglais chez English with Dilara. Remplissez le formulaire et nous vous recontacterons dès qu'un poste se libère.",
+      ru: "Подайте заявку на работу преподавателем английского в English with Dilara. Заполните форму — мы свяжемся с вами, когда появится подходящая вакансия.",
+      es: "Solicita trabajar como profesor de inglés en English with Dilara. Rellena el formulario y te responderemos cuando haya una vacante adecuada.",
+      de: "Bewerben Sie sich als Englischlehrkraft bei English with Dilara. Füllen Sie das Formular aus — wir melden uns, sobald eine passende Stelle frei wird.",
+      ar: "تقدّم للعمل معلّم لغة إنجليزية لدى English with Dilara. املأ النموذج وسنعود إليك عند توفّر شاغر مناسب.",
+    },
+    privacyDescription: {
+      tr: "English with Dilara hangi kişisel verileri topluyor, neden topluyor ve nasıl saklıyor — öğrenci, veli ve öğretmen verileri için gizlilik politikası.",
+      en: "What personal data English with Dilara collects, why, and how it is stored — the privacy policy covering student, parent and teacher data.",
+      fr: "Quelles données personnelles English with Dilara collecte, pourquoi et comment elles sont conservées — politique de confidentialité pour les élèves, les parents et les enseignants.",
+      ru: "Какие персональные данные собирает English with Dilara, зачем и как они хранятся — политика конфиденциальности для учеников, родителей и преподавателей.",
+      es: "Qué datos personales recoge English with Dilara, por qué y cómo se conservan: la política de privacidad para alumnos, padres y profesores.",
+      de: "Welche personenbezogenen Daten English with Dilara erhebt, warum und wie sie gespeichert werden — die Datenschutzerklärung für Schüler, Eltern und Lehrkräfte.",
+      ar: "ما البيانات الشخصية التي تجمعها English with Dilara ولماذا وكيف تُحفظ — سياسة الخصوصية الخاصة بالطلاب وأولياء الأمور والمعلمين.",
+    },
   },
 
   // ------------------------------------------------------------------ Hero

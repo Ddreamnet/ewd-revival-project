@@ -38,11 +38,16 @@ export function HeroSection() {
           <div className="relative z-10 flex flex-col items-center gap-3.5 px-5 pt-4 sm:px-7">
             <AudiencePills audience={audience} onChange={setAudience} compact />
 
-            <div className="ewd-lockup items-center">
+            {/* Sayfanın h1'i. Görünen kısım marka lockup'ı; arkasındaki gizli
+                ek, başlığın ne hakkında olduğunu da söylüyor — ana sayfanın
+                hiç h1'i yoktu. Mobil ve masaüstü varyantları aynı başlığın
+                iki düzeni, biri her zaman CSS ile gizli. */}
+            <h1 className="ewd-lockup items-center">
               <span className="ewd-lockup__english text-[40px] sm:text-[46px]">ENGLISH</span>
               <span className="ewd-lockup__with pl-0 text-[15px] sm:text-[17px]">with</span>
               <span className="ewd-lockup__dilara text-[54px] sm:text-[62px]">Dilara</span>
-            </div>
+              <span className="sr-only"> — {t.seo.homeTitle[language]}</span>
+            </h1>
 
             <p className="max-w-[300px] text-center text-[14px] font-medium leading-[1.55] text-[#5B4A6E] [text-wrap:pretty] sm:max-w-[380px] sm:text-[15px]">
               {lead}
@@ -97,11 +102,12 @@ export function HeroSection() {
         >
           <AudiencePills audience={audience} onChange={setAudience} />
 
-          <div className="ewd-lockup">
+          <h1 className="ewd-lockup">
             <span className="ewd-lockup__english">ENGLISH</span>
             <span className="ewd-lockup__with">with</span>
             <span className="ewd-lockup__dilara">Dilara</span>
-          </div>
+            <span className="sr-only"> — {t.seo.homeTitle[language]}</span>
+          </h1>
 
           <p className="ewd-lead max-w-[430px]">{lead}</p>
 

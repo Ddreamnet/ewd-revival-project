@@ -15,7 +15,10 @@ export default function WorkWithUsPage() {
   const [submitted, setSubmitted] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
-  useDocumentMeta({ title: t.workWithUs.title[language] });
+  useDocumentMeta({
+    title: t.workWithUs.title[language],
+    description: t.seo.workWithUsDescription[language],
+  });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

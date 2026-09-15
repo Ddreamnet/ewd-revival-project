@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { usePublishedPostsPaginated } from "@/hooks/useBlogPosts";
 import { LandingHeader } from "@/components/landing/LandingHeader";
@@ -7,6 +7,7 @@ import { BackSwipeWrapper } from "@/components/BackSwipeWrapper";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LOCALES } from "@/lib/translations";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
+import { kirintiYolu, useStructuredData } from "@/hooks/useStructuredData";
 
 const PAGE_SIZE = 9;
 
@@ -26,6 +27,16 @@ export default function BlogPage() {
     title: t.blog.title[language],
     description: t.blog.lead[language],
   });
+
+  useStructuredData(
+    useMemo(
+      () => kirintiYolu([
+        { ad: t.header.home[language], yol: "/" },
+        { ad: t.blog.title[language], yol: "/blog" },
+      ]),
+      [t, language],
+    ),
+  );
 
   const posts = data?.posts || [];
   const total = data?.total || 0;

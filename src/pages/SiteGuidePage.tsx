@@ -101,9 +101,9 @@ const TABLES = [
   {
     group: "Kişiler ve roller",
     rows: [
-      ["profiles", "Ad, e-posta, temel profil ve dil şubesi (language: en / fr)"],
+      ["profiles", "Ad, e-posta, dil şubesi (language: en / fr) ve öğretmenin sabit Zoom bağlantısı"],
       ["user_roles", "admin / teacher / student — yetki buradan okunur"],
-      ["students", "Öğrenci–öğretmen eşleşmesi, arşiv durumu, Zoom bağlantısı"],
+      ["students", "Öğrenci–öğretmen eşleşmesi ve arşiv durumu"],
     ],
   },
   {

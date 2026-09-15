@@ -14,7 +14,10 @@ const TONES = [
 export default function PrivacyPolicyPage() {
   const { language, t } = useLanguage();
 
-  useDocumentMeta({ title: t.privacyPolicy.title[language] });
+  useDocumentMeta({
+    title: t.privacyPolicy.title[language],
+    description: t.seo.privacyDescription[language],
+  });
 
   return (
     <BackSwipeWrapper>

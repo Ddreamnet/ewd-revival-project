@@ -26,6 +26,8 @@ npm run dev        # http://localhost:8080
 | `npm run preview` | `dist/` klasörünü yerelde sunar |
 | `npm run lint` | ESLint |
 | `npm run check:i18n` | Yedi dilin de eksiksiz olduğunu doğrular |
+| `npm run build:sitemap` | `public/sitemap.xml`'i Supabase'teki yazılarla yeniler |
+| `npm run prerender` | Hazır `dist/` üzerinde ön işlemeyi tek başına çalıştırır |
 
 `npm run check:i18n` sözlükte eksik dil bırakmadığınızı denetler — metin
 eklerken bunu çalıştırın, TypeScript eksik yaprağı ancak okunduğunda yakalar.
@@ -70,14 +72,50 @@ Site tek sayfalık; sunucu tarafında ön işleme yok. Bunun sonuçları:
   `WebSite` + `FAQPage` yapılandırılmış verisi burada duruyor. Bir bölümün
   metni sitede değişirse buradaki karşılığını da güncelleyin.
 - `src/hooks/useDocumentMeta.ts` — JS çalıştıran botlar, tarayıcı sekmesi ve
-  ekran okuyucular için yol bazlı başlık/açıklama/görsel/canonical.
+  ekran okuyucular için yol bazlı başlık/açıklama/görsel/canonical. Başlık
+  kalıbı: ana sayfada `English with Dilara · <ne yapıldığı>`, diğer
+  sayfalarda `<Sayfa> · English with Dilara`.
+- `src/hooks/useStructuredData.ts` — sayfaya özel JSON-LD: kırıntı yolu
+  (arama sonucundaki `englishwithdilara.com › Blog › Yazı` satırı) ve blog
+  yazılarının `BlogPosting` künyesi.
 - `src/App.tsx › RobotsMeta` — panel ve kişisel yolları `noindex` yapar.
-- `public/robots.txt`, `public/sitemap.xml` — yeni bir herkese açık yol
-  eklediğinizde sitemap'e de ekleyin.
+- `public/robots.txt` — elle tutuluyor.
+- `public/sitemap.xml` — **üretilmiş dosya, elle düzenlemeyin.**
+  `scripts/build-sitemap.mjs` her `npm run build`'de yeniler: statik yollar
+  betiğin içinde, blog yazıları Supabase'ten geliyor. Yeni bir herkese açık
+  yol eklerseniz betikteki `STATIK` listesine ekleyin. Tek başına çalıştırmak
+  için `npm run build:sitemap`.
+- Her herkese açık sayfada tek bir `<h1>` olmalı; ana sayfanınki hero'daki
+  marka lockup'ıdır (`HeroSection.tsx`).
+- Site ilk açılışta **her zaman Türkçe**dir (`LanguageContext › detectLanguage`).
+  Tarayıcı dili okunmuyor: Googlebot çoğunlukla `en-US` yerelinde tarıyor ve
+  siteyi baştan sona İngilizce indeksliyordu. Ziyaretçi başlıktaki seçiciden
+  dilini değiştirir, tercihi `localStorage`da kalır.
+- Blog adresleri `generateSlug()` ile üretilen sade slug'lardır. Eski
+  başlık-adresleri hâlâ açılıyor (`useBlogPostBySlug` başlıkla da arar), ama
+  canonical her zaman slug'lı adresi gösterir.
 
-**Tam çözüm için ön işleme (prerender) gerekir.** Bağlantı önizlemesi üreten
-botların çoğu (WhatsApp dâhil) JavaScript çalıştırmaz; bugün her yol için
-`index.html`'deki ana sayfa kartını görüyorlar.
+### Ön işleme
+
+`scripts/prerender.mjs` derlemeden sonra çalışır: `dist/`i yerelde sunar, her
+herkese açık yolu gerçek bir tarayıcıda açar ve çizilmiş HTML'i o yolun kendi
+`index.html`ine yazar. Böylece JavaScript çalıştırmayan botlar (WhatsApp,
+Instagram, yapay zekâ tarayıcıları) sayfanın kendi başlığını, açıklamasını ve
+metnini görür.
+
+- **Bağımlılık yok:** sistemde kurulu Chrome ya da Edge'i `--dump-dom` ile
+  çalıştırır. Windows, macOS ve Linux'ta olağan kurulum yollarına bakar.
+  Bulamazsa uyarı basıp atlar — derleme düşmez, site ön işlemesiz yayına gider.
+- Tarayıcı yolunu elle vermek için:
+  `PRERENDER_BROWSER="C:\Program Files\Google Chrome\Application\chrome.exe" npm run build`
+- Yollar `dist/sitemap.xml`den okunur; yeni blog yazısı kendiliğinden dâhil olur.
+- Boş ya da yarım çizilen sayfa diske **yazılmaz**; o yol atlanır ve uyarı basılır.
+
+**Barındırma koşulu:** sunucu `/blog/yazi` isteğinde önce
+`dist/blog/yazi/index.html` dosyasını aramalı, yoksa `dist/index.html`e
+düşmeli. Vercel, Netlify, Cloudflare Pages ve nginx'in
+`try_files $uri $uri/index.html /index.html` kalıbı bunu zaten yapar. Sunucu
+her yolu koşulsuz `index.html`e yönlendiriyorsa ön işleme etkisiz kalır.
 
 ### Simgeler
 
@@ -88,7 +126,7 @@ botların çoğu (WhatsApp dâhil) JavaScript çalıştırmaz; bugün her yol i�
 | `public/favicon-32.png` | Tekil PNG karşılığı |
 | `public/apple-touch-icon.png` | iOS ana ekran — tam marka, opak zemin |
 | `public/icons/icon-*.webp` | PWA / Android ikonları |
-| `resources/icon.png`, `resources/splash.png` | Capacitor kaynakları |
+| `assets/icon-only.png`, `assets/splash*.png` | Capacitor kaynakları — `npx capacitor-assets generate` bunları okur |
 
 `favicon.svg` elle düzenlenebilir; `.ico` ve `.png` ondan türetilir. 16'lık
 kare ayrı bir çizimdir — o boyutta allık ve gülümseme lekeye dönüştüğü için
