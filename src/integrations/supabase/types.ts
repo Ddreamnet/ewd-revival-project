@@ -451,6 +451,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           user_id: string
+          zoom_link: string | null
         }
         Insert: {
           created_at?: string
@@ -461,6 +462,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_id: string
+          zoom_link?: string | null
         }
         Update: {
           created_at?: string
@@ -471,6 +473,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_id?: string
+          zoom_link?: string | null
         }
         Relationships: []
       }
@@ -1255,6 +1258,7 @@ export type Database = {
         Args: { p_teacher_id: string; p_trial_id: string }
         Returns: Json
       }
+      my_teacher_zoom_link: { Args: never; Returns: string }
       sync_missing_profiles: { Args: never; Returns: Json }
       teacher_owns_student: {
         Args: { _student_id: string; _teacher_id: string }

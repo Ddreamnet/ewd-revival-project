@@ -51,7 +51,6 @@ export function useEditStudentDialog({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [updateRemainingDays, setUpdateRemainingDays] = useState(false);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
-  const [zoomLink, setZoomLink] = useState("");
   // Göç uygulanmadıysa alan hiç gösterilmesin, kaydetmede de gönderilmesin.
   const [studentUserId, setStudentUserId] = useState("");
   const [teacherUserId, setTeacherUserId] = useState("");
@@ -132,7 +131,7 @@ export function useEditStudentDialog({
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("student_id, teacher_id, zoom_link")
+        .select("student_id, teacher_id")
         .eq("id", studentId)
         .single();
 
@@ -140,7 +139,6 @@ export function useEditStudentDialog({
 
       setStudentUserId(data.student_id);
       setTeacherUserId(data.teacher_id);
-      setZoomLink(data.zoom_link ?? "");
       await loadInstances(data.student_id, data.teacher_id);
     } catch (error: any) {
       console.error("Failed to initialize dialog:", error);
@@ -369,13 +367,6 @@ export function useEditStudentDialog({
         .update({ full_name: name.trim() })
         .eq("user_id", studentUserId);
       if (profileError) throw profileError;
-
-      // Zoom bağlantısı — öğrenci panelinde ders saatlerinin yanında görünür.
-      const { error: zoomError } = await supabase
-        .from("students")
-        .update({ zoom_link: zoomLink.trim() || null })
-        .eq("id", studentId);
-      if (zoomError) throw zoomError;
 
       // Check if template actually changed.
       // Both sides are normalized and order-insensitive: the DB hands back
@@ -685,8 +676,6 @@ export function useEditStudentDialog({
     // State
     name,
     setName,
-    zoomLink,
-    setZoomLink,
     lessonsPerWeek,
     lessons,
     lessonDates,

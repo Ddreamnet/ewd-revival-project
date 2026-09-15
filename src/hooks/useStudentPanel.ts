@@ -12,7 +12,7 @@ import { readCache, writeCache } from "@/lib/panelCache";
 import { toDateStr, toInputTime, parseLocalDate } from "@/lib/lessonTypes";
 import type { PanelLesson } from "./useTeacherPanel";
 
-const CACHE_VERSION = 3;  // tek tur yükleme + teacherName kaldırıldı
+const CACHE_VERSION = 4;  // Zoom bağlantısı öğretmenin profilinden geliyor
 
 /** Haftalık sabit ders slotu (student_lessons şablonu). */
 export interface FixedLesson {
@@ -48,10 +48,10 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
   // yüzden öğretmen kimliğini ya da paket döngüsünü beklemeye gerek yok.
   // Önceki sürüm üç ardışık tur atıyordu (students → tracking → instances);
   // mobil bağlantıda her tur bir gidiş-dönüş gecikmesi demekti.
-  const [relationRes, trackingRes, fixedRes, instancesRes] = await Promise.all([
+  const [relationRes, trackingRes, fixedRes, instancesRes, zoomRes] = await Promise.all([
     supabase
       .from("students")
-      .select("teacher_id, zoom_link")
+      .select("teacher_id")
       .eq("student_id", studentUserId)
       .maybeSingle(),
     supabase
@@ -70,6 +70,9 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
       .in("status", ["planned", "completed"])
       .order("lesson_date", { ascending: true })
       .order("start_time", { ascending: true }),
+    // Öğretmenin sabit Zoom adresi. Öğrenci öğretmenin profil satırını
+    // göremediği için (RLS) yalnızca bağlantıyı döndüren işlevden okunuyor.
+    supabase.rpc("my_teacher_zoom_link"),
   ]);
 
   if (relationRes.error) throw relationRes.error;
@@ -110,7 +113,7 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
 
   return {
     teacherId,
-    zoomLink: relation?.zoom_link?.trim() || null,
+    zoomLink: zoomRes.data?.trim() || null,
     fixedLessons,
     lessons,
     completedCount: lessons.filter((l) => l.completed).length,

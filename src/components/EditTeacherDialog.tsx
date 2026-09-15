@@ -19,6 +19,8 @@ interface EditTeacherDialogProps {
   currentName: string;
   /** Öğretmenin bulunduğu dil şubesi. */
   currentBranch: Branch;
+  /** Öğretmenin sabit Zoom adresi — bütün öğrencilerine bu gösterilir. */
+  currentZoomLink?: string;
 }
 
 export function EditTeacherDialog({
@@ -28,9 +30,11 @@ export function EditTeacherDialog({
   teacherId,
   currentName,
   currentBranch,
+  currentZoomLink = "",
 }: EditTeacherDialogProps) {
   const [name, setName] = useState("");
   const [branch, setBranch] = useState<Branch>(currentBranch);
+  const [zoomLink, setZoomLink] = useState("");
   const [loading, setLoading] = useState(false);
   const [transferLoading, setTransferLoading] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
@@ -43,12 +47,29 @@ export function EditTeacherDialog({
     if (open) {
       setName(currentName);
       setBranch(currentBranch);
+      setZoomLink(currentZoomLink);
       fetchStudents();
       fetchTeachers();
       setSelectedStudent("");
       setSelectedTeacher("");
     }
-  }, [open, currentName, currentBranch, teacherId]);
+  }, [open, currentName, currentBranch, currentZoomLink, teacherId]);
+
+  /**
+   * Bağlantı boş bırakılabilir; doluysa geçerli bir https adresi olmalı.
+   * `type="url"` tek başına `http://x` gibi bir şeyi de kabul ediyor. Alan
+   * adını Zoom ile sınırlamıyoruz — bazı öğretmenler kendi kurumsal alt alan
+   * adlarını (ör. `firma.zoom.us`) ya da Meet/Teams kullanabiliyor.
+   */
+  const zoomLinkGecerli = (() => {
+    const deger = zoomLink.trim();
+    if (deger === "") return true;
+    try {
+      return new URL(deger).protocol === "https:";
+    } catch {
+      return false;
+    }
+  })();
 
   const fetchStudents = async () => {
     try {
@@ -107,7 +128,7 @@ export function EditTeacherDialog({
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: name.trim(), language: branch })
+        .update({ full_name: name.trim(), language: branch, zoom_link: zoomLink.trim() || null })
         .eq("user_id", teacherId);
 
       if (error) throw error;
@@ -327,6 +348,30 @@ export function EditTeacherDialog({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="teacherZoomLink">Zoom Bağlantısı</Label>
+            <Input
+              id="teacherZoomLink"
+              type="url"
+              inputMode="url"
+              value={zoomLink}
+              onChange={(e) => setZoomLink(e.target.value)}
+              placeholder="https://zoom.us/j/..."
+              aria-describedby="teacherZoomLink-hint"
+              aria-invalid={zoomLink.trim() !== "" && !zoomLinkGecerli}
+            />
+            {zoomLink.trim() !== "" && !zoomLinkGecerli ? (
+              <p className="text-xs font-semibold text-destructive">
+                Bağlantı https:// ile başlamalı. Zoom dışı bir adres girdiyseniz emin olun.
+              </p>
+            ) : (
+              <p id="teacherZoomLink-hint" className="text-xs text-muted-foreground">
+                Öğretmenin sabit ders odası. Bütün öğrencilerinin panelinde "Zoom'a Bağlan"
+                düğmesi olarak görünür.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <Label>Şube</Label>
             <div className="grid grid-cols-2 gap-2">
               {BRANCHES.map((option) => (
@@ -470,7 +515,7 @@ export function EditTeacherDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               İptal
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !zoomLinkGecerli}>
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Kaydet
             </Button>

@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   role public.user_role NOT NULL DEFAULT 'student',
   -- Dil şubesi: öğretmende admin seçer, öğrenci öğretmeninden devralır.
   language public.app_language NOT NULL DEFAULT 'en',
+  -- Öğretmenin sabit Zoom adresi (yalnız öğretmen satırlarında dolu olur);
+  -- bütün öğrencilerinin panelinde "Zoom'a Bağlan" düğmesi bunu açar.
+  zoom_link text DEFAULT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now()
 );
@@ -84,9 +87,9 @@ CREATE TABLE IF NOT EXISTS public.students (
   teacher_id uuid NOT NULL,
   student_id uuid NOT NULL,
   about_text text DEFAULT NULL,
-  -- Öğrencinin panelinde ders saatlerinin yanında "Zoom'a katıl" düğmesi
-  -- olarak görünür. Üretimde vardı ama bu klon şemasında eksikti; uygulama
-  -- da bu yüzden sütunun varlığını çalışma anında yoklamak zorunda kalıyordu.
+  -- ESKİ: Zoom bağlantısı öğrenci başına tutuluyordu. Artık öğretmenin
+  -- profilinde duruyor (profiles.zoom_link); sütun yalnızca eski kayıtlar
+  -- için bırakıldı, uygulama okumuyor.
   zoom_link text DEFAULT NULL,
   is_archived boolean NOT NULL DEFAULT false,
   archived_at timestamp with time zone DEFAULT NULL,
@@ -365,6 +368,29 @@ $$;
 
 REVOKE ALL ON FUNCTION public.user_language(uuid) FROM public;
 GRANT EXECUTE ON FUNCTION public.user_language(uuid) TO authenticated, service_role;
+
+-- Öğrencinin, öğretmeninin sabit Zoom adresini okuması.
+-- Öğrenci öğretmenin profil satırını göremez (RLS); profiles üzerinde yeni bir
+-- SELECT ilkesi açmak adı ve e-postayı da açardı. Bu yüzden yalnızca bağlantıyı
+-- döndüren tanımlayıcı-güvenlikli işlev veriliyor.
+CREATE OR REPLACE FUNCTION public.my_teacher_zoom_link()
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT nullif(btrim(p.zoom_link), '')
+    FROM public.students s
+    JOIN public.profiles p ON p.user_id = s.teacher_id
+   WHERE s.student_id = auth.uid()
+     AND s.is_archived = false
+   ORDER BY s.created_at DESC
+   LIMIT 1
+$$;
+
+REVOKE ALL ON FUNCTION public.my_teacher_zoom_link() FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.my_teacher_zoom_link() TO authenticated, service_role;
 
 -- ============================================================================
 -- BÖLÜM 5: İNDEKSLER

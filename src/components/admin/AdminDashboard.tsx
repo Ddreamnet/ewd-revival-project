@@ -121,7 +121,7 @@ export function AdminDashboard() {
       const [teachersRes, studentsRes, lessonsRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("user_id, full_name, email, language")
+          .select("user_id, full_name, email, language, zoom_link")
           .eq("role", "teacher")
           .order("full_name"),
         supabase
@@ -524,6 +524,7 @@ export function AdminDashboard() {
           onTeacherUpdated={fetchTeachers}
           teacherId={editingTeacher.user_id}
           currentName={editingTeacher.full_name}
+          currentZoomLink={editingTeacher.zoom_link ?? ""}
           currentBranch={editingTeacher.language}
         />
       )}

@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/panelCache";
 import { parseLocalDate, toDateStr, toInputTime, getDayName } from "@/lib/lessonTypes";
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;  // Zoom bağlantısı öğrenciden öğretmene taşındı
 
 export interface PanelLesson {
   id: string;
@@ -42,7 +42,6 @@ export interface PanelStudent {
   name: string;
   email: string;
   aboutText: string | null;
-  zoomLink: string | null;
   cycle: number;
   lessons: PanelLesson[];
   completedCount: number;
@@ -67,6 +66,8 @@ export interface PanelHomeworkGroup {
 export interface TeacherPanelData {
   students: PanelStudent[];
   homework: PanelHomeworkGroup[];
+  /** Öğretmenin sabit Zoom adresi — bütün derslerinde aynı. */
+  zoomLink: string | null;
   balanceMinutes: number;
   balanceRegularLessons: number;
   balanceTrialLessons: number;
@@ -77,6 +78,7 @@ export interface TeacherPanelData {
 const EMPTY: TeacherPanelData = {
   students: [],
   homework: [],
+  zoomLink: null,
   balanceMinutes: 0,
   balanceRegularLessons: 0,
   balanceTrialLessons: 0,
@@ -89,11 +91,11 @@ const EMPTY: TeacherPanelData = {
 
 async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
   // ── Tur 1: birbirine bağlı olmayan her şey paralel ────────────────
-  const [studentsRes, trackingRes, balanceRes, homeworkRes, notifRes] = await Promise.all([
+  const [studentsRes, trackingRes, balanceRes, homeworkRes, notifRes, profileRes] = await Promise.all([
     supabase
       .from("students")
       .select(
-        "id, student_id, teacher_id, about_text, zoom_link, profiles!students_student_id_fkey (full_name, email)",
+        "id, student_id, teacher_id, about_text, profiles!students_student_id_fkey (full_name, email)",
       )
       .eq("teacher_id", teacherId)
       .eq("is_archived", false),
@@ -118,6 +120,8 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
       .eq("recipient_id", teacherId)
       .eq("is_read", false)
       .limit(200),
+    // Zoom adresi öğretmenin kendi profilinde durur; öğrenci başına değil.
+    supabase.from("profiles").select("zoom_link").eq("user_id", teacherId).maybeSingle(),
   ]);
 
   if (studentsRes.error) throw studentsRes.error;
@@ -126,7 +130,6 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
     id: string;
     student_id: string;
     about_text: string | null;
-    zoom_link?: string | null;
     profiles: { full_name: string; email: string } | null;
   };
   const studentRows = (studentsRes.data ?? []) as unknown as StudentRow[];
@@ -201,7 +204,6 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
       name: row.profiles?.full_name ?? "Öğrenci",
       email: row.profiles?.email ?? "",
       aboutText: row.about_text ?? null,
-      zoomLink: row.zoom_link?.trim() || null,
       cycle,
       lessons,
       completedCount: lessons.filter((l) => l.completed).length,
@@ -239,6 +241,7 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
   return {
     students: sortStudentsByNextLesson(students),
     homework: [...groups.values()],
+    zoomLink: profileRes.data?.zoom_link?.trim() || null,
     balanceMinutes: balanceRes.data?.total_minutes ?? 0,
     balanceRegularLessons: balanceRes.data?.completed_regular_lessons ?? 0,
     balanceTrialLessons: balanceRes.data?.completed_trial_lessons ?? 0,
@@ -328,6 +331,8 @@ function weekBounds(base: Date): { start: string; end: string } {
 
 export interface TeacherPanelSummary {
   nextLesson: { student: PanelStudent; lesson: PanelLesson; minutesUntil: number } | null;
+  /** Öğretmenin sabit Zoom adresi — sıradaki ders bandındaki düğme buradan. */
+  zoomLink: string | null;
   todayCount: number;
   weekCount: number;
   /** Bugün dersi olan öğrencilerin auth kimlikleri. */
@@ -367,6 +372,7 @@ export function summarize(data: TeacherPanelData, now: number): TeacherPanelSumm
           minutesUntil: Math.max(0, Math.round((best.at - now) / 60000)),
         }
       : null,
+    zoomLink: data.zoomLink,
     todayCount,
     weekCount,
     todayStudentIds,

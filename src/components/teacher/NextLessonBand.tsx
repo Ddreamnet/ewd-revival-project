@@ -50,9 +50,9 @@ export const NextLessonBand = memo(function NextLessonBand({ summary }: NextLess
                 </span>
               </div>
 
-              {next.student.zoomLink ? (
+              {summary.zoomLink ? (
                 <ZoomButton
-                  href={next.student.zoomLink}
+                  href={summary.zoomLink}
                   compact
                   label={
                     <>
@@ -68,7 +68,7 @@ export const NextLessonBand = memo(function NextLessonBand({ summary }: NextLess
                   style={{ background: "rgb(255 248 239 / 0.16)", color: "var(--ewd-on-purple-soft)" }}
                 >
                   <span className="lg:hidden">Zoom yok</span>
-                  <span className="hidden lg:inline">Zoom bağlantısı tanımlı değil</span>
+                  <span className="hidden lg:inline">Zoom bağlantınız tanımlı değil</span>
                 </span>
               )}
             </>

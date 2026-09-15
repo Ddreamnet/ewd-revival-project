@@ -73,6 +73,8 @@ export interface Teacher {
   email: string;
   /** Öğretmenin bağlı olduğu dil şubesi — öğrencileri de bu şubede sayılır. */
   language: Branch;
+  /** Öğretmenin sabit Zoom adresi; bütün öğrencilerine bu gösterilir. */
+  zoom_link?: string | null;
   students: Student[];
 }
 
