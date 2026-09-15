@@ -12,7 +12,7 @@ import { readCache, writeCache } from "@/lib/panelCache";
 import { toDateStr, toInputTime, parseLocalDate } from "@/lib/lessonTypes";
 import type { PanelLesson } from "./useTeacherPanel";
 
-const CACHE_VERSION = 5;  // Dersler öğretmene göre de süzülüyor
+const CACHE_VERSION = 6;  // Paket boyu tracking'ten okunuyor
 
 /** Haftalık sabit ders slotu (student_lessons şablonu). */
 export interface FixedLesson {
@@ -56,7 +56,7 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
       .maybeSingle(),
     supabase
       .from("student_lesson_tracking")
-      .select("teacher_id, package_cycle, lessons_per_week")
+      .select("teacher_id, package_cycle, lessons_per_week, total_lessons")
       .eq("student_id", studentUserId)
       .maybeSingle(),
     supabase
@@ -82,7 +82,7 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
   if (!teacherId) return { ...EMPTY, fetchedAt: Date.now() };
 
   const cycle = trackingRes.data?.package_cycle ?? 1;
-  const perWeek = trackingRes.data?.lessons_per_week ?? 1;
+  const paketBoyu = trackingRes.data?.total_lessons ?? 0;
 
   // Döngü ve öğretmen filtresi istemcide: satır sayısı öğrenci başına küçük
   // (bir paket 4–12 ders) ve böylece sorgu tracking'i beklemiyor.
@@ -122,7 +122,7 @@ async function loadStudentPanel(studentUserId: string): Promise<StudentPanelData
     fixedLessons,
     lessons,
     completedCount: lessons.filter((l) => l.completed).length,
-    totalCount: Math.max(lessons.length, perWeek * 4),
+    totalCount: Math.max(lessons.length, paketBoyu),
     fetchedAt: Date.now(),
   };
 }

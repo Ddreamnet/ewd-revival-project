@@ -61,6 +61,8 @@ export function useEditStudentDialog({
   /** Last completed instance across ALL cycles — the backward/realign boundary.
    *  Loaded with the instances so chain checks stay synchronous. */
   const [lastCompletedAnchor, setLastCompletedAnchor] = useState<{ lessonDate: string; startTime: string } | null>(null);
+  /** Paketteki toplam hak. Saklanan değer; "haftalık × 4" burada hesaplanmaz. */
+  const [totalLessons, setTotalLessons] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -86,7 +88,7 @@ export function useEditStudentDialog({
     const [trackingResult, instanceResult, anchorResult] = await Promise.all([
       supabase
         .from("student_lesson_tracking")
-        .select("package_cycle")
+        .select("package_cycle, total_lessons")
         .eq("student_id", sUserId)
         .eq("teacher_id", tUserId)
         .maybeSingle(),
@@ -110,6 +112,7 @@ export function useEditStudentDialog({
     ]);
 
     const currentCycle = trackingResult.data?.package_cycle ?? 1;
+    setTotalLessons(trackingResult.data?.total_lessons ?? 0);
     const allInstances = (instanceResult.data || []) as LessonInstance[];
     const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
     setInstances(fetchedInstances);
@@ -605,7 +608,6 @@ export function useEditStudentDialog({
 
   // Derived state
   const completedCount = instances.filter((i) => i.status === "completed").length;
-  const totalLessons = lessonsPerWeek * 4;
 
   const sortedLessonsForDisplay = (() => {
     const sorted = [...instances].sort((a, b) => {

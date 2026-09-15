@@ -305,52 +305,6 @@ export async function undoTrialLesson(
   return data as unknown as RpcResult;
 }
 
-/**
- * Get remaining rights for a student in current cycle.
- */
-export async function getRemainingRights(
-  studentId: string,
-  teacherId: string
-): Promise<{ total: number; completed: number; remaining: number; cycle: number }> {
-  // Get template count
-  const { count: templateCount } = await supabase
-    .from("student_lessons")
-    .select("id", { count: "exact", head: true })
-    .eq("student_id", studentId)
-    .eq("teacher_id", teacherId);
-
-  const weeklyCount = templateCount ?? 0;
-  const total = weeklyCount * 4;
-
-  // Get current cycle
-  const { data: tracking } = await supabase
-    .from("student_lesson_tracking")
-    .select("package_cycle")
-    .eq("student_id", studentId)
-    .eq("teacher_id", teacherId)
-    .maybeSingle();
-
-  const currentCycle = tracking?.package_cycle ?? 1;
-
-  // Count completed in current cycle
-  const { count: completedCount } = await supabase
-    .from("lesson_instances")
-    .select("id", { count: "exact", head: true })
-    .eq("student_id", studentId)
-    .eq("teacher_id", teacherId)
-    .eq("status", "completed")
-    .eq("package_cycle", currentCycle);
-
-  const completed = completedCount ?? 0;
-
-  return {
-    total,
-    completed,
-    remaining: Math.max(0, total - completed),
-    cycle: currentCycle,
-  };
-}
-
 // ─── Rescheduling ────────────────────────────────────────────────────────────
 // Every date/time change to a lesson goes through one of these. The server
 // resolves times from the template, checks conflicts, writes and renumbers the

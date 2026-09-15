@@ -202,17 +202,14 @@ export function ScheduleGridCell({
               <Button
                 key={al.id}
                 variant="outline"
-                className={`${isMulti ? "flex-1 min-w-0 px-1 py-1" : "w-full py-2"} justify-center relative ${
-                  al.isGhost ? "cursor-default" : "cursor-pointer"
-                } ${!al.isGhost && al.status === "completed" ? "opacity-40" : ""} ${
-                  !al.isGhost && al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""
-                } ${tasinan?.id === al.id ? "opacity-30" : ""} ${
+                className={`${isMulti ? "flex-1 min-w-0 px-1 py-1" : "w-full py-2"} justify-center relative cursor-pointer ${
+                  al.status === "completed" ? "opacity-40" : ""
+                } ${al.is_manual_override ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${tasinan?.id === al.id ? "opacity-30" : ""} ${
                   studentColors.get(al.student_id) || "bg-gray-100 text-gray-800"
                 }`}
-                draggable={!al.isGhost && !!onTasimaBasla}
-                onDragStart={() => !al.isGhost && onTasimaBasla?.(al)}
+                draggable={!!onTasimaBasla}
+                onDragStart={() => onTasimaBasla?.(al)}
                 onClick={() => {
-                  if (al.isGhost) return;
                   // Taşıma sürerken hücreye dokunmak hedefi seçer; ders
                   // panelini açmak bu modda beklenmeyen bir sonuç olurdu.
                   if (tasimaModu) {
@@ -222,10 +219,9 @@ export function ScheduleGridCell({
                   onActualLessonClick(al);
                 }}
               >
-                {al.isGhost && <AlertCircle className="absolute top-1 right-1 h-3 w-3 text-amber-500" />}
                 <div className="text-center truncate">
                   <div className={`font-medium flex items-center justify-center gap-1 ${isMulti ? "text-[10px]" : ""}`}>
-                    {!al.isGhost && al.is_manual_override && <Calendar className="h-3 w-3 text-amber-600 shrink-0" />}
+                    {al.is_manual_override && <Calendar className="h-3 w-3 text-amber-600 shrink-0" />}
                     <span className="truncate">{al.student_name}</span>
                   </div>
                   <div className={`${isMulti ? "text-[9px]" : "text-xs"} mt-0.5 font-mono`}>

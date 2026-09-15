@@ -719,6 +719,7 @@ export type Database = {
           package_cycle: number
           student_id: string
           teacher_id: string
+          total_lessons: number
           updated_at: string | null
         }
         Insert: {
@@ -729,6 +730,7 @@ export type Database = {
           package_cycle?: number
           student_id: string
           teacher_id: string
+          total_lessons?: number
           updated_at?: string | null
         }
         Update: {
@@ -739,6 +741,7 @@ export type Database = {
           package_cycle?: number
           student_id?: string
           teacher_id?: string
+          total_lessons?: number
           updated_at?: string | null
         }
         Relationships: []
@@ -1166,6 +1169,10 @@ export type Database = {
           p_end: string
           p_cascade?: boolean
         }
+        Returns: Json
+      }
+      rpc_paketi_tamamla: {
+        Args: { p_capa?: string; p_student_id: string; p_teacher_id: string }
         Returns: Json
       }
       rpc_postpone_lesson: {

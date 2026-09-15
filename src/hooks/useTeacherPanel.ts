@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "@/lib/panelCache";
 import { parseLocalDate, toDateStr, toInputTime, getDayName } from "@/lib/lessonTypes";
 
-const CACHE_VERSION = 3;  // Zoom bağlantısı öğrenciden öğretmene taşındı
+const CACHE_VERSION = 4;  // Paket boyu tracking'ten okunuyor
 
 export interface PanelLesson {
   id: string;
@@ -101,7 +101,7 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
       .eq("is_archived", false),
     supabase
       .from("student_lesson_tracking")
-      .select("student_id, package_cycle, lessons_per_week")
+      .select("student_id, package_cycle, lessons_per_week, total_lessons")
       .eq("teacher_id", teacherId),
     supabase
       .from("teacher_balance")
@@ -134,11 +134,13 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
   };
   const studentRows = (studentsRes.data ?? []) as unknown as StudentRow[];
 
-  const trackingByStudent = new Map<string, { cycle: number; perWeek: number }>();
+  const trackingByStudent = new Map<string, { cycle: number; perWeek: number; total: number }>();
   for (const t of trackingRes.data ?? []) {
     trackingByStudent.set(t.student_id, {
       cycle: t.package_cycle ?? 1,
       perWeek: t.lessons_per_week ?? 1,
+      // Paket boyu artık saklanıyor; "haftalık × 4" burada tekrarlanmıyor.
+      total: t.total_lessons ?? 0,
     });
   }
 
@@ -207,7 +209,7 @@ async function loadTeacherPanel(teacherId: string): Promise<TeacherPanelData> {
       cycle,
       lessons,
       completedCount: lessons.filter((l) => l.completed).length,
-      totalCount: Math.max(lessons.length, perWeek * 4),
+      totalCount: Math.max(lessons.length, tracking?.total ?? 0),
       lessonsPerWeek: perWeek,
     };
   });

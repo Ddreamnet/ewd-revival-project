@@ -39,6 +39,7 @@ export interface ActualLesson {
   rescheduled_count: number;
   is_manual_override: boolean;
   created_at?: string | null;
+  /** @deprecated Hayalet dersler kaldırıldı; her zaman false. */
   isGhost?: boolean;
 }
 
@@ -205,105 +206,14 @@ async function fetchActualLessonsForWeekCore(
   // Filter real instances to active students only
   const filteredInstances = realInstances.filter((i) => allActiveStudentIds.has(i.student_id));
 
-  // Per-week presence: students who already have any real instance this week
-  // shouldn't get ghost entries. Ghosts represent the template preview for
-  // weeks where the student has nothing on the calendar (between-package or
-  // fully-future weeks). If the student has any real instance this week —
-  // even at a non-template time (template was edited after instances were
-  // generated, or a shift moved them) — the schedule already shows reality
-  // and ghosts would duplicate the student on the same week.
-  const studentsWithInstanceThisWeek = new Set<string>();
-  filteredInstances.forEach((inst) => {
-    studentsWithInstanceThisWeek.add(inst.student_id);
-  });
-
-  // Generate ghost entries — per-slot check for ALL active students with templates
-  const ghostEntries: ActualLesson[] = [];
-  const allActiveIds = [...allActiveStudentIds];
-
-  if (allActiveIds.length > 0) {
-    // Get templates + tracking for ALL active students in parallel
-    const [templatesResult, trackingResult] = await Promise.all([
-      supabase
-        .from("student_lessons")
-        .select("student_id, day_of_week, start_time, end_time")
-        .eq("teacher_id", teacherId)
-        .in("student_id", allActiveIds),
-      supabase
-        .from("student_lesson_tracking")
-        .select("student_id, package_cycle, lessons_per_week")
-        .eq("teacher_id", teacherId)
-        .in("student_id", allActiveIds),
-    ]);
-
-    const templates = templatesResult.data || [];
-    const trackingData = trackingResult.data || [];
-
-    if (templates.length > 0 && trackingData.length > 0) {
-      const trackingMap = new Map<string, { cycle: number; lpw: number }>();
-      trackingData.forEach((t) => {
-        trackingMap.set(t.student_id, { cycle: t.package_cycle, lpw: t.lessons_per_week });
-      });
-
-      const templateStudentIds = [...new Set(templates.map((t) => t.student_id))];
-
-      // BATCH: Get all cycle instance counts in ONE query.
-      // Filter by active statuses so future status values (e.g. 'cancelled')
-      // can't inflate the "exhausted" calculation.
-      const { data: allCycleInstances } = await supabase
-        .from("lesson_instances")
-        .select("student_id, package_cycle")
-        .eq("teacher_id", teacherId)
-        .in("student_id", templateStudentIds)
-        .in("status", ["planned", "completed"]);
-
-      const cycleCountMap = new Map<string, number>();
-      (allCycleInstances || []).forEach((row) => {
-        const tracking = trackingMap.get(row.student_id);
-        if (!tracking || row.package_cycle !== tracking.cycle) return;
-        cycleCountMap.set(row.student_id, (cycleCountMap.get(row.student_id) || 0) + 1);
-      });
-
-      for (const studentId of templateStudentIds) {
-        const tracking = trackingMap.get(studentId);
-        if (!tracking) continue;
-
-        const totalRights = tracking.lpw * 4;
-        const existingInCycle = cycleCountMap.get(studentId) || 0;
-        if (existingInCycle < totalRights) continue; // Not exhausted, skip
-
-        if (studentsWithInstanceThisWeek.has(studentId)) continue;
-
-        // Package exhausted + no real instance this week — produce one ghost
-        // per template slot to preview the next-cycle layout.
-        const studentTemplates = templates.filter((t) => t.student_id === studentId);
-        for (const tmpl of studentTemplates) {
-          const dayIndex = tmpl.day_of_week === 0 ? 6 : tmpl.day_of_week - 1;
-          const lessonDate = addDays(ws, dayIndex);
-          const dateStr = format(lessonDate, "yyyy-MM-dd");
-
-          ghostEntries.push({
-            id: `ghost-${studentId}-${dateStr}-${tmpl.start_time}`,
-            student_id: studentId,
-            student_name: "",
-            lesson_number: 0,
-            lesson_date: dateStr,
-            start_time: tmpl.start_time,
-            end_time: tmpl.end_time,
-            status: "planned",
-            original_date: null,
-            original_start_time: null,
-            original_end_time: null,
-            rescheduled_count: 0,
-            is_manual_override: false,
-            isGhost: true,
-          });
-        }
-      }
-    }
-  }
-
-  const allResults = [...filteredInstances.map((inst) => ({ ...inst, isGhost: false })), ...ghostEntries];
+  // Hayalet dersler kaldırıldı.
+  //
+  // Paketi biten öğrenci için tarayıcıda sahte ders satırları üretiliyordu:
+  // veritabanında karşılığı yok, tıklanamıyor, taşınamıyordu — aynı dersin
+  // dördüncü temsiliydi. Paket boyu artık paket satırında saklandığı ve hak
+  // bitince ders üretilmediği için bir önizlemeye gerek kalmadı: takvimde ne
+  // varsa gerçek odur. Yeni paket açıldığında dersler kendiliğinden belirir.
+  const allResults = filteredInstances.map((inst) => ({ ...inst, isGhost: false }));
 
   // Fetch student names for all unique student IDs
   const allStudentIds = [...new Set(allResults.map((i) => i.student_id))];
@@ -370,9 +280,7 @@ export function getActualLessonsForDayAndTime(
   for (const l of matched) {
     const existing = bestPerStudent.get(l.student_id);
     if (!existing) { bestPerStudent.set(l.student_id, l); continue; }
-    // Prefer real over ghost; among reals prefer the newest created_at.
-    if (existing.isGhost && !l.isGhost) { bestPerStudent.set(l.student_id, l); continue; }
-    if (!existing.isGhost && l.isGhost) continue;
+    // Aynı öğrencinin aynı hücredeki iki kaydından en yenisi kalır.
     const lTs = l.created_at || "";
     const eTs = existing.created_at || "";
     if (lTs > eTs) bestPerStudent.set(l.student_id, l);

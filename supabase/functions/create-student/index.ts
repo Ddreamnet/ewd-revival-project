@@ -6,50 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-/**
- * Given template slots (day_of_week, start_time, end_time),
- * generate `count` lesson instance dates starting from `startDate`.
- */
-function generateInstanceDates(
-  slots: { day_of_week: number; start_time: string; end_time: string }[],
-  count: number,
-  startDate: Date
-): { lessonDate: string; startTime: string; endTime: string }[] {
-  const results: { lessonDate: string; startTime: string; endTime: string }[] = [];
-  const sortedSlots = [...slots].sort((a, b) => a.day_of_week - b.day_of_week);
-  let current = new Date(startDate);
-  current.setHours(0, 0, 0, 0);
-
-  for (let i = 0; i < count && results.length < count; i++) {
-    // Try up to 14 days ahead
-    let found = false;
-    for (let offset = 0; offset <= 13; offset++) {
-      const candidate = new Date(current);
-      candidate.setDate(candidate.getDate() + offset);
-      const dow = candidate.getDay(); // 0=Sun
-      const matchingSlot = sortedSlots.find((s) => s.day_of_week === dow);
-      if (matchingSlot) {
-        const yyyy = candidate.getFullYear();
-        const mm = String(candidate.getMonth() + 1).padStart(2, '0');
-        const dd = String(candidate.getDate()).padStart(2, '0');
-        results.push({
-          lessonDate: `${yyyy}-${mm}-${dd}`,
-          startTime: matchingSlot.start_time,
-          endTime: matchingSlot.end_time,
-        });
-        // Move to next day for next search
-        current = new Date(candidate);
-        current.setDate(current.getDate() + 1);
-        found = true;
-        break;
-      }
-    }
-    if (!found) break;
-  }
-
-  return results;
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -174,69 +130,38 @@ serve(async (req) => {
       )
     }
 
-    // Create lesson schedule if provided
+    // Haftalık program, paket ve ilk dersler: hepsi tek RPC'de.
+    //
+    // Önceden bu dosyada kendi tarih döngüsü vardı: çakışmaya hiç bakmıyordu,
+    // bugünden başlıyordu ve hata olursa yalnızca log'a yazıp "başarılı"
+    // dönüyordu — şablonu olan ama dersi olmayan öğrenciler böyle doğdu.
+    // Artık admin panelinin kullandığı yolun aynısı çalışıyor.
     if (lessons && lessons.length > 0) {
-      const lessonsToInsert = lessons.map((lesson: any) => ({
-        student_id: authData.user.id,
-        teacher_id: teacherId,
-        day_of_week: lesson.day_of_week,
-        start_time: lesson.start_time,
-        end_time: lesson.end_time
-      }))
-
-      const { error: lessonsError } = await supabaseAdmin
-        .from('student_lessons')
-        .insert(lessonsToInsert)
-
-      if (lessonsError) {
-        console.error('Lessons error:', lessonsError)
-      } else {
-        // === BUG #1 FIX: Generate lesson_instances from template ===
-        const totalLessons = lessons.length * 4; // 4 weeks of lessons
-        const today = new Date();
-        
-        const instanceDates = generateInstanceDates(
-          lessons.map((l: any) => ({
-            day_of_week: l.day_of_week,
-            start_time: l.start_time,
-            end_time: l.end_time,
+      const { data: program, error: programError } = await supabaseAdmin.rpc(
+        'rpc_sync_student_schedule',
+        {
+          p_student_id: authData.user.id,
+          p_teacher_id: teacherId,
+          p_slots: lessons.map((l: any) => ({
+            dayOfWeek: l.day_of_week,
+            startTime: l.start_time,
+            endTime: l.end_time,
           })),
-          totalLessons,
-          today
-        );
-
-        if (instanceDates.length > 0) {
-          const instanceRows = instanceDates.map((inst, idx) => ({
-            student_id: authData.user.id,
-            teacher_id: teacherId,
-            lesson_number: idx + 1,
-            lesson_date: inst.lessonDate,
-            start_time: inst.startTime,
-            end_time: inst.endTime,
-            status: 'planned',
-          }));
-
-          const { error: instanceError } = await supabaseAdmin
-            .from('lesson_instances')
-            .insert(instanceRows);
-
-          if (instanceError) {
-            console.error('Instance generation error:', instanceError);
-          } else {
-            // Create student_lesson_tracking record
-            const { error: trackingError } = await supabaseAdmin
-              .from('student_lesson_tracking')
-              .insert({
-                student_id: authData.user.id,
-                teacher_id: teacherId,
-                lessons_per_week: lessons.length,
-              });
-
-            if (trackingError) {
-              console.error('Tracking record error:', trackingError);
-            }
-          }
+          p_lessons_per_week: lessons.length,
         }
+      )
+
+      const basarili = !programError && (program as { success?: boolean })?.success !== false
+      if (!basarili) {
+        const mesaj = programError?.message ?? (program as { error?: string })?.error ?? 'bilinmeyen hata'
+        console.error('Schedule setup error:', mesaj)
+        // Yarım öğrenci bırakmıyoruz: ilişkiyi ve hesabı geri al.
+        await supabaseAdmin.from('students').delete().eq('student_id', authData.user.id)
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+        return new Response(
+          JSON.stringify({ error: `Ders programı kurulamadı: ${mesaj}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
       }
     }
 

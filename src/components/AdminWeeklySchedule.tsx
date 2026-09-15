@@ -187,9 +187,6 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   const weekLabel = `${format(weekStart, "dd.MM")} – ${format(weekEnd, "dd.MM.yyyy")}`;
 
   const handleActualLessonClick = (lesson: ActualLesson) => {
-    // Ghost rows are a template preview for a week with no real lessons yet;
-    // there is nothing on the calendar to move.
-    if (lesson.isGhost) return;
     setSelectedActualLesson(lesson);
     setShowOverrideDialog(true);
   };
@@ -514,7 +511,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
 
       {/* Trial Lesson Action Dialog */}
       <Dialog open={showTrialActionDialog} onOpenChange={setShowTrialActionDialog}>
-        <DialogContent size="sm">
+        <DialogContent size="sm" animateHeight>
           <DialogHeader>
             <DialogTitle>Deneme Dersi İşlemleri</DialogTitle>
             <DialogDescription>
