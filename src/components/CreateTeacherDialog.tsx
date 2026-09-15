@@ -97,7 +97,7 @@ export function CreateTeacherDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Yeni Öğretmen Oluştur</DialogTitle>
         </DialogHeader>

@@ -51,7 +51,7 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Öğrenci Ayarları</DialogTitle>
         </DialogHeader>

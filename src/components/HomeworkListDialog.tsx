@@ -445,7 +445,7 @@ export function HomeworkListDialog({
         body
       ) : (
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[600px] max-h-[90dvh] overflow-hidden flex flex-col">
+          <DialogContent size="lg">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>Ödevler</DialogTitle>
               <DialogDescription>
@@ -460,7 +460,8 @@ export function HomeworkListDialog({
       {/* Fullscreen preview — proper Dialog with scroll-lock and focus-trap */}
       <Dialog open={!!preview} onOpenChange={(isOpen) => { if (!isOpen) closePreview(); }}>
         <DialogContent
-          className="fixed inset-0 w-screen h-screen max-w-none max-h-none translate-x-0 translate-y-0 left-0 top-0 p-0 border-0 rounded-none bg-black/95 z-[200] data-[state=open]:slide-in-from-bottom-0 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+          bare
+          className="fixed inset-0 left-0 top-0 h-screen w-screen border-0 bg-black/95 p-0 z-[200]"
           style={{ transform: 'none' }}
           onInteractOutside={(e) => e.preventDefault()}
         >

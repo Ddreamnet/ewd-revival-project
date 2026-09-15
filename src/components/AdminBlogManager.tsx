@@ -123,7 +123,7 @@ export function AdminBlogManager({ open, onOpenChange }: AdminBlogManagerProps) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setView("list"); resetForm(); } onOpenChange(v); }}>
-      <DialogContent className="w-[calc(100%-1rem)] max-w-4xl">
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {view === "edit" && (

@@ -83,7 +83,7 @@ export function EditHomeworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[500px]">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Ödevi Düzenle</DialogTitle>
           <DialogDescription>

@@ -6,6 +6,8 @@
 @import "./styles/ewd.css";
 /* Panel v2 — öğretmen/öğrenci/admin panellerinin ortak bileşen katmanı */
 @import "./styles/panel.css";
+/* Örtü yüzeyi — masaüstünde sağ çekmece, telefonda alttan çıkan kart */
+@import "./styles/sheet.css";
 
 @tailwind base;
 @tailwind components;

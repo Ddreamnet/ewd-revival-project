@@ -5,12 +5,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { isAndroid, isNative } from "@/lib/platform";
+import { closeTopSheet } from "@/components/ui/sheet-core";
 
 /**
  * Android donanım/gesture geri tuşunu ekrandaki `‹` butonuyla aynı yere bağlar.
  *
  * `handler` true dönerse olay tüketilmiş sayılır. Kök ekranda false dönmek
  * uygulamayı arka plana atar — Android'in beklenen davranışı.
+ *
+ * Geri tuşu önce AÇIK ÖRTÜYE gider (bkz. components/ui/sheet-core.tsx).
+ * Radix Escape'i kendi hallediyor ama Android'in geri tuşunu bilmiyor: kart
+ * açıkken geriye basmak kartı kapatmak yerine sekmeden çıkıyordu — telefonda
+ * "kapat" hareketinin ta kendisi olan tuş için yanlış cevap.
  */
 export function useAndroidBackButton(handler: () => boolean) {
   const handlerRef = useRef(handler);
@@ -24,6 +30,7 @@ export function useAndroidBackButton(handler: () => boolean) {
     import("@capacitor/app")
       .then(({ App }) =>
         App.addListener("backButton", () => {
+          if (closeTopSheet()) return;
           const consumed = handlerRef.current();
           if (!consumed) App.minimizeApp();
         }),

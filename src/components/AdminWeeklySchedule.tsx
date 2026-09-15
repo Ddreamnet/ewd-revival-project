@@ -368,7 +368,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
 
       {/* Trial Lesson Action Dialog */}
       <Dialog open={showTrialActionDialog} onOpenChange={setShowTrialActionDialog}>
-        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Deneme Dersi İşlemleri</DialogTitle>
             <DialogDescription>

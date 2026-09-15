@@ -538,7 +538,7 @@ export function GlobalTopicsManager({
         body
       ) : (
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col">
+          <DialogContent size="full">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />

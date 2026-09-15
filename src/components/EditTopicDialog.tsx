@@ -39,7 +39,7 @@ export function EditTopicDialog({ open, onOpenChange, onEditTopic, topic }: Edit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Konuyu Düzenle</DialogTitle>
         </DialogHeader>

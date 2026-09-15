@@ -452,7 +452,7 @@ export function TeacherDashboard() {
         gerektiğinde tam ekrana yakın bir alanda açılıyor.
       */}
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-3xl">
+        <DialogContent size="full">
           <DialogHeader>
             <DialogTitle>Ders programım</DialogTitle>
           </DialogHeader>
@@ -464,7 +464,7 @@ export function TeacherDashboard() {
 
       {/* Bakiye ekranda durmuyor; yalnızca bu diyalogda görünüyor. */}
       <Dialog open={balanceOpen} onOpenChange={setBalanceOpen}>
-        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle>Bakiyem</DialogTitle>
           </DialogHeader>
