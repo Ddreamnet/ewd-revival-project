@@ -866,7 +866,7 @@ export type Database = {
           },
         ]
       }
-      teacher_balance: {
+      teacher_balance_eski: {
         Row: {
           completed_regular_lessons: number
           completed_trial_lessons: number
@@ -902,6 +902,33 @@ export type Database = {
           total_minutes?: number
           trial_lessons_minutes?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      teacher_balance_opening: {
+        Row: {
+          created_at: string
+          minutes: number
+          notes: string | null
+          regular_lessons: number
+          teacher_id: string
+          trial_lessons: number
+        }
+        Insert: {
+          created_at?: string
+          minutes?: number
+          notes?: string | null
+          regular_lessons?: number
+          teacher_id: string
+          trial_lessons?: number
+        }
+        Update: {
+          created_at?: string
+          minutes?: number
+          notes?: string | null
+          regular_lessons?: number
+          teacher_id?: string
+          trial_lessons?: number
         }
         Relationships: []
       }
@@ -1093,7 +1120,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      teacher_balance: {
+        Row: {
+          completed_regular_lessons: number | null
+          completed_trial_lessons: number | null
+          manual_adjustment_minutes: number | null
+          regular_lessons_minutes: number | null
+          teacher_id: string | null
+          total_minutes: number | null
+          trial_lessons_minutes: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_student_relationship: {
@@ -1188,6 +1226,28 @@ export type Database = {
           p_teacher_user_id: string
         }
         Returns: Json
+      }
+      rpc_ara_ver: {
+        Args: {
+          p_baslangic: string
+          p_bitis: string
+          p_student_id: string
+          p_teacher_id: string
+        }
+        Returns: Json
+      }
+      rpc_gunu_ertele: {
+        Args: { p_tarih: string; p_teacher_id: string }
+        Returns: Json
+      }
+      sistem_sagligi: {
+        Args: never
+        Returns: {
+          adet: number
+          agirlik: string
+          baslik: string
+          kod: string
+        }[]
       }
       rpc_close_teacher_payout: {
         Args: { p_notes?: string; p_rate?: number; p_teacher_id: string }

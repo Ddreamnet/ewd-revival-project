@@ -292,8 +292,10 @@ export function EditTeacherDialog({
       // 2. Delete trial lessons
       await supabase.from("trial_lessons").delete().eq("teacher_id", teacherId);
 
-      // 3. Delete teacher balance
-      await supabase.from("teacher_balance").delete().eq("teacher_id", teacherId);
+      // 3. Bakiye: teacher_balance artık bir görünüm, silinemez. Bakiyeyi
+      //    oluşturan iki kaynak siliniyor — açılış kaydı ve defter satırları.
+      await supabase.from("teacher_balance_opening").delete().eq("teacher_id", teacherId);
+      await supabase.from("balance_events").delete().eq("teacher_id", teacherId);
 
       // 4. Delete payment history
       await supabase.from("payment_history").delete().eq("teacher_id", teacherId);

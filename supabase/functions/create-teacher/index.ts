@@ -133,22 +133,9 @@ serve(async (req) => {
       )
     }
 
-    // Create initial teacher balance record
-    const { error: balanceError } = await supabaseAdmin
-      .from('teacher_balance')
-      .insert({
-        teacher_id: authData.user.id,
-        total_minutes: 0,
-        regular_lessons_minutes: 0,
-        trial_lessons_minutes: 0,
-        completed_regular_lessons: 0,
-        completed_trial_lessons: 0
-      })
-
-    if (balanceError) {
-      console.error('Balance creation error:', balanceError)
-      // Not critical, continue anyway
-    }
+    // Bakiye kaydı açılmıyor: teacher_balance artık bir görünüm ve defterden
+    // (balance_events) türüyor. Kaydı olmayan öğretmenin bakiyesi zaten sıfır
+    // görünür; ilk ders işlendiğinde defter satırı kendiliğinden oluşur.
 
     return new Response(
       JSON.stringify({ 
