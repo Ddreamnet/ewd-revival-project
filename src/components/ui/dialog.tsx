@@ -1,8 +1,33 @@
+/**
+ * Dialog — artık ortada açılan bir pencere değil, tek örtü yüzeyi (sheet).
+ *
+ * Adlar korundu (`Dialog`, `DialogContent`, `DialogHeader`, …): çağrı yerleri
+ * eskisi gibi yazılır, yüzey masaüstünde sağ çekmeceye, telefonda alttan
+ * çıkan sürüklenebilir karta döner. Davranış `ui/sheet-core.tsx`, biçim
+ * `styles/sheet.css` içinde.
+ */
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import {
+  isNarrow,
+  useAnimatedHeight,
+  useDragToDismiss,
+  useKeyboardInset,
+  useMountedRef,
+  useSheetStack,
+} from "@/components/ui/sheet-core";
+
+/**
+ * Masaüstünde çekmece genişliği / telefonda kart yüksekliği.
+ *  sm   → 400px / içeriği kadar   (kısa bir soru, birkaç alanlı form)
+ *  md   → 480px / içeriği kadar   (formların çoğu)              ← varsayılan
+ *  lg   → 640px / 92dvh           (liste, düzenleyici)
+ *  full → min(1080px, 92vw) / 94dvh (görüntüleyici, haftalık program)
+ */
+export type DialogSize = "sm" | "md" | "lg" | "full";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -16,48 +41,114 @@ const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className,
-    )}
-    {...props}
-  />
+  <DialogPrimitive.Overlay ref={ref} className={cn("ewd-sheet-scrim", className)} {...props} />
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
-const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] sm:w-full max-w-lg max-h-[90dvh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg rounded-lg",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-));
+interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  size?: DialogSize;
+  /** İçerikle birlikte büyüyüp küçülsün, zıplamasın (yalnızca telefonda). */
+  animateHeight?: boolean;
+  /**
+   * Kart kabuğunu tümden atla: kendi geometrisini kuran tam ekran
+   * görüntüleyici gibi tek tük yer için. Sürükleme, tutamak, kaydırma
+   * gövdesi — hiçbiri kurulmaz.
+   */
+  bare?: boolean;
+  /** Kapatma düğmesi çizilmesin (kendi kapatmasını koyan içerikler). */
+  hideClose?: boolean;
+}
+
+const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.Content>, DialogContentProps>(
+  (
+    { className, children, size = "md", animateHeight, bare, hideClose, onPointerDownOutside, ...props },
+    forwardedRef,
+  ) => {
+    const [ref, setRef, mounted] = useMountedRef<HTMLDivElement>();
+    const overlayRef = React.useRef<HTMLDivElement>(null);
+    // Radix `open`ı kendi tutar ve buyurgan bir kapatma sunmaz — ama bir
+    // Close DÜĞMESİ sunar. Gizli bir tanesine tıklamak, sürüklemenin (ve
+    // Android geri tuşunun) kartı kapatma yolu.
+    const closeRef = React.useRef<HTMLButtonElement>(null);
+    const dismiss = React.useCallback(() => closeRef.current?.click(), []);
+
+    useDragToDismiss(ref, dismiss, { open: mounted, scrim: overlayRef, disabled: bare });
+    useAnimatedHeight(ref, !!animateHeight && mounted && !bare);
+    useKeyboardInset(mounted && !bare);
+    useSheetStack(mounted, dismiss);
+
+    const setRefs = React.useCallback(
+      (el: HTMLDivElement | null) => {
+        setRef(el);
+        if (typeof forwardedRef === "function") forwardedRef(el);
+        else if (forwardedRef) (forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+      },
+      [setRef, forwardedRef],
+    );
+
+    return (
+      <DialogPortal>
+        <DialogOverlay ref={overlayRef} data-bare={bare ? "" : undefined} />
+        <DialogPrimitive.Content
+          ref={setRefs}
+          data-size={size}
+          data-animate-height={animateHeight ? "" : undefined}
+          className={cn(bare ? "ewd-sheet-bare" : "ewd-sheet", className)}
+          onPointerDownOutside={(e) => {
+            onPointerDownOutside?.(e);
+            // Telefonda perde bir sürükleme yüzeyi (bkz. useDragToDismiss):
+            // parmağın çekecek mi yoksa yalnızca dokunacak mı olduğu
+            // bilinmeden, pointerdown'da kart kapanmamalı. Fareyle dışarı
+            // tıklamak yine anında kapatır.
+            if (
+              !bare &&
+              !e.defaultPrevented &&
+              isNarrow() &&
+              (e.detail.originalEvent as PointerEvent).pointerType === "touch"
+            )
+              e.preventDefault();
+          }}
+          {...props}
+        >
+          {bare ? (
+            children
+          ) : (
+            <>
+              <DialogPrimitive.Close asChild>
+                <button ref={closeRef} type="button" hidden tabIndex={-1} aria-hidden />
+              </DialogPrimitive.Close>
+
+              {/* Tutamak yalnızca dar ekranda çizilir (CSS): "bu aşağı
+                  çekilebilir" işareti — kartın tamamı çekilebilse de. */}
+              <div className="ewd-sheet-grab" data-sheet-grab>
+                <span aria-hidden className="ewd-sheet-grip" />
+              </div>
+
+              {!hideClose && (
+                <DialogPrimitive.Close className="ewd-sheet-x" aria-label="Kapat">
+                  <X className="h-[18px] w-[18px]" strokeWidth={2.4} />
+                </DialogPrimitive.Close>
+              )}
+
+              <div className="ewd-sheet-body">{children}</div>
+            </>
+          )}
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    );
+  },
+);
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
+/** Kartın üstüne yapışan başlık şeridi; gövde altında kayar. */
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props} />
+  <div data-sheet-grab className={cn("ewd-sheet-head", className)} {...props} />
 );
 DialogHeader.displayName = "DialogHeader";
 
+/** Kartın altına yapışan eylem şeridi. */
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
+  <div className={cn("ewd-sheet-foot", className)} {...props} />
 );
 DialogFooter.displayName = "DialogFooter";
 
@@ -65,11 +156,7 @@ const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn("text-lg font-semibold leading-none tracking-tight", className)}
-    {...props}
-  />
+  <DialogPrimitive.Title ref={ref} className={cn("ewd-sheet-title", className)} {...props} />
 ));
 DialogTitle.displayName = DialogPrimitive.Title.displayName;
 
@@ -77,7 +164,7 @@ const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  <DialogPrimitive.Description ref={ref} className={cn("ewd-sheet-desc", className)} {...props} />
 ));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 

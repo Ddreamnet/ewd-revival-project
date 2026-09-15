@@ -1,8 +1,17 @@
+/**
+ * AlertDialog — "Emin misin?" için aynı örtü yüzeyi.
+ *
+ * Dialog ile tek fark davranışta: dışarı tıklamak kapatmaz, odak "Vazgeç"e
+ * gider ve telefonda kartı aşağı çekmek "Vazgeç" sayılır. Biçim, hareket ve
+ * geometri Dialog ile birebir aynı (bkz. ui/sheet-core.tsx, styles/sheet.css).
+ */
 import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import type { DialogSize } from "@/components/ui/dialog";
+import { useAnimatedHeight, useDragToDismiss, useKeyboardInset, useMountedRef, useSheetStack } from "@/components/ui/sheet-core";
 
 const AlertDialog = AlertDialogPrimitive.Root;
 
@@ -14,42 +23,72 @@ const AlertDialogOverlay = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Overlay
-    className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className,
-    )}
-    {...props}
-    ref={ref}
-  />
+  <AlertDialogPrimitive.Overlay ref={ref} className={cn("ewd-sheet-scrim", className)} {...props} />
 ));
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 
+interface AlertDialogContentProps extends React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> {
+  size?: DialogSize;
+  animateHeight?: boolean;
+}
+
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
-  <AlertDialogPortal>
-    <AlertDialogOverlay />
-    <AlertDialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        className,
-      )}
-      {...props}
-    />
-  </AlertDialogPortal>
-));
+  AlertDialogContentProps
+>(({ className, children, size = "sm", animateHeight, ...props }, forwardedRef) => {
+  const [ref, setRef, mounted] = useMountedRef<HTMLDivElement>();
+  const overlayRef = React.useRef<HTMLDivElement>(null);
+  // Sürükleyerek kapatmak "Vazgeç"tir: gizli bir Cancel düğmesine tıklanır,
+  // böylece sahibin `onOpenChange`i ve odak dönüşü normal yolundan işler.
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+  const dismiss = React.useCallback(() => cancelRef.current?.click(), []);
+
+  useDragToDismiss(ref, dismiss, { open: mounted, scrim: overlayRef });
+  useAnimatedHeight(ref, !!animateHeight && mounted);
+  useKeyboardInset(mounted);
+  useSheetStack(mounted, dismiss);
+
+  const setRefs = React.useCallback(
+    (el: HTMLDivElement | null) => {
+      setRef(el);
+      if (typeof forwardedRef === "function") forwardedRef(el);
+      else if (forwardedRef) (forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    },
+    [setRef, forwardedRef],
+  );
+
+  return (
+    <AlertDialogPortal>
+      <AlertDialogOverlay ref={overlayRef} />
+      <AlertDialogPrimitive.Content
+        ref={setRefs}
+        data-size={size}
+        data-animate-height={animateHeight ? "" : undefined}
+        className={cn("ewd-sheet", className)}
+        {...props}
+      >
+        <AlertDialogPrimitive.Cancel asChild>
+          <button ref={cancelRef} type="button" hidden tabIndex={-1} aria-hidden />
+        </AlertDialogPrimitive.Cancel>
+
+        <div className="ewd-sheet-grab" data-sheet-grab>
+          <span aria-hidden className="ewd-sheet-grip" />
+        </div>
+
+        <div className="ewd-sheet-body">{children}</div>
+      </AlertDialogPrimitive.Content>
+    </AlertDialogPortal>
+  );
+});
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 
 const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col space-y-2 text-center sm:text-left", className)} {...props} />
+  <div data-sheet-grab className={cn("ewd-sheet-head ewd-sheet-head--plain", className)} {...props} />
 );
 AlertDialogHeader.displayName = "AlertDialogHeader";
 
 const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
+  <div className={cn("ewd-sheet-foot", className)} {...props} />
 );
 AlertDialogFooter.displayName = "AlertDialogFooter";
 
@@ -57,7 +96,7 @@ const AlertDialogTitle = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold", className)} {...props} />
+  <AlertDialogPrimitive.Title ref={ref} className={cn("ewd-sheet-title", className)} {...props} />
 ));
 AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName;
 
@@ -65,7 +104,7 @@ const AlertDialogDescription = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  <AlertDialogPrimitive.Description ref={ref} className={cn("ewd-sheet-desc", className)} {...props} />
 ));
 AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayName;
 
@@ -81,11 +120,7 @@ const AlertDialogCancel = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Cancel>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel>
 >(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Cancel
-    ref={ref}
-    className={cn(buttonVariants({ variant: "outline" }), "mt-2 sm:mt-0", className)}
-    {...props}
-  />
+  <AlertDialogPrimitive.Cancel ref={ref} className={cn(buttonVariants({ variant: "outline" }), className)} {...props} />
 ));
 AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName;
 
