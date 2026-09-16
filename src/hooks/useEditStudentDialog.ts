@@ -381,6 +381,7 @@ export function useEditStudentDialog({
 
     setLoading(true);
     setConflicts([]);
+    let senkUyari: string | null = null;
 
     try {
       // Update profile name (separate from schedule sync)
@@ -422,10 +423,11 @@ export function useEditStudentDialog({
         });
 
         if (rpcError) throw rpcError;
-        const senk = rpcResult as { success?: boolean; error?: string } | null;
+        const senk = rpcResult as { success?: boolean; error?: string; warnings?: RescheduleWarning[] } | null;
         if (senk && !senk.success) {
           throw new Error(senk.error || "Ders programı kaydedilemedi");
         }
+        senkUyari = describeRescheduleWarnings({ success: true, warnings: senk?.warnings ?? [] });
       }
 
       if (!templateChanged) {
@@ -453,6 +455,9 @@ export function useEditStudentDialog({
       );
 
       toast({ title: "Başarılı", description: "Öğrenci ayarları güncellendi" });
+      if (senkUyari) {
+        toast({ title: "Dikkat: bazı dersler başka derslerle çakışıyor", description: senkUyari });
+      }
       clearWeekCache();
       onStudentUpdated();
       onOpenChange(false);

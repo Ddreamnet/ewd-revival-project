@@ -31,7 +31,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAdminTopicsCrud } from "@/hooks/useAdminTopicsCrud";
 import { useAndroidBackButton, useScrollMemory } from "@/hooks/usePanelPlatform";
 import { supabase } from "@/integrations/supabase/client";
-import { restoreStudent } from "@/lib/lessonService";
+import { restoreStudent, describeRescheduleWarnings } from "@/lib/lessonService";
 import { loadStudentTopics } from "@/lib/topicsService";
 import { initPushNotifications } from "@/lib/pushNotifications";
 import { type Branch } from "@/lib/branch";
@@ -334,6 +334,10 @@ export function AdminDashboard() {
           title: "Başarılı",
           description: `Öğrenci geri alındı${result.instances_created ? ` (${result.instances_created} ders planlandı)` : ""}`,
         });
+        const cakisma = describeRescheduleWarnings({ success: true, warnings: result.warnings ?? [] });
+        if (cakisma) {
+          toast({ title: "Dikkat: bazı dersler başka derslerle çakışıyor", description: cakisma });
+        }
         fetchTeachers();
       } catch (error) {
         toast({

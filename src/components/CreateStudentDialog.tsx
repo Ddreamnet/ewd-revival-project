@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, UserPlus } from "lucide-react";
 import { edgeCagir, EPOSTA_BICIMI } from "@/lib/edgeFonksiyon";
+import { describeRescheduleWarnings, type RescheduleWarning } from "@/lib/lessonService";
 import type { StudentLessonBase } from "@/lib/types";
 import { DAYS_OF_WEEK } from "@/lib/types";
 
@@ -73,7 +74,7 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
     setLoading(true);
 
     try {
-      const { veri, hata } = await edgeCagir<{ reused?: boolean }>("create-student", {
+      const { veri, hata } = await edgeCagir<{ reused?: boolean; warnings?: RescheduleWarning[] }>("create-student", {
         email: email.trim(),
         name: name.trim(),
         password: tempPassword,
@@ -96,6 +97,12 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
           ? `Bu e-postanın eski hesabı yeniden etkinleştirildi. Yeni şifre: ${tempPassword}`
           : `Öğrenci hesabı oluşturuldu. Geçici şifre: ${tempPassword}`,
       });
+      // Verilen saat başka bir öğrencinin saatiyse dersler yine kuruldu; admin
+      // bunu buradan öğrenir, sonradan takvimde keşfetmez.
+      const cakisma = describeRescheduleWarnings({ success: true, warnings: veri?.warnings ?? [] });
+      if (cakisma) {
+        toast({ title: "Dikkat: bazı dersler başka derslerle çakışıyor", description: cakisma });
+      }
 
       setEmail("");
       setName("");

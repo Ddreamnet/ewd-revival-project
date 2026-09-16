@@ -34,6 +34,8 @@ interface RpcResult {
   instances_created?: number;
   /** İstenen sonuç zaten geçerliydi; yapacak bir şey yoktu. Hata değil. */
   note?: string;
+  /** Üretilen derslerin üstüne bindiği başka dersler (engel değil, uyarı). */
+  warnings?: RescheduleWarning[];
 }
 
 /**

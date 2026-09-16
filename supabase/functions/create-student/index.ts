@@ -213,7 +213,7 @@ serve(async (req) => {
       }
     )
 
-    const sonuc = program as { success?: boolean; error?: string } | null
+    const sonuc = program as { success?: boolean; error?: string; warnings?: unknown[] } | null
     if (programError || sonuc?.success === false) {
       const mesaj = sonuc?.error ?? programError?.message ?? 'bilinmeyen hata'
       console.error('Schedule setup error:', mesaj)
@@ -227,6 +227,9 @@ serve(async (req) => {
       user_id: ogrenciId,
       language: branch,
       reused: !yeniHesap,
+      // Şablon saati başka bir öğrencininkiyle çakışıyorsa dersler yine yazılır
+      // (K5) ama admin bunu görmeli.
+      warnings: sonuc?.warnings ?? [],
       message: yeniHesap
         ? 'Öğrenci hesabı oluşturuldu.'
         : 'Bu e-postanın eski hesabı yeniden etkinleştirildi.',
