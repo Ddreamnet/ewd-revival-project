@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, UserPlus } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { edgeCagir, EPOSTA_BICIMI } from "@/lib/edgeFonksiyon";
 import type { StudentLessonBase } from "@/lib/types";
 import { DAYS_OF_WEEK } from "@/lib/types";
 
@@ -49,56 +49,52 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !name || !tempPassword) {
-      toast({
-        title: "Hata",
-        description: "Lütfen tüm alanları doldurun",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Sunucuya gitmeden yakalanabilecek her şey burada yakalanıyor. Eskiden
+    // şifre uzunluğu hiç denetlenmiyordu; 5 haneli bir şifre Supabase'e kadar
+    // gidip anlaşılmaz bir hatayla dönüyordu.
+    const eksik = (mesaj: string): void => {
+      toast({ title: "Eksik ya da hatalı bilgi", description: mesaj, variant: "destructive" });
+    };
 
-    if (!lessons.every((lesson) => lesson.dayOfWeek !== undefined && lesson.startTime && lesson.endTime)) {
-      toast({
-        title: "Hata",
-        description: "Tüm ders programı alanlarını doldurun",
-        variant: "destructive",
-      });
-      return;
+    if (!name.trim()) return eksik("Öğrenci adını girin.");
+    if (!EPOSTA_BICIMI.test(email.trim())) return eksik("E-posta adresi geçersiz.");
+    if (tempPassword.length < 6) return eksik("Şifre en az 6 karakter olmalı. \"Oluştur\" düğmesiyle güvenli bir şifre üretebilirsiniz.");
+    if (!lessons.every((l) => l.dayOfWeek !== undefined && l.startTime && l.endTime)) {
+      return eksik("Tüm ders saatlerini doldurun.");
+    }
+    if (lessons.some((l) => l.endTime <= l.startTime)) {
+      return eksik("Bir ders saatinde bitiş, başlangıçtan sonra olmalı.");
+    }
+    const anahtarlar = lessons.map((l) => `${l.dayOfWeek}|${l.startTime}`);
+    if (new Set(anahtarlar).size !== anahtarlar.length) {
+      return eksik("Aynı gün ve saate iki ders girilmiş. Birini değiştirin.");
     }
 
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("create-student", {
-        body: {
-          email,
-          name,
-          password: tempPassword,
-          teacherId,
-          lessons: lessons.map((lesson) => ({
-            day_of_week: lesson.dayOfWeek,
-            start_time: lesson.startTime,
-            end_time: lesson.endTime,
-          })),
-        },
+      const { veri, hata } = await edgeCagir<{ reused?: boolean }>("create-student", {
+        email: email.trim(),
+        name: name.trim(),
+        password: tempPassword,
+        teacherId,
+        lessons: lessons.map((lesson) => ({
+          day_of_week: lesson.dayOfWeek,
+          start_time: lesson.startTime,
+          end_time: lesson.endTime,
+        })),
       });
 
-      if (error) throw error;
-
-      const result = data as any;
-      if (result?.error) {
-        toast({
-          title: "Hata",
-          description: result.error,
-          variant: "destructive",
-        });
+      if (hata) {
+        toast({ title: "Öğrenci oluşturulamadı", description: hata, variant: "destructive" });
         return;
       }
 
       toast({
         title: "Başarılı",
-        description: `Öğrenci hesabı başarıyla oluşturuldu! Geçici şifre: ${tempPassword}`,
+        description: veri?.reused
+          ? `Bu e-postanın eski hesabı yeniden etkinleştirildi. Yeni şifre: ${tempPassword}`
+          : `Öğrenci hesabı oluşturuldu. Geçici şifre: ${tempPassword}`,
       });
 
       setEmail("");
@@ -108,10 +104,10 @@ export function CreateStudentDialog({ open, onOpenChange, onStudentCreated, teac
       setLessons([{ dayOfWeek: 1, startTime: "", endTime: "" }]);
       onStudentCreated();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch {
       toast({
-        title: "Hata",
-        description: error.message || "Öğrenci hesabı oluşturulamadı",
+        title: "Öğrenci oluşturulamadı",
+        description: "Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.",
         variant: "destructive",
       });
     } finally {

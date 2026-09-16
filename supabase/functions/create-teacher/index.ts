@@ -6,151 +6,146 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+  })
+
+/**
+ * İş kuralı reddi: HTTP 200 + { success: false, error }.
+ *
+ * supabase-js `functions.invoke` 2xx olmayan cevapta gövdeyi yutup
+ * "Edge Function returned a non-2xx status code" diyor; admin gerçek sebebi
+ * (şifre kısa, e-posta kayıtlı…) hiç göremiyordu.
+ */
+const ret = (error: string) => json({ success: false, error })
+
+function authHatasi(err: { code?: string; message?: string }): string {
+  const kod = err.code ?? ''
+  const msg = (err.message ?? '').toLowerCase()
+  if (kod === 'weak_password' || msg.includes('password should be')) {
+    return 'Şifre en az 6 karakter olmalı.'
+  }
+  if (kod === 'email_exists' || kod === 'user_already_exists' || msg.includes('already been registered')) {
+    return 'Bu e-posta adresi zaten kayıtlı. Başka bir adres kullanın.'
+  }
+  if (kod === 'email_address_invalid' || kod === 'validation_failed' || msg.includes('invalid email')) {
+    return 'E-posta adresi geçersiz.'
+  }
+  return `Hesap oluşturulamadı: ${err.message ?? 'bilinmeyen hata'}`
+}
+
+const EPOSTA = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Check Authorization header first
     const authHeader = req.headers.get('Authorization')
-    console.log('Auth header present:', !!authHeader)
-    
     if (!authHeader) {
-      console.error('No Authorization header provided')
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      )
+      return json({ success: false, error: 'Oturum bulunamadı. Yeniden giriş yapın.' }, 401)
     }
-
-    // Extract JWT token from Bearer header
     const token = authHeader.replace('Bearer ', '')
 
-    const { email, name, password, language } = await req.json()
-    console.log('Request data:', { email, name, language })
+    const govde = await req.json()
+    const email = String(govde.email ?? '').trim().toLowerCase()
+    const name = String(govde.name ?? '').trim()
+    const password = String(govde.password ?? '')
+    console.log('Request data:', { email, name, language: govde.language })
 
     // Şube (dil) — İngilizce ve Fransızca panelleri ayrı çalışır. Belirtilmezse
     // eski çağrılarla uyumlu kalmak için İngilizce kabul edilir.
-    const branch = language === 'fr' ? 'fr' : 'en'
+    const branch = govde.language === 'fr' ? 'fr' : 'en'
 
-    // Use the service role to verify the user and check admin role
+    if (!name) return ret('Öğretmen adını girin.')
+    if (!EPOSTA.test(email)) return ret('E-posta adresi geçersiz.')
+    if (password.length < 6) return ret('Şifre en az 6 karakter olmalı.')
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Verify the JWT token and get user
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
-
-    console.log('User check result:', { userId: user?.id, error: userError?.message })
-
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token)
     if (!user) {
-      console.error('User authentication failed:', userError)
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized - Invalid token' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      )
+      return json({ success: false, error: 'Oturumun süresi dolmuş. Yeniden giriş yapın.' }, 401)
     }
 
-    // Verify user has admin role
-    const { data: userRoles, error: roleError } = await supabaseAdmin
+    const { data: yetki } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .eq('role', 'admin')
-      .single()
-
-    if (roleError || !userRoles) {
-      return new Response(
-        JSON.stringify({ error: 'Only admins can create teacher accounts' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
-      )
+      .maybeSingle()
+    if (!yetki) {
+      return json({ success: false, error: 'Öğretmen hesabını yalnızca yönetici oluşturabilir.' }, 403)
     }
 
-    // Create the teacher user account using admin API
+    // Adres zaten kullanılıyorsa kime ait olduğunu söyle.
+    const { data: durum } = await supabaseAdmin.rpc('rpc_hesap_durumu', { p_email: email })
+    const d = (durum ?? { durum: 'yok' }) as { durum: string; ad?: string | null; ogretmen?: string | null }
+    if (d.durum === 'ogretmen') return ret(`Bu e-posta zaten ${d.ad ?? 'bir öğretmen'} hesabına ait.`)
+    if (d.durum === 'admin') return ret('Bu e-posta bir yönetici hesabına ait.')
+    if (d.durum === 'aktif_ogrenci' || d.durum === 'arsivli_ogrenci') {
+      return ret(`Bu e-posta ${d.ad ?? 'bir öğrencinin'} öğrenci hesabına ait. Başka bir adres kullanın.`)
+    }
+    if (d.durum === 'oksuz') {
+      return ret('Bu e-posta daha önce silinmiş bir öğrenciye ait. Başka bir adres kullanın.')
+    }
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: {
-        full_name: name,
-        role: 'teacher',
-        language: branch
-      }
+      user_metadata: { full_name: name, role: 'teacher', language: branch },
     })
-
-    if (authError) {
+    if (authError || !authData?.user) {
       console.error('Auth error:', authError)
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+      return ret(authError ? authHatasi(authError) : 'Hesap oluşturulamadı.')
     }
 
-    if (!authData.user) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to create user' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
-    }
+    // Profil handle_new_user tetikleyicisiyle kuruluyor.
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
-    // Note: Profile is automatically created by the handle_new_user trigger
-    // Wait a moment for the trigger to complete
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // Trigger hatayı yutuyor (RAISE WARNING); şube yanlış yazılırsa öğretmen
+    // Tetikleyici hatayı yutuyor (RAISE WARNING); şube yanlış yazılırsa öğretmen
     // yanlış panelde belirir. Bu yüzden dili burada bir kez daha sabitliyoruz.
     const { error: languageError } = await supabaseAdmin
       .from('profiles')
       .update({ language: branch })
       .eq('user_id', authData.user.id)
-
     if (languageError) {
       console.error('Language update error:', languageError)
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      return new Response(
-        JSON.stringify({ error: 'Failed to set teacher language branch' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+      return ret('Öğretmenin şubesi ayarlanamadı. Tekrar deneyin.')
     }
 
-    // Assign teacher role to user_roles table
     const { error: roleInsertError } = await supabaseAdmin
       .from('user_roles')
-      .insert({
-        user_id: authData.user.id,
-        role: 'teacher'
-      })
-
+      .insert({ user_id: authData.user.id, role: 'teacher' })
     if (roleInsertError) {
       console.error('Role insert error:', roleInsertError)
-      // If role assignment fails, delete the user to avoid orphaned accounts
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      return new Response(
-        JSON.stringify({ error: 'Failed to assign teacher role' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+      return ret('Öğretmen yetkisi verilemedi. Tekrar deneyin.')
     }
 
     // Bakiye kaydı açılmıyor: teacher_balance artık bir görünüm ve defterden
     // (balance_events) türüyor. Kaydı olmayan öğretmenin bakiyesi zaten sıfır
     // görünür; ilk ders işlendiğinde defter satırı kendiliğinden oluşur.
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        user_id: authData.user.id,
-        language: branch,
-        message: 'Teacher account created successfully'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
+    return json({
+      success: true,
+      user_id: authData.user.id,
+      language: branch,
+      message: 'Öğretmen hesabı oluşturuldu.',
+    })
   } catch (error) {
     console.error('Error:', error)
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'An unknown error occurred' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    )
+    return json({
+      success: false,
+      error: 'Beklenmeyen bir hata oluştu. Tekrar deneyin; sürerse bize haber verin.',
+    }, 500)
   }
 })

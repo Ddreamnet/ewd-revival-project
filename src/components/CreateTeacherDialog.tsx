@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { BRANCHES, branchLabel, type Branch } from "@/lib/branch";
+import { edgeCagir, EPOSTA_BICIMI } from "@/lib/edgeFonksiyon";
 import { toast } from "@/lib/notify";
 
 interface CreateTeacherDialogProps {
@@ -52,6 +53,11 @@ export function CreateTeacherDialog({
       return;
     }
 
+    if (!EPOSTA_BICIMI.test(email.trim())) {
+      toast.error("E-posta adresi geçersiz");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -63,23 +69,15 @@ export function CreateTeacherDialog({
         return;
       }
 
-      // Call edge function to create teacher
-      const response = await supabase.functions.invoke('create-teacher', {
-        body: {
-          email,
-          name: fullName,
-          password,
-          language: branch,
-        },
+      // Gerçek hata metnini okuyan yardımcı: supabase-js 2xx olmayan cevapta
+      // yalnızca "Edge Function returned a non-2xx status code" diyordu.
+      const { hata } = await edgeCagir("create-teacher", {
+        email: email.trim(),
+        name: fullName.trim(),
+        password,
+        language: branch,
       });
-
-      if (response.error) {
-        throw new Error(response.error.message || 'Öğretmen oluşturulamadı');
-      }
-
-      if (response.data?.error) {
-        throw new Error(response.data.error);
-      }
+      if (hata) throw new Error(hata);
 
       toast.success(`${branchLabel(branch)} öğretmeni oluşturuldu`);
       setFullName("");
@@ -87,9 +85,9 @@ export function CreateTeacherDialog({
       setPassword("");
       onOpenChange(false);
       onSuccess();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating teacher:", error);
-      toast.error(error.message || "Öğretmen oluşturulurken hata oluştu");
+      toast.error(error instanceof Error ? error.message : "Öğretmen oluşturulurken hata oluştu");
     } finally {
       setLoading(false);
     }

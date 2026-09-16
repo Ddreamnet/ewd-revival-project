@@ -367,6 +367,17 @@ export function useEditStudentDialog({
       toast({ title: "Hata", description: "Tüm ders programı alanlarını doldurun", variant: "destructive" });
       return;
     }
+    // Sunucu da bu ikisini reddediyor, ama isim ondan önce kaydedildiği için
+    // yarım bir kayıt kalıyordu. Burada, hiçbir şey yazılmadan yakalanıyor.
+    if (lessons.some((l) => toDbTime(l.endTime) <= toDbTime(l.startTime))) {
+      toast({ title: "Hata", description: "Bir ders saatinde bitiş, başlangıçtan sonra olmalı.", variant: "destructive" });
+      return;
+    }
+    const slotAnahtarlari = lessons.map((l) => `${l.dayOfWeek}|${toDbTime(l.startTime)}`);
+    if (new Set(slotAnahtarlari).size !== slotAnahtarlari.length) {
+      toast({ title: "Hata", description: "Aynı gün ve saate iki ders girilmiş. Birini değiştirin.", variant: "destructive" });
+      return;
+    }
 
     setLoading(true);
     setConflicts([]);
@@ -411,10 +422,13 @@ export function useEditStudentDialog({
         });
 
         if (rpcError) throw rpcError;
-        if (rpcResult && !(rpcResult as any).success) {
-          throw new Error((rpcResult as any).error || 'Schedule sync failed');
+        const senk = rpcResult as { success?: boolean; error?: string } | null;
+        if (senk && !senk.success) {
+          throw new Error(senk.error || "Ders programı kaydedilemedi");
         }
-      } else {
+      }
+
+      if (!templateChanged) {
         // Template unchanged → only update metadata, preserve instance positions
         const { error: trackingError } = await supabase
           .from("student_lesson_tracking")
@@ -422,20 +436,21 @@ export function useEditStudentDialog({
           .eq("student_id", studentUserId)
           .eq("teacher_id", teacherUserId);
         if (trackingError) throw trackingError;
-
-        // Update notes on template slots
-        await Promise.all(
-          lessons.map((lesson) =>
-            supabase
-              .from("student_lessons")
-              .update({ note: lesson.note || null })
-              .eq("student_id", studentUserId)
-              .eq("teacher_id", teacherUserId)
-              .eq("day_of_week", lesson.dayOfWeek)
-              .eq("start_time", toDbTime(lesson.startTime))
-          )
-        );
       }
+
+      // Slot notları her iki yolda da yazılır. Program kurucusu şablonu silip
+      // yeniden kurduğu için, program değiştiğinde notlar sessizce kayboluyordu.
+      await Promise.all(
+        lessons.map((lesson) =>
+          supabase
+            .from("student_lessons")
+            .update({ note: lesson.note || null })
+            .eq("student_id", studentUserId)
+            .eq("teacher_id", teacherUserId)
+            .eq("day_of_week", lesson.dayOfWeek)
+            .eq("start_time", toDbTime(lesson.startTime))
+        )
+      );
 
       toast({ title: "Başarılı", description: "Öğrenci ayarları güncellendi" });
       clearWeekCache();
