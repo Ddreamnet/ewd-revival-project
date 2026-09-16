@@ -16,7 +16,7 @@ import type { StudentLessonBase } from "@/lib/types";
 
 import { format, addDays } from "date-fns";
 import { formatTime, toDbTime, toDateStr } from "@/lib/lessonTypes";
-import { gunuErtele, moveLesson, describeRescheduleWarnings } from "@/lib/lessonService";
+import { gunuErtele, moveLesson, describeRescheduleWarnings, isKuralReddi } from "@/lib/lessonService";
 import { getAllTimeSlots, getAllTimeSlotsActual, fetchActualLessonsForWeek, getWeekStartForOffset, clearWeekCache, prefetchWeek, ActualLesson } from "@/hooks/useScheduleGrid";
 
 interface StudentLesson {
@@ -165,11 +165,18 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
         return;
       }
       const uyari = describeRescheduleWarnings(sonuc);
+      // Eskiden kaydırılamayan öğrenciler sessizce atlanıyordu: admin "gün
+      // ertelendi" görüyor, o öğrenci yerinde kalıyordu. Artık adı geçiyor.
+      const atlanan = (sonuc.skipped ?? []).map((s) => s.student);
+      const notlar = [
+        uyari ? `Çakışan saatler: ${uyari}` : null,
+        atlanan.length ? `Kaydırılamayanlar: ${atlanan.join(", ")}` : null,
+      ].filter(Boolean);
       toast({
         title: sonuc.students
           ? `${sonuc.students} öğrencinin dersleri kaydırıldı`
           : "Bu günde kaydırılacak ders yok",
-        description: uyari ? `Çakışan saatler: ${uyari}` : undefined,
+        description: notlar.length ? notlar.join(" · ") : undefined,
       });
       clearWeekCache();
       fetchSchedule();
@@ -206,7 +213,13 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
 
     const sonuc = await moveLesson(ders.id, hedefTarih, baslangic, bitis, false);
     if (!sonuc.success) {
-      toast({ title: "Hata", description: sonuc.error || "Ders taşınamadı", variant: "destructive" });
+      // Kural reddi arıza değil: sistem çalışıyor, o hücre bu öğrenci için
+      // uygun değil. Kırmızı hata yerine sakin bir açıklama.
+      toast({
+        title: isKuralReddi(sonuc) ? "Bu hücreye konulamaz" : "Hata",
+        description: sonuc.error || "Ders taşınamadı",
+        variant: isKuralReddi(sonuc) ? "default" : "destructive",
+      });
       return;
     }
     const uyari = describeRescheduleWarnings(sonuc);

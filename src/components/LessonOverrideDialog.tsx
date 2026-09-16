@@ -30,6 +30,7 @@ import {
   denemeSil,
   describeRescheduleError,
   describeRescheduleWarnings,
+  isKuralReddi,
   type RescheduleResult,
 } from "@/lib/lessonService";
 import { clearWeekCache, type ActualLesson } from "@/hooks/useScheduleGrid";
@@ -132,11 +133,14 @@ export function LessonOverrideDialog({
   const settle = useCallback(
     (result: RescheduleResult, successMessage: string): boolean => {
       if (!result.success) {
-        setError(describeRescheduleError(result));
+        const metin = describeRescheduleError(result);
+        setError(metin);
+        // Kural reddi bir arıza değil: sistem çalışıyor, istenen şey mümkün
+        // değil. Kırmızı "Hata" yerine sakin bir "Yapılamaz".
         toast({
-          title: result.error === "conflict" ? "Çakışma var" : "Hata",
-          description: describeRescheduleError(result),
-          variant: "destructive",
+          title: isKuralReddi(result) ? "Yapılamaz" : "Hata",
+          description: metin,
+          variant: isKuralReddi(result) ? "default" : "destructive",
         });
         return false;
       }
@@ -146,9 +150,11 @@ export function LessonOverrideDialog({
       // ders de var. Bildirim bunu söylüyor, kararı admin veriyor.
       const uyari = describeRescheduleWarnings(result);
       toast(
-        uyari
-          ? { title: "Taşındı — o saatte başka ders de var", description: uyari }
-          : { title: "Başarılı", description: successMessage }
+        result.note
+          ? { title: "Değişiklik gerekmedi", description: result.note }
+          : uyari
+            ? { title: "Taşındı — o saatte başka ders de var", description: uyari }
+            : { title: "Başarılı", description: successMessage }
       );
       onSuccess();
       onOpenChange(false);
@@ -248,15 +254,24 @@ export function LessonOverrideDialog({
         ? await completeLesson(lesson.id, teacherId)
         : await undoCompleteLesson(lesson.id, teacherId);
       if (!result.success) {
-        setError(result.error || "İşlem tamamlanamadı");
-        toast({ title: "Hata", description: result.error || "İşlem tamamlanamadı", variant: "destructive" });
+        const metin = result.error || "İşlem tamamlanamadı";
+        setError(metin);
+        toast({
+          title: isKuralReddi(result) ? "Yapılamaz" : "Hata",
+          description: metin,
+          variant: isKuralReddi(result) ? "default" : "destructive",
+        });
         return;
       }
       clearWeekCache();
-      toast({
-        title: "Başarılı",
-        description: islendi ? "Deneme dersi işlendi" : "Deneme dersi geri alındı",
-      });
+      toast(
+        result.note
+          ? { title: "Değişiklik gerekmedi", description: result.note }
+          : {
+              title: "Başarılı",
+              description: islendi ? "Deneme dersi işlendi" : "Deneme dersi geri alındı",
+            }
+      );
       onSuccess();
       onOpenChange(false);
     } finally {

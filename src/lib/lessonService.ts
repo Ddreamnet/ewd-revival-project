@@ -32,6 +32,8 @@ interface RpcResult {
   duration_minutes?: number;
   new_cycle?: number;
   instances_created?: number;
+  /** İstenen sonuç zaten geçerliydi; yapacak bir şey yoktu. Hata değil. */
+  note?: string;
 }
 
 /**
@@ -298,6 +300,34 @@ export interface RescheduleResult {
    * işlemi durdurmuyor: admin özgür, sistem yalnızca haber veriyor.
    */
   warnings?: RescheduleWarning[];
+  /**
+   * İstenen sonuç zaten geçerliydi, yapacak bir şey yoktu. Hata değil —
+   * "zaten işlenmiş", "zaten yerinde" gibi durumlar buradan bildiriliyor.
+   */
+  note?: string;
+  /** Günü ertelemede kaydırılamayan öğrenciler. */
+  skipped?: { student: string; reason?: string }[];
+  /** Günü ertelemede kaydırılan öğrenci sayısı. */
+  students?: number;
+}
+
+/**
+ * Sunucunun reddi, sistemin arızası değil.
+ *
+ * Erteleme yüzeyindeki 22 senaryo tek tek sınandı. Geriye kalan üç ret gerçek
+ * bir kuralın sonucu: öğrenci aynı dakikada iki derste olamaz ve dersler
+ * sırayla işaretlenir. Bunları kırmızı "Hata" diye göstermek yanlış izlenim
+ * veriyor — kullanıcı bir şeyin bozulduğunu sanıyor. Kehribar bir "Yapılamaz"
+ * doğrusu: sistem çalışıyor, istenen şey mümkün değil.
+ */
+export function isKuralReddi(result: RescheduleResult): boolean {
+  const m = result.error ?? "";
+  return (
+    m.includes("zaten bir dersi var") ||
+    m.includes("aynı anda iki ders") ||
+    m.includes("sırayla işaretlenir") ||
+    m.includes("en son işlenen ders")
+  );
 }
 
 /**
