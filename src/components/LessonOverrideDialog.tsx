@@ -24,6 +24,7 @@ import {
   postponeLesson,
   revertLesson,
   nextFreeSlot,
+  gununSlotu,
   completeLesson,
   undoCompleteLesson,
   denemeSil,
@@ -83,6 +84,8 @@ export function LessonOverrideDialog({
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [postponeTarget, setPostponeTarget] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  /** Seçilen güne ait şablon slotu bulunup saatler ona çekildiyse gösterilir. */
+  const [slotNotu, setSlotNotu] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -105,6 +108,7 @@ export function LessonOverrideDialog({
     setNewEndTime(toInputTime(lesson.end_time));
     setCascade(false);
     setError(null);
+    setSlotNotu(null);
     setPostponeTarget(null);
 
     // Preview where "Sonraki Boş Saate Ertele" would land, so the confirmation
@@ -152,6 +156,29 @@ export function LessonOverrideDialog({
     },
     [toast, onSuccess, onOpenChange]
   );
+
+  /**
+   * Yeni tarih seçilince saatleri o günün şablon slotuna çeker.
+   *
+   * "Dersi salıya al" dendiğinde ders pazartesinin saatinde kalıyordu; admin
+   * onu salının boş slotuna koyduğunu sanıyordu. Artık ne olacağı kaydetmeden
+   * önce saat alanlarında görünüyor. O gün öğrencinin dersi yoksa saatler
+   * olduğu gibi kalır — o zaman yeri admin seçer.
+   */
+  const tariheGoreSaatAyarla = async (d: Date | undefined) => {
+    setSlotNotu(null);
+    if (!d || !lesson?.student_id) return;
+    const hedef = toDateStr(d);
+    if (hedef === lesson.lesson_date) return;
+
+    const slot = await gununSlotu(lesson.student_id, teacherId, hedef, [lesson.id]);
+    if (!slot.success || !slot.startTime || !slot.endTime) return;
+    setNewStartTime(toInputTime(slot.startTime));
+    setNewEndTime(toInputTime(slot.endTime));
+    setSlotNotu(
+      `${format(d, "EEEE", { locale: tr })} günü öğrencinin slotu ${formatTime(slot.startTime)} — saatler ona ayarlandı.`
+    );
+  };
 
   const handleMove = async () => {
     if (!lesson || !newDate) return;
@@ -346,7 +373,7 @@ export function LessonOverrideDialog({
                   <Calendar
                     mode="single"
                     selected={newDate}
-                    onSelect={(d) => { setNewDate(d); setError(null); }}
+                    onSelect={(d) => { setNewDate(d); setError(null); tariheGoreSaatAyarla(d); }}
                     locale={tr}
                     initialFocus
                   />
@@ -376,6 +403,10 @@ export function LessonOverrideDialog({
                 />
               </div>
             </div>
+
+            {slotNotu && (
+              <p className="text-xs text-muted-foreground -mt-1">{slotNotu}</p>
+            )}
 
             {!deneme && (
               <label

@@ -1256,6 +1256,10 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_gunun_slotu: {
+        Args: { p_exclude?: string[]; p_student_id: string; p_tarih: string; p_teacher_id: string }
+        Returns: Json
+      }
       rpc_ogrenciyi_aktar: {
         Args: { p_ogrenci: string; p_yeni_ogretmen: string }
         Returns: Json

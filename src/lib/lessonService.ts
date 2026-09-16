@@ -557,6 +557,30 @@ export async function nextFreeSlot(
   return (data ?? { success: false }) as unknown as FreeSlot;
 }
 
+/**
+ * Öğrencinin tam olarak o gündeki boş şablon slotu.
+ *
+ * `nextFreeSlot` ileriye doğru arar ve gerektiğinde sonraki günlere taşar;
+ * burada aranan tek gün. Ders panelinde yeni tarih seçilince saat alanlarını
+ * o günün slotuna çekmek için kullanılıyor — "dersi salıya al" dendiğinde
+ * pazartesinin saatinde kalmasın diye.
+ */
+export async function gununSlotu(
+  studentId: string,
+  teacherId: string,
+  tarih: string,
+  excludeIds: string[] = []
+): Promise<FreeSlot> {
+  const { data, error } = await supabase.rpc("rpc_gunun_slotu", {
+    p_student_id: studentId,
+    p_teacher_id: teacherId,
+    p_tarih: tarih,
+    p_exclude: excludeIds,
+  });
+  if (error) return { success: false, error: error.message };
+  return (data ?? { success: false }) as unknown as FreeSlot;
+}
+
 /** Nearest free slot *before* a point in time — powers the backward chain arrow. */
 export async function prevFreeSlot(
   studentId: string,
