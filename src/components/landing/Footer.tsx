@@ -2,9 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSectionNav } from "@/hooks/useSectionNav";
-
-const APP_STORE_URL = "https://apps.apple.com/tr/app/english-with-dilara/id6760347669?l=tr";
-const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.englishwithdilara.app";
+import { APP_STORE_URL, PLAY_STORE_URL } from "@/lib/site";
 
 const SOCIALS = [
   { label: "WhatsApp", icon: "icon-whatsapp.webp", href: "https://wa.me/905306792831" },

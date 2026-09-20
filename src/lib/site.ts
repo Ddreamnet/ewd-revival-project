@@ -13,6 +13,10 @@
  */
 export const SITE_URL = "https://englishwithdilara.com";
 
+/** Mağaza sayfaları — footer'daki indirme bağlantıları ve uygulamadaki "Güncelle" düğmesi. */
+export const APP_STORE_URL = "https://apps.apple.com/tr/app/english-with-dilara/id6760347669?l=tr";
+export const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.englishwithdilara.app";
+
 /** Köke göre yolu ya da hazır mutlak adresi tam URL'e çevirir. */
 export function tamUrl(yol: string) {
   return new URL(yol, SITE_URL).toString();

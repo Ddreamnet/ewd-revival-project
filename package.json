@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "node scripts/build-sitemap.mjs && vite build && node scripts/prerender.mjs",
     "build:dev": "node scripts/build-sitemap.mjs && vite build --mode development",
+    "build:app": "vite build && cap sync",
     "lint": "eslint .",
     "check:i18n": "node scripts/check-i18n.mjs",
     "preview": "vite preview",

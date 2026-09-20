@@ -73,6 +73,15 @@ export const SearchField = memo(function SearchField({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         autoComplete="off"
+        // Telefon klavyesi: isimleri "düzeltmesin", sağ alt tuş "Ara" olsun ve
+        // basınca klavye kapansın — liste zaten yazdıkça süzülüyor.
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        enterKeyHint="search"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
       />
     </div>
   );

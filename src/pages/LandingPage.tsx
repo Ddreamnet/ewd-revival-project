@@ -16,6 +16,7 @@ import { Footer } from '@/components/landing/Footer';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SITE_ADI, useDocumentMeta } from '@/hooks/useDocumentMeta';
+import { isNative } from '@/lib/platform';
 
 /**
  * Günün kelimeleri bölümü altı dilin kelime bankasını taşıyor (~860 kB kaynak,
@@ -26,6 +27,13 @@ const DailyWordsSection = lazy(() =>
   import('@/components/landing/DailyWordsSection').then((m) => ({ default: m.DailyWordsSection })),
 );
 import { Loader2 } from 'lucide-react';
+
+/**
+ * Uygulamada oturumsuz ilk karşılama giriş ekranıdır, pazarlama sayfası değil:
+ * uygulamayı indiren kişinin hesabı zaten var ve işi giriş yapmak. Bayrak bir
+ * kez tüketilir; giriş ekranındaki logodan bu sayfaya dönülebilir.
+ */
+let nativeGiriseYonlendir = isNative;
 
 export default function LandingPage() {
   const location = useLocation();
@@ -44,8 +52,12 @@ export default function LandingPage() {
 
   // Auto-redirect authenticated users to dashboard
   useEffect(() => {
-    if (!initializing && user) {
+    if (initializing) return;
+    if (user) {
       navigate('/dashboard', { replace: true });
+    } else if (nativeGiriseYonlendir) {
+      nativeGiriseYonlendir = false;
+      navigate('/login', { replace: true });
     }
   }, [initializing, user, navigate]);
 
@@ -64,7 +76,7 @@ export default function LandingPage() {
   // Oturum açıkken landing hiç boyanmasın: yukarıdaki yönlendirme efekt
   // içinde çalıştığı için sayfa bir kare tam olarak çiziliyordu — uygulamada
   // panele geçerken pazarlama sayfasının parlaması bu yüzdendi.
-  if (initializing || user) {
+  if (initializing || user || nativeGiriseYonlendir) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

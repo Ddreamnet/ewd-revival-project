@@ -1,9 +1,10 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { supabase } from '@/integrations/supabase/client';
 
-const PUSH_DISMISSED_KEY = 'push_permission_dismissed';
+/** Bu cihazın FCM token'ı — çıkışta yalnızca bu cihazı susturabilmek için. */
+const DEVICE_TOKEN_KEY = 'ewd-push-token';
 
 /**
  * Development-only logging. These traces print FCM registration tokens and
@@ -15,6 +16,48 @@ const DEV = import.meta.env.DEV;
 const dlog = (...args: unknown[]) => {
   if (DEV) console.log(...args);
 };
+
+/**
+ * Android'de uygulamanın bildirim ayarları sayfasını açan yerel eklenti
+ * (android/app/.../AppSettingsPlugin.java). iOS'ta gerek yok: orada
+ * `app-settings:` adresi aynı işi görüyor.
+ */
+interface AppSettingsPlugin {
+  openNotificationSettings(): Promise<void>;
+}
+const AppSettings = registerPlugin<AppSettingsPlugin>('AppSettings');
+
+export type BildirimIzni = 'granted' | 'denied' | 'prompt' | 'unsupported';
+
+/** İşletim sisteminin bildirim izni şu an ne durumda? Web'de `unsupported`. */
+export async function bildirimIzniDurumu(): Promise<BildirimIzni> {
+  if (!Capacitor.isNativePlatform()) return 'unsupported';
+  try {
+    const { receive } = await PushNotifications.checkPermissions();
+    if (receive === 'granted' || receive === 'denied') return receive;
+    return 'prompt';
+  } catch {
+    return 'unsupported';
+  }
+}
+
+/**
+ * Kullanıcıyı uygulamanın sistem ayarlarına götürür.
+ *
+ * İzin bir kez reddedildikten sonra iOS sistem penceresini bir daha HİÇ
+ * göstermiyor (Android 13+ ikinci retten sonra); `requestPermissions` sessizce
+ * `denied` döner. Bildirimi yeniden açmanın tek yolu ayarlar sayfası.
+ */
+export async function bildirimAyarlariniAc(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  if (Capacitor.getPlatform() === 'ios') {
+    // Capacitor uygulama dışı üst düzey gezinmeleri UIApplication.open'a devreder;
+    // `app-settings:` Ayarlar'da doğrudan bu uygulamanın sayfasını açar.
+    window.location.href = 'app-settings:';
+    return;
+  }
+  await AppSettings.openNotificationSettings();
+}
 
 /**
  * Create Android notification channels with custom sounds.
@@ -71,27 +114,20 @@ export async function initPushNotifications(
     }
 
     if (permStatus.receive === 'denied') {
+      // Sistem penceresi artık açılmaz; kullanıcıyı ayarlara götüren
+      // hatırlatma bunu üstleniyor (components/panel/BildirimHatirlatma.tsx).
       dlog('[PUSH-DIAG] Permission denied by user');
       return;
     }
 
-    // 'prompt' — check if user previously dismissed our custom dialog
-    const dismissed = localStorage.getItem(PUSH_DISMISSED_KEY);
-    if (dismissed === 'true') {
-      dlog('[PUSH-DIAG] Previously dismissed, skipping');
-      return;
-    }
-
-    // Request permission (native dialog will appear on Android 13+)
+    // 'prompt' / 'prompt-with-rationale' — sistem penceresi hâlâ gösterilebilir.
+    // Eskiden ilk retten sonra bir bayrakla bir daha hiç sorulmuyordu; oysa
+    // Android ikinci bir şans veriyor, onu kullanıcıdan esirgemeyelim.
     const result = await PushNotifications.requestPermissions();
     dlog('[PUSH-DIAG] requestPermissions result:', result.receive);
 
     if (result.receive === 'granted') {
       await registerAndSaveToken(userId, role);
-    } else {
-      // User denied — mark so we don't ask again until next install
-      localStorage.setItem(PUSH_DISMISSED_KEY, 'true');
-      dlog('[PUSH-DIAG] User denied permission, marked dismissed');
     }
   } catch (error) {
     console.error('[PUSH-DIAG] Push notification init error:', error);
@@ -131,55 +167,32 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
       }
     }
 
-    // Diagnostic: check if token already exists with different owner
-    const { data: existingToken } = await supabase
-      .from('push_tokens')
-      .select('user_id, role')
-      .eq('token', token.value)
-      .maybeSingle();
-    dlog('[PUSH-DIAG] existing token owner:', existingToken);
+    // Kayıt sunucudaki işlevle yapılıyor (rpc_push_token_kaydet). Doğrudan
+    // upsert şu durumda sessizce başarısız oluyordu: token satırı başka bir
+    // hesaba aitse (aynı telefonda ikinci hesap — kardeşler, veli + çocuk) RLS
+    // satırı hem gizliyor hem üzerine yazmayı 403 ile reddediyordu; o kullanıcı
+    // o cihazda hiç bildirim alamıyordu. İşlev token'ı oturum sahibine devrediyor,
+    // rolü de istemciden değil `user_roles`tan alıyor.
+    //
+    // Kullanıcının DİĞER token'larına dokunulmuyor. Eskiden burada "eski
+    // kurulumları temizle" diye hepsi siliniyordu: aynı hesabı iki telefonda
+    // kullanan ailede bildirim yalnızca son giriş yapan cihaza gidiyordu. Ölü
+    // token'ları send-push, FCM `UNREGISTERED` dediğinde siliyor.
+    const { error } = await supabase.rpc('rpc_push_token_kaydet', {
+      p_token: token.value,
+      p_platform: platform,
+    });
 
-    // If token belongs to a different user, delete it first then insert
-    if (existingToken && existingToken.user_id !== userId) {
-      dlog('[PUSH-DIAG] Token owned by different user, deleting old record first');
-      const { error: deleteOldError } = await supabase
-        .from('push_tokens')
-        .delete()
-        .eq('token', token.value);
-      dlog('[PUSH-DIAG] delete old token result - error:', deleteOldError);
-    }
-
-    // Clean up stale tokens from previous installs / builds
-    const { error: deleteError } = await supabase
-      .from('push_tokens')
-      .delete()
-      .eq('user_id', userId)
-      .neq('token', token.value);
-
-    if (deleteError) {
-      console.warn('[PUSH-DIAG] Failed to cleanup stale tokens:', deleteError);
-    }
-
-    const { data: upsertData, error } = await supabase
-      .from('push_tokens')
-      .upsert(
-        {
-          token: token.value,
-          user_id: userId,
-          role,
-          platform,
-          enabled: true,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'token' }
-      )
-      .select();
-
-    dlog('[PUSH-DIAG] upsert result - data:', upsertData, 'error:', error);
+    dlog('[PUSH-DIAG] token kayıt sonucu - error:', error);
 
     if (error) {
       console.error('[PUSH-DIAG] Failed to save push token:', error);
     } else {
+      try {
+        localStorage.setItem(DEVICE_TOKEN_KEY, token.value);
+      } catch {
+        /* depolama kapalıysa çıkışta kullanıcının bütün cihazları susturulur */
+      }
       dlog(`[PUSH-DIAG] Token registered successfully for ${role}`);
     }
   });
@@ -214,18 +227,32 @@ async function registerAndSaveToken(userId: string, role: string): Promise<void>
 }
 
 /**
- * Disable push tokens on logout.
+ * Çıkışta BU cihazın bildirimlerini kapatır.
+ *
+ * Aynı hesabın açık olduğu diğer telefonlar bildirim almaya devam eder. Bu
+ * cihazın token'ı bilinmiyorsa (kayıt hiç tamamlanmadıysa) güvenli tarafta
+ * kalıp kullanıcının bütün token'ları kapatılır — çıkış yapılmış bir cihaza
+ * ödev bildirimi düşmesindense diğer cihazın bir sonraki açılışta yeniden
+ * kaydolması yeğdir.
  */
 export async function disablePushTokens(userId: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
+  let deviceToken: string | null = null;
   try {
-    await supabase
+    deviceToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+  } catch {
+    /* yok say */
+  }
+
+  try {
+    let query = supabase
       .from('push_tokens')
       .update({ enabled: false, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
+    if (deviceToken) query = query.eq('token', deviceToken);
+    await query;
   } catch (error) {
     console.error('Failed to disable push tokens:', error);
   }
 }
-

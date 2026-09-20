@@ -69,8 +69,11 @@ export function AdminStudentList({
               <CardContent className="p-2.5">
                 {/* Ad, e-posta ve dersler alt alta üç blok hâlindeydi; kart
                     boyu öğrenci başına 100px'i geçiyordu. Şimdi ad bir satır,
-                    ders saatleri onun altında TEK satırda virgülle. E-posta
-                    burada bir iş görmüyor — öğrenci ayarlarında zaten var. */}
+                    ders saatleri onun altında TEK satırda virgülle.
+                    E-posta bir ara kaldırılmıştı; admin, giriş adresini soran
+                    veliye bakıp söyleyebilsin diye geri geldi. Kendi satırını
+                    AÇMIYOR: adın yanında durur, yalnızca sığmadığında (telefon)
+                    alta kayar — geniş kartta kart boyu değişmez. */}
                 <div className="flex items-center gap-2">
                   <CollapsibleTrigger
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -82,9 +85,16 @@ export function AdminStudentList({
                       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <h4 className="truncate text-[15px] font-semibold leading-tight">
-                        {student.profiles.full_name}
-                      </h4>
+                      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                        <h4 className="max-w-full truncate text-[15px] font-semibold leading-tight">
+                          {student.profiles.full_name}
+                        </h4>
+                        {student.profiles.email && (
+                          <span className="max-w-full select-text truncate text-xs text-muted-foreground">
+                            {student.profiles.email}
+                          </span>
+                        )}
+                      </div>
                       {student.lessons.length > 0 && (
                         <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3 shrink-0" aria-hidden />

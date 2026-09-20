@@ -1154,6 +1154,10 @@ export type Database = {
         Args: { p_instance_id: string }
         Returns: Json
       }
+      rpc_push_token_kaydet: {
+        Args: { p_token: string; p_platform: string }
+        Returns: undefined
+      }
       rpc_revert_lesson: {
         Args: { p_instance_id: string }
         Returns: Json

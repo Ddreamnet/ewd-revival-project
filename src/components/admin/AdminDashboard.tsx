@@ -34,6 +34,7 @@ import { hasOpenSheet } from "@/components/ui/sheet-core";
 import { supabase } from "@/integrations/supabase/client";
 import { restoreStudent, describeRescheduleWarnings } from "@/lib/lessonService";
 import { loadStudentTopics } from "@/lib/topicsService";
+import { isNative } from "@/lib/platform";
 import { initPushNotifications } from "@/lib/pushNotifications";
 import { BRANCHES, branchLabel, type Branch } from "@/lib/branch";
 import type { Resource, Student, Teacher, Topic } from "@/lib/types";
@@ -401,11 +402,18 @@ export function AdminDashboard() {
       ),
       onSelect: () => handleBranchChange(branch === "en" ? "fr" : "en"),
     },
-    {
-      label: "Gezi günlüğü",
-      icon: <Heart className="h-4 w-4" />,
-      onSelect: () => navigate("/mytriptolove"),
-    },
+    // Gezi günlüğü kişisel bir sayfa ve yalnızca web'de var: mağaza uygulamasında
+    // uygulamanın konusuyla ilgisiz, menüde görünmeyen bir özellik bulunmamalı
+    // (App Store 2.3.1). Yol da uygulamada 404 veriyor (bkz. App.tsx).
+    ...(isNative
+      ? []
+      : [
+          {
+            label: "Gezi günlüğü",
+            icon: <Heart className="h-4 w-4" />,
+            onSelect: () => navigate("/mytriptolove"),
+          },
+        ]),
     {
       label: isDark ? "Açık tema" : "Koyu tema",
       icon: isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />,
@@ -431,9 +439,11 @@ export function AdminDashboard() {
       <div className="hidden items-center gap-2 md:flex">
         {/* Gezi günlüğü — panelde bir yeri yok, tek girişi bu düğme. */}
         {/* `compact`: yanındaki zil ve tema düğmesiyle aynı boy (36px); onsuz 48px kalıyordu. */}
-        <IconButton label="Gezi günlüğü" compact onClick={() => navigate("/mytriptolove")}>
-          <Heart className="h-5 w-5" />
-        </IconButton>
+        {!isNative && (
+          <IconButton label="Gezi günlüğü" compact onClick={() => navigate("/mytriptolove")}>
+            <Heart className="h-5 w-5" />
+          </IconButton>
+        )}
         <ThemeToggleButton variant="panelV2" />
         <button
           type="button"

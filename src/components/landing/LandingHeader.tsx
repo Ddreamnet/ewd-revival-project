@@ -123,14 +123,15 @@ export function LandingHeader() {
 
   return (
     <header
-      className="sticky top-0 z-50 border-b-[3px] transition-shadow"
+      // `landing-header`: uygulamada çentik/durum çubuğu payını index.css veriyor.
+      className="landing-header sticky top-0 z-50 border-b-[3px] transition-shadow"
       style={{
         background: 'var(--ewd-cream)',
         borderColor: 'var(--ewd-cream-edge)',
         boxShadow: scrolled ? '0 10px 24px -20px rgba(46,16,101,0.5)' : 'none',
       }}
     >
-      <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-1.5 sm:px-6 lg:px-10 lg:py-2">
+      <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-2 px-4 py-1.5 sm:gap-4 sm:px-6 lg:px-10 lg:py-2">
         <Link to="/" aria-label={t.header.home[language]} className="shrink-0" onClick={onLogoClick}>
           {/* Logo dosyasının altında/üstünde ~%10 saydam pay var; negatif marj o payı
               düzenden düşürüyor, böylece yıldız büyürken başlık şişmiyor. */}
@@ -160,7 +161,7 @@ export function LandingHeader() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {/* Dil seçimi — masaüstünde üzerine gelince açılır, dokunmatikte tıklayınca */}
           <DropdownMenu
             open={langOpen}
@@ -178,7 +179,8 @@ export function LandingHeader() {
                 onMouseLeave={closeOnHover}
               >
                 <img src={current.flagIcon} alt="" aria-hidden="true" className="ewd-lang__flag" />
-                {current.label}
+                {/* 360px'in altında (eski iPhone SE) yalnızca bayrak: Giriş düğmesine yer kalsın. */}
+                <span className="max-[359px]:hidden">{current.label}</span>
                 <ChevronDown className="ewd-lang__chev" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
@@ -204,7 +206,13 @@ export function LandingHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Link to="/login" className="ewd-btn ewd-btn--purple ewd-btn--sm hidden sm:inline-flex">
+          {/* Telefonda da görünür: giriş eskiden yalnızca ☰ menünün içindeydi ve
+              veliler bulamıyordu. Dar ekranda yatay payı kısılıyor ki logo, dil
+              ve menü düğmesiyle aynı satıra sığsın. */}
+          <Link
+            to="/login"
+            className="ewd-btn ewd-btn--purple ewd-btn--sm whitespace-nowrap max-sm:px-3 max-sm:text-[13px]"
+          >
             {t.header.login[language]}
           </Link>
 

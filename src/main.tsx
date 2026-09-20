@@ -13,4 +13,8 @@ if (Capacitor.isNativePlatform()) {
   }
 }
 
+// iOS WebKit `:active` stilini yalnızca sayfada bir dokunma dinleyicisi varsa
+// güvenilir biçimde uyguluyor. Basma geri bildirimi (index.css) buna dayanıyor.
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 createRoot(document.getElementById("root")!).render(<App />);

@@ -10,6 +10,7 @@
 		0D2A86C52F60AD9F005520C0 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 0D2A86C42F60AD9F005520C0 /* FirebaseMessaging */; };
 		0D2A86C72F60ADAA005520C0 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0D2A86C62F60ADAA005520C0 /* FirebaseCore */; };
 		0D8550442F6093EA00E6F7BB /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0D8550432F6093EA00E6F7BB /* GoogleService-Info.plist */; };
+		0DAB10022FA0000000E6F7BB /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0DAB10012FA0000000E6F7BB /* PrivacyInfo.xcprivacy */; };
 		0D8550462F6096E000E6F7BB /* lesson.wav in Resources */ = {isa = PBXBuildFile; fileRef = 0D8550452F6096E000E6F7BB /* lesson.wav */; };
 		0D8550482F6096E900E6F7BB /* last_lesson.wav in Resources */ = {isa = PBXBuildFile; fileRef = 0D8550472F6096E900E6F7BB /* last_lesson.wav */; };
 		0D85504A2F6096F000E6F7BB /* homework.wav in Resources */ = {isa = PBXBuildFile; fileRef = 0D8550492F6096F000E6F7BB /* homework.wav */; };
@@ -25,6 +26,7 @@
 
 /* Begin PBXFileReference section */
 		0D8550432F6093EA00E6F7BB /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		0DAB10012FA0000000E6F7BB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		0D8550452F6096E000E6F7BB /* lesson.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = lesson.wav; sourceTree = "<group>"; };
 		0D8550472F6096E900E6F7BB /* last_lesson.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = last_lesson.wav; sourceTree = "<group>"; };
 		0D8550492F6096F000E6F7BB /* homework.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = homework.wav; sourceTree = "<group>"; };
@@ -85,6 +87,7 @@
 			children = (
 				0D85504B2F6097DF00E6F7BB /* App.entitlements */,
 				0D8550432F6093EA00E6F7BB /* GoogleService-Info.plist */,
+				0DAB10012FA0000000E6F7BB /* PrivacyInfo.xcprivacy */,
 				0D8550452F6096E000E6F7BB /* lesson.wav */,
 				0D8550472F6096E900E6F7BB /* last_lesson.wav */,
 				0D8550492F6096F000E6F7BB /* homework.wav */,
@@ -178,6 +181,7 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				0D8550442F6093EA00E6F7BB /* GoogleService-Info.plist in Resources */,
+				0DAB10022FA0000000E6F7BB /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,7 +347,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = EwD;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -352,7 +356,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = com.englishwithdilara.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -370,7 +374,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = EwD;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -379,7 +383,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.englishwithdilara.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

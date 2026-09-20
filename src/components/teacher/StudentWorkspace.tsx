@@ -8,6 +8,7 @@ import type { PanelStudent } from "@/hooks/useTeacherPanel";
 import type { Resource, Topic } from "@/lib/types";
 import { LessonRail } from "./LessonRail";
 import { TopicList } from "./TopicList";
+import { yeniUuid } from "@/lib/uuid";
 
 interface StudentWorkspaceProps {
   student: PanelStudent;
@@ -218,7 +219,7 @@ export function StudentWorkspace({
       try {
         if (next) {
           const { error } = await supabase.from("homework_submissions").insert({
-            batch_id: crypto.randomUUID(),
+            batch_id: yeniUuid(),
             student_id: student.userId,
             teacher_id: teacherId,
             resource_id: resource.id,

@@ -12,6 +12,7 @@ import { useFileDrop } from "@/hooks/useFileDrop";
 import { pickImageNative } from "@/lib/nativeCamera";
 import { Capacitor } from "@capacitor/core";
 import { CameraSource } from "@capacitor/camera";
+import { yeniUuid } from "@/lib/uuid";
 
 interface UploadHomeworkDialogProps {
   open: boolean;
@@ -139,7 +140,7 @@ export function UploadHomeworkDialog({
     setUploading(true);
 
     try {
-      const batchId = crypto.randomUUID();
+      const batchId = yeniUuid();
       const uploaderId = uploadedByUserId || studentId;
       const submissions = [];
 

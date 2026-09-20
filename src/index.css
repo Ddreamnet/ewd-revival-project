@@ -1,6 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Mystery+Quest&display=swap");
+/* Yazı tipleri yerelden — eskiden buradaki üç Google Fonts @import'u ilk
+   çizimi ağa bağlıyordu (bkz. styles/fonts.css). */
+@import "./styles/fonts.css";
 
 /* EWD görsel sistemi — token'lar, tipografi, bileşenler, dokular */
 @import "./styles/ewd.css";
@@ -382,32 +382,11 @@
    Masaüstü tarayıcı bu sınıfı hiç almaz — görsel değişiklik sıfır. */
 
 .native-shell .landing-header {
+  /* Başlık yapışkan ve krem zeminli: çentik/durum çubuğu payı başlığın kendi
+     dolgusu olsun ki logo ve Giriş düğmesi saatin altına girmesin. */
+  padding-top: var(--safe-area-top);
   padding-left: var(--safe-area-left);
   padding-right: var(--safe-area-right);
-}
-
-.native-shell .landing-header-inner {
-  padding-top: var(--safe-area-top);
-}
-
-.native-shell .landing-header-row {
-  margin-top: 0; /* prevent double offset: pt-safe already handles top spacing */
-}
-
-.native-shell .landing-header-logo {
-  top: calc(var(--safe-area-top) + 0.25rem); /* safe-area + original ~top-1 */
-}
-
-@media (min-width: 640px) {
-  .native-shell .landing-header-logo {
-    top: calc(var(--safe-area-top) + 0.5rem); /* ~top-2 */
-  }
-}
-
-@media (min-width: 768px) {
-  .native-shell .landing-header-logo {
-    top: calc(var(--safe-area-top) + 0.75rem); /* ~top-3 */
-  }
 }
 
 .native-shell .login-logo {
@@ -428,6 +407,96 @@
 
 .native-shell .toast-viewport {
   padding-top: var(--safe-area-top);
+}
+
+/* ===== iOS: alana dokununca sayfa yakınlaşmasın =====
+   iOS (Safari ve uygulamadaki WKWebView) yazı boyutu 16px'in altındaki bir
+   alana odaklanınca sayfayı kendiliğinden büyütüyor ve geri küçültmüyor —
+   giriş ekranında (15px) ve panel aramasında (13–14px) oluyordu. Yakınlaştırmayı
+   viewport'tan kapatmıyoruz (WCAG 1.4.4); yalnızca iOS'ta alanı 16px'e çekiyoruz.
+   `-webkit-touch-callout` yalnızca iOS WebKit'te var: Android ve masaüstü
+   kompakt ölçülerini korur. `!important`: `.pnl-search input` ve `text-sm`
+   gibi daha özgül kuralları da kapsaması gerekiyor. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select,
+  /* TipTap alanları (`prose-sm` = 14px): iOS düzenlenebilir alanlarda da yakınlaştırıyor. */
+  .ProseMirror {
+    font-size: 16px !important;
+  }
+}
+
+/* ===== Uygulama hissi: dokunma, seçim, kenar esnemesi =====
+   Bir web arayüzünü "web sayfası" gibi hissettiren dört ayrıntı. Kaynaklar
+   aynı listeyi veriyor (web.dev "app-like PWAs", Firtman "PWA design tips",
+   gfor.rest "making web apps feel native"); hiçbiri bizde yoktu. */
+
+/* 1) Dokununca çıkan gri/mavi parlama. Basma geri bildirimi (3) ile veriliyor. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 2) Arayüz öğeleri metin gibi seçilmesin: düğmeye uzun basınca seçim
+      tutamaçları ve büyüteç çıkıyordu. İçerik (paragraf, ödev açıklaması,
+      not, blog yazısı) seçilebilir kalır; düğme içindeki veri için
+      `select-text` sınıfı yeter. */
+button,
+summary,
+label,
+[role="button"],
+[role="tab"],
+[role="menuitem"],
+[role="switch"],
+[role="checkbox"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 3) Dokunmatikte basma geri bildirimi. `:hover` kuralları derlemede
+      `(hover: hover)` içine alınıyor (postcss.config.js), parlama da kapalı:
+      bu olmadan dokunuş hiçbir iz bırakmazdı. iOS satırlarındaki gibi anlık
+      soluklaşma; geçişsiz, çünkü gecikmeli geri bildirim "takılıyor" hissi verir. */
+@media (hover: none) {
+  button:not(:disabled):active,
+  a[href]:active,
+  summary:active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  [role="tab"]:active,
+  [role="menuitem"]:active {
+    opacity: 0.72;
+    transition: opacity 0s;
+  }
+}
+
+/* 4) Yalnızca mağaza uygulaması: sayfa kenarında lastik gibi esneme olmasın
+      (yapışkan başlık içerikle birlikte aşağı çekiliyordu), bağlantı ve
+      görsele uzun basınca tarayıcı balonu/önizlemesi çıkmasın, görseller
+      sürüklenip seçilmesin. Sitede (tarayıcıda) bunlara dokunulmuyor. */
+.native-shell,
+.native-shell body {
+  overscroll-behavior: none;
+}
+
+.native-shell a,
+.native-shell img,
+.native-shell button,
+.native-shell nav,
+.native-shell header {
+  -webkit-touch-callout: none;
+}
+
+.native-shell a,
+.native-shell img,
+.native-shell svg,
+.native-shell nav,
+.native-shell header {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.native-shell img {
+  -webkit-user-drag: none;
 }
 
 /* Keyframes */

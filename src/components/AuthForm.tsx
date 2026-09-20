@@ -4,7 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { loadLastEmail } from "@/lib/capacitorStorage";
 
 // Accounts are created by an admin (create-student / create-teacher edge
@@ -14,6 +14,7 @@ import { loadLastEmail } from "@/lib/capacitorStorage";
 // path depended on.
 export function AuthForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const [sifreGorunur, setSifreGorunur] = useState(false);
   const { signIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -107,6 +108,13 @@ export function AuthForm() {
                     type="email"
                     name="email"
                     autoComplete="username"
+                    // Telefon klavyesi: @ tuşlu düzen, baş harfi büyütme ve
+                    // otomatik düzeltme yok, "ileri" tuşu şifreye geçer.
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="next"
                     placeholder="E-posta adresinizi girin"
                     value={signInData.email}
                     onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
@@ -117,17 +125,34 @@ export function AuthForm() {
                   <Label htmlFor="signin-password" className="text-[12px] font-extrabold uppercase tracking-[0.1em]">
                     Şifre
                   </Label>
-                  <input
-                    id="signin-password"
-                    className="ewd-field"
-                    type="password"
-                    name="password"
-                    autoComplete="current-password"
-                    placeholder="Şifrenizi girin"
-                    value={signInData.password}
-                    onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
-                    required
-                  />
+                  {/* Şifreyi göster: telefonda yazılan karakter görünmediği için
+                      yanlış şifre en sık giriş hatası; veliler için özellikle. */}
+                  <div className="relative">
+                    <input
+                      id="signin-password"
+                      className="ewd-field !pr-12"
+                      type={sifreGorunur ? "text" : "password"}
+                      name="password"
+                      autoComplete="current-password"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="go"
+                      placeholder="Şifrenizi girin"
+                      value={signInData.password}
+                      onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSifreGorunur((g) => !g)}
+                      aria-label={sifreGorunur ? "Şifreyi gizle" : "Şifreyi göster"}
+                      aria-pressed={sifreGorunur}
+                      className="absolute right-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full text-[color:var(--ewd-on-surface-soft)]"
+                    >
+                      {sifreGorunur ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="submit"

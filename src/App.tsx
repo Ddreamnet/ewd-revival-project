@@ -1,14 +1,17 @@
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider, useTheme } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useCallback, useEffect, useRef, lazy, Suspense } from "react";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, SystemBars, SystemBarsStyle } from "@capacitor/core";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthForm } from "@/components/AuthForm";
+import { BildirimHatirlatma } from "@/components/panel/BildirimHatirlatma";
+import { SurumKapisi } from "@/components/SurumKapisi";
+import { CevrimdisiBandi } from "@/components/CevrimdisiBandi";
 import { Button } from "@/components/ui/button";
 
 const TeacherDashboard = lazy(() => import("./components/teacher/TeacherDashboard").then(m => ({ default: m.TeacherDashboard })));
@@ -84,16 +87,32 @@ function DashboardRoutes() {
     return <AuthForm />;
   }
 
+  // Her panelin yanında: bildirim izni kapalıysa uygulamada hatırlatır (web'de boş).
   if (profile?.roles?.includes("admin")) {
-    return <AdminDashboard />;
+    return (
+      <>
+        <AdminDashboard />
+        <BildirimHatirlatma userId={profile.user_id} role="admin" />
+      </>
+    );
   }
 
   if (profile?.role === "teacher") {
-    return <TeacherDashboard />;
+    return (
+      <>
+        <TeacherDashboard />
+        <BildirimHatirlatma userId={profile.user_id} role="teacher" />
+      </>
+    );
   }
 
   if (profile?.role === "student") {
-    return <StudentDashboard />;
+    return (
+      <>
+        <StudentDashboard />
+        <BildirimHatirlatma userId={profile.user_id} role="student" />
+      </>
+    );
   }
 
   // Signed in, but no usable profile — e.g. the profile row was deleted while
@@ -158,6 +177,32 @@ function SplashHider() {
   return null;
 }
 
+/**
+ * Durum çubuğu ikonlarını altındaki zemine uydurur (yalnızca native).
+ *
+ * `SystemBars.style: DEFAULT` telefonun temasını izliyor; panelin ise kendi
+ * tema düğmesi var. Telefon açık, panel koyuyken saat ve pil ikonları lacivert
+ * zeminde koyu kalıp kayboluyordu (tersi de krem zeminde). Panel ve giriş
+ * ekranı seçili temayı, `ewd-light` ile sabitlenen diğer bütün sayfalar açık
+ * zemini izler.
+ */
+const TEMALI_YOLLAR = [/^\/dashboard/, /^\/login/];
+
+function SystemBarsSync() {
+  const { pathname } = useLocation();
+  const { resolvedTheme } = useTheme();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const koyuZemin = resolvedTheme === "dark" && TEMALI_YOLLAR.some((y) => y.test(pathname));
+    SystemBars.setStyle({ style: koyuZemin ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {
+      /* eski native kabukta eklenti yoksa sistem varsayılanı kalır */
+    });
+  }, [pathname, resolvedTheme]);
+
+  return null;
+}
+
 const App = () => (
   <AppErrorBoundary>
   <QueryClientProvider client={queryClient}>
@@ -170,9 +215,12 @@ const App = () => (
             panelde iki farklı konumda/stilde toast çıkıyordu; hepsi
             `@/lib/notify` üzerinden buraya toplandı. */}
         <Toaster />
+        <SurumKapisi />
+        <CevrimdisiBandi />
         <BrowserRouter>
           <ScrollToTop />
           <RobotsMeta />
+          <SystemBarsSync />
           <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -185,8 +233,9 @@ const App = () => (
               <Route path="/login" element={<AuthForm />} />
               {/* Panel kendi alt yollarını yönetir (sekmeler, öğrenci detayı) — bu yüzden joker. */}
               <Route path="/dashboard/*" element={<DashboardRoutes />} />
-              {/* Kişisel, admin dışında herkese 404 — girişi Admin Paneli başlığındaki kalp. */}
-              <Route path="/mytriptolove" element={<TripPage />} />
+              {/* Kişisel, admin dışında herkese 404 — girişi Admin Paneli başlığındaki kalp.
+                  Mağaza uygulamasında hiç yok: orada admin için de 404. */}
+              <Route path="/mytriptolove" element={Capacitor.isNativePlatform() ? <NotFound /> : <TripPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
