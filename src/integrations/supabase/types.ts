@@ -238,6 +238,7 @@ export type Database = {
           file_type: string
           file_url: string
           id: string
+          resource_id: string | null
           student_id: string
           teacher_id: string
           title: string
@@ -252,6 +253,7 @@ export type Database = {
           file_type: string
           file_url: string
           id?: string
+          resource_id?: string | null
           student_id: string
           teacher_id: string
           title: string
@@ -266,6 +268,7 @@ export type Database = {
           file_type?: string
           file_url?: string
           id?: string
+          resource_id?: string | null
           student_id?: string
           teacher_id?: string
           title?: string
@@ -1098,6 +1101,8 @@ export type Database = {
           completed_regular_lessons: number | null
           completed_trial_lessons: number | null
           manual_adjustment_minutes: number | null
+          opening_lessons: number | null
+          period_start: string | null
           regular_lessons_minutes: number | null
           teacher_id: string | null
           total_minutes: number | null
@@ -1225,6 +1230,10 @@ export type Database = {
           baslik: string
           kod: string
         }[]
+      }
+      rpc_bakiye_dokumu: {
+        Args: { p_teacher_id: string }
+        Returns: Json
       }
       rpc_close_teacher_payout: {
         Args: { p_notes?: string; p_rate?: number; p_teacher_id: string }

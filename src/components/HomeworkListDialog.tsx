@@ -1,17 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AlertDialogTrigger } from "@radix-ui/react-alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Calendar, FileImage, File, Edit2, Trash2, Eye, Download, X } from "lucide-react";
+import { FileText, Calendar, FileImage, File, Edit2, Trash2, Eye, Download, X, Upload, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { EditHomeworkDialog } from "./EditHomeworkDialog";
+import { UploadHomeworkDialog } from "./UploadHomeworkDialog";
 import { downloadFileNative } from "@/lib/nativeDownload";
+import { getResourceIcon } from "@/lib/resourceUtils";
 import { Capacitor } from "@capacitor/core";
 
 interface HomeworkListDialogProps {
@@ -23,6 +24,11 @@ interface HomeworkListDialogProps {
   teacherId: string;
   currentUserId: string;
   isTeacher?: boolean;
+  /**
+   * Kartın dibinde yapışık "Ödev yükle" düğmesi. Yalnızca öğretmen paneli
+   * açar; öğrenci panelinin kendi yükleme akışı var ve değişmiyor.
+   */
+  allowUpload?: boolean;
 }
 
 interface Homework {
@@ -37,6 +43,8 @@ interface Homework {
   created_at: string;
   uploaded_by_user_id: string;
   batch_id: string;
+  /** Doluysa satır yüklenmiş dosya değil, ödev olarak verilmiş bir kaynak. */
+  resource_id: string | null;
 }
 
 interface GroupedHomework {
@@ -51,12 +59,20 @@ interface GroupedHomework {
     file_url: string;
     file_type: string;
     file_name: string;
+    resource_id: string | null;
   }[];
 }
 
 interface PreviewState {
   url: string;
   type: 'image' | 'pdf';
+}
+
+/** "16 Eyl 14:32" — bu yılın ödevinde yıl yazmaz (önceden "16 Eyl 2026 14:32"). */
+function shortDate(iso: string) {
+  const d = new Date(iso);
+  const pattern = d.getFullYear() === new Date().getFullYear() ? "d MMM HH:mm" : "d MMM yyyy HH:mm";
+  return format(d, pattern, { locale: tr });
 }
 
 export function HomeworkListDialog({ 
@@ -66,8 +82,10 @@ export function HomeworkListDialog({
   studentId, 
   teacherId,
   currentUserId,
-  isTeacher = false 
+  isTeacher = false,
+  allowUpload = false,
 }: HomeworkListDialogProps) {
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [groupedHomeworks, setGroupedHomeworks] = useState<GroupedHomework[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,9 +118,16 @@ export function HomeworkListDialog({
     }
   }, [preview]);
 
+  /** Çark hangi öğrenci/öğretmen çifti için çoktan kalktı. */
+  const loadedFor = useRef<string | null>(null);
+
   const fetchHomeworks = async () => {
+    const listKey = `${studentId}:${teacherId}`;
     try {
-      setLoading(true);
+      // Çark yalnızca ilk okumada. Silme, düzenleme ve yüklemeden sonraki
+      // okumalarda liste yerinde kalır — her seferinde çarka dönüp geri
+      // gelmesi kartı zıplatıyordu.
+      if (loadedFor.current !== listKey) setLoading(true);
       const { data, error } = await supabase
         .from('homework_submissions')
         .select('*')
@@ -112,6 +137,7 @@ export function HomeworkListDialog({
 
       if (error) throw error;
 
+      loadedFor.current = listKey;
       setHomeworks(data || []);
 
       const grouped: { [key: string]: GroupedHomework } = {};
@@ -128,11 +154,14 @@ export function HomeworkListDialog({
             files: [],
           };
         }
+        // Dosyasız ödev boş `file_url` ile yazılır; çizilecek dosyası yok.
+        if (!hw.file_url) return;
         grouped[hw.batch_id].files.push({
           id: hw.id,
           file_url: hw.file_url,
           file_type: hw.file_type,
           file_name: hw.file_name,
+          resource_id: hw.resource_id,
         });
       });
 
@@ -323,28 +352,39 @@ export function HomeworkListDialog({
                   
                   return (
                     <Card key={group.batch_id} className={cardColorClass}>
-                      <CardContent className="p-3 sm:p-4 relative pb-10">
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-3">
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <h4 className="font-medium text-sm mb-1 break-words">{group.title}</h4>
+                      {/* Eskiden `pb-10`: altta mutlak konumlu "Öğrenci/Öğretmen"
+                          rozetine yer açmak için her kartta 40px boş satır.
+                          Telefonda da düzenle/sil başlığın altına iniyordu.
+                          Şimdi eylemler başlığın yanında, yükleyen ve tarih
+                          tek düz satırda — renk kodu (kenar çizgisi) zaten
+                          kimin yüklediğini söylüyor. */}
+                      <CardContent className="p-3 sm:p-3.5">
+                        <div className={`flex items-start gap-2 ${group.files.length > 0 ? "mb-2" : ""}`}>
+                          <div className="min-w-0 flex-1 overflow-hidden">
+                            <h4 className="break-words text-sm font-semibold leading-snug">{group.title}</h4>
                             {group.description && (
-                              <p className="text-sm text-muted-foreground mb-2 break-words">
+                              <p className="mt-0.5 break-words text-[13px] text-muted-foreground">
                                 {group.description}
                               </p>
                             )}
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3 flex-shrink-0" />
-                                {format(new Date(group.created_at), "dd MMM yyyy HH:mm", { locale: tr })}
+                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3 flex-shrink-0" aria-hidden />
+                              <span>{shortDate(group.created_at)}</span>
+                              <span aria-hidden>·</span>
+                              <span
+                                className={`font-semibold ${uploadedByStudent ? "text-red-700 dark:text-red-400" : "text-blue-700 dark:text-blue-400"}`}
+                              >
+                                {uploadedByStudent ? "Öğrenci" : "Öğretmen"}
                               </span>
-                            </div>
+                            </p>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="-mr-1 -mt-1 flex flex-shrink-0 items-center">
                             {canEdit(group) && (
                               <>
                                 <Button
                                   size="icon"
                                   variant="ghost"
+                                  className="h-8 w-8"
                                   onClick={() => {
                                     const firstFile = homeworks.find(h => h.batch_id === group.batch_id);
                                     if (firstFile) setEditHomework(firstFile);
@@ -359,7 +399,7 @@ export function HomeworkListDialog({
                                       size="icon"
                                       variant="ghost"
                                       title="Sil"
-                                      className="text-destructive hover:text-destructive"
+                                      className="h-8 w-8 text-destructive hover:text-destructive"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -388,11 +428,30 @@ export function HomeworkListDialog({
                         </div>
 
                         {/* Files list */}
-                        <div className="space-y-2 overflow-hidden">
-                          {group.files.map((file) => (
+                        {group.files.length > 0 && (
+                        <div className="space-y-1.5 overflow-hidden">
+                          {group.files.map((file) =>
+                            file.resource_id ? (
+                              /* Ödev olarak verilmiş kaynak: depoda dosyası yok,
+                                 kaynağın kendi bağlantısı açılır. Adı başlıkta
+                                 yazıyor, burada tekrar edilmez. */
+                              <a
+                                key={file.id}
+                                href={file.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex min-h-[40px] items-center gap-2 overflow-hidden rounded border bg-background/50 px-2 py-1 text-xs font-semibold sm:text-sm"
+                              >
+                                <span className="flex-shrink-0">
+                                  {getResourceIcon(file.file_type.replace("resource/", ""), "h-5 w-5")}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate">Kaynağı aç</span>
+                                <ExternalLink className="mr-2 h-4 w-4 flex-shrink-0" aria-hidden />
+                              </a>
+                            ) : (
                             <div
                               key={file.id}
-                              className="flex items-center gap-2 bg-background/50 p-2 rounded border overflow-hidden"
+                              className="flex items-center gap-2 overflow-hidden rounded border bg-background/50 px-2 py-1"
                             >
                               <div className="flex-shrink-0">{getFileIcon(file.file_type)}</div>
                               <span className="text-xs sm:text-sm flex-1 truncate min-w-0" title={file.file_name}>
@@ -421,15 +480,11 @@ export function HomeworkListDialog({
                                 </Button>
                               </div>
                             </div>
-                          ))}
+                            ),
+                          )}
                         </div>
+                        )}
 
-                        <Badge 
-                          variant="outline" 
-                          className={`absolute bottom-2 right-2 text-xs ${uploadedByStudent ? "text-red-700 border-red-300 dark:text-red-400 dark:border-red-800" : "text-blue-700 border-blue-300 dark:text-blue-400 dark:border-blue-800"}`}
-                        >
-                          {uploadedByStudent ? "Öğrenci" : "Öğretmen"}
-                        </Badge>
                       </CardContent>
                     </Card>
                   );
@@ -445,16 +500,47 @@ export function HomeworkListDialog({
         body
       ) : (
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent size="lg">
+          {/* animateHeight: yükleniyor → liste geçişinde kart zıplamasın, büyüsün. */}
+          <DialogContent size="lg" animateHeight>
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>Ödevler</DialogTitle>
-              <DialogDescription>
-                Tüm ödevleri görüntüleyin
-              </DialogDescription>
+              {/* "Tüm ödevleri görüntüleyin" görünür bir cümleydi ve başlığın
+                  söylediğini tekrar ediyordu; yalnızca ekran okuyucuya kaldı. */}
+              <DialogDescription className="sr-only">Öğrencinin ödevleri</DialogDescription>
             </DialogHeader>
             {body}
+            {allowUpload && (
+              /* Yükleme listenin dibinde, kaydırırken de elin altında
+                 (.ewd-sheet-foot yapışık). Eskiden öğrenci kartında
+                 "Ödevler"in yanında ayrı bir düğmeydi. */
+              <DialogFooter>
+                <button
+                  type="button"
+                  className="pnl-btn pnl-btn--purple pnl-btn--block"
+                  onClick={() => setUploadOpen(true)}
+                >
+                  <Upload className="h-4 w-4" aria-hidden />
+                  Ödev yükle
+                </button>
+              </DialogFooter>
+            )}
           </DialogContent>
         </Dialog>
+      )}
+
+      {allowUpload && uploadOpen && (
+        <UploadHomeworkDialog
+          open
+          onOpenChange={setUploadOpen}
+          studentId={studentId}
+          teacherId={teacherId}
+          uploadedByUserId={currentUserId}
+          onSuccess={() => {
+            setUploadOpen(false);
+            // Liste açık duruyor — yeni ödev hemen altında görünsün.
+            fetchHomeworks();
+          }}
+        />
       )}
 
       {/* Fullscreen preview — proper Dialog with scroll-lock and focus-trap */}

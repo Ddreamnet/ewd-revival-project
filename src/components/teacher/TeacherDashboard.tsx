@@ -11,7 +11,6 @@ import { toneForName } from "@/lib/panelFormat";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { useTheme } from "next-themes";
-import { UploadHomeworkDialog } from "@/components/UploadHomeworkDialog";
 import { HomeworkListDialog } from "@/components/HomeworkListDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -83,8 +82,9 @@ export function TeacherDashboard() {
   const workspaceRef = useRef<HTMLDivElement>(null);
 
   // ── Diyaloglar ───────────────────────────────────────────────────
-  const [uploadFor, setUploadFor] = useState<PanelStudent | null>(null);
   const [homeworkFor, setHomeworkFor] = useState<PanelStudent | null>(null);
+  /** Ödev diyaloğu her kapandığında artar; çalışma alanı kaynak ödevlerini yeniden okur. */
+  const [homeworkRevision, setHomeworkRevision] = useState(0);
   const [aboutFor, setAboutFor] = useState<PanelStudent | null>(null);
   const [balanceOpen, setBalanceOpen] = useState(false);
 
@@ -200,8 +200,7 @@ export function TeacherDashboard() {
 
   // ── Android geri tuşu: açık diyalog varsa kapat, yoksa uygulamayı küçült ──
   useAndroidBackButton(() => {
-    if (uploadFor || homeworkFor || aboutFor || balanceOpen) {
-      setUploadFor(null);
+    if (homeworkFor || aboutFor || balanceOpen) {
       setHomeworkFor(null);
       setAboutFor(null);
       setBalanceOpen(false);
@@ -358,7 +357,7 @@ export function TeacherDashboard() {
                 {[0, 1].map((i) => (
                   <div
                     key={i}
-                    className="h-[132px] animate-pulse rounded-[22px]"
+                    className="h-[92px] animate-pulse rounded-[22px]"
                     style={{ background: "var(--ewd-lilac-tint)" }}
                   />
                 ))}
@@ -396,11 +395,11 @@ export function TeacherDashboard() {
                 student={selected}
                 teacherId={teacherId}
                 unreadHomeworkCount={unreadFor(selected)}
-                onUploadHomework={() => setUploadFor(selected)}
                 onOpenHomework={() => openHomeworkFor(selected)}
                 onOpenAbout={() => setAboutFor(selected)}
                 onLessonToggled={handleLessonToggled}
                 onRefresh={panel.refresh}
+                homeworkRevision={homeworkRevision}
               />
             ) : panel.loading ? (
               <SectionFallback />
@@ -415,26 +414,13 @@ export function TeacherDashboard() {
       </div>
 
       {/* ── Diyaloglar ───────────────────────────────────────────── */}
-      {uploadFor && (
-        <UploadHomeworkDialog
-          open
-          onOpenChange={(open) => !open && setUploadFor(null)}
-          studentId={uploadFor.userId}
-          teacherId={teacherId}
-          uploadedByUserId={teacherId}
-          onSuccess={() => {
-            setUploadFor(null);
-            panel.refresh();
-          }}
-        />
-      )}
-
       {homeworkFor && (
         <HomeworkListDialog
           open
           onOpenChange={(open) => {
             if (!open) {
               setHomeworkFor(null);
+              setHomeworkRevision((v) => v + 1);
               panel.refresh();
             }
           }}
@@ -442,6 +428,7 @@ export function TeacherDashboard() {
           teacherId={teacherId}
           currentUserId={teacherId}
           isTeacher
+          allowUpload
         />
       )}
 
@@ -457,7 +444,7 @@ export function TeacherDashboard() {
             <DialogTitle>Ders programım</DialogTitle>
           </DialogHeader>
           <Suspense fallback={<SectionFallback />}>
-            <WeeklyScheduleScreen teacherId={teacherId} active={scheduleOpen} />
+            <WeeklyScheduleScreen teacherId={teacherId} active={scheduleOpen} onChanged={panel.refresh} />
           </Suspense>
         </DialogContent>
       </Dialog>

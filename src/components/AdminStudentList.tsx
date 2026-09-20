@@ -1,6 +1,6 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, Settings, Clock, UserPlus, Archive, RotateCcw, FileUser } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/lessonTypes";
@@ -44,6 +44,9 @@ export function AdminStudentList({
 }: AdminStudentListProps) {
   const activeStudents = students.filter((s) => !s.is_archived);
   const archivedStudents = students.filter((s) => s.is_archived);
+  // Arşiv KAPALI başlar: arşivlenmiş öğrenci günlük işin parçası değil,
+  // listenin altına açık serildiğinde aktif öğrencileri aşağı itiyordu.
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -63,46 +66,48 @@ export function AdminStudentList({
         activeStudents.map((student) => (
           <Card key={student.id} className="border">
             <Collapsible>
-              <CardContent className="p-3">
-                <div className="flex justify-between items-start">
+              <CardContent className="p-2.5">
+                {/* Ad, e-posta ve dersler alt alta üç blok hâlindeydi; kart
+                    boyu öğrenci başına 100px'i geçiyordu. Şimdi ad bir satır,
+                    ders saatleri onun altında TEK satırda virgülle. E-posta
+                    burada bir iş görmüyor — öğrenci ayarlarında zaten var. */}
+                <div className="flex items-center gap-2">
                   <CollapsibleTrigger
-                    className="flex items-center gap-2 flex-1 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     onClick={() => onToggleStudent(student.id, student)}
                   >
                     {expandedStudents.has(student.id) ? (
-                      <ChevronDown className="h-4 w-4" />
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                     ) : (
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
-                    <div className="flex-1">
-                      <h4 className="font-medium">{student.profiles.full_name}</h4>
-                      <p className="text-sm text-muted-foreground">{student.profiles.email}</p>
-
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <h4 className="truncate text-[15px] font-semibold leading-tight">
+                        {student.profiles.full_name}
+                      </h4>
                       {student.lessons.length > 0 && (
-                        <div className="mt-1 space-y-1">
-                          {student.lessons.slice(0, 2).map((lesson, index) => (
-                            <div key={index} className="flex items-center gap-1">
-                              <Clock className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                {getDayName(lesson.dayOfWeek)} {formatTime(lesson.startTime)}-
-                                {formatTime(lesson.endTime)}
-                              </span>
-                            </div>
-                          ))}
-                          {student.lessons.length > 2 && (
-                            <span className="text-xs text-muted-foreground">
-                              +{student.lessons.length - 2} ders daha
-                            </span>
-                          )}
-                        </div>
+                        <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                          <span className="truncate">
+                            {student.lessons
+                              .slice(0, 2)
+                              .map(
+                                (lesson) =>
+                                  `${getDayName(lesson.dayOfWeek)} ${formatTime(lesson.startTime)}`,
+                              )
+                              .join(", ")}
+                            {student.lessons.length > 2 && ` +${student.lessons.length - 2}`}
+                          </span>
+                        </span>
                       )}
                     </div>
                   </CollapsibleTrigger>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex shrink-0 items-center">
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
+                      className="h-8 w-8"
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenStudentAbout(student);
@@ -111,13 +116,19 @@ export function AdminStudentList({
                     >
                       <FileUser className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onEditStudent(student)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => onEditStudent(student)}
+                      title="Öğrenci ayarları"
+                    >
                       <Settings className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
-                <CollapsibleContent className="mt-4">
+                <CollapsibleContent className="mt-3">
                   <AdminStudentTopicsSection
                     studentId={student.id}
                     studentUserId={student.student_id}
@@ -139,36 +150,38 @@ export function AdminStudentList({
 
       {/* Archived Students */}
       {archivedStudents.length > 0 && (
-        <div className="mt-6 pt-4 border-t">
-          <div className="flex items-center gap-2 mb-3">
-            <Archive className="h-4 w-4 text-muted-foreground" />
-            <h4 className="font-medium text-sm text-muted-foreground">Arşivlenmiş Öğrenciler</h4>
-            <Badge variant="secondary" className="text-xs">
-              {archivedStudents.length}
-            </Badge>
-          </div>
-          <div className="space-y-2">
+        <Collapsible open={archiveOpen} onOpenChange={setArchiveOpen} className="mt-4 border-t pt-3">
+          <CollapsibleTrigger className="flex w-full items-center gap-2 text-left text-sm text-muted-foreground">
+            {archiveOpen ? (
+              <ChevronDown className="h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            )}
+            <Archive className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="font-medium">Arşiv</span>
+            <span className="tabular-nums">{archivedStudents.length}</span>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="mt-2 space-y-1.5">
             {archivedStudents.map((student) => (
-              <Card key={student.id} className="border bg-muted/30 opacity-70">
-                <CardContent className="p-3">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <Archive className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <h4 className="font-medium text-sm">{student.profiles.full_name}</h4>
-                        <p className="text-xs text-muted-foreground">{student.profiles.email}</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => onRestoreStudent(student.id)}>
-                      <RotateCcw className="h-3 w-3 mr-1" />
-                      Geri Al
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div
+                key={student.id}
+                className="flex items-center gap-2 rounded-lg border bg-muted/30 px-2.5 py-1.5"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm">{student.profiles.full_name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => onRestoreStudent(student.id)}
+                  title="Arşivden geri al"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             ))}
-          </div>
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 -- ============================================================================
--- Senaryo testleri · 4/5 · Bakiye ve transfer
+-- Senaryo testleri · 4/6 · Bakiye ve transfer
 -- ============================================================================
 -- K7: işlenen dersin ücreti onu işleyen öğretmenindir; transfer, arşiv ve
 -- silme buna dokunamaz. Bakiye yalnızca defterden (balance_events) türer.
@@ -102,6 +102,34 @@ BEGIN
               <> CASE li.status WHEN 'completed' THEN 1 ELSE 0 END));
   EXCEPTION WHEN OTHERS THEN PERFORM zz_istisna(bol, '11-12 Defter değişmezleri', 'ok', SQLERRM); END;
 
+  -- ── Hedef öğretmende eskiden kalma paket ─────────────────────────────
+  -- 6a öncesi transferler işlenmiş dersleri eski öğretmende bırakıp yeni
+  -- öğretmende aynı döngü numarasıyla paket açmıştı. 18 Eylül'de admin böyle
+  -- bir öğrenciyi geri aktarırken ham "duplicate key" aldı; kurguda eskide
+  -- kalan ders olmadığı için set bunu görememişti.
+  PERFORM zz_sifirla();
+  BEGIN
+    INSERT INTO lesson_instances (student_id, teacher_id, lesson_number, lesson_date, start_time, end_time, status, package_cycle, tur)
+    SELECT a, t2, g, DATE '2026-06-01' + g * 7, '10:00', '10:30', 'completed', 1, 'ders' FROM generate_series(1, 3) g;
+    PERFORM zz_kaydet(bol, '13 Eski paketi duran öğretmene aktar', 'ok', rpc_ogrenciyi_aktar(a, t2));
+    PERFORM zz_dogrula(bol, '13a ... canlı paket tam, eski paket arşiv döngüsünde, geride ders kalmadı', '8|3|0',
+      (SELECT count(*) FROM lesson_instances WHERE student_id = a AND teacher_id = t2 AND package_cycle = 1) || '|' ||
+      (SELECT count(*) FROM lesson_instances WHERE student_id = a AND teacher_id = t2 AND package_cycle < 0) || '|' ||
+      (SELECT count(*) FROM lesson_instances WHERE student_id = a AND teacher_id <> t2));
+
+    -- Bir eski paket de öbür öğretmende: arşiv numaraları birbirine çarpmamalı.
+    INSERT INTO lesson_instances (student_id, teacher_id, lesson_number, lesson_date, start_time, end_time, status, package_cycle, tur)
+    SELECT a, t1, g, DATE '2026-03-02' + g * 7, '10:00', '10:30', 'completed', 1, 'ders' FROM generate_series(1, 2) g;
+    PERFORM zz_kaydet(bol, '14 Geri aktar: orada da eski paket var', 'ok', rpc_ogrenciyi_aktar(a, t1));
+    PERFORM zz_dogrula(bol, '14a ... döngüler ayrışık, 13 satırın hepsi t1''de', '-2,-1,1|13',
+      (SELECT string_agg(c::text, ',' ORDER BY c) FROM (SELECT DISTINCT package_cycle AS c FROM lesson_instances WHERE student_id = a) x) || '|' ||
+      (SELECT count(*) FROM lesson_instances WHERE student_id = a AND teacher_id = t1));
+    PERFORM zz_kaydet(bol, '15 Üçüncü kez: artık çakışacak bir şey yok', 'ok', rpc_ogrenciyi_aktar(a, t2));
+    PERFORM zz_kaydet(bol, '15a ... sıradaki ders yeni öğretmende işlenebiliyor', 'ok', rpc_complete_lesson(zz_ders('a1', d, '10:00'), t2));
+  EXCEPTION WHEN OTHERS THEN PERFORM zz_istisna(bol, '13-15 Eski paketli aktarım', 'ok', SQLERRM); END;
+
+  -- 08. adımın ödemesi payment_history'ye de yazıyor; kurgunun izini bırakma.
+  DELETE FROM payment_history WHERE teacher_id IN (t1, t2);
   PERFORM zz_sifirla();
 END $$;
 

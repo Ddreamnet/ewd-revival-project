@@ -1,5 +1,5 @@
 -- ============================================================================
--- Senaryo testleri · 1/5 · Kurgu
+-- Senaryo testleri · 1/6 · Kurgu
 -- ============================================================================
 -- Bu dizindeki dosyalar sırayla, Supabase SQL editöründe (postgres rolüyle)
 -- çalıştırılır. Gerçek öğrencilere dokunmaz: kendi öğretmenini ve

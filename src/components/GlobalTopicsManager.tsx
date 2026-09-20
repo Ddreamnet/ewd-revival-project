@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SearchField } from "@/components/panel/PanelBits";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
@@ -86,6 +87,7 @@ export function GlobalTopicsManager({
   const [editingTopic, setEditingTopic] = useState<GlobalTopic | null>(null);
   const [editingResource, setEditingResource] = useState<GlobalTopicResource | null>(null);
   const [expandAll, setExpandAll] = useState(false);
+  const [query, setQuery] = useState("");
   const { profile } = useAuth();
   const { toast } = useToast();
 
@@ -144,37 +146,81 @@ export function GlobalTopicsManager({
     })
   );
 
+  /**
+   * Konuyu bir sıradan diğerine taşır — sürüklemenin de, numara girişinin de
+   * (bkz. panel/OrderControl.tsx) tek yolu. İkisi ayrı yazıldığında biri
+   * iyimser güncellemeyi yapıp diğeri yapmıyordu.
+   */
+  const moveTopicTo = async (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+
+    const newTopics = arrayMove(globalTopics, fromIndex, toIndex);
+    const previous = globalTopics;
+    setGlobalTopics(newTopics);
+
+    try {
+      const { error } = await supabase.rpc("update_global_topics_order", {
+        topic_orders: newTopics.map((topic, index) => ({ id: topic.id, order_index: index })),
+      });
+      if (error) throw error;
+    } catch {
+      // Sunucu reddederse ekrandaki sıra yalan söylemesin.
+      setGlobalTopics(previous);
+      toast({ title: "Hata", description: "Sıra güncellenemedi", variant: "destructive" });
+      fetchGlobalTopics();
+    }
+  };
+
+  /**
+   * Arama sonucu — her kayıt ÖZGÜN sırasını (`index`) taşır.
+   *
+   * Süzülmüş dizinin kendi indeksini vermek en kolayı olurdu ama yanlış
+   * olurdu: numara "kaçıncı sıradasın" sorusunun cevabı ve aynı numaradan
+   * taşıma yapılıyor. Süzülmüş indeksle "1 yaz" dendiğinde konu, listenin
+   * gerçek başına değil arama sonucunun başına giderdi.
+   */
+  const gorunenKonular = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase("tr-TR");
+    const hepsi = globalTopics.map((topic, index) => ({ topic, index, kaynakEslesti: false }));
+    if (!q) return hepsi;
+    const icerir = (metin?: string | null) => !!metin?.toLocaleLowerCase("tr-TR").includes(q);
+    return hepsi
+      .map((kayit) => ({
+        ...kayit,
+        kaynakEslesti: kayit.topic.resources.some((r) => icerir(r.title) || icerir(r.description)),
+      }))
+      .filter(
+        (kayit) =>
+          icerir(kayit.topic.title) || icerir(kayit.topic.description) || kayit.kaynakEslesti,
+      );
+  }, [globalTopics, query]);
+
   const handleTopicDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    await moveTopicTo(
+      globalTopics.findIndex((t) => t.id === active.id),
+      globalTopics.findIndex((t) => t.id === over.id),
+    );
+  };
 
-    const oldIndex = globalTopics.findIndex((t) => t.id === active.id);
-    const newIndex = globalTopics.findIndex((t) => t.id === over.id);
+  const moveResourceTo = async (topicId: string, fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+    const topic = globalTopics.find((t) => t.id === topicId);
+    if (!topic) return;
 
-    const newTopics = arrayMove(globalTopics, oldIndex, newIndex);
-    
-    // Optimistic update - update UI immediately
-    setGlobalTopics(newTopics);
+    const newResources = arrayMove(topic.resources, fromIndex, toIndex);
+    const previous = globalTopics;
+    setGlobalTopics(globalTopics.map((t) => (t.id === topicId ? { ...t, resources: newResources } : t)));
 
-    // Batch update in background
     try {
-      const topicOrders = newTopics.map((topic, index) => ({
-        id: topic.id,
-        order_index: index,
-      }));
-
-      const { error } = await supabase.rpc("update_global_topics_order", {
-        topic_orders: topicOrders,
+      const { error } = await supabase.rpc("update_global_resources_order", {
+        resource_orders: newResources.map((resource, index) => ({ id: resource.id, order_index: index })),
       });
-
       if (error) throw error;
-    } catch (error) {
-      // Revert on error
-      toast({
-        title: "Hata",
-        description: "Sıra güncellenemedi",
-        variant: "destructive",
-      });
+    } catch {
+      setGlobalTopics(previous);
+      toast({ title: "Hata", description: "Sıra güncellenemedi", variant: "destructive" });
       fetchGlobalTopics();
     }
   };
@@ -188,38 +234,9 @@ export function GlobalTopicsManager({
 
     const oldIndex = topic.resources.findIndex((r) => r.id === active.id);
     const newIndex = topic.resources.findIndex((r) => r.id === over.id);
-
-    const newResources = arrayMove(topic.resources, oldIndex, newIndex);
-    
-    // Optimistic update - update UI immediately
-    setGlobalTopics(
-      globalTopics.map((t) =>
-        t.id === topicId ? { ...t, resources: newResources } : t
-      )
-    );
-
-    // Batch update in background
-    try {
-      const resourceOrders = newResources.map((resource, index) => ({
-        id: resource.id,
-        order_index: index,
-      }));
-
-      const { error } = await supabase.rpc("update_global_resources_order", {
-        resource_orders: resourceOrders,
-      });
-
-      if (error) throw error;
-    } catch (error) {
-      // Revert on error
-      toast({
-        title: "Hata",
-        description: "Kaynak sırası güncellenemedi",
-        variant: "destructive",
-      });
-      fetchGlobalTopics();
-    }
+    await moveResourceTo(topicId, oldIndex, newIndex);
   };
+
 
   // ============= TOPIC HANDLERS =============
   const handleAddTopic = async (title: string, description: string, addToEnd: boolean = false) => {
@@ -436,6 +453,15 @@ export function GlobalTopicsManager({
                     ? `${branchLabel(branch)} şubesinin global konuları — bu şubedeki her öğrenciye atanabilir`
                     : "Global konular ve kaynaklar"}
                 </p>
+                {!loading && globalTopics.length > 0 && (
+                  <SearchField
+                    value={query}
+                    onChange={setQuery}
+                    label="Konu veya kaynak ara"
+                    placeholder="Konu veya kaynak ara…"
+                  />
+                )}
+
                 <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                   {!loading && globalTopics.length > 0 && (
                     <div className="flex items-center gap-2">
@@ -488,24 +514,37 @@ export function GlobalTopicsManager({
                 </Card>
               )}
 
+              {!loading && globalTopics.length > 0 && gorunenKonular.length === 0 && (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  “{query}” ile eşleşen konu veya kaynak yok.
+                </p>
+              )}
+
               {/* Topics List */}
-              {!loading && globalTopics.length > 0 && (
+              {!loading && gorunenKonular.length > 0 && (
                 <DndContext
                   sensors={isAdmin ? sensors : []}
                   collisionDetection={closestCenter}
                   onDragEnd={isAdmin ? handleTopicDragEnd : undefined}
                 >
                   <SortableContext
-                    items={globalTopics.map((t) => t.id)}
+                    items={gorunenKonular.map((k) => k.topic.id)}
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="space-y-4">
-                      {globalTopics.map((topic) => (
+                      {gorunenKonular.map(({ topic, index: topicIndex, kaynakEslesti }) => (
                         <SortableTopic
                           key={topic.id}
                           topic={topic}
                           isAdmin={isAdmin}
-                          expandAll={expandAll}
+                          /* Eşleşme kaynaktaysa konu kendiliğinden açılsın —
+                             yoksa "eşleşti" deyip içini göstermemiş oluruz. */
+                          expandAll={expandAll || kaynakEslesti}
+                          query={query}
+                          index={topicIndex}
+                          total={globalTopics.length}
+                          onMoveTopic={moveTopicTo}
+                          onMoveResource={moveResourceTo}
                           onAddResource={(topicId) => {
                             setSelectedTopicId(topicId);
                             setShowAddResource(true);

@@ -59,9 +59,20 @@ function agHatasiMi(error: unknown): boolean {
   return /failed to fetch|networkerror|load failed|net::/i.test(m);
 }
 
+/**
+ * Depolama yükleme sınırı. supabase-js bunu HTTP 400 + `statusCode: "413"` olarak
+ * veriyor; admin sınırı aşan bir PDF'i üç kez deneyip her seferinde yalnızca
+ * "İşlem tamamlanamadı" görmüştü.
+ */
+function dosyaCokBuyukMu(error: unknown): boolean {
+  const e = error as { statusCode?: string | number; message?: string };
+  return String(e?.statusCode) === "413" || /exceeded the maximum allowed size|payload too large/i.test(e?.message ?? "");
+}
+
 export function hataMesaji(error: unknown, yedek: string): string {
   const kod = (error as { code?: string })?.code;
   if (kod && KOD_MESAJLARI[kod]) return KOD_MESAJLARI[kod];
+  if (dosyaCokBuyukMu(error)) return "Dosya yükleme sınırını aşıyor. Dosyayı küçültüp (ör. PDF'i sıkıştırıp) tekrar deneyin.";
   if (agHatasiMi(error)) return "Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene.";
   return yedek;
 }

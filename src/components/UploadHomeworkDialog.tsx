@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, X, Plus, ImageIcon, FolderOpen } from "lucide-react";
-import { pickImageNative, isNativePlatform } from "@/lib/nativeCamera";
+import { Upload, X, Send, ImageIcon, FolderOpen } from "lucide-react";
+import { FileDropZone } from "@/components/panel/FileDropZone";
+import { useFileDrop } from "@/hooks/useFileDrop";
+import { pickImageNative } from "@/lib/nativeCamera";
 import { Capacitor } from "@capacitor/core";
 import { CameraSource } from "@capacitor/camera";
 
@@ -39,30 +41,56 @@ export function UploadHomeworkDialog({
 
   const acceptedFileTypes = "image/jpeg,image/jpg,image/png,image/webp,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (selectedFiles) {
-      const validFiles: File[] = [];
-      
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        if (file.size > 10 * 1024 * 1024) {
-          toast({
-            title: "Hata",
-            description: `${file.name} boyutu en fazla 10MB olabilir`,
-            variant: "destructive",
-          });
-          continue;
-        }
-        validFiles.push(file);
+  /**
+   * Seçilen ve bırakılan dosyaların ortak kapısı. Dosya seçici `accept` ile
+   * süzüyor ama bırakılan dosyada tarayıcı hiçbir şeyi süzmez; tür burada da
+   * denetlenir.
+   */
+  const addFiles = (incoming: File[]) => {
+    const validFiles: File[] = [];
+
+    for (const file of incoming) {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      if (!["jpg", "jpeg", "png", "webp", "pdf", "docx"].includes(ext)) {
+        toast({
+          title: "Desteklenmeyen dosya",
+          description: `${file.name} eklenmedi. JPG, PNG, WEBP, PDF veya DOCX yükleyebilirsiniz.`,
+          variant: "destructive",
+        });
+        continue;
       }
-      
-      setFiles(prev => [...prev, ...validFiles]);
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "Hata",
+          description: `${file.name} boyutu en fazla 10MB olabilir`,
+          variant: "destructive",
+        });
+        continue;
+      }
+      // iCloud'da "yer kaplamayan" dosyalar tarayıcıya 0 bayt olarak geliyor.
+      if (file.size === 0) {
+        toast({
+          title: "Dosya boş görünüyor",
+          description: `${file.name} 0 bayt. Dosyayı önce cihaza indirip yeniden seçin.`,
+          variant: "destructive",
+        });
+        continue;
+      }
+      validFiles.push(file);
     }
-    
+
+    if (validFiles.length > 0) setFiles(prev => [...prev, ...validFiles]);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) addFiles(Array.from(e.target.files));
+
     // Reset input to allow selecting same file again
     e.target.value = '';
   };
+
+  // Bırakma hedefi kutu değil, kartın tamamı.
+  const drop = useFileDrop(addFiles, open && !uploading);
 
   /** Android fallback: pick image via native camera plugin */
   const handleAndroidCameraOption = async (source: CameraSource) => {
@@ -108,15 +136,6 @@ export function UploadHomeworkDialog({
       return;
     }
 
-    if (files.length === 0) {
-      toast({
-        title: "Hata",
-        description: "Lütfen en az bir dosya seçin",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setUploading(true);
 
     try {
@@ -152,6 +171,23 @@ export function UploadHomeworkDialog({
         });
       }
 
+      // Dosyasız ödev: yalnızca başlık (ve açıklama). Dosya sütunları NOT NULL
+      // kaldı — telefonlardaki eski paket NULL'da çöküyor — o yüzden boş metin
+      // yazılır; liste boş `file_url`i dosya olarak çizmez.
+      if (submissions.length === 0) {
+        submissions.push({
+          batch_id: batchId,
+          student_id: studentId,
+          teacher_id: teacherId,
+          title: title.trim(),
+          description: description.trim() || null,
+          file_url: "",
+          file_type: "",
+          file_name: "",
+          uploaded_by_user_id: uploaderId,
+        });
+      }
+
       const { error: insertError } = await supabase
         .from('homework_submissions')
         .insert(submissions);
@@ -160,7 +196,7 @@ export function UploadHomeworkDialog({
 
       toast({
         title: "Başarılı",
-        description: `${files.length} dosya başarıyla yüklendi`,
+        description: files.length > 0 ? `${files.length} dosya başarıyla yüklendi` : "Ödev gönderildi",
       });
 
       setTitle("");
@@ -182,11 +218,11 @@ export function UploadHomeworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) setShowAndroidPicker(false); onOpenChange(v); }}>
-      <DialogContent size="md">
+      <DialogContent size="md" data-file-drag={drop.dragging ? "" : undefined} {...drop.handlers}>
         <DialogHeader>
           <DialogTitle>Ödev Yükle</DialogTitle>
           <DialogDescription>
-            Ödevinizi başlık, açıklama ve dosya ile yükleyin
+            Başlık yeterli; açıklama ve dosya isteğe bağlı
           </DialogDescription>
         </DialogHeader>
 
@@ -216,7 +252,7 @@ export function UploadHomeworkDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Dosyalar *</Label>
+            <Label>Dosyalar (isteğe bağlı)</Label>
             
             {/* Hidden native file input */}
             <input
@@ -229,17 +265,7 @@ export function UploadHomeworkDialog({
               className="hidden"
             />
 
-            {/* Single file select button */}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleFileSelectClick}
-              disabled={uploading}
-              className="w-full"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Dosya Seç
-            </Button>
+            <FileDropZone dragging={drop.dragging} onPick={handleFileSelectClick} disabled={uploading} />
 
             {/* Android-only 3-option fallback picker */}
             {showAndroidPicker && (
@@ -319,10 +345,15 @@ export function UploadHomeworkDialog({
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
                 Yükleniyor...
               </>
-            ) : (
+            ) : files.length > 0 ? (
               <>
                 <Upload className="h-4 w-4 mr-2" />
                 Yükle
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Gönder
               </>
             )}
           </Button>

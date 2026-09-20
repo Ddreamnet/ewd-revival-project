@@ -20,6 +20,10 @@
  */
 import * as React from "react";
 
+// Klavye payı panel kabuğunda her zaman ölçülüyor; kart da aynı kaynağı
+// kullanır ki iki ayrı ölçüm birbiriyle yarışmasın.
+export { useKeyboardInset } from "@/hooks/useKeyboardInset";
+
 /* ------------------------------------------------------------------ */
 /* Geometri                                                            */
 /* ------------------------------------------------------------------ */
@@ -28,6 +32,28 @@ import * as React from "react";
 export const NARROW_QUERY = "(max-width: 1023.98px)";
 
 export const isNarrow = () => typeof window !== "undefined" && window.matchMedia(NARROW_QUERY).matches;
+
+/**
+ * Geometri değişimini İZLEYEN sürüm.
+ *
+ * `isNarrow()` tek seferlik bir ölçüm: yalnızca onu kullanan bir effect,
+ * tablet yatayken açılıp dikeye çevrilen bir kartta bir daha koşmuyordu —
+ * kart alt karta dönüyor ama ne sürüklenebiliyor ne de perdesine
+ * dokunulabiliyordu (✕ ve Escape dışında kapanmıyordu). Bu kanca kırılma
+ * noktası değiştiğinde yeniden render tetikler, effect'ler de kendilerini
+ * yeni geometriye göre kurar.
+ */
+export function useIsNarrow() {
+  const [narrow, setNarrow] = React.useState(isNarrow);
+  React.useEffect(() => {
+    const mq = window.matchMedia(NARROW_QUERY);
+    const sync = () => setNarrow(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return narrow;
+}
 
 /** Alt karta dönen bir yüzeyin kapalıyken durduğu yer. */
 export const SHEET_CLOSED_TRANSFORM = "translate3d(0, 100%, 0)";
@@ -50,6 +76,8 @@ const REVERSE_VELOCITY = -0.15;
 const VELOCITY_WINDOW_MS = 100;
 /** Parmak bırakmadan önce duraksadıysa hız sıfırlanır. */
 const VELOCITY_STALE_MS = 80;
+/** Bundan kısa bir aralıktan hız okunmaz — bkz. recentVelocity. */
+const VELOCITY_MIN_SPAN_MS = 8;
 /** Bu kadar yakın zamanda hâlâ kayan bir liste sürüklenmiyor, durduruluyordur. */
 const SCROLL_SETTLE_MS = 200;
 /** Giriş animasyonu oynarken sürükleme başlamaz. */
@@ -57,9 +85,15 @@ const OPEN_GRACE_MS = 400;
 /** iOS'un alt kart eğrisi (Ionic → Vaul): hızlı çıkar, uzun oturur. */
 const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 
-/** Parmağın kendi hareketi olan kontroller sürüklemeye kapılmaz. */
+/**
+ * Parmağın kendi hareketi olan kontroller sürüklemeye kapılmaz.
+ *
+ * `[aria-roledescription="sortable"]` dnd-kit'in sıralama tutamağı (global
+ * konular kartındaki tutamak kart İÇİNDE duruyor): parmak oradan aşağı
+ * çekildiğinde hem satır sürüklenip hem kart kayıyordu.
+ */
 const NO_DRAG_SELECTOR =
-  'select, input[type="range"], input[type="file"], input[type="color"], video, audio, [contenteditable="true"], [data-no-drag], [role="slider"]';
+  'select, input[type="range"], input[type="file"], input[type="color"], video, audio, [contenteditable="true"], [data-no-drag], [role="slider"], [aria-roledescription="sortable"]';
 
 type DragScrim = React.RefObject<HTMLElement | null> | string;
 
@@ -101,7 +135,14 @@ function recentVelocity(samples: DragState["samples"], now: number) {
   // Parmak bırakmadan önce durdu: elindeki hız gitti.
   if (now - last.t > VELOCITY_STALE_MS) return 0;
   const first = samples[0];
-  return (last.y - first.y) / Math.max(1, last.t - first.t);
+  const span = last.t - first.t;
+  // Aynı milisaniyeye düşen iki örnekten hız çıkmaz. Tarayıcı birleştirilmiş
+  // dokunuşları tek turda arka arkaya yollayabiliyor; aralığı 1ms'ye
+  // yuvarlamak 10px'lik bir titremeyi 10px/ms'lik bir "fiske" yapıyor ve kart
+  // parmak daha durmadan uçup gidiyordu. Böyle bir durumda karar mesafeye
+  // kalır — ki doğru cevap da odur.
+  if (span < VELOCITY_MIN_SPAN_MS) return 0;
+  return (last.y - first.y) / span;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -156,9 +197,11 @@ export function useDragToDismiss(
     scrim?: DragScrim;
     /** Sürükleme tümden kapalı (tam ekran görüntüleyici gibi). */
     disabled?: boolean;
+    /** Dar geometride miyiz — değiştiğinde kancalar yeniden kurulsun. */
+    narrow?: boolean;
   } = {},
 ) {
-  const { open = true, closedTransform, scrim, disabled } = options;
+  const { open = true, closedTransform, scrim, disabled, narrow } = options;
   const onCloseRef = React.useRef(onClose);
   React.useEffect(() => {
     onCloseRef.current = onClose;
@@ -168,36 +211,23 @@ export function useDragToDismiss(
     if (!open || disabled) return;
     const node = contentRef.current;
     if (!node || !isNarrow()) return;
+    void narrow; // yalnızca bağımlılık: geometri değişince yeniden kurulur
     const scrimEl = typeof scrim === "string" ? document.querySelector<HTMLElement>(scrim) : (scrim?.current ?? null);
     const openedAt = performance.now();
     let lastScrollAt = 0;
     let s: DragState | null = null;
 
-    /* -- Çizim: transform yazımları kareye toplanır ------------------ */
-    // 120Hz cihazlarda `touchmove` kare başına birden çok kez gelebiliyor;
-    // her birinde stil yazmak aynı karede birden çok layout tetikler.
-    // Son değeri bir rAF'ta yazmak hareketi gözle görülür biçimde
-    // düzleştiriyor.
-    let raf = 0;
-    let pendingDy: number | null = null;
-    const paint = () => {
-      raf = 0;
-      if (pendingDy === null) return;
-      const dy = pendingDy;
-      pendingDy = null;
+    /* -- Çizim -------------------------------------------------------- */
+    // Doğrudan, aynı olayda yazılır — requestAnimationFrame'e KUYRUĞA
+    // ALINMAZ. Denendi ve geri alındı: `will-change: transform` taşıyan
+    // birleşik bir katmanda transform yazmak yerleşim tetiklemiyor, yani
+    // toplamanın kazandıracağı bir şey yok; buna karşılık kart, rAF'ın
+    // kısıldığı her durumda (arka plan sekmesi, ağır kare) parmağın bir
+    // kare gerisine düşüyor. Parmağı izlemek, bir stil yazımından tasarruf
+    // etmekten önemli.
+    const draw = (dy: number, height: number) => {
       node!.style.transform = `translate3d(0, ${dy}px, 0)`;
-      if (scrimEl && s) scrimEl.style.setProperty("--scrim-p", String(clamp(1 - Math.max(0, dy) / s.height, 0, 1)));
-    };
-    const draw = (dy: number) => {
-      pendingDy = dy;
-      if (!raf) raf = requestAnimationFrame(paint);
-    };
-    const flush = () => {
-      if (raf) {
-        cancelAnimationFrame(raf);
-        raf = 0;
-      }
-      paint();
+      if (scrimEl) scrimEl.style.setProperty("--scrim-p", String(clamp(1 - Math.max(0, dy) / height, 0, 1)));
     };
 
     const onScroll = () => {
@@ -283,11 +313,10 @@ export function useDragToDismiss(
       const now = performance.now();
       s.samples.push({ y: t.clientY, t: now });
       while (s.samples.length > 2 && now - s.samples[1].t > VELOCITY_WINDOW_MS) s.samples.shift();
-      draw(dy);
+      draw(dy, s.height);
     }
 
     function springBack() {
-      flush();
       // Geçiş sınıfın üstünde; inline bastırmayı kaldırmak bu tek dönüş
       // yolculuğu için onu çalıştırır. `data-dragged` kalır: giriş keyframe'i
       // geri gelip transform'u çivilememeli.
@@ -300,7 +329,6 @@ export function useDragToDismiss(
     }
 
     function close(dy: number, velocity: number, height: number) {
-      flush();
       const remaining = Math.max(0, height - dy);
       if (closedTransform) {
         // Kaydırmayı kendimiz bitirir, `open`ı ancak sonra sahibine bırakırız.
@@ -321,6 +349,9 @@ export function useDragToDismiss(
         const dur = Math.round(clamp(remaining / Math.max(velocity, 1.4), 150, 300));
         node!.style.setProperty("--sheet-drag", `${Math.max(0, dy)}px`);
         node!.style.setProperty("--sheet-out-dur", `${dur}ms`);
+        // Perde de aynı sürede sönsün; `--scrim-p` yerinde kalıyor ki çıkış
+        // animasyonu parmağın bıraktığı koyuluktan başlasın.
+        if (scrimEl) scrimEl.style.setProperty("--sheet-out-dur", `${dur}ms`);
       }
       if (scrimEl) scrimEl.style.transition = "";
       onCloseRef.current();
@@ -374,15 +405,7 @@ export function useDragToDismiss(
         const now = performance.now();
         samples.push({ y: ev.clientY, t: now });
         while (samples.length > 2 && now - samples[1].t > VELOCITY_WINDOW_MS) samples.shift();
-        pendingDy = dy;
-        if (!raf) raf = requestAnimationFrame(() => {
-          raf = 0;
-          const v = pendingDy;
-          pendingDy = null;
-          if (v === null) return;
-          node!.style.transform = `translate3d(0, ${v}px, 0)`;
-          if (scrimEl) scrimEl.style.setProperty("--scrim-p", String(clamp(1 - Math.max(0, v) / height, 0, 1)));
-        });
+        draw(dy, height);
       };
       const up = () => {
         window.removeEventListener("mousemove", move);
@@ -406,7 +429,6 @@ export function useDragToDismiss(
       el.addEventListener("touchcancel", onEnd, { passive: false });
     }
     return () => {
-      if (raf) cancelAnimationFrame(raf);
       node.removeEventListener("scroll", onScroll, { capture: true });
       node.removeEventListener("mousedown", onMouseDown);
       for (const el of surfaces) {
@@ -417,7 +439,7 @@ export function useDragToDismiss(
       }
       s = null;
     };
-  }, [open, disabled, contentRef, closedTransform, scrim]);
+  }, [open, disabled, narrow, contentRef, closedTransform, scrim]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -425,16 +447,21 @@ export function useDragToDismiss(
 /* ------------------------------------------------------------------ */
 
 /**
- * İçeriği boy değiştirdiğinde kartın yüksekliğini canlandırır — listeden
- * forma geçen bir kart zıplamaz, büyür. İçerik düğümünde FLIP:
- * ResizeObserver yerleşimden sonra, çizimden önce ateşlenir; eski yükseklik
- * geri konur ve arada hiçbir şey çizilmeden yenisine geçilir.
- * Yalnızca telefonda; masaüstü çekmecesi zaten tam boy durur.
+ * İçeriği boy değiştirdiğinde kartın yüksekliğini canlandırır — bir seçeneği
+ * işaretleyince açılan üç alan yüzünden kart zıplamaz, büyür.
+ *
+ * İçerik düğümünde FLIP: ResizeObserver yerleşimden sonra, çizimden önce
+ * ateşlenir; eski yükseklik geri konur ve arada hiçbir şey çizilmeden
+ * yenisine geçilir.
+ *
+ * Her iki geometride de çalışır: sm/md kartları telefonda da masaüstünde de
+ * içerikleri kadar yüksek (bkz. styles/sheet.css). `full` sabit boy olduğu
+ * için oraya verilmez.
  */
 export function useAnimatedHeight(ref: React.RefObject<HTMLElement | null>, enabled: boolean) {
   React.useEffect(() => {
     const node = ref.current;
-    if (!enabled || !node || !isNarrow() || prefersReducedMotion()) return;
+    if (!enabled || !node || prefersReducedMotion()) return;
     let last = node.offsetHeight;
     let animating = false;
     const ro = new ResizeObserver(() => {
@@ -478,6 +505,13 @@ export function useMountedRef<T extends HTMLElement>() {
   const ref = React.useRef<T | null>(null);
   const [mounted, setMounted] = React.useState(false);
   const setRef = React.useCallback((el: T | null) => {
+    // Koruma TAM BURADA kurulur: ref geri çağrısı commit'in yerleşim
+    // aşamasında koşar, Radix'in gövdeyi kilitleyen effect'leri ise ondan
+    // sonra. Bir effect'e (hatta useLayoutEffect'e) taşınırsa geç kalır —
+    // `setMounted`ın tetiklediği ikinci render'dan önce React bekleyen
+    // effect'leri boşaltıyor.
+    if (el && !ref.current) holdPage();
+    else if (!el && ref.current) releasePage();
     ref.current = el;
     setMounted(!!el);
   }, []);
@@ -485,55 +519,54 @@ export function useMountedRef<T extends HTMLElement>() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Klavye payı                                                         */
+/* Sayfa stil koruması — açılıştaki takılmanın kaynağı                 */
 /* ------------------------------------------------------------------ */
 
 /**
- * Ekran klavyesi açılınca alt kartı onun üstüne taşır.
+ * Kart açılırken Radix gövdeye `pointer-events: none` yazar (dışarıya
+ * tıklanmasın diye). `pointer-events` MİRAS ALINAN bir özellik: gövdede
+ * değişince tarayıcı arkadaki sayfanın BÜTÜN öğelerinin stilini baştan
+ * hesaplıyor. Ölçüm (panel ağırlığında sayfa, 4× yavaş işlemci): 2.400 öğe,
+ * ~100–170 ms — kartın ilk karesinden ÖNCE, yani dokunuş ile kartın
+ * kıpırdaması arasında. Kapanışta aynısı bir kez daha.
  *
- * Alt kart `position: fixed; bottom: 0` — yani yerleşim görünümüne (layout
- * viewport) yapışık. Klavye görsel görünümü (visual viewport) kısaltır ama
- * yerleşim görünümünü değiştirmez, dolayısıyla kartın alt yarısı ve
- * çoğunlukla tam da yazılan alan klavyenin ALTINDA kalır. `visualViewport`
- * farkı `--ewd-sheet-kb` olarak yazılır; CSS kartı o kadar yukarı alır.
+ * Panel kökü kart açıkken değeri kendi üstünde sabitler: gövde değişse de
+ * kökün hesaplanan stili değişmez, tarayıcı alt ağaca inmez (ölçüm: 2 öğe,
+ * ~3 ms). Davranış aynı kalır — tam ekran perde (z-49) panelin tamamının
+ * (başlık z-40, sekme çubuğu z-45) üstünde, tıklama arkaya zaten ulaşamıyor.
+ * Bu yüzden YALNIZCA `.pnl` ve YALNIZCA kart açıkken: landing başlığı z-50'de
+ * perdenin üstünde duruyor, açılır menülerin ise perdesi yok; oralarda
+ * Radix'in engeli iş görüyor, dokunulmaz.
  *
- * Aynı anda birden çok kart açık olabileceği için sayaçlı: son kart
- * kapanınca değişken temizlenir.
+ * (Kaydırma kilidinin gövdeye yazdığı `--removed-body-scroll-bar-size`
+ * değişkeni aynı seli ikinci kez başlatıyor; onu `styles/sheet.css`teki
+ * `#root` kuralı durduruyor.)
  */
-let kbUsers = 0;
-let kbDetach: (() => void) | null = null;
+let pageHolds = 0;
+let heldPage: HTMLElement | null = null;
 
-export function useKeyboardInset(active: boolean) {
-  React.useEffect(() => {
-    if (!active) return;
-    kbUsers += 1;
-    if (kbUsers === 1) {
-      const vv = window.visualViewport;
-      if (vv) {
-        const sync = () => {
-          const gap = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-          // 80px altındaki farklar klavye değil: adres çubuğunun daralması,
-          // yüzen bir araç çubuğu. Kartı onlar için oynatmak titreme olur.
-          document.documentElement.style.setProperty("--ewd-sheet-kb", gap > 80 ? `${Math.round(gap)}px` : "0px");
-        };
-        sync();
-        vv.addEventListener("resize", sync);
-        vv.addEventListener("scroll", sync);
-        kbDetach = () => {
-          vv.removeEventListener("resize", sync);
-          vv.removeEventListener("scroll", sync);
-          document.documentElement.style.removeProperty("--ewd-sheet-kb");
-        };
-      }
+function holdPage() {
+  pageHolds += 1;
+  if (pageHolds > 1) return;
+  heldPage = document.querySelector<HTMLElement>(".pnl");
+  if (heldPage) heldPage.style.pointerEvents = "auto";
+}
+
+function releasePage() {
+  pageHolds = Math.max(0, pageHolds - 1);
+  if (pageHolds > 0) return;
+  // Hemen değil: ref, Radix gövdeyi geri açmadan ÖNCE düşer. O arada
+  // bırakılırsa kök bir an `none` miras alır — iki tam hesap, sıfır yerine.
+  const settle = () => {
+    if (pageHolds > 0 || !heldPage) return;
+    if (document.body.style.pointerEvents === "none") {
+      window.setTimeout(settle, 60);
+      return;
     }
-    return () => {
-      kbUsers -= 1;
-      if (kbUsers === 0) {
-        kbDetach?.();
-        kbDetach = null;
-      }
-    };
-  }, [active]);
+    heldPage.style.pointerEvents = "";
+    heldPage = null;
+  };
+  window.setTimeout(settle, 0);
 }
 
 /* ------------------------------------------------------------------ */

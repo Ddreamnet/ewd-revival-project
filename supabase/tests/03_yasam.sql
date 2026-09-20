@@ -1,5 +1,5 @@
 -- ============================================================================
--- Senaryo testleri · 3/5 · Öğrenci yaşam döngüsü
+-- Senaryo testleri · 3/6 · Öğrenci yaşam döngüsü
 -- ============================================================================
 -- Oluştur → programı değiştir → hatalı girdi → işle → paketi sıfırla →
 -- arşivle → geri yükle → sil. Öğrenci d1 bu dosyada doğar ve ölür.
@@ -132,8 +132,13 @@ BEGIN
            jsonb_build_object('dayOfWeek', 1, 'startTime', '10:00', 'endTime', '10:30')), 1);
     PERFORM zz_kaydet(bol, '10 Başka öğrencinin slotuna program', 'uyari', j);
     SELECT count(*) INTO n3 FROM lesson_instances WHERE student_id = s AND status = 'planned';
-    PERFORM zz_dogrula(bol, '10a ... 4 ders yine de üretildi, ilk ders bu haftaki Pazartesi', '4|true',
-      n3 || '|' || (SELECT (min(lesson_date) <= (now() AT TIME ZONE 'Europe/Istanbul')::date + 7)::text
+    -- Çapa "bugün" değil, "bugün ya da son işlenen ders, hangisi geç ise": 6. adım
+    -- sıradaki dersi işliyor ve o ders hafta sonu koşulduğunda gelecek haftaya
+    -- düşüyor; üreteç haklı olarak onun sonrasından başlıyor. Sınanan, dolu slot
+    -- yüzünden haftaların ATLANMAMASI — ilk ders çapadan en geç bir hafta sonra.
+    PERFORM zz_dogrula(bol, '10a ... 4 ders yine de üretildi, dolu slot yüzünden hafta atlanmadı', '4|true',
+      n3 || '|' || (SELECT (min(lesson_date) <= GREATEST((now() AT TIME ZONE 'Europe/Istanbul')::date,
+                              (SELECT max(lesson_date) FROM lesson_instances WHERE student_id = s AND status = 'completed')) + 7)::text
                       FROM lesson_instances WHERE student_id = s AND status = 'planned'));
     PERFORM zz_dogrula(bol, '10b ... dört çakışma uyarısı', '4', jsonb_array_length((j->'warnings')::jsonb)::text);
   EXCEPTION WHEN OTHERS THEN PERFORM zz_istisna(bol, '10 Dolu slota program', 'uyari', SQLERRM); END;

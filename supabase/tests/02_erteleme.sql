@@ -1,5 +1,5 @@
 -- ============================================================================
--- Senaryo testleri · 2/5 · Erteleme
+-- Senaryo testleri · 2/6 · Erteleme
 -- ============================================================================
 -- Her senaryo kendi BEGIN/EXCEPTION bloğunda: biri ham istisna fırlatırsa
 -- diğerleri yine koşar ve o istisna sonuç tablosuna "HAM ISTISNA" olarak

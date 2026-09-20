@@ -219,7 +219,10 @@ export function ScreenHeader({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {leading}
         <h2
-          className="min-w-0 truncate text-[22px] font-black tracking-[-0.02em] md:text-[20px]"
+          /* 22px/black idi: geri düğmesi, avatar ve ayarlar düğmesiyle aynı
+             satırda duran bir ad için fazla ağırdı ve uzun adlar hemen
+             kırpılıyordu. */
+          className="min-w-0 truncate text-[17px] font-extrabold tracking-[-0.01em] md:text-[19px]"
           style={{ color: "var(--ewd-on-surface)" }}
         >
           {title}
@@ -254,3 +257,52 @@ export const CountStrip = memo(function CountStrip({
     </div>
   );
 });
+
+/**
+ * Üç-dört seçenekli sekme şeridi — tek zemin, eşit sütunlar, kayan seçim.
+ *
+ * Metin etiketli pill'lerin yerini aldı: onlar mobilde yatay kaydırma
+ * gerektiriyordu, üçüncü sekmenin varlığı görünmüyordu. Burada hepsi aynı
+ * anda ekranda; dar ekranda yalnızca ikon, `sm`den itibaren ikon + etiket.
+ */
+export function SegmentedTabs<T extends string>({
+  value,
+  onChange,
+  options,
+  className,
+  label,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: readonly { value: T; label: string; icon: ReactNode }[];
+  className?: string;
+  label: string;
+}) {
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
+  return (
+    <div
+      role="tablist"
+      aria-label={label}
+      className={cn("pnl-seg", className)}
+      style={{ ["--pnl-seg-n" as string]: options.length, ["--pnl-seg-i" as string]: index }}
+    >
+      <span aria-hidden className="pnl-seg__thumb" />
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="tab"
+          aria-selected={option.value === value}
+          // Dar ekranda yalnızca ikon görünüyor; ad ekran okuyucuya buradan.
+          aria-label={option.label}
+          className="pnl-seg__opt"
+          data-active={option.value === value}
+          onClick={() => onChange(option.value)}
+        >
+          {option.icon}
+          <span className="hidden sm:inline">{option.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}

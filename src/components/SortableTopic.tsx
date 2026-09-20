@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { OrderControl } from "@/components/panel/OrderControl";
+import { Highlight } from "@/components/panel/Highlight";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Plus, Trash2, ExternalLink, Pencil, GripVertical, ChevronDown } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
@@ -42,6 +43,13 @@ interface SortableTopicProps {
   topic: GlobalTopic;
   isAdmin: boolean;
   expandAll: boolean;
+  /** 0 tabanlı sıra ve toplam — numarayla taşıma için. */
+  index: number;
+  total: number;
+  onMoveTopic: (fromIndex: number, toIndex: number) => void;
+  onMoveResource: (topicId: string, fromIndex: number, toIndex: number) => void;
+  /** Arama ifadesi — eşleşen parça işaretlenir. */
+  query?: string;
   onAddResource: (topicId: string) => void;
   onEditTopic: (topic: GlobalTopic) => void;
   onDeleteTopic: (topicId: string) => void;
@@ -55,6 +63,11 @@ export function SortableTopic({
   topic,
   isAdmin,
   expandAll,
+  index,
+  total,
+  onMoveTopic,
+  onMoveResource,
+  query = "",
   onAddResource,
   onEditTopic,
   onDeleteTopic,
@@ -70,9 +83,13 @@ export function SortableTopic({
     setIsOpen(expandAll);
   }, [expandAll]);
 
+  // Arama açıkken sürükleme kapalı: ekranda liste süzülmüş olduğu için
+  // "şunun üstüne bırak" hareketi gerçek sırada başka bir yere denk geliyor.
+  // Numarayla taşıma açık kalıyor — aramanın amacı da o zaten.
+  const searching = query.trim().length > 0;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: topic.id,
-    disabled: !isAdmin,
+    disabled: !isAdmin || searching,
   });
 
   const style = {
@@ -92,38 +109,65 @@ export function SortableTopic({
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card ref={setNodeRef} style={style}>
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors p-3 sm:p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-3">
-              <div className="flex items-start gap-2 sm:gap-3 w-full sm:w-auto">
-                {isAdmin && (
-                  <button
-                    className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                    {...attributes}
-                    {...listeners}
-                  >
-                    <GripVertical className="h-5 w-5" />
-                  </button>
+          {/* Tek satır: eylemler ikinci satıra sarmıyor, kart iki kat
+              kısaldı. p-6 masaüstünde 24px'ti — bir başlık ve üç ikon için
+              fazla. "8 kaynak" rozeti yerine çıplak sayı: yanındaki ok zaten
+              neyin açılacağını söylüyor. */}
+          <CardHeader className="cursor-pointer p-2.5 transition-colors hover:bg-muted/50 sm:p-3">
+            <div className="flex items-start gap-1.5">
+              {isAdmin && (
+                <OrderControl
+                  index={index}
+                  total={total}
+                  itemLabel="konu"
+                  onMove={(to) => onMoveTopic(index, to)}
+                  className="mt-0.5"
+                />
+              )}
+              {isAdmin && !searching && (
+                <button
+                  className="mt-1 flex-shrink-0 cursor-grab text-muted-foreground transition-colors hover:text-foreground active:cursor-grabbing"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={`${topic.title} sırasını sürükleyerek değiştir`}
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical className="h-4 w-4" />
+                </button>
+              )}
+              {/* Yönetici değilse numara kontrolü yok; arama sırasında yine de
+                  "kaçıncı sırada" görünsün. */}
+              {!isAdmin && searching && (
+                <span className="mt-0.5 shrink-0 rounded-md px-1.5 text-[13px] font-semibold tabular-nums text-muted-foreground">
+                  {index + 1}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-[15px] leading-snug">
+                  <Highlight text={topic.title} query={query} />
+                </CardTitle>
+                {topic.description && (
+                  <CardDescription className="mt-1.5 text-xs leading-relaxed">
+                    <Highlight text={topic.description} query={query} />
+                  </CardDescription>
                 )}
-                <div className="flex-1 min-w-0">
-                  <CardTitle className="text-base sm:text-lg">{topic.title}</CardTitle>
-                  {topic.description && <CardDescription className="mt-1 text-xs sm:text-sm">{topic.description}</CardDescription>}
-                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <Badge variant="outline" className="text-xs">{topic.resources.length} kaynak</Badge>
+              <div className="flex shrink-0 items-center gap-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                    {topic.resources.length}
+                  </span>
                   {topic.resources.length > 0 && (
-                    <ChevronDown className={`h-4 w-4 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   )}
                 </div>
                 {isAdmin && (
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => onAddResource(topic.id)}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -131,7 +175,7 @@ export function SortableTopic({
                       variant="ghost"
                       size="sm"
                       onClick={() => onEditTopic(topic)}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -139,7 +183,7 @@ export function SortableTopic({
                       variant="destructive" 
                       size="sm" 
                       onClick={() => onDeleteTopic(topic.id)}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -165,11 +209,15 @@ export function SortableTopic({
                     items={topic.resources.map((r) => r.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {topic.resources.map((resource) => (
+                    {topic.resources.map((resource, resourceIndex) => (
                       <SortableResource
                         key={resource.id}
                         resource={resource}
                         isAdmin={isAdmin}
+                        index={resourceIndex}
+                        total={topic.resources.length}
+                        onMove={(to) => onMoveResource(topic.id, resourceIndex, to)}
+                        query={query}
                         onEditResource={onEditResource}
                         onDeleteResource={onDeleteResource}
                         getResourceIcon={getResourceIcon}

@@ -13,6 +13,10 @@ export interface PanelMenuItem {
   icon?: ReactNode;
   onSelect: () => void;
   disabled?: boolean;
+  /** Satırın sağına yaslanan içerik — bir anahtarın açık/kapalı göstergesi. */
+  trailing?: ReactNode;
+  /** Seçildikten sonra menü açık kalsın (arka arkaya değiştirilen ayarlar). */
+  keepOpen?: boolean;
 }
 
 /**
@@ -26,7 +30,9 @@ export function PanelMenu({ items, label = "Diğer işlemler" }: { items: PanelM
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <IconButton label={label}>
+        {/* `compact`: yanındaki zille aynı boy. Onsuz mobilde 48px kalıyor,
+            36px'lik zilin yanında hem iri hem de başlık çizgisine taşıyordu. */}
+        <IconButton label={label} compact>
           <MoreHorizontal className="h-5 w-5" />
         </IconButton>
       </DropdownMenuTrigger>
@@ -35,11 +41,15 @@ export function PanelMenu({ items, label = "Diğer işlemler" }: { items: PanelM
           <DropdownMenuItem
             key={item.label}
             disabled={item.disabled}
-            onSelect={item.onSelect}
+            onSelect={(event) => {
+              if (item.keepOpen) event.preventDefault();
+              item.onSelect();
+            }}
             className="gap-2.5 py-2.5 text-[14px] font-semibold"
           >
             {item.icon}
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {item.trailing}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

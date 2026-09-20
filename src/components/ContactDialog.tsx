@@ -1,18 +1,31 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone } from "lucide-react";
 
-export function ContactDialog() {
+interface ContactDialogProps {
+  /** Verilirse kart dışarıdan açılır (mobil taşma menüsündeki "İletişim"). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Tetik düğmesine eklenir — ör. telefonda gizlemek için `max-md:hidden`. */
+  triggerClassName?: string;
+}
+
+export function ContactDialog({ open, onOpenChange, triggerClassName }: ContactDialogProps = {}) {
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        {/* 640px altında yalnızca ikon görünüyor; etiket olmadan ekran
-            okuyucu isimsiz bir düğme okuyordu. */}
-        <Button variant="outline" size="sm" aria-label="İletişim">
-          <Phone className="h-4 w-4" />
-          <span className="hidden sm:inline ml-2">İletişim</span>
-        </Button>
+        {/* Panelin kendi düğme dili: zil ve tema düğmesiyle aynı yuvarlak ikon
+            düğmesi. Eskiden shadcn'in köşeli `outline` düğmesiydi; iki
+            yuvarlak düğmenin arasında başka bir tasarımdan kalmış gibi
+            duruyordu. */}
+        <button
+          type="button"
+          className={`pnl-iconbtn pnl-iconbtn--sm ${triggerClassName ?? ""}`}
+          aria-label="İletişim"
+          title="İletişim"
+        >
+          <Phone className="h-5 w-5" />
+        </button>
       </DialogTrigger>
       <DialogContent size="sm">
         <DialogHeader>

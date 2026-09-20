@@ -3,11 +3,23 @@ import { addDays, format, isSameDay } from "date-fns";
 import { tr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/panel/PanelBits";
-import { hataGoster } from "@/lib/notify";
+import { hataGoster, sonucBildir } from "@/lib/notify";
+import { completeLesson, undoCompleteLesson } from "@/lib/lessonService";
 import { formatTime } from "@/lib/lessonTypes";
 import { toneForName } from "@/lib/panelFormat";
 import {
+  clearWeekCache,
   fetchActualLessonsForWeek,
   getWeekStartForOffset,
   prefetchWeek,
@@ -26,14 +38,19 @@ import {
  * gün gün kartlar, her kartta o günün dersleri saat sırasıyla. Masaüstünde
  * kartlar iki sütuna açılıyor, mobilde tek sütun. Bugün vurgulanıyor.
  *
- * Salt okunur: dersi işaretleme öğrencinin ders rayından yürüyor, burada
- * ikinci bir yol açmak aynı işi iki yerde yapmak olurdu.
+ * Paket dersleri buradan işaretlenmez: onların yeri öğrencinin ders rayı ve
+ * orada sıra kuralı işliyor. DENEME dersleri ise istisna — bir öğrenci kartına
+ * bağlı olmadıkları için hiçbir rayda görünmüyorlar ve öğretmenin onları
+ * işaretleyecek tek bir yeri yoktu. Bu yüzden yalnızca deneme satırları
+ * tıklanabilir.
  */
 
 interface Props {
   teacherId: string;
   /** Diyalog kapalıyken sorgu atılmasın. */
   active: boolean;
+  /** Deneme dersi işaretlenince panel bakiyesi tazelensin. */
+  onChanged?: () => void;
 }
 
 /** Pazartesi'den başlayan gün dizisi — DB'de Pazar 0, Pazartesi 1. */
@@ -51,7 +68,7 @@ interface GunDersi {
   tasindi: boolean;
 }
 
-export function WeeklyScheduleScreen({ teacherId, active }: Props) {
+export function WeeklyScheduleScreen({ teacherId, active, onChanged }: Props) {
   const [haftaFarki, setHaftaFarki] = useState(0);
   const [dersler, setDersler] = useState<ActualLesson[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
@@ -60,9 +77,18 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
   const haftaSonu = useMemo(() => addDays(haftaBasi, 6), [haftaBasi]);
   const haftaEtiketi = `${format(haftaBasi, "d MMM", { locale: tr })} – ${format(haftaSonu, "d MMM yyyy", { locale: tr })}`;
 
-  const yukle = useCallback(async () => {
+  /** Onay bekleyen deneme dersi — tıklanan satır. */
+  const [denemeOnay, setDenemeOnay] = useState<GunDersi | null>(null);
+  const [isleniyor, setIsleniyor] = useState(false);
+
+  /**
+   * @param sessiz Ekrandaki haftayı tazelerken doğru geçilir: liste yerinde
+   *   kalır, iskelete dönüp geri gelmez. Hafta değişiminde iskelet doğru —
+   *   önceki haftanın dersleri yeni başlığın altında durmasın.
+   */
+  const yukle = useCallback(async (sessiz = false) => {
     if (!teacherId) return;
-    setYukleniyor(true);
+    if (!sessiz) setYukleniyor(true);
     try {
       // Deneme dersleri de ders takviminin satırları; ayrı sorgu kalktı.
       setDersler(await fetchActualLessonsForWeek(teacherId, haftaBasi));
@@ -80,6 +106,40 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
     prefetchWeek(teacherId, getWeekStartForOffset(haftaFarki + 1));
     prefetchWeek(teacherId, getWeekStartForOffset(haftaFarki - 1));
   }, [active, yukle, teacherId, haftaFarki]);
+
+  /**
+   * Deneme dersini işlendi/işlenmedi olarak işaretler.
+   *
+   * Arka uç bunu zaten biliyordu: `rpc_complete_lesson` deneme dersinde
+   * süreyi bakiyeye `trial_complete` olarak yazıyor, geri alma da
+   * `trial_undo` ile düşüyor. Eksik olan yalnızca bu düğmeydi.
+   */
+  const denemeIsaretle = async () => {
+    if (!denemeOnay || isleniyor) return;
+    setIsleniyor(true);
+    const geriAl = denemeOnay.tamamlandi;
+    try {
+      const sonuc = geriAl
+        ? await undoCompleteLesson(denemeOnay.id, teacherId)
+        : await completeLesson(denemeOnay.id, teacherId);
+      const oldu = sonucBildir(
+        sonuc,
+        geriAl ? "Deneme dersi geri alındı" : "Deneme dersi işlendi olarak işaretlendi",
+        geriAl ? "Deneme dersi geri alınamadı" : "Deneme dersi işaretlenemedi",
+      );
+      if (!oldu) return;
+      setDenemeOnay(null);
+      // Bu hafta önbellekte duruyor; tazelemeden önce düşür.
+      clearWeekCache();
+      await yukle(true);
+      // Bakiye sunucuda değişti.
+      onChanged?.();
+    } catch (error) {
+      hataGoster(error, "Deneme dersi işaretlenemedi");
+    } finally {
+      setIsleniyor(false);
+    }
+  };
 
   /** Gün indeksine (0=Pzt) göre gruplanmış, saate göre sıralı dersler. */
   const gunlereGore = useMemo(() => {
@@ -135,7 +195,20 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
             {haftaEtiketi}
           </span>
           <span className="pnl-welcome">
-            {haftaFarki === 0 ? "Bu hafta" : haftaFarki < 0 ? `${-haftaFarki} hafta önce` : `${haftaFarki} hafta sonra`}
+            {haftaFarki === 0 ? (
+              "Bu hafta"
+            ) : (
+              /* Başka bir haftadayken "Bu haftaya dön" tam genişlikte ayrı
+                 bir düğme satırıydı; bu yazının kendisi dönüş bağlantısı. */
+              <button
+                type="button"
+                className="font-bold underline underline-offset-2"
+                style={{ color: "var(--ewd-accent)" }}
+                onClick={() => setHaftaFarki(0)}
+              >
+                {haftaFarki < 0 ? `${-haftaFarki} hafta önce` : `${haftaFarki} hafta sonra`} · bu haftaya dön
+              </button>
+            )}
             {" · "}
             {toplam} ders
           </span>
@@ -150,16 +223,6 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
-
-      {haftaFarki !== 0 && (
-        <button
-          type="button"
-          className="pnl-btn pnl-btn--soft pnl-btn--block"
-          onClick={() => setHaftaFarki(0)}
-        >
-          Bu haftaya dön
-        </button>
-      )}
 
       {/* ── Gün kartları ── */}
       {yukleniyor ? (
@@ -212,20 +275,39 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
                 <ul className="flex flex-col gap-2">
                   {gunDersleri.map((ders) => {
                     const ton = toneForName(ders.ogrenci);
+                    const Etiket = ders.deneme ? "button" : "div";
                     return (
-                      <li
-                        key={ders.id}
-                        className="flex items-center gap-3 rounded-2xl px-3 py-2.5"
-                        style={{ background: "var(--ewd-surface-3)" }}
-                      >
-                        {/* Saat sabit genişlikte: satırlar alt alta hizalı dursun. */}
-                        <span
-                          className="w-[46px] shrink-0 text-[13px] font-black tabular-nums"
-                          style={{ color: "var(--ewd-on-surface)" }}
+                      <li key={ders.id}>
+                        {/* Yalnızca deneme dersleri tıklanabilir (bkz. dosya
+                            başlığı); paket dersleri ray üzerinden sırayla. */}
+                        <Etiket
+                          className="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left"
+                          style={{ background: "var(--ewd-surface-3)" }}
+                          {...(ders.deneme
+                            ? {
+                                type: "button" as const,
+                                onClick: () => setDenemeOnay(ders),
+                                "aria-label": `${ders.ogrenci}, ${formatTime(ders.baslangic)} — ${
+                                  ders.tamamlandi ? "işlendi, geri al" : "işlendi olarak işaretle"
+                                }`,
+                              }
+                            : {})}
                         >
-                          {formatTime(ders.baslangic)}
+                        {/* Saat bir kez, solda: başlangıç üstte, bitiş altında.
+                            Eskiden başlangıç hem burada hem alt satırda
+                            yazıyordu. Sabit genişlik satırları hizalı tutar. */}
+                        <span className="flex w-[42px] shrink-0 flex-col leading-tight tabular-nums">
+                          <span className="text-[13px] font-black" style={{ color: "var(--ewd-on-surface)" }}>
+                            {formatTime(ders.baslangic)}
+                          </span>
+                          <span className="text-[11px] font-semibold" style={{ color: "var(--ewd-on-surface-faint)" }}>
+                            {formatTime(ders.bitis)}
+                          </span>
                         </span>
 
+                        {/* Durumlar sağda üç ayrı rozetti ve dar ekranda alt
+                            alta kayıp satırı uzatıyordu; artık adın altında
+                            düz, renkli sözcükler. */}
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span
                             className="truncate text-[14px] font-extrabold"
@@ -236,17 +318,33 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
                           >
                             {ders.ogrenci}
                           </span>
-                          <span className="pnl-welcome">
-                            {formatTime(ders.baslangic)}–{formatTime(ders.bitis)}
-                            {ders.dersNo ? ` · ${ders.dersNo}. ders` : ""}
+                          <span className="truncate text-[12px] font-semibold" style={{ color: "var(--ewd-on-surface-faint)" }}>
+                            {/* "deneme" burada yazılmaz: ad zaten "(deneme)"
+                                taşıyor, iki kez söylemek satırı şişiriyordu. */}
+                            {[
+                              ders.dersNo ? `${ders.dersNo}. ders` : null,
+                              ders.tasindi ? "taşındı" : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                            {ders.tamamlandi && (
+                              <span style={{ color: "var(--ewd-green-ink)" }}>
+                                {ders.dersNo || ders.tasindi ? " · " : ""}işlendi
+                              </span>
+                            )}
                           </span>
                         </span>
 
-                        <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                          {ders.deneme && <span className="pnl-tag pnl-tag--new">deneme</span>}
-                          {ders.tasindi && <span className="pnl-chip">taşındı</span>}
-                          {ders.tamamlandi && <span className="pnl-tag pnl-tag--today">işlendi</span>}
-                        </span>
+                        {/* Deneme satırında ne yapılacağını söyleyen tek işaret. */}
+                        {ders.deneme && (
+                          <span
+                            className="shrink-0 whitespace-nowrap text-[11px] font-bold"
+                            style={{ color: ders.tamamlandi ? "var(--ewd-on-surface-faint)" : "var(--ewd-purple)" }}
+                          >
+                            {ders.tamamlandi ? "geri al" : "işaretle"}
+                          </span>
+                        )}
+                        </Etiket>
                       </li>
                     );
                   })}
@@ -256,6 +354,39 @@ export function WeeklyScheduleScreen({ teacherId, active }: Props) {
           })}
         </div>
       )}
+
+      <AlertDialog open={!!denemeOnay} onOpenChange={(a) => !a && !isleniyor && setDenemeOnay(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {denemeOnay?.tamamlandi ? "Deneme dersini geri al" : "Deneme dersini işlendi say"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {denemeOnay && (
+                <>
+                  {denemeOnay.ogrenci} · {formatTime(denemeOnay.baslangic)}–{formatTime(denemeOnay.bitis)}
+                  {denemeOnay.tamamlandi
+                    ? " dersi işlenmemiş sayılacak ve süresi bakiyenden düşülecek."
+                    : " dersi işlendi olarak kaydedilecek ve süresi bakiyene eklenecek."}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isleniyor}>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isleniyor}
+              onClick={(e) => {
+                // Radix varsayılan olarak kapatır; istek bitene kadar açık kalsın.
+                e.preventDefault();
+                denemeIsaretle();
+              }}
+            >
+              {isleniyor ? "Kaydediliyor…" : denemeOnay?.tamamlandi ? "Geri al" : "İşlendi say"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

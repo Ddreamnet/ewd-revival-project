@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { ClipboardList, LogOut, Moon, Sun, Upload } from "lucide-react";
+import { ClipboardList, LogOut, Moon, Phone, Sun, Upload } from "lucide-react";
 
 import { PanelShell } from "@/components/panel/PanelShell";
 import { PanelHeader } from "@/components/panel/PanelHeader";
@@ -47,6 +47,7 @@ export function StudentDashboard() {
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [homeworkOpen, setHomeworkOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
 
   const pushInit = useRef(false);
   useEffect(() => {
@@ -102,6 +103,13 @@ export function StudentDashboard() {
 
   /** Mobil taşma menüsü — başlık satırındaki ikincil eylemler. */
   const menuItems = [
+    // Telefonda başlıkta üç düğme "Öğrenme Panelim"i "Öğrenme P…" diye
+    // kırptırıyordu; iletişim ikincil bir eylem, menüye indi.
+    {
+      label: "İletişim",
+      icon: <Phone className="h-4 w-4" />,
+      onSelect: () => setContactOpen(true),
+    },
     {
       label: isDark ? "Açık tema" : "Koyu tema",
       icon: isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />,
@@ -130,7 +138,7 @@ export function StudentDashboard() {
               isStudent
               onNotificationClick={() => setHomeworkOpen(true)}
             />
-            <ContactDialog />
+            <ContactDialog open={contactOpen} onOpenChange={setContactOpen} triggerClassName="max-md:hidden" />
             {/* Masaüstünde ayrı düğmeler, mobilde tek taşma menüsü. */}
             <div className="hidden items-center gap-2 md:flex">
               <ThemeToggleButton variant="panelV2" />
@@ -152,18 +160,35 @@ export function StudentDashboard() {
 
       {/* ── Ders saatlerin ── */}
       <section className="pnl-band" aria-label="Ders saatlerin">
-        <div className="pnl-wrap grid grid-cols-[minmax(0,1fr)] gap-4 py-5 lg:grid-cols-[minmax(0,1fr)_178px_178px] lg:py-5">
-          <div className="pnl-next flex flex-col justify-center gap-3.5 lg:flex-row lg:items-center lg:gap-6">
-            <div className="relative flex min-w-0 flex-col gap-2.5">
-              <span className="pnl-next__label">DERS SAATLERİN</span>
+        <div className="pnl-wrap grid grid-cols-[minmax(0,1fr)] gap-2.5 py-3 lg:grid-cols-[minmax(0,1fr)_178px_178px] lg:gap-4 lg:py-5">
+          {/* Telefonda Zoom, çiplerin altında TAM GENİŞLİKTE ayrı bir satırdı
+              ve bant ~230px tutuyordu. Şimdi etiketle aynı satırda, sağda —
+              öğretmen panelindeki sıradaki ders bandıyla aynı yerde. */}
+          <div className="pnl-next flex flex-col justify-center gap-2 lg:flex-row lg:items-center lg:gap-6">
+            <div className="relative flex min-w-0 flex-1 flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="pnl-next__label">DERS SAATLERİN</span>
+                <div className="lg:hidden">
+                  {panel.data.zoomLink ? (
+                    <ZoomButton href={panel.data.zoomLink} compact label="Zoom" className="relative shrink-0" />
+                  ) : (
+                    <span
+                      className="relative shrink-0 rounded-full px-3 py-1.5 text-[12px] font-bold"
+                      style={{ background: "rgb(255 248 239 / 0.16)", color: "var(--ewd-on-purple-soft)" }}
+                    >
+                      Zoom yok
+                    </span>
+                  )}
+                </div>
+              </div>
               {panel.data.fixedLessons.length > 0 ? (
-                <ul className="flex flex-wrap items-center gap-2">
+                <ul className="flex flex-wrap items-center gap-1.5">
                   {panel.data.fixedLessons.map((lesson, i) => {
                     const isToday = lesson.dayOfWeek === todayDow;
                     return (
                       <li
                         key={`${lesson.dayOfWeek}-${lesson.start}-${i}`}
-                        className="rounded-full px-3.5 py-2 text-[14px] font-extrabold md:text-[15px]"
+                        className="rounded-full px-3 py-1.5 text-[13px] font-bold md:text-[14px]"
                         style={
                           isToday
                             ? { background: "var(--ewd-yellow)", color: "var(--ewd-yellow-ink)" }
@@ -183,19 +208,18 @@ export function StudentDashboard() {
               )}
             </div>
 
-            {panel.data.zoomLink ? (
-              <ZoomButton
-                href={panel.data.zoomLink}
-                className="relative w-full shrink-0 lg:ml-auto lg:w-auto"
-              />
-            ) : (
-              <span
-                className="relative shrink-0 rounded-full px-4 py-3 text-center text-[13px] font-bold lg:ml-auto"
-                style={{ background: "rgb(255 248 239 / 0.16)", color: "var(--ewd-on-purple-soft)" }}
-              >
-                Zoom bağlantısı henüz eklenmedi
-              </span>
-            )}
+            <div className="hidden lg:ml-auto lg:block">
+              {panel.data.zoomLink ? (
+                <ZoomButton href={panel.data.zoomLink} className="relative shrink-0" />
+              ) : (
+                <span
+                  className="relative shrink-0 rounded-full px-4 py-3 text-center text-[13px] font-bold"
+                  style={{ background: "rgb(255 248 239 / 0.16)", color: "var(--ewd-on-purple-soft)" }}
+                >
+                  Zoom bağlantısı henüz eklenmedi
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Mobilde tek satırlık şerit, masaüstünde iki sayaç kartı. */}
@@ -220,14 +244,11 @@ export function StudentDashboard() {
           <PanelSection
             title="Paket ilerlemen"
             summary={`${panel.data.completedCount} / ${panel.data.totalCount} ders`}
-            hint="Bu paketteki derslerin."
           >
+            {/* "5 / 8 ders" başlığın yanında yazıyor; çubuk etiketsiz. Altındaki
+                "Bu paketteki derslerin." cümlesi başlığı tekrar ediyordu. */}
             <div className="pnl-card flex-1 p-4 md:p-5">
-              <ProgressBar
-                value={panel.data.completedCount}
-                max={panel.data.totalCount}
-                label={`${panel.data.completedCount} / ${panel.data.totalCount} ders`}
-              />
+              <ProgressBar value={panel.data.completedCount} max={panel.data.totalCount} />
               {panel.data.lessons.length > 0 && (
                 <ul
                   className="pnl-rail mt-4"
@@ -258,7 +279,7 @@ export function StudentDashboard() {
           </PanelSection>
 
           {/* Ödevler ekranda listelenmiyor; iki düğme kendi diyaloğunu açıyor. */}
-          <PanelSection title="Ödevlerim" hint="Öğretmeninin gönderdikleri ve senin yüklediklerin.">
+          <PanelSection title="Ödevlerim">
             <div className="pnl-card grid flex-1 grid-cols-2 gap-3 p-4 md:p-5">
               <button
                 type="button"
@@ -287,7 +308,7 @@ export function StudentDashboard() {
         </div>
 
         {/* ── Konularım ── */}
-        <PanelSection title="Konularım" hint="Derste işlediğiniz konular ve kaynaklar.">
+        <PanelSection title="Konularım">
           <TopicList topics={visibleTopics} loading={topicsLoading} />
         </PanelSection>
       </div>

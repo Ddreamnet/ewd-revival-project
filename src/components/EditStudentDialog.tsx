@@ -21,6 +21,7 @@ import { formatTime } from "@/lib/lessonTypes";
 import { DAYS_OF_WEEK } from "@/lib/types";
 import type { StudentLessonBase } from "@/lib/types";
 import { useEditStudentDialog } from "@/hooks/useEditStudentDialog";
+import { CompactDateField } from "@/components/panel/CompactDateField";
 
 interface EditStudentDialogProps {
   open: boolean;
@@ -232,34 +233,33 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
             </div>
             <div className="space-y-2">
               {sortedLessonsForDisplay.map((lesson) => (
+                /* Tek satır. Eskiden telefonda iki satıra bölünüyordu ve
+                   satırın yarısı etiketti: "Ders 3" (numara zaten sırayı
+                   söylüyor), "Tarih:" (yanındaki şeyin tarih olduğu belli) ve
+                   yıl dahil tam tarih (hepsi aynı yıl). */
                 <div
                   key={lesson.instanceId || `placeholder-${lesson.displayIndex}`}
-                  className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border rounded-lg ${lesson.isOverridden ? "border-amber-500" : ""}`}
+                  className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${lesson.isOverridden ? "border-amber-500" : ""}`}
                 >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className={`h-4 w-4 rounded-full shrink-0 ${lesson.isCompleted ? "bg-primary" : "bg-muted"}`} />
-                    <span className={`font-medium text-sm ${lesson.isCompleted ? "text-foreground" : "text-muted-foreground"}`}>
-                      Ders {lesson.displayIndex}
+                  <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${lesson.isCompleted ? "bg-primary" : "bg-muted"}`} />
+                  <span
+                    className={`w-5 shrink-0 text-[13px] font-semibold tabular-nums ${lesson.isCompleted ? "text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {lesson.displayIndex}
+                  </span>
+                  {lesson.startTime && lesson.endTime && (
+                    <span className="min-w-0 flex-1 truncate text-xs tabular-nums text-muted-foreground">
+                      {formatTime(lesson.startTime)}–{formatTime(lesson.endTime)}
                     </span>
-                    {lesson.startTime && lesson.endTime && (
-                      <span className="text-xs text-muted-foreground ml-1 shrink-0">
-                        {formatTime(lesson.startTime)} - {formatTime(lesson.endTime)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Label className={`text-sm ${lesson.isOverridden ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                      {lesson.isOverridden ? "Yeni:" : "Tarih:"}
-                    </Label>
-                    <Input
-                      type="date"
-                      value={lesson.instanceId ? lessonDates[lesson.instanceId] ?? lesson.effectiveDate : ""}
-                      onChange={(e) => lesson.instanceId && updateLessonDate(lesson.instanceId, e.target.value)}
-                      disabled={!lesson.instanceId}
-                      title={lesson.instanceId ? undefined : "Bu ders henüz programa eklenmedi"}
-                      className={`w-full sm:w-40 ${lesson.isOverridden ? "border-amber-500" : ""}`}
-                    />
-                  </div>
+                  )}
+                  {!(lesson.startTime && lesson.endTime) && <span className="flex-1" />}
+                  <CompactDateField
+                    value={lesson.instanceId ? lessonDates[lesson.instanceId] ?? lesson.effectiveDate : ""}
+                    onChange={(next) => lesson.instanceId && updateLessonDate(lesson.instanceId, next)}
+                    disabled={!lesson.instanceId}
+                    highlighted={lesson.isOverridden}
+                    title={lesson.instanceId ? undefined : "Bu ders henüz programa eklenmedi"}
+                  />
                 </div>
               ))}
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -292,13 +292,9 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
 
           {/* Tehlikeli Alan */}
           <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-base font-medium text-destructive">Tehlikeli Alan</Label>
-                <p className="text-sm text-muted-foreground">Öğrenciyi arşivleyin veya kalıcı olarak silin.</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Label className="text-sm font-semibold text-destructive">Tehlikeli Alan</Label>
+            {/* Telefonda alt alta iniyordu; iki kısa düğme bir satıra sığar. */}
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -308,6 +304,7 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
                   );
                   if (confirmed) handleArchiveStudent();
                 }}
+                size="sm"
                 className="flex items-center gap-2"
               >
                 <Archive className="h-4 w-4" />
@@ -322,6 +319,7 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
                   );
                   if (confirmed) handleDeleteStudent();
                 }}
+                size="sm"
                 className="flex items-center gap-2"
               >
                 <Trash2 className="h-4 w-4" />

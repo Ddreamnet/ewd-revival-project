@@ -1,12 +1,12 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Heart, LogOut, Moon, Settings, Sun, UserPlus } from "lucide-react";
+import { CalendarDays, Heart, Languages, LogOut, Moon, Settings, Sun, UserPlus, Users, Wallet } from "lucide-react";
 
 import { PanelShell } from "@/components/panel/PanelShell";
 import { PanelHeader } from "@/components/panel/PanelHeader";
 import { BottomTabBar, NavPills, type PanelTab } from "@/components/panel/PanelNav";
 import { PanelMenu } from "@/components/panel/PanelMenu";
-import { Avatar, EmptyState, IconButton, ScreenHeader } from "@/components/panel/PanelBits";
+import { Avatar, EmptyState, IconButton, ScreenHeader, SegmentedTabs } from "@/components/panel/PanelBits";
 import { toneForName } from "@/lib/panelFormat";
 
 import { AdminNotificationBell } from "@/components/AdminNotificationBell";
@@ -29,17 +29,20 @@ import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAdminTopicsCrud } from "@/hooks/useAdminTopicsCrud";
-import { useAndroidBackButton, useScrollMemory } from "@/hooks/usePanelPlatform";
+import { useAndroidBackButton, useAppResume, useScrollMemory } from "@/hooks/usePanelPlatform";
+import { hasOpenSheet } from "@/components/ui/sheet-core";
 import { supabase } from "@/integrations/supabase/client";
 import { restoreStudent, describeRescheduleWarnings } from "@/lib/lessonService";
 import { loadStudentTopics } from "@/lib/topicsService";
 import { initPushNotifications } from "@/lib/pushNotifications";
-import { type Branch } from "@/lib/branch";
+import { BRANCHES, branchLabel, type Branch } from "@/lib/branch";
 import type { Resource, Student, Teacher, Topic } from "@/lib/types";
 
 import { TeacherRail } from "./TeacherRail";
 import { BranchSwitcher } from "./BranchSwitcher";
 import { SiteScreen } from "./SiteScreen";
+import { TodayPlanButton, TodayPlanDialog } from "./TodayPlanDialog";
+import { claimDailyPlan } from "@/lib/dailyPlan";
 
 // TipTap (~490 kB) taşıyan ağır diyaloglar — açıldıklarında indirilir.
 const GlobalTopicsManager = lazy(() =>
@@ -249,6 +252,26 @@ export function AdminDashboard() {
     fetchStudentTopics,
   });
 
+  /* ── Bugünün planı ────────────────────────────────────────────── */
+
+  const [todayOpen, setTodayOpen] = useState(false);
+
+  /**
+   * Günün ilk açılışında plan kendiliğinden açılır — günde bir kez (tarayıcıda
+   * saklanır). Panel gece boyunca açık kalmışsa sabah öne alındığında da.
+   * Bildirimden gelen derin bağlantı varken ya da başka bir kart açıkken
+   * araya girmez; o durumda gün "gösterildi" de sayılmaz, sıradaki açılışta
+   * yeniden dener. (Derin bağlantı effect'inden ÖNCE durmalı: o, adresi
+   * temizliyor.)
+   */
+  const showDailyPlan = useCallback(() => {
+    if (new URLSearchParams(window.location.search).has("action")) return;
+    if (hasOpenSheet()) return;
+    if (claimDailyPlan()) setTodayOpen(true);
+  }, []);
+  useEffect(showDailyPlan, [showDailyPlan]);
+  useAppResume(showDailyPlan);
+
   /* ── Bildirim derin bağlantısı ────────────────────────────────── */
 
   const [pendingLink, setPendingLink] = useState<{ studentId: string; teacherId: string } | null>(null);
@@ -361,6 +384,24 @@ export function AdminDashboard() {
    */
   const adminMenuItems = [
     {
+      // Şube anahtarı mobilde başlığın altında ayrı bir satır açıyordu
+      // ("İngilizce 4 / Fransızca 1" iki sayaçlı pill). Menüde tek satırlık
+      // bir anahtar olarak duruyor; menü açık kalıyor ki sonuç görülsün.
+      label: "Şube",
+      icon: <Languages className="h-4 w-4" />,
+      keepOpen: true,
+      trailing: (
+        <span className="pnl-branch pnl-branch--mini" aria-hidden>
+          {BRANCHES.map((b) => (
+            <span key={b.code} className="pnl-branch__opt" data-active={b.code === branch}>
+              {b.short}
+            </span>
+          ))}
+        </span>
+      ),
+      onSelect: () => handleBranchChange(branch === "en" ? "fr" : "en"),
+    },
+    {
       label: "Gezi günlüğü",
       icon: <Heart className="h-4 w-4" />,
       onSelect: () => navigate("/mytriptolove"),
@@ -380,6 +421,7 @@ export function AdminDashboard() {
 
   const headerActions = (
     <>
+      <TodayPlanButton onClick={() => setTodayOpen(true)} />
       <AdminNotificationBell
         variant="panel"
         adminId={profile?.user_id ?? ""}
@@ -388,7 +430,8 @@ export function AdminDashboard() {
       {/* Masaüstünde ayrı düğmeler, mobilde tek taşma menüsü. */}
       <div className="hidden items-center gap-2 md:flex">
         {/* Gezi günlüğü — panelde bir yeri yok, tek girişi bu düğme. */}
-        <IconButton label="Gezi günlüğü" onClick={() => navigate("/mytriptolove")}>
+        {/* `compact`: yanındaki zil ve tema düğmesiyle aynı boy (36px); onsuz 48px kalıyordu. */}
+        <IconButton label="Gezi günlüğü" compact onClick={() => navigate("/mytriptolove")}>
           <Heart className="h-5 w-5" />
         </IconButton>
         <ThemeToggleButton variant="panelV2" />
@@ -447,7 +490,10 @@ export function AdminDashboard() {
             <div className="hidden md:block">
               <NavPills tabs={TABS} activeKey={activeTab} />
             </div>
-            <BranchSwitcher value={branch} onChange={handleBranchChange} counts={branchCounts} />
+            {/* Mobilde menüye taşındı (bkz. adminMenuItems). */}
+            <div className="hidden md:block">
+              <BranchSwitcher value={branch} onChange={handleBranchChange} counts={branchCounts} />
+            </div>
           </div>
         }
       />
@@ -514,6 +560,15 @@ export function AdminDashboard() {
       <BottomTabBar tabs={TABS} activeKey={activeTab} />
 
       {/* ── Diyaloglar ───────────────────────────────────────────── */}
+      <TodayPlanDialog
+        open={todayOpen}
+        onOpenChange={setTodayOpen}
+        teachers={branchTeachers}
+        teachersLoading={loading}
+        branchLabel={branchLabel(branch)}
+        onChanged={() => setScheduleRefreshKey((k) => k + 1)}
+      />
+
       <CreateTeacherDialog
         open={showCreateTeacher}
         onOpenChange={setShowCreateTeacher}
@@ -628,6 +683,12 @@ interface TeachersScreenProps {
   onEditTeacher?: () => void;
 }
 
+const DETAIL_TABS: readonly { value: DetailTab; label: string; icon: ReactNode }[] = [
+  { value: "students", label: "Öğrenciler", icon: <Users className="h-[18px] w-[18px]" aria-hidden /> },
+  { value: "schedule", label: "Ders programı", icon: <CalendarDays className="h-[18px] w-[18px]" aria-hidden /> },
+  { value: "payments", label: "Ödemeler", icon: <Wallet className="h-[18px] w-[18px]" aria-hidden /> },
+];
+
 function TeachersScreen({
   rail,
   selectedTeacher,
@@ -647,15 +708,12 @@ function TeachersScreen({
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3.5">
             <Avatar name={selectedTeacher.full_name} tone={toneForName(selectedTeacher.full_name)} />
-            <div className="flex min-w-0 flex-col">
-              <h2
-                className="truncate text-2xl font-black tracking-[-0.02em] md:text-[24px]"
-                style={{ color: "var(--ewd-on-surface)" }}
-              >
-                {selectedTeacher.full_name}
-              </h2>
-              <span className="pnl-student__mail">{selectedTeacher.email}</span>
-            </div>
+            <h2
+              className="min-w-0 truncate text-[19px] font-extrabold tracking-[-0.01em]"
+              style={{ color: "var(--ewd-on-surface)" }}
+            >
+              {selectedTeacher.full_name}
+            </h2>
           </div>
           <button type="button" className="pnl-btn pnl-btn--outline" onClick={onEditTeacher}>
             <Settings className="h-4 w-4" />
@@ -664,25 +722,12 @@ function TeachersScreen({
         </div>
       )}
 
-      <div className="pnl-nav">
-        {(
-          [
-            ["students", "Öğrenciler"],
-            ["schedule", "Ders programı"],
-            ["payments", "Ödemeler"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            className="pnl-pill pnl-pill--plain"
-            data-active={detailTab === key}
-            onClick={() => setDetailTab(key)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs<DetailTab>
+        label="Öğretmen detayı"
+        value={detailTab}
+        onChange={setDetailTab}
+        options={DETAIL_TABS}
+      />
 
       {detailTab === "students" && (
         <div className="pnl-card p-4 md:p-5">

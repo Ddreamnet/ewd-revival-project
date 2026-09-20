@@ -31,21 +31,22 @@ export const NextLessonBand = memo(function NextLessonBand({ summary }: NextLess
 
   return (
     <section className="pnl-band" aria-label="Sıradaki ders">
-      <div className="pnl-wrap grid grid-cols-[minmax(0,1fr)] gap-4 py-5 lg:grid-cols-[minmax(0,1fr)_178px_178px] lg:py-5">
+      <div className="pnl-wrap grid grid-cols-[minmax(0,1fr)] gap-2.5 py-3 lg:grid-cols-[minmax(0,1fr)_178px_178px] lg:gap-4 lg:py-5">
         <div className="pnl-next flex items-center gap-3 lg:gap-6">
           {next ? (
             <>
-              <div className="relative flex min-w-0 flex-1 flex-col gap-1.5">
+              <div className="relative flex min-w-0 flex-1 flex-col gap-1">
                 <span className="pnl-next__label">
                   SIRADAKİ DERS · {untilLabel(next.minutesUntil)}
                 </span>
-                <span className="pnl-next__title">
-                  <span className="lg:hidden">
-                    <span className="block truncate">{next.student.name}</span>
-                    {next.lesson.start}–{next.lesson.end}
-                  </span>
-                  <span className="hidden lg:inline">
-                    {next.student.name} · {next.lesson.start}–{next.lesson.end}
+                <span className="pnl-next__row">
+                  <span className="pnl-next__title">{next.student.name}</span>
+                  <span className="pnl-next__time">
+                    {/* Telefonda yalnızca başlangıç: bitiş saati ~45px daha
+                        istiyor ve Zoom düğmesiyle aynı satırda adı
+                        kırpıyordu. Genişte aralığın tamamı. */}
+                    {next.lesson.start}
+                    <span className="hidden sm:inline">–{next.lesson.end}</span>
                   </span>
                 </span>
               </div>

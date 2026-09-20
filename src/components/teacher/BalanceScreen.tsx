@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { BakiyeDersleri } from "@/components/panel/BakiyeDersleri";
 import { CountBox, EmptyState } from "@/components/panel/PanelBits";
+import { useBakiyeDokumu } from "@/hooks/useBakiyeDokumu";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMinutes } from "@/lib/panelFormat";
 import { feeForMinutes, feeForPayment, formatMoney, ratePerMinute, type TeacherPay } from "@/lib/teacherPay";
@@ -27,11 +29,16 @@ interface BalanceScreenProps {
 }
 
 /**
- * Bakiye ekranı — işlenen süre, ders kırılımı ve ödeme geçmişi.
- * Toplam ve sayaçlar panel anlık görüntüsünden geldiği için anında çizilir;
- * yalnızca ödeme geçmişi ağdan yüklenir.
+ * Bakiye ekranı — işlenen süre, ders kırılımı, bakiyedeki dersler ve ödeme geçmişi.
+ * İlk boyama panel anlık görüntüsünden anında yapılır; canlı döküm gelince
+ * toplam, sayaçlar ve liste aynı cevaptan okunur ve defter değiştikçe güncellenir.
  */
-export function BalanceScreen({ teacherId, totalMinutes, regularLessons, trialLessons, pay }: BalanceScreenProps) {
+export function BalanceScreen({ teacherId, pay, ...anlik }: BalanceScreenProps) {
+  const { dokum, odemeSayaci } = useBakiyeDokumu(teacherId);
+  const totalMinutes = dokum?.bakiye.total_minutes ?? anlik.totalMinutes;
+  const regularLessons = dokum?.bakiye.completed_regular_lessons ?? anlik.regularLessons;
+  const trialLessons = dokum?.bakiye.completed_trial_lessons ?? anlik.trialLessons;
+
   const [history, setHistory] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +58,8 @@ export function BalanceScreen({ teacherId, totalMinutes, regularLessons, trialLe
     return () => {
       cancelled = true;
     };
-  }, [teacherId]);
+    // Admin bakiyeyi sıfırlayınca yeni ödeme satırı da anında görünsün.
+  }, [teacherId, odemeSayaci]);
 
   return (
     <div className="flex flex-col gap-4 py-5">
@@ -73,6 +81,8 @@ export function BalanceScreen({ teacherId, totalMinutes, regularLessons, trialLe
         <CountBox value={regularLessons} label="Normal ders" />
         <CountBox value={trialLessons} label="Deneme dersi" tone="yellow" />
       </div>
+
+      <BakiyeDersleri dokum={dokum} />
 
       <div className="flex flex-col gap-2.5">
         <h3 className="pnl-divider__label pt-2">Ödeme geçmişi</h3>

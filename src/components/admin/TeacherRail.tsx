@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { ChevronRight, Plus, Settings } from "lucide-react";
+import { ChevronRight, Plus, Settings, Users } from "lucide-react";
 import { Avatar, EmptyState, IconButton, SearchField } from "@/components/panel/PanelBits";
 import { toneForName } from "@/lib/panelFormat";
 import { branchLabel, type Branch } from "@/lib/branch";
@@ -66,7 +66,7 @@ export const TeacherRail = memo(function TeacherRail({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="h-[104px] animate-pulse rounded-[26px]"
+              className="h-[74px] animate-pulse rounded-[26px]"
               style={{ background: "var(--ewd-lilac-tint)" }}
             />
           ))}
@@ -89,7 +89,6 @@ export const TeacherRail = memo(function TeacherRail({
           {filtered.map((teacher) => {
             const active = teacher.user_id === selectedId;
             const activeStudents = teacher.students.filter((s) => !s.is_archived).length;
-            const archived = teacher.students.length - activeStudents;
 
             return (
               <li key={teacher.user_id}>
@@ -102,21 +101,27 @@ export const TeacherRail = memo(function TeacherRail({
                     onClick={() => onSelect(teacher)}
                   />
 
-                  <div className="pointer-events-none relative z-10 flex items-start gap-3.5">
+                  {/* Tek satır. Eskiden üç satır vardı — ad, e-posta, ve
+                      altında iki rozet ("3 öğrenci", "3 arşivli") — kart 104px
+                      oluyordu. E-posta bu listede hiçbir işe yaramıyor (arama
+                      yine e-postayla da çalışıyor), arşivli sayısı burada
+                      değil öğretmenin kendi ekranında anlam taşıyor, aktif
+                      sayı ise rozete gerek kalmadan ikonla okunuyor. */}
+                  <div className="pointer-events-none relative z-10 flex items-center gap-3">
                     <Avatar name={teacher.full_name} tone={toneForName(teacher.full_name)} />
 
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex min-w-0 flex-1 items-baseline gap-2.5">
                       <span className="pnl-student__name truncate">{teacher.full_name}</span>
-                      <span className="pnl-student__mail">{teacher.email}</span>
-                      <span className="mt-1.5 flex flex-wrap items-center gap-2">
-                        <span className="pnl-chip pnl-chip--next">{activeStudents} öğrenci</span>
-                        {archived > 0 && <span className="pnl-chip">{archived} arşivli</span>}
+                      <span className="pnl-tally shrink-0" title={`${activeStudents} aktif öğrenci`}>
+                        <Users className="h-[13px] w-[13px]" aria-hidden />
+                        {activeStudents}
+                        <span className="sr-only"> aktif öğrenci</span>
                       </span>
                     </div>
 
                     <IconButton
                       label={`${teacher.full_name} ayarları`}
-                      className="pointer-events-auto h-[38px] w-[38px] rounded-xl border-0"
+                      className="pointer-events-auto h-9 w-9 shrink-0 rounded-xl border-0"
                       style={{ background: "var(--ewd-lilac-tint)", color: "var(--ewd-purple)" }}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -127,7 +132,7 @@ export const TeacherRail = memo(function TeacherRail({
                     </IconButton>
 
                     <ChevronRight
-                      className="mt-2.5 h-5 w-5 shrink-0 md:hidden"
+                      className="h-5 w-5 shrink-0 md:hidden"
                       style={{ color: "var(--ewd-muted-3)" }}
                       aria-hidden="true"
                     />

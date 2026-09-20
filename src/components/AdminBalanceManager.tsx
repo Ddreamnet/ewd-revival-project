@@ -20,6 +20,8 @@ import { manualBalanceAdjust } from "@/lib/lessonService";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useTeacherPay, invalidateTeacherPay } from "@/hooks/useTeacherPay";
+import { useBakiyeDokumu } from "@/hooks/useBakiyeDokumu";
+import { BakiyeDersleri } from "@/components/panel/BakiyeDersleri";
 import { feeForMinutes, feeForPayment, formatMoney, ratePerMinute, saveTeacherPay, type TeacherPay } from "@/lib/teacherPay";
 import { useAuth } from "@/hooks/useAuth";
 import { branchLabel, type Branch } from "@/lib/branch";
@@ -30,14 +32,6 @@ interface AdminBalanceManagerProps {
   branch: Branch;
   /** Aktif öğrenci sayısı — ay sonu raporu adedi bununla ön dolduruluyor. */
   activeStudentCount?: number;
-}
-
-interface BalanceData {
-  total_minutes: number;
-  completed_regular_lessons: number;
-  completed_trial_lessons: number;
-  regular_lessons_minutes: number;
-  trial_lessons_minutes: number;
 }
 
 interface PaymentHistory {
@@ -51,8 +45,9 @@ interface PaymentHistory {
 }
 
 export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 }: AdminBalanceManagerProps) {
-  const [balance, setBalance] = useState<BalanceData | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Özet ve ders listesi tek kaynaktan, canlı: öğretmen ders işledikçe burası da güncellenir.
+  const { dokum, yenile } = useBakiyeDokumu(teacherId);
+  const balance = dokum?.bakiye ?? null;
   const [minutesToAdd, setMinutesToAdd] = useState("");
   const [minutesToSubtract, setMinutesToSubtract] = useState("");
   const [showResetDialog, setShowResetDialog] = useState(false);
@@ -102,7 +97,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
       }
       toast.success(`${count} rapor eklendi (+${minutes} dk · ${money(minutes)})`);
       setReportCount("");
-      await fetchBalance();
+      await yenile();
     } catch (error) {
       hataGoster(error, "Rapor eklenirken hata oluştu");
     } finally {
@@ -128,40 +123,8 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
   };
 
   useEffect(() => {
-    fetchBalance();
     fetchPaymentHistory();
   }, [teacherId]);
-
-  const fetchBalance = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("teacher_balance")
-        .select(
-          "total_minutes, completed_regular_lessons, completed_trial_lessons, regular_lessons_minutes, trial_lessons_minutes",
-        )
-        .eq("teacher_id", teacherId)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setBalance(data);
-      } else {
-        setBalance({
-          total_minutes: 0,
-          completed_regular_lessons: 0,
-          completed_trial_lessons: 0,
-          regular_lessons_minutes: 0,
-          trial_lessons_minutes: 0,
-        });
-      }
-    } catch (error) {
-      hataGoster(error, "Bakiye bilgisi yüklenirken hata oluştu");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchPaymentHistory = async () => {
     try {
@@ -199,7 +162,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
 
       toast.success(`${minutes} dakika eklendi`);
       setMinutesToAdd("");
-      await fetchBalance();
+      await yenile();
     } catch (error) {
       hataGoster(error, "Dakika eklenirken hata oluştu");
     } finally {
@@ -233,7 +196,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
 
       toast.success(`${minutes} dakika çıkarıldı`);
       setMinutesToSubtract("");
-      await fetchBalance();
+      await yenile();
     } catch (error) {
       hataGoster(error, "Dakika çıkarılırken hata oluştu");
     } finally {
@@ -274,7 +237,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
           : "Bakiye zaten sıfırdı",
       );
       setShowResetDialog(false);
-      await Promise.all([fetchBalance(), fetchPaymentHistory()]);
+      await Promise.all([yenile(), fetchPaymentHistory()]);
     } catch (error) {
       hataGoster(error, "Bakiye sıfırlanırken hata oluştu");
     } finally {
@@ -306,7 +269,7 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
     return `${minutes} dakika`;
   };
 
-  if (loading) {
+  if (!dokum) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -363,6 +326,8 @@ export function AdminBalanceManager({ teacherId, branch, activeStudentCount = 0 
           </CardContent>
         </Card>
       </div>
+
+      <BakiyeDersleri dokum={dokum} />
 
       {/* Balance Actions */}
       <Card>

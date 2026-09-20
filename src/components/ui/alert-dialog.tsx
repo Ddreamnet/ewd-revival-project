@@ -11,7 +11,14 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import type { DialogSize } from "@/components/ui/dialog";
-import { useAnimatedHeight, useDragToDismiss, useKeyboardInset, useMountedRef, useSheetStack } from "@/components/ui/sheet-core";
+import {
+  useAnimatedHeight,
+  useDragToDismiss,
+  useIsNarrow,
+  useKeyboardInset,
+  useMountedRef,
+  useSheetStack,
+} from "@/components/ui/sheet-core";
 
 const AlertDialog = AlertDialogPrimitive.Root;
 
@@ -35,15 +42,16 @@ interface AlertDialogContentProps extends React.ComponentPropsWithoutRef<typeof 
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   AlertDialogContentProps
->(({ className, children, size = "sm", animateHeight, ...props }, forwardedRef) => {
+>(({ className, children, size = "sm", animateHeight, onOpenAutoFocus, ...props }, forwardedRef) => {
   const [ref, setRef, mounted] = useMountedRef<HTMLDivElement>();
   const overlayRef = React.useRef<HTMLDivElement>(null);
   // Sürükleyerek kapatmak "Vazgeç"tir: gizli bir Cancel düğmesine tıklanır,
   // böylece sahibin `onOpenChange`i ve odak dönüşü normal yolundan işler.
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const dismiss = React.useCallback(() => cancelRef.current?.click(), []);
+  const narrow = useIsNarrow();
 
-  useDragToDismiss(ref, dismiss, { open: mounted, scrim: overlayRef });
+  useDragToDismiss(ref, dismiss, { open: mounted, scrim: overlayRef, narrow });
   useAnimatedHeight(ref, !!animateHeight && mounted);
   useKeyboardInset(mounted);
   useSheetStack(mounted, dismiss);
@@ -64,7 +72,17 @@ const AlertDialogContent = React.forwardRef<
         ref={setRefs}
         data-size={size}
         data-animate-height={animateHeight ? "" : undefined}
+        tabIndex={-1}
         className={cn("ewd-sheet", className)}
+        onOpenAutoFocus={(e) => {
+          onOpenAutoFocus?.(e);
+          if (e.defaultPrevented || !narrow) return;
+          // Bkz. ui/dialog.tsx — telefonda klavye kendiliğinden açılmasın.
+          // Onay kartında zaten yazılacak bir alan yok; odak kartın kendisine
+          // gidince "Vazgeç"e basmak da tek dokunuş kalıyor.
+          e.preventDefault();
+          ref.current?.focus({ preventScroll: true });
+        }}
         {...props}
       >
         <AlertDialogPrimitive.Cancel asChild>

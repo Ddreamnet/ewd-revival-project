@@ -116,7 +116,7 @@ export function NotificationBell({ variant = "default", userId, teacherId, stude
           
           toast({
             title: "Yeni Ödev",
-            description: isStudent ? "Öğretmeniniz yeni bir dosya yükledi" : "Bir öğrenciniz yeni ödev yükledi",
+            description: isStudent ? "Öğretmeniniz yeni bir ödev paylaştı" : "Bir öğrenciniz yeni ödev yükledi",
           });
         }
       )
@@ -260,7 +260,7 @@ export function NotificationBell({ variant = "default", userId, teacherId, stude
                             {notification.profiles?.full_name || (isStudent ? 'Öğretmen' : 'Öğrenci')}
                           </p>
                           <p className="text-sm text-muted-foreground mt-0.5">
-                            {isStudent ? "Yeni bir dosya yükledi" : "Yeni bir ödev yükledi"}
+                            {isStudent ? "Yeni bir ödev paylaştı" : "Yeni bir ödev yükledi"}
                           </p>
                           <div className="flex items-center gap-1.5 mt-2">
                             <Calendar className="h-3 w-3 text-muted-foreground" />

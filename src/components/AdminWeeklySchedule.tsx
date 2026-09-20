@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -88,7 +88,15 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
   }, [teacherId, refreshKey, showTemplate, weekOffset]);
 
   const fetchActualSchedule = async () => {
-    const fetched = await fetchActualLessonsForWeek(teacherId, weekStart);
+    let fetched: ActualLesson[];
+    try {
+      fetched = await fetchActualLessonsForWeek(teacherId, weekStart);
+    } catch {
+      // Sorgu hatası artık yukarı fırlıyor (eskiden sessizce boş hafta
+      // dönüyordu — "ders yok" ile "okunamadı" ayırt edilemiyordu).
+      toast({ title: "Hata", description: "Ders programı yüklenemedi", variant: "destructive" });
+      return;
+    }
     setActualLessons(fetched);
     // Only append colors for students not already in the stable map
     const newStudentIds = [...new Set(fetched.map(l => l.student_id))].filter(id => !studentColors.has(id));
@@ -99,9 +107,15 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
     }
   };
 
+  /** Çark hangi öğretmen için çoktan kalktı. */
+  const loadedFor = useRef<string | null>(null);
+
   const fetchSchedule = async () => {
     try {
-      setLoading(true);
+      // Çark yalnızca ilk okumada ve öğretmen değişince. Ders taşıma, gün
+      // erteleme ve deneme dersi eklemeden sonraki okumalarda tablo yerinde
+      // kalır; her seferinde çarka dönmesi bütün programı gidip getiriyordu.
+      if (loadedFor.current !== teacherId) setLoading(true);
 
       // Step 1: aktif öğrenciler. Deneme dersleri ayrıca sorulmuyor — artık
       // ders takviminin satırları, güncel kip sorgusuyla birlikte geliyorlar.
@@ -132,6 +146,7 @@ export function AdminWeeklySchedule({ teacherId, refreshKey }: AdminWeeklySchedu
       setStudentColors(colorMap);
 
       setLessons(lessonsRes.data?.map((lesson) => ({ ...lesson, student_name: nameMap.get(lesson.student_id) || "Bilinmeyen", note: lesson.note })) || []);
+      loadedFor.current = teacherId;
     } catch {
       toast({ title: "Hata", description: "Ders programı yüklenemedi", variant: "destructive" });
     } finally {

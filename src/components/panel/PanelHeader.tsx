@@ -29,8 +29,17 @@ interface PanelHeaderProps {
 export function PanelHeader({ title, badge, subtitle, actions, nav, homeTo = "/dashboard" }: PanelHeaderProps) {
   return (
     <header className="pnl-head">
-      <div className="pnl-wrap flex items-center justify-between gap-4 pt-3 md:pt-3.5">
-        <div className="flex min-w-0 items-center gap-3 md:gap-4">
+      {/* Alt boşluk yalnızca nav şeridinden geliyordu. Nav yokken (öğretmen,
+          öğrenci) satır alt çizgiye yapışıyor, ikon düğmeleri çizginin üstüne
+          biniyordu; nav varken de (admin) şerit mobilde boş olduğu için
+          çizginin üstünde 30px'lik boş bir bant kalıyordu. Şimdi satır kendi
+          alt boşluğunu taşıyor; nav şeridi yalnızca masaüstünde var. */}
+      <div
+        className={`pnl-wrap flex items-center justify-between gap-2.5 pb-3 pt-3 md:gap-4 md:pt-3.5 ${nav ? "md:pb-0" : "md:pb-3.5"}`}
+      >
+        {/* Telefonda aralıklar dar: adminde üç düğme varken "Admin Paneli"
+            360px'te 1px farkla "Admin Pan…" diye kırpılıyordu. */}
+        <div className="flex min-w-0 items-center gap-2.5 md:gap-4">
           <Link to={homeTo} aria-label="Panel ana ekranı" className="shrink-0">
             <img
               src="/uploads/logo.webp"
@@ -55,7 +64,7 @@ export function PanelHeader({ title, badge, subtitle, actions, nav, homeTo = "/d
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
 
-      {nav && <div className="pnl-wrap pb-4 pt-3.5">{nav}</div>}
+      {nav && <div className="pnl-wrap hidden pb-4 pt-3.5 md:block">{nav}</div>}
     </header>
   );
 }

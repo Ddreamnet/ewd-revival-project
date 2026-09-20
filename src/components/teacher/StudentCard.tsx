@@ -44,7 +44,12 @@ export const StudentCard = memo(function StudentCard({
         onClick={() => onSelect(student)}
       />
 
-      <div className="pointer-events-none relative z-10 flex items-start gap-3.5">
+      {/* Üç satırdı: ad, altında İKİ ÇİP ("Pazar 14:00", "Perşembe ✓")
+          kendi satırında, en altta ilerleme çubuğu. Çipler 8/13px dolgulu
+          birer hap olduğu için satır ~44px tutuyordu. Şimdi sıradaki ve son
+          ders adın altında düz bir satır — avatarın yanında durduğu için
+          kartı uzatmıyor. */}
+      <div className="pointer-events-none relative z-10 flex items-center gap-3">
         <Avatar name={student.name} tone={tone} />
 
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -52,37 +57,38 @@ export const StudentCard = memo(function StudentCard({
             <span className="pnl-student__name truncate">{student.name}</span>
             {hasLessonToday && <span className="pnl-tag pnl-tag--today">Bugün</span>}
           </div>
+          <span
+            className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold"
+            style={{ color: "var(--ewd-on-surface-faint)" }}
+          >
+            {next ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ background: tone === "pink" ? "var(--ewd-pink)" : "var(--ewd-green)" }}
+                />
+                <span className="shrink-0" style={{ color: "var(--ewd-on-surface)" }}>
+                  {getDayName(parseLocalDate(next.date).getDay())} {next.start}
+                </span>
+              </>
+            ) : (
+              <span>Planlanmış ders yok</span>
+            )}
+            {past.map((day, i) => (
+              <span key={`${day}-${i}`} className="flex min-w-0 items-center gap-1 truncate">
+                <span aria-hidden="true">·</span>
+                {day}
+                <Check className="h-3 w-3 shrink-0" aria-label="işlendi" />
+              </span>
+            ))}
+          </span>
         </div>
 
-        <ChevronRight
-          className="mt-2.5 h-5 w-5 shrink-0"
-          style={{ color: "var(--ewd-muted-3)" }}
-          aria-hidden="true"
-        />
+        <ChevronRight className="h-5 w-5 shrink-0" style={{ color: "var(--ewd-muted-3)" }} aria-hidden="true" />
       </div>
 
-      <div className="pointer-events-none relative z-10 flex flex-wrap items-center gap-2 pb-3 pt-3.5">
-        {next ? (
-          <span className={tone === "pink" ? "pnl-chip pnl-chip--next-pink" : "pnl-chip pnl-chip--next"}>
-            <span
-              className="pnl-chip__dot"
-              style={{ background: tone === "pink" ? "var(--ewd-pink)" : "var(--ewd-green)" }}
-            />
-            {getDayName(parseLocalDate(next.date).getDay())} {next.start}
-          </span>
-        ) : (
-          <span className="pnl-chip">Planlanmış ders yok</span>
-        )}
-
-        {past.map((day, i) => (
-          <span key={`${day}-${i}`} className="pnl-chip">
-            {day}
-            <Check className="h-3 w-3" aria-hidden="true" />
-          </span>
-        ))}
-      </div>
-
-      <div className="pointer-events-none relative z-10">
+      <div className="pointer-events-none relative z-10 mt-2.5">
         <ProgressBar
           value={student.completedCount}
           max={student.totalCount}

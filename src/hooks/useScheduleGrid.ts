@@ -18,6 +18,8 @@ interface BaseLessonInfo {
 /** Actual-mode lesson from lesson_instances */
 export interface ActualLesson {
   id: string;
+  /** Dersin öğretmeni — günlük planda satırlar birden çok öğretmenden gelir. */
+  teacher_id: string;
   /** Deneme dersinde boş: aday henüz kayıtlı bir öğrenci değil. */
   student_id: string | null;
   /** Deneme dersinde aday adı, yoksa "Deneme". */
@@ -142,27 +144,29 @@ async function ensurePackagesForTeacher(teacherId: string): Promise<void> {
 }
 
 /**
- * Core fetch logic — no caching, used by both cached fetch and prefetch.
+ * Takvim satırlarının TEK okuma yolu: verilen öğretmenlerin, verilen tarih
+ * aralığındaki dersleri. Haftalık program tek öğretmen + yedi günle, adminin
+ * günlük planı bütün şube öğretmenleri + tek günle çağırır — süzgeçler
+ * (arşivli öğrenci, deneme dersi) ve ad eşlemesi ikisinde de aynı kalsın diye
+ * ayrı bir sorgu yazılmadı.
  */
-async function fetchActualLessonsForWeekCore(
-  teacherId: string,
-  weekStart?: Date
+async function fetchInstances(
+  teacherIds: string[],
+  startStr: string,
+  endStr: string,
 ): Promise<ActualLesson[]> {
-  const ws = weekStart || startOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekEnd = addDays(ws, 6);
-  const startStr = format(ws, "yyyy-MM-dd");
-  const endStr = format(weekEnd, "yyyy-MM-dd");
+  if (teacherIds.length === 0) return [];
 
   // Top the packages up before reading, so a student who is short of lessons
   // (newly created, or template synced) shows a complete schedule.
-  await ensurePackagesForTeacher(teacherId);
+  await Promise.all(teacherIds.map(ensurePackagesForTeacher));
 
   // Fetch instances + active students + profiles in parallel
   const [instancesResult, activeStudentsResult] = await Promise.all([
     supabase
       .from("lesson_instances")
-      .select("id, student_id, tur, aday_adi, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count, is_manual_override, created_at")
-      .eq("teacher_id", teacherId)
+      .select("id, teacher_id, student_id, tur, aday_adi, lesson_number, lesson_date, start_time, end_time, status, original_date, original_start_time, original_end_time, rescheduled_count, is_manual_override, created_at")
+      .in("teacher_id", teacherIds)
       .gte("lesson_date", startStr)
       .lte("lesson_date", endStr)
       .in("status", ["planned", "completed"])
@@ -170,19 +174,24 @@ async function fetchActualLessonsForWeekCore(
       .order("start_time"),
     supabase
       .from("students")
-      .select("student_id")
-      .eq("teacher_id", teacherId)
+      .select("teacher_id, student_id")
+      .in("teacher_id", teacherIds)
       .eq("is_archived", false),
   ]);
+  if (instancesResult.error) throw instancesResult.error;
 
   const realInstances = instancesResult.data || [];
-  const allActiveStudentIds = new Set((activeStudentsResult.data || []).map((s) => s.student_id));
+  // Öğrenci, dersin KENDİ öğretmeninde etkin mi — aktarılmış öğrencinin eski
+  // öğretmenindeki satırları da arşivli gibi süzülür.
+  const activePairs = new Set(
+    (activeStudentsResult.data || []).map((s) => `${s.teacher_id}:${s.student_id}`),
+  );
 
   // Arşivlenmiş öğrencinin eski kayıtları takvimde görünmesin. Deneme
   // dersinin öğrencisi yok (aday henüz kayıtlı değil), o yüzden bu süzgecin
   // dışında: takvimde öğretmenin slotunu tutan gerçek bir satır.
   const filteredInstances = realInstances.filter(
-    (i) => i.tur === "deneme" || allActiveStudentIds.has(i.student_id)
+    (i) => i.tur === "deneme" || activePairs.has(`${i.teacher_id}:${i.student_id}`)
   );
 
   // Hayalet dersler kaldırıldı.
@@ -213,6 +222,27 @@ async function fetchActualLessonsForWeekCore(
         : nameMap.get(inst.student_id) || "Bilinmeyen",
     isGhost: false,
   }));
+}
+
+/**
+ * Core fetch logic — no caching, used by both cached fetch and prefetch.
+ */
+async function fetchActualLessonsForWeekCore(
+  teacherId: string,
+  weekStart?: Date
+): Promise<ActualLesson[]> {
+  const ws = weekStart || startOfWeek(new Date(), { weekStartsOn: 1 });
+  return fetchInstances([teacherId], format(ws, "yyyy-MM-dd"), format(addDays(ws, 6), "yyyy-MM-dd"));
+}
+
+/**
+ * Bir günün dersleri, birden çok öğretmen için — adminin "bugünün planı".
+ * Önbelleksiz: tek günlük küçük bir sorgu, ve plan açıkken yapılan bir tarih
+ * değişikliğinden sonra bayat veri göstermemeli.
+ */
+export function fetchLessonsForDay(teacherIds: string[], day: Date): Promise<ActualLesson[]> {
+  const dayStr = format(day, "yyyy-MM-dd");
+  return fetchInstances(teacherIds, dayStr, dayStr);
 }
 
 /**

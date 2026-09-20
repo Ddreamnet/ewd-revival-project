@@ -36,24 +36,10 @@ export function AdminStudentTopicsSection({
     <div className="pl-6 border-t pt-3 space-y-6">
       {/* İşlenen Konular */}
       <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <h5 className="font-medium text-sm">İşlenen Konular</h5>
-          {(() => {
-            const topicsWithCompletedResources = completedTopics.filter((t) =>
-              t.resources.some((r) => r.is_completed)
-            );
-            const fullyCompletedCount = topicsWithCompletedResources.filter((t) => t.is_completed).length;
-            const totalCompletedResources = topicsWithCompletedResources.reduce(
-              (sum, t) => sum + t.resources.filter((r) => r.is_completed).length,
-              0
-            );
-            return (
-              <Badge variant="secondary">
-                {totalCompletedResources} kaynak işlendi ({fullyCompletedCount} konu tam)
-              </Badge>
-            );
-          })()}
-        </div>
+        {/* "159 kaynak işlendi (16 konu tam)" özeti kalktı: iki sayıyı da
+            kimse kullanmıyordu, uzun olduğu için başlığın üstüne biniyordu ve
+            aynı bilgi zaten her konunun yanındaki x/y'de duruyor. */}
+        <h5 className="text-sm font-semibold">İşlenen konular</h5>
 
         {(() => {
           const topicsWithCompletedResources = completedTopics.filter((t) =>
@@ -85,16 +71,18 @@ export function AdminStudentTopicsSection({
                         <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
                           <Checkbox checked={isFullyCompleted} className="h-4 w-4" disabled />
                           <div className="flex-1">
-                            <span className="text-sm font-medium">{topic.title}</span>
+                            <span className="text-sm font-medium leading-snug">{topic.title}</span>
                             {topic.isGlobal && (
                               <Badge variant="outline" className="ml-2 text-xs">
                                 Global
                               </Badge>
                             )}
                           </div>
-                          <Badge variant="secondary" className="text-xs">
-                            {completedResourcesCount}/{totalResourcesCount} kaynak
-                          </Badge>
+                          {/* "kaynak" kelimesi gereksiz: x/y biçimi zaten
+                              "şu kadarından bu kadarı" diye okunuyor. */}
+                          <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
+                            {completedResourcesCount}/{totalResourcesCount}
+                          </span>
                           <ChevronRight className="h-4 w-4" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="mt-2 pl-6 space-y-1">
@@ -149,9 +137,9 @@ export function AdminStudentTopicsSection({
                       </CollapsibleTrigger>
                       <Checkbox checked={topic.is_completed} className="h-4 w-4" disabled />
                       <span className="text-sm flex-1">{topic.title}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {topic.resources.length} kaynak
-                      </Badge>
+                      <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
+                        {topic.resources.length}
+                      </span>
                       <Button variant="ghost" size="sm" onClick={() => onAddResource(topic.id)}>
                         <Plus className="h-3 w-3" />
                       </Button>

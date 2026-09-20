@@ -1,5 +1,5 @@
 -- ============================================================================
--- Senaryo testleri · 5/5 · Temizlik
+-- Senaryo testleri · 6/6 · Temizlik
 -- ============================================================================
 -- Kurguyu ve yardımcıları tamamen kaldırır. Gerçek veriye dokunmaz.
 
@@ -21,6 +21,8 @@ DROP FUNCTION IF EXISTS public.zz_dogrula(text, text, text, text);
 DROP FUNCTION IF EXISTS public.zz_ders(text, date, time);
 DROP FUNCTION IF EXISTS public.zz_program(text);
 DROP FUNCTION IF EXISTS public.zz_saat_ilerlet(uuid);
+DROP FUNCTION IF EXISTS public.zz_dokum(uuid);
+DROP FUNCTION IF EXISTS public.zz_dokum_ust(uuid);
 DROP FUNCTION IF EXISTS public.zz_id(text);
 DROP TABLE IF EXISTS public.zz_test_sonuc;
 

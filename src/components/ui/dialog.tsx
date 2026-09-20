@@ -12,9 +12,9 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
-  isNarrow,
   useAnimatedHeight,
   useDragToDismiss,
+  useIsNarrow,
   useKeyboardInset,
   useMountedRef,
   useSheetStack,
@@ -55,13 +55,11 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
    * gövdesi — hiçbiri kurulmaz.
    */
   bare?: boolean;
-  /** Kapatma düğmesi çizilmesin (kendi kapatmasını koyan içerikler). */
-  hideClose?: boolean;
 }
 
 const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.Content>, DialogContentProps>(
   (
-    { className, children, size = "md", animateHeight, bare, hideClose, onPointerDownOutside, ...props },
+    { className, children, size = "md", animateHeight, bare, onPointerDownOutside, onOpenAutoFocus, ...props },
     forwardedRef,
   ) => {
     const [ref, setRef, mounted] = useMountedRef<HTMLDivElement>();
@@ -71,8 +69,9 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
     // Android geri tuşunun) kartı kapatma yolu.
     const closeRef = React.useRef<HTMLButtonElement>(null);
     const dismiss = React.useCallback(() => closeRef.current?.click(), []);
+    const narrow = useIsNarrow();
 
-    useDragToDismiss(ref, dismiss, { open: mounted, scrim: overlayRef, disabled: bare });
+    useDragToDismiss(ref, dismiss, { open: mounted, scrim: overlayRef, disabled: bare, narrow });
     useAnimatedHeight(ref, !!animateHeight && mounted && !bare);
     useKeyboardInset(mounted && !bare);
     useSheetStack(mounted, dismiss);
@@ -93,19 +92,29 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
           ref={setRefs}
           data-size={size}
           data-animate-height={animateHeight ? "" : undefined}
+          tabIndex={-1}
           className={cn(bare ? "ewd-sheet-bare" : "ewd-sheet", className)}
+          onOpenAutoFocus={(e) => {
+            onOpenAutoFocus?.(e);
+            if (e.defaultPrevented || !narrow) return;
+            // Telefonda kart açılır açılmaz klavye fırlıyordu: Radix ilk
+            // odaklanabilir öğeye odaklanır, bir form kartında bu ilk alan.
+            // Klavye ekranın yarısını kaplayıp kartı ittiği için kullanıcı
+            // daha neye baktığını görmeden yazmaya çağrılmış oluyordu.
+            // Odak kartın kendisine gider: tuzak içeride kalır, Escape ve
+            // ekran okuyucu çalışır, klavye ise ancak bir alana DOKUNULUNCA
+            // açılır. Masaüstünde ilk alana odaklanmak doğru davranış, orada
+            // dokunulmuyor.
+            e.preventDefault();
+            ref.current?.focus({ preventScroll: true });
+          }}
           onPointerDownOutside={(e) => {
             onPointerDownOutside?.(e);
             // Telefonda perde bir sürükleme yüzeyi (bkz. useDragToDismiss):
             // parmağın çekecek mi yoksa yalnızca dokunacak mı olduğu
             // bilinmeden, pointerdown'da kart kapanmamalı. Fareyle dışarı
             // tıklamak yine anında kapatır.
-            if (
-              !bare &&
-              !e.defaultPrevented &&
-              isNarrow() &&
-              (e.detail.originalEvent as PointerEvent).pointerType === "touch"
-            )
+            if (!bare && !e.defaultPrevented && narrow && (e.detail.originalEvent as PointerEvent).pointerType === "touch")
               e.preventDefault();
           }}
           {...props}
@@ -124,13 +133,15 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
                 <span aria-hidden className="ewd-sheet-grip" />
               </div>
 
-              {!hideClose && (
-                <DialogPrimitive.Close className="ewd-sheet-x" aria-label="Kapat">
-                  <X className="h-[18px] w-[18px]" strokeWidth={2.4} />
-                </DialogPrimitive.Close>
-              )}
-
               <div className="ewd-sheet-body">{children}</div>
+
+              {/* İçerikten SONRA basılır, konumu mutlak olduğu için görünürde
+                  yine sağ üstte. Önce basıldığında masaüstünde açılış odağı
+                  (Radix ilk odaklanabilir öğeyi seçer) ilk alan yerine ✕'e
+                  gidiyordu; sekme sırası da kapatmayla başlıyordu. */}
+              <DialogPrimitive.Close className="ewd-sheet-x" aria-label="Kapat">
+                <X className="h-[18px] w-[18px]" strokeWidth={2.4} />
+              </DialogPrimitive.Close>
             </>
           )}
         </DialogPrimitive.Content>

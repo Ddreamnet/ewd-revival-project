@@ -15,6 +15,10 @@ interface TopicListProps {
   editable?: boolean;
   onToggleTopic?: (topic: Topic) => void;
   onToggleResource?: (topic: Topic, resource: Resource) => void;
+  /** Ödev olarak verilmiş kaynaklar — ikinci (sarı) işaretin durumu. */
+  homeworkIds?: ReadonlySet<string>;
+  /** Verilirse her kaynağın yanında "ödev olarak ver" işareti çizilir. */
+  onToggleHomework?: (topic: Topic, resource: Resource) => void;
 }
 
 interface TopicGroup {
@@ -37,6 +41,8 @@ export const TopicList = memo(function TopicList({
   editable = false,
   onToggleTopic,
   onToggleResource,
+  homeworkIds,
+  onToggleHomework,
 }: TopicListProps) {
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -193,7 +199,9 @@ export const TopicList = memo(function TopicList({
                             Bu konuda henüz kaynak yok.
                           </li>
                         ) : (
-                          topic.resources.map((resource) => (
+                          topic.resources.map((resource) => {
+                            const isHomework = !!homeworkIds?.has(resource.id);
+                            return (
                             <li
                               key={resource.id}
                               className="flex items-center gap-3 rounded-2xl px-3 py-2.5"
@@ -205,6 +213,7 @@ export const TopicList = memo(function TopicList({
                                   className="pnl-topic__mark"
                                   data-done={!!resource.is_completed}
                                   aria-pressed={!!resource.is_completed}
+                                  title={resource.is_completed ? "İşlenmedi yap" : "İşlendi"}
                                   aria-label={
                                     resource.is_completed
                                       ? `${resource.title} — işlenmedi olarak işaretle`
@@ -218,6 +227,26 @@ export const TopicList = memo(function TopicList({
                                 <span className="pnl-topic__mark" data-done={!!resource.is_completed} aria-hidden="true">
                                   <Check className="h-3 w-3" />
                                 </span>
+                              )}
+
+                              {/* "İşlendi"nin ikizi, sarısı: kaynak öğrencinin
+                                  konularına değil ödevlerine düşer. */}
+                              {editable && onToggleHomework && (
+                                <button
+                                  type="button"
+                                  className="pnl-topic__mark pnl-topic__mark--hw"
+                                  data-done={isHomework}
+                                  aria-pressed={isHomework}
+                                  title={isHomework ? "Ödevden kaldır" : "Ödev olarak ver"}
+                                  aria-label={
+                                    isHomework
+                                      ? `${resource.title} — ödevden kaldır`
+                                      : `${resource.title} — ödev olarak ver`
+                                  }
+                                  onClick={() => onToggleHomework(topic, resource)}
+                                >
+                                  <Check className="h-3 w-3" aria-hidden="true" />
+                                </button>
                               )}
 
                               {getResourceIcon(resource.resource_type)}
@@ -249,7 +278,8 @@ export const TopicList = memo(function TopicList({
                                 <ExternalLink className="h-4 w-4" />
                               </a>
                             </li>
-                          ))
+                            );
+                          })
                         )}
                       </ul>
                     )}

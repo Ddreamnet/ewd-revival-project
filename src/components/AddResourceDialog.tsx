@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { hataGoster } from "@/lib/notify";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
+import { FileDropZone } from "@/components/panel/FileDropZone";
+import { useFileDrop } from "@/hooks/useFileDrop";
 
 interface AddResourceDialogProps {
   open: boolean;
@@ -41,70 +43,47 @@ export function AddResourceDialog({
   const [resourceType, setResourceType] = useState("");
   const [webUrl, setWebUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length > 0) {
-        const file = files[0];
-        setSelectedFile(file);
+  /** Seçilen ve bırakılan dosyanın ortak kapısı. */
+  const selectFile = (file: File) => {
+    setSelectedFile(file);
 
-        // Auto-detect resource type based on file extension
-        const extension = file.name.split(".").pop()?.toLowerCase();
-        if (extension === "pdf") {
-          setResourceType("pdf");
-        } else if (["mp4", "avi", "mov", "wmv"].includes(extension || "")) {
-          setResourceType("video");
-        } else if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"].includes(extension || "")) {
-          setResourceType("image");
-        } else if (["doc", "docx", "txt", "rtf", "pptx", "ppt"].includes(extension || "")) {
-          setResourceType("document");
-        } else {
-          setResourceType("other");
-        }
+    // Auto-detect resource type based on file extension
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (extension === "pdf") {
+      setResourceType("pdf");
+    } else if (["mp4", "avi", "mov", "wmv"].includes(extension || "")) {
+      setResourceType("video");
+    } else if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"].includes(extension || "")) {
+      setResourceType("image");
+    } else if (["doc", "docx", "txt", "rtf", "pptx", "ppt"].includes(extension || "")) {
+      setResourceType("document");
+    } else {
+      setResourceType("other");
+    }
 
-        // Auto-fill title with filename (without extension)
-        if (!title) {
-          const nameWithoutExtension = file.name.replace(/\.[^/.]+$/, "");
-          setTitle(nameWithoutExtension);
-        }
-      }
-    },
-    [title],
-  );
+    // Auto-fill title with filename (without extension)
+    if (!title) {
+      const nameWithoutExtension = file.name.replace(/\.[^/.]+$/, "");
+      setTitle(nameWithoutExtension);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-
-      // Auto-detect resource type based on file extension
-      const extension = file.name.split(".").pop()?.toLowerCase();
-      if (extension === "pdf") {
-        setResourceType("pdf");
-      } else if (["mp4", "avi", "mov", "wmv"].includes(extension || "")) {
-        setResourceType("video");
-      } else if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"].includes(extension || "")) {
-        setResourceType("image");
-      } else if (["doc", "docx", "txt", "rtf", "pptx", "ppt"].includes(extension || "")) {
-        setResourceType("document");
-      } else {
-        setResourceType("other");
-      }
-
-      // Auto-fill title with filename (without extension)
-      if (!title) {
-        const nameWithoutExtension = file.name.replace(/\.[^/.]+$/, "");
-        setTitle(nameWithoutExtension);
-      }
-    }
+    if (file) selectFile(file);
+    // Aynı dosya kaldırılıp yeniden seçilebilsin.
+    e.target.value = "";
   };
+
+  // Bırakma hedefi kesikli kutu değil, kartın tamamı: kutunun birkaç piksel
+  // dışına bırakılan dosyayı tarayıcı sekmede açıyor, panel gidiyordu. Tür
+  // "bağlantı" seçiliyken de bırakılabilir; tür dosyaya göre değişir.
+  const drop = useFileDrop((files) => selectFile(files[0]), open && !isLoading);
 
   const uploadFile = async (file: File): Promise<string> => {
     const fileExt = file.name.split(".").pop();
@@ -128,6 +107,17 @@ export function AddResourceDialog({
       toast({
         title: "Hata",
         description: "Lütfen web bağlantısı için bir URL sağlayın",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // iCloud'da "yer kaplamayan" dosyalar tarayıcıya 0 bayt olarak geliyor; yükleme
+    // başarılı görünüp öğrencide boş açılan kaynak bırakıyordu.
+    if (selectedFile && selectedFile.size === 0) {
+      toast({
+        title: "Dosya boş görünüyor",
+        description: "Seçilen dosya 0 bayt. Dosyayı önce cihaza indirip yeniden seçin.",
         variant: "destructive",
       });
       return;
@@ -200,7 +190,7 @@ export function AddResourceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md">
+      <DialogContent size="md" data-file-drag={drop.dragging ? "" : undefined} {...drop.handlers}>
         <DialogHeader>
           <DialogTitle>Öğrenme Kaynağı Ekle</DialogTitle>
           <DialogDescription>
@@ -255,49 +245,33 @@ export function AddResourceDialog({
           {resourceType !== "link" && (
             <div className="space-y-2">
               <Label>Dosya Yükle</Label>
-              <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors w-full max-w-full box-border ${
-                  isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25"
-                }`}
-                onDrop={handleDrop}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragOver(true);
-                }}
-                onDragLeave={() => setIsDragOver(false)}
-              >
-                {selectedFile ? (
-                  <div className="flex items-center justify-between p-2 bg-muted rounded">
-                    <span className="text-sm truncate min-w-0">{selectedFile.name}</span>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedFile(null)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        Dosyanızı buraya sürükleyip bırakın veya göz atmak için tıklayın
-                      </p>
-                      <input
-                        type="file"
-                        id="file-upload"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                        accept=".pdf,.doc,.docx,.pptx,.ppt,.txt,.mp4,.avi,.mov,.wmv,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById("file-upload")?.click()}
-                      >
-                        Dosya Seç
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileSelect}
+                accept=".pdf,.doc,.docx,.pptx,.ppt,.txt,.mp4,.avi,.mov,.wmv,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
+              />
+              {selectedFile ? (
+                <div className="flex items-center justify-between gap-2 rounded bg-muted p-2">
+                  <span className="min-w-0 truncate text-sm">{selectedFile.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Dosyayı kaldır"
+                    onClick={() => setSelectedFile(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <FileDropZone
+                  dragging={drop.dragging}
+                  onPick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                />
+              )}
             </div>
           )}
 

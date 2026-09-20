@@ -11,7 +11,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ProgressBar } from "@/components/panel/PanelBits";
 import { completeLesson, undoCompleteLesson } from "@/lib/lessonService";
 import { parseLocalDate } from "@/lib/lessonTypes";
 import { railColumns } from "@/lib/panelFormat";
@@ -98,15 +97,10 @@ export function LessonRail({ student, teacherId, onLessonToggled, onRefresh }: L
 
   return (
     <>
-      <div className="pnl-card--sunk p-4 md:px-5">
-        <div className="pb-3.5 lg:hidden">
-          <ProgressBar
-            value={student.completedCount}
-            max={student.totalCount}
-            label={`${student.completedCount} / ${student.totalCount} ders`}
-          />
-        </div>
-
+      {/* Mobilde rayın üstünde bir "5 / 8 ders" çubuğu daha vardı; hemen
+          üstündeki başlık kartının ilerleme halkası aynı şeyi söylüyor, ray
+          da hangi derslerin işlendiğini zaten gösteriyor. */}
+      <div className="pnl-card--sunk p-3 md:px-5 md:py-4">
         <ul
           className="pnl-rail"
           aria-label="Paket dersleri"
