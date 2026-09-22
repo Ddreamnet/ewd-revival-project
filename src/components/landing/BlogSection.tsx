@@ -53,7 +53,8 @@ export function BlogSection() {
               <Link
                 key={post.id}
                 to={`/blog/${encodeURIComponent(post.slug)}`}
-                className="ewd-stamp group block transition-transform duration-200 hover:-translate-y-1"
+                // Mobilde yalnızca en yeni yazı; ötekiler "Tümü" düğmesinin arkasında.
+                className={`ewd-stamp group transition-transform duration-200 hover:-translate-y-1 ${i === 0 ? "block" : "hidden sm:block"}`}
                 style={{ ["--stamp" as string]: tone.bg }}
               >
                 <span className="ewd-stamp__side ewd-stamp__side--l" aria-hidden="true" />

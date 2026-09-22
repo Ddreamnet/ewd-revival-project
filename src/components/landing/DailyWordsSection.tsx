@@ -33,7 +33,7 @@ export function DailyWordsSection() {
             <p className="ewd-lead max-w-[520px]">{t.words.lead[language]}</p>
           </div>
 
-          <ResetCountdown className="shrink-0" />
+          <ResetCountdown className="shrink-0 self-center md:self-auto" />
         </div>
 
         <WordBoard />

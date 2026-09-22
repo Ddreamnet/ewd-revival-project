@@ -86,7 +86,7 @@ const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 /**
  * Değerlerimiz — koyu mor blok üzerinde iki polaroid arasında duran alıntı
- * kartı. Kart, Atatürk'ün eğitim üzerine sözleri arasında geziniyor.
+ * kartı; mobilde polaroidlerin yerine görsel, mor örtünün altında zemin olur. Kart, Atatürk'ün eğitim üzerine sözleri arasında geziniyor.
  */
 export function ValuesSection() {
   const { language, t } = useLanguage();
@@ -104,11 +104,23 @@ export function ValuesSection() {
       className="scroll-section ewd-section relative overflow-hidden px-5 sm:px-8"
       style={{ background: "#2E1065" }}
     >
-      <span
-        className="pointer-events-none absolute inset-0 opacity-[0.14]"
-        style={{ backgroundImage: "url(/ewd/pat/tile-star-purple.png)", backgroundSize: "300px" }}
-        aria-hidden="true"
-      />
+      {/* Mobil ve tablet: polaroidler yer bulamıyor (lg altında gizli), bu yüzden
+          sıradaki sözün görseli bölümün zemini olur. Mor, üstte yarı saydam bir
+          örtü olarak kalır ki krem kart ve başlık okunsun. Geçiş yumuşak olsun
+          diye beş görsel üst üste duruyor, yalnızca geçerli olan görünüyor. */}
+      <div className="pointer-events-none absolute inset-0 lg:hidden" aria-hidden="true">
+        {CARDS.map((card, i) => (
+          <img
+            key={card.id}
+            src={card.image}
+            alt=""
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover object-top grayscale transition-opacity duration-700"
+            style={{ opacity: i === index ? 1 : 0 }}
+          />
+        ))}
+        <span className="absolute inset-0" style={{ background: "rgba(46,16,101,0.58)" }} />
+      </div>
       {/* Alt kenar: altındaki krem İletişim bölümü buraya doğru kabarır. */}
       <span className="ewd-scallop-b" style={{ ["--scallop" as string]: "#FFF8EF" }} aria-hidden="true" />
 

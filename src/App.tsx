@@ -182,11 +182,33 @@ function SplashHider() {
  *
  * `SystemBars.style: DEFAULT` telefonun temasını izliyor; panelin ise kendi
  * tema düğmesi var. Telefon açık, panel koyuyken saat ve pil ikonları lacivert
- * zeminde koyu kalıp kayboluyordu (tersi de krem zeminde). Panel ve giriş
- * ekranı seçili temayı, `ewd-light` ile sabitlenen diğer bütün sayfalar açık
- * zemini izler.
+ * zeminde koyu kalıp kayboluyordu (tersi de krem zeminde). Koyu tema yalnızca
+ * panelde var; diğer bütün sayfalar `RouteTheme` ile açığa sabitli.
  */
-const TEMALI_YOLLAR = [/^\/dashboard/, /^\/login/];
+const TEMALI_YOLLAR = [/^\/dashboard/];
+
+/**
+ * Koyu tema yalnızca panelde. Giriş ekranı ve landing daima açık: sayfa
+ * sarmalayıcısındaki `ewd-light` yetmiyordu, çünkü body'ye taşınan açılır
+ * pencereler (landing'in mobil menüsü) sarmalayıcının dışında kalıp
+ * html'deki `.dark` ile koyu çiziliyordu. `forcedTheme` html sınıfını
+ * değiştirir ama seçimi saklamaz; panele dönünce seçili tema geri gelir.
+ */
+function RouteTheme({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const temali = TEMALI_YOLLAR.some((y) => y.test(pathname));
+  return (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      forcedTheme={temali ? undefined : "light"}
+    >
+      {children}
+    </ThemeProvider>
+  );
+}
 
 function SystemBarsSync() {
   const { pathname } = useLocation();
@@ -206,7 +228,9 @@ function SystemBarsSync() {
 const App = () => (
   <AppErrorBoundary>
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    {/* Router en dışta: tema yola göre seçiliyor (RouteTheme). */}
+    <BrowserRouter>
+    <RouteTheme>
     <LanguageProvider>
     <AuthProvider>
       <SplashHider />
@@ -217,7 +241,6 @@ const App = () => (
         <Toaster />
         <SurumKapisi />
         <CevrimdisiBandi />
-        <BrowserRouter>
           <ScrollToTop />
           <RobotsMeta />
           <SystemBarsSync />
@@ -239,11 +262,11 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
-        </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
     </LanguageProvider>
-    </ThemeProvider>
+    </RouteTheme>
+    </BrowserRouter>
   </QueryClientProvider>
   </AppErrorBoundary>
 );
