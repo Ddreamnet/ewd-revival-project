@@ -389,6 +389,13 @@
   padding-right: var(--safe-area-right);
 }
 
+/* Başlık çentik payı kadar uzadığı için bölüme atlama payı da uzuyor: 116px
+   sabit kalsaydı "Dersler"e basınca bölümün ilk satırı başlığın altında
+   kalıyordu. */
+.native-shell .scroll-section {
+  scroll-margin-top: calc(116px + var(--safe-area-top));
+}
+
 .native-shell .login-logo {
   top: calc(var(--safe-area-top) + 0.25rem);
 }

@@ -126,6 +126,15 @@
   /* Gesture bar payı, klavye açıkken erir: kart zaten klavyenin üstünde,
      altına bir de güvenli alan koymak ortada boşluk bırakıyor. */
   --ewd-sheet-safe: max(0px, var(--pnl-sa-bottom, 0px) - var(--ewd-kb, 0px));
+  /* Kartın TAVANI — üstünde bırakılan boşluk.
+     Yüzdeyle (8dvh/6dvh) yazılmıştı; Dynamic Island'lı telefonda bu yetmiyor:
+     iPhone 16 Pro Max'te 94dvh'lik `full` kartın üst kenarı 57px'e, yani
+     durum çubuğunun (62px) İÇİNE düşüyordu — yuvarlak köşe ve tutamak saatin
+     arkasında kalıyordu. Çentik payı + 12px ile yüzdenin büyüğü alınıyor:
+     çentiksiz ekranlarda ölçü değişmiyor, çentikli olanda kart saatin
+     altından başlıyor. */
+  --ewd-sheet-ceil: max(8dvh, calc(var(--pnl-sa-top, 0px) + 12px));
+  --ewd-sheet-ceil-full: max(6dvh, calc(var(--pnl-sa-top, 0px) + 12px));
   position: fixed;
   z-index: 49;
   display: flex;
@@ -256,7 +265,7 @@
     /* Klavye açıkken kart onun üstüne çıkar (useKeyboardInset). */
     bottom: var(--ewd-kb, 0px);
     width: 100%;
-    max-height: min(92dvh, calc(100dvh - var(--ewd-kb, 0px) - 24px));
+    max-height: calc(100dvh - var(--ewd-kb, 0px) - var(--ewd-sheet-ceil));
     border-radius: 26px 26px 0 0;
     border-bottom: 0;
     box-shadow: 0 -18px 50px -24px rgb(var(--ewd-shadow-tint) / 0.6);
@@ -269,8 +278,8 @@
      olarak kaplıyordu. Sabit boy yalnızca `full`da — haftalık program gibi
      kendi içinde tam boy bir tablo taşıyanlarda. */
   .ewd-sheet[data-size="full"] {
-    height: calc(94dvh - var(--ewd-kb, 0px));
-    max-height: calc(94dvh - var(--ewd-kb, 0px));
+    height: calc(100dvh - var(--ewd-kb, 0px) - var(--ewd-sheet-ceil-full));
+    max-height: calc(100dvh - var(--ewd-kb, 0px) - var(--ewd-sheet-ceil-full));
   }
   .ewd-sheet[data-state="open"] {
     animation: ewd-sheet-in-up var(--ewd-sheet-in) var(--ewd-sheet-ease) both;

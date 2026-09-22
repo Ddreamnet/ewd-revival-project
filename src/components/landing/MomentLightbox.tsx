@@ -212,8 +212,18 @@ export function MomentLightbox({ items, index, onIndexChange, onClose, labels }:
       role="dialog"
       aria-modal="true"
       aria-label={current?.caption}
-      className="fixed inset-0 z-[120] flex flex-col items-center justify-center overflow-y-auto overscroll-contain px-3 py-5 sm:px-6"
-      style={{ background: "rgba(28,8,60,0.88)", backdropFilter: "blur(6px)" }}
+      className="fixed inset-0 z-[120] flex flex-col items-center justify-center overflow-y-auto overscroll-contain px-3 sm:px-6"
+      style={{
+        background: "rgba(28,8,60,0.88)",
+        // `backdropFilter: blur(6px)` kalktı: zemin zaten %88 opak, bulanıklık
+        // gözle görülmüyordu ama tam ekran bir katmanı her karede yeniden
+        // bulanıklaştırmak mobil GPU'da kaydırmayı takıyor (aynı gerekçeyle
+        // kart perdesinden de kaldırılmıştı, bkz. styles/sheet.css).
+        // Tam ekran görüntüleyici çentiğin ve gesture bar'ın altına kadar
+        // uzanıyor; dolgusu o payı kendisi ekler. Değişkenler tarayıcıda 0.
+        paddingTop: "calc(1.25rem + var(--safe-area-top))",
+        paddingBottom: "calc(1.25rem + var(--safe-area-bottom))",
+      }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -223,8 +233,15 @@ export function MomentLightbox({ items, index, onIndexChange, onClose, labels }:
         type="button"
         onClick={onClose}
         aria-label={labels.close}
-        className="absolute right-3 top-3 z-20 grid h-12 w-12 place-items-center rounded-full text-[#6D28D9] transition-colors hover:bg-white sm:right-6 sm:top-6"
-        style={{ background: "#FFF8EF", boxShadow: "0 5px 0 #7E3D96" }}
+        className="absolute right-3 z-20 grid h-12 w-12 place-items-center rounded-full text-[#6D28D9] transition-colors hover:bg-white sm:right-6 sm:[--lb-top:1.5rem]"
+        style={{
+          background: "#FFF8EF",
+          boxShadow: "0 5px 0 #7E3D96",
+          // Eski `top-3` (12px) uygulamada Dynamic Island'ın tam altına
+          // düşüyordu: kapatma düğmesi saatin arkasında kalıyordu. Geniş
+          // ekrandaki 24px'lik payı `sm:[--lb-top]` koruyor.
+          top: "calc(var(--lb-top, 0.75rem) + var(--safe-area-top))",
+        }}
       >
         <X className="h-6 w-6" strokeWidth={3} />
       </button>

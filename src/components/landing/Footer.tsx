@@ -22,7 +22,15 @@ export function Footer({ topColor = "var(--ewd-cream)" }: FooterProps = {}) {
   const isNative = Capacitor.isNativePlatform();
 
   return (
-    <footer className="relative mt-16 px-5 pb-8 pt-14 sm:px-8" style={{ background: "#2E1065" }}>
+    <footer
+      className="relative mt-16 px-5 pt-14 sm:px-8"
+      style={{
+        background: "#2E1065",
+        // Sayfanın dibi: uygulamada telif satırı gesture bar'ın altında
+        // kalıyordu (32px dolgu, 34px pay). Değişken tarayıcıda 0.
+        paddingBottom: "calc(2rem + var(--safe-area-bottom))",
+      }}
+    >
       <span className="ewd-scallop-t" style={{ ["--scallop" as string]: topColor }} aria-hidden="true" />
 
       <div className="mx-auto grid max-w-[1180px] items-center gap-8 lg:grid-cols-[1fr_auto_1fr]">
