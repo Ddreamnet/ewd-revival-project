@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,7 +36,7 @@ const daysOfWeek = DAYS_OF_WEEK;
 
 export function EditStudentDialog(props: EditStudentDialogProps) {
   const {
-    name, setName,
+    name, setName, email, cycle, setCycle, savedCycle,
     lessonsPerWeek, lessons,
     lessonDates,
     loading, shifting, showConfirm, setShowConfirm,
@@ -61,6 +61,7 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
       <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Öğrenci Ayarları</DialogTitle>
+          {email && <DialogDescription className="break-all select-all">{email}</DialogDescription>}
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,23 +77,39 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="lessonsPerWeek">Haftalık Ders Sayısı</Label>
-            <Select
-              value={lessonsPerWeek.toString()}
-              onValueChange={(value) => handleLessonsPerWeekChange(Number(value))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6, 7].map((num) => (
-                  <SelectItem key={num} value={num.toString()}>
-                    {num} ders
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-[1fr_6.5rem] gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="lessonsPerWeek">Haftalık Ders Sayısı</Label>
+              <Select
+                value={lessonsPerWeek.toString()}
+                onValueChange={(value) => handleLessonsPerWeekChange(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                    <SelectItem key={num} value={num.toString()}>
+                      {num} ders
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {savedCycle !== null && (
+              <div className="space-y-2">
+                <Label htmlFor="packageCycle">Döngü</Label>
+                <Input
+                  id="packageCycle"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  value={cycle}
+                  onChange={(e) => setCycle(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -117,23 +134,26 @@ export function EditStudentDialog(props: EditStudentDialogProps) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Başlangıç</Label>
-                  <Input
-                    type="time"
-                    value={lesson.startTime}
-                    onChange={(e) => updateLesson(index, "startTime", e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bitiş</Label>
-                  <Input
-                    type="time"
-                    value={lesson.endTime}
-                    onChange={(e) => updateLesson(index, "endTime", e.target.value)}
-                    required
-                  />
+                {/* Saatler telefonda da yan yana: iki kısa alan için iki satır gereksiz. */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:col-span-2">
+                  <div className="space-y-2">
+                    <Label>Başlangıç</Label>
+                    <Input
+                      type="time"
+                      value={lesson.startTime}
+                      onChange={(e) => updateLesson(index, "startTime", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bitiş</Label>
+                    <Input
+                      type="time"
+                      value={lesson.endTime}
+                      onChange={(e) => updateLesson(index, "endTime", e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Not</Label>

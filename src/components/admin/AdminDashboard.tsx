@@ -1,11 +1,12 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { CalendarDays, Heart, Languages, LogOut, Moon, Settings, Sun, UserPlus, Users, Wallet } from "lucide-react";
+import { BellOff, CalendarDays, Heart, Languages, LogOut, Moon, Settings, Sun, UserPlus, Users, Wallet } from "lucide-react";
 
 import { PanelShell } from "@/components/panel/PanelShell";
 import { PanelHeader } from "@/components/panel/PanelHeader";
 import { BottomTabBar, NavPills, type PanelTab } from "@/components/panel/PanelNav";
-import { PanelMenu } from "@/components/panel/PanelMenu";
+import { PanelMenu, useGizlilikMenuOgesi } from "@/components/panel/PanelMenu";
+import { useBildirimMenuOgesi } from "@/hooks/useBildirimMenuOgesi";
 import { Avatar, EmptyState, IconButton, ScreenHeader, SegmentedTabs } from "@/components/panel/PanelBits";
 import { toneForName } from "@/lib/panelFormat";
 
@@ -383,6 +384,8 @@ export function AdminDashboard() {
    * kırpılıyordu. Bildirim zilini dışarıda bırakıyoruz — okunmamış rozetinin
    * görünmesi gerekiyor; ikincil olan üçü menüye giriyor.
    */
+  const bildirim = useBildirimMenuOgesi(profile?.user_id, "admin");
+  const gizlilik = useGizlilikMenuOgesi();
   const adminMenuItems = [
     {
       // Şube anahtarı mobilde başlığın altında ayrı bir satır açıyordu
@@ -402,6 +405,7 @@ export function AdminDashboard() {
       ),
       onSelect: () => handleBranchChange(branch === "en" ? "fr" : "en"),
     },
+    ...(bildirim.ogesi ? [bildirim.ogesi] : []),
     // Gezi günlüğü kişisel bir sayfa ve yalnızca web'de var: mağaza uygulamasında
     // uygulamanın konusuyla ilgisiz, menüde görünmeyen bir özellik bulunmamalı
     // (App Store 2.3.1). Yol da uygulamada 404 veriyor (bkz. App.tsx).
@@ -419,6 +423,7 @@ export function AdminDashboard() {
       icon: isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />,
       onSelect: () => setTheme(isDark ? "light" : "dark"),
     },
+    gizlilik,
     {
       label: signingOut ? "Çıkış yapılıyor…" : "Çıkış yap",
       icon: <LogOut className="h-4 w-4" />,
@@ -442,6 +447,12 @@ export function AdminDashboard() {
         {!isNative && (
           <IconButton label="Gezi günlüğü" compact onClick={() => navigate("/mytriptolove")}>
             <Heart className="h-5 w-5" />
+          </IconButton>
+        )}
+        {/* Bildirim kapalıysa iPad'de de görünür dursun; menü yalnızca telefonda var. */}
+        {bildirim.kapali && bildirim.ogesi && (
+          <IconButton label="Bildirimler kapalı — açmak için dokunun" compact onClick={bildirim.ogesi.onSelect}>
+            <BellOff className="h-5 w-5" />
           </IconButton>
         )}
         <ThemeToggleButton variant="panelV2" />

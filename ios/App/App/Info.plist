@@ -28,9 +28,11 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<!-- armv7 eski Cordova/Capacitor şablonundan kalma; iOS 15+ cihazların hepsi
+	     arm64. Capacitor'ın güncel şablonu da arm64 yazıyor. -->
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

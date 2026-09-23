@@ -58,11 +58,17 @@ export function useEditStudentDialog({
   // Göç uygulanmadıysa alan hiç gösterilmesin, kaydetmede de gönderilmesin.
   const [studentUserId, setStudentUserId] = useState("");
   const [teacherUserId, setTeacherUserId] = useState("");
+  /** Öğrencinin giriş e-postası — ayarlarda yalnızca gösterilir. */
+  const [email, setEmail] = useState("");
   /** Last completed instance across ALL cycles — the backward/realign boundary.
    *  Loaded with the instances so chain checks stay synchronous. */
   const [lastCompletedAnchor, setLastCompletedAnchor] = useState<{ lessonDate: string; startTime: string } | null>(null);
   /** Paketteki toplam hak. Saklanan değer; "haftalık × 4" burada hesaplanmaz. */
   const [totalLessons, setTotalLessons] = useState(0);
+  /** Kaçıncı paket döngüsünde olduğu. Admin elle düzeltebilir; kaydedilen değer
+   *  ayrı tutulur ki yalnızca değiştiyse RPC çağrılsın. */
+  const [cycle, setCycle] = useState("");
+  const [savedCycle, setSavedCycle] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -113,6 +119,8 @@ export function useEditStudentDialog({
 
     const currentCycle = trackingResult.data?.package_cycle ?? 1;
     setTotalLessons(trackingResult.data?.total_lessons ?? 0);
+    setSavedCycle(trackingResult.data ? currentCycle : null);
+    setCycle(trackingResult.data ? String(currentCycle) : "");
     const allInstances = (instanceResult.data || []) as LessonInstance[];
     const fetchedInstances = allInstances.filter((i) => i.package_cycle === currentCycle);
     setInstances(fetchedInstances);
@@ -137,13 +145,14 @@ export function useEditStudentDialog({
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("student_id, teacher_id")
+        .select("student_id, teacher_id, profiles!students_student_id_fkey(email)")
         .eq("id", studentId)
         .single();
 
       if (error || !data) return;
 
       setStudentUserId(data.student_id);
+      setEmail(data.profiles?.email ?? "");
       setTeacherUserId(data.teacher_id);
       await loadInstances(data.student_id, data.teacher_id);
     } catch (error: any) {
@@ -379,11 +388,32 @@ export function useEditStudentDialog({
       return;
     }
 
+    const yeniDongu = Number(cycle);
+    const donguDegisti = savedCycle !== null && cycle.trim() !== "" && yeniDongu !== savedCycle;
+    if (donguDegisti && (!Number.isInteger(yeniDongu) || yeniDongu < 1)) {
+      toast({ title: "Hata", description: "Döngü numarası 1 veya daha büyük bir tam sayı olmalı.", variant: "destructive" });
+      return;
+    }
+
     setLoading(true);
     setConflicts([]);
     let senkUyari: string | null = null;
 
     try {
+      // Döngü önce: sunucu reddederse (ör. eski döngülerin altına inilmek
+      // istenirse) başka hiçbir şey yazılmamış olur.
+      if (donguDegisti) {
+        const { data: donguSonucu, error: donguHatasi } = await supabase.rpc("rpc_dongu_numarasini_ayarla", {
+          p_student_id: studentUserId,
+          p_teacher_id: teacherUserId,
+          p_yeni_dongu: yeniDongu,
+        });
+        if (donguHatasi) throw donguHatasi;
+        const dongu = donguSonucu as { success?: boolean; error?: string } | null;
+        if (dongu && !dongu.success) throw new Error(dongu.error || "Döngü numarası kaydedilemedi");
+        setSavedCycle(yeniDongu);
+      }
+
       // Update profile name (separate from schedule sync)
       const { error: profileError } = await supabase
         .from("profiles")
@@ -677,6 +707,10 @@ export function useEditStudentDialog({
   return {
     // State
     name,
+    email,
+    cycle,
+    setCycle,
+    savedCycle,
     setName,
     lessonsPerWeek,
     lessons,

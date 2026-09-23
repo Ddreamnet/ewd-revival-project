@@ -24,7 +24,7 @@ import { useAppResume } from "@/hooks/usePanelPlatform";
 import { surumDurumu, surumUyarisi } from "@/lib/appRelease";
 import { basariGoster, hataGoster } from "@/lib/notify";
 import { isIOS, isNative } from "@/lib/platform";
-import { bildirimAyarlariniAc, bildirimIzniDurumu, initPushNotifications } from "@/lib/pushNotifications";
+import { ayarDonusunuTuket, bildirimIzniDurumu, bildirimleriAc, initPushNotifications } from "@/lib/pushNotifications";
 
 /**
  * Arka plandan dönüşte kartı yeniden göstermeden önce beklenecek süre.
@@ -43,15 +43,14 @@ interface BildirimHatirlatmaProps {
 export function BildirimHatirlatma({ userId, role }: BildirimHatirlatmaProps) {
   const [acik, setAcik] = useState(false);
   const sonGosterim = useRef(0);
-  const ayarlaraGidildi = useRef(false);
 
   const yokla = useCallback(async () => {
     const durum = await bildirimIzniDurumu();
 
     if (durum === "granted") {
       setAcik(false);
-      if (ayarlaraGidildi.current) {
-        ayarlaraGidildi.current = false;
+      // Ayarlara bu karttan da menüdeki "Bildirimler" satırından da gidilebilir.
+      if (ayarDonusunuTuket()) {
         await initPushNotifications(userId, role);
         basariGoster("Bildirimler açıldı.");
       }
@@ -80,11 +79,9 @@ export function BildirimHatirlatma({ userId, role }: BildirimHatirlatmaProps) {
   if (!isNative) return null;
 
   const ayarlariAc = async () => {
-    ayarlaraGidildi.current = true;
     try {
-      await bildirimAyarlariniAc();
+      await bildirimleriAc(userId, role);
     } catch (error) {
-      ayarlaraGidildi.current = false;
       hataGoster(error, "Ayarlar açılamadı. Telefonunuzun Ayarlar › Bildirimler bölümünden açabilirsiniz.");
     }
   };

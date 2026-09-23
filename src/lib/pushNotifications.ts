@@ -60,6 +60,49 @@ export async function bildirimAyarlariniAc(): Promise<void> {
 }
 
 /**
+ * Kullanıcı bildirimi açmak için ayarlara gönderildi mi? Uygulamaya dönünce
+ * izin açılmışsa cihaz kaydedilir (BildirimHatirlatma yoklar). Hem hatırlatma
+ * kartı hem menüdeki "Bildirimler" satırı buradan geçtiği için modül düzeyinde.
+ */
+let ayarlaraGonderildi = false;
+
+/** Ayarlardan dönüş bekleniyorduysa bayrağı indirip `true` döner. */
+export function ayarDonusunuTuket(): boolean {
+  const vardi = ayarlaraGonderildi;
+  ayarlaraGonderildi = false;
+  return vardi;
+}
+
+/**
+ * Bildirimleri sonradan açma — ilk açılıştaki izin penceresini geçen ya da
+ * reddeden kullanıcı için tek giriş noktası.
+ *
+ * - İzin hiç sorulmadıysa sistem penceresi gösterilir.
+ * - Reddedildiyse (iOS pencereyi bir daha göstermez) ayarlar sayfası açılır.
+ * - Zaten açıksa cihaz yeniden kaydedilir: token veritabanından düşmüşse
+ *   (çıkış, FCM'in ölü token temizliği) bildirim bu sayede geri gelir.
+ */
+export async function bildirimleriAc(
+  userId: string,
+  role: 'teacher' | 'student' | 'admin'
+): Promise<BildirimIzni> {
+  const durum = await bildirimIzniDurumu();
+  if (durum === 'unsupported') return durum;
+  if (durum === 'denied') {
+    ayarlaraGonderildi = true;
+    try {
+      await bildirimAyarlariniAc();
+    } catch (error) {
+      ayarlaraGonderildi = false;
+      throw error;
+    }
+    return durum;
+  }
+  await initPushNotifications(userId, role);
+  return bildirimIzniDurumu();
+}
+
+/**
  * Create Android notification channels with custom sounds.
  * Must be called before any push arrives so the OS registers them.
  */

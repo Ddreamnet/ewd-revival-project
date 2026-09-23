@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, ShieldCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,20 @@ export interface PanelMenuItem {
   trailing?: ReactNode;
   /** Seçildikten sonra menü açık kalsın (arka arkaya değiştirilen ayarlar). */
   keepOpen?: boolean;
+}
+
+/**
+ * Gizlilik politikası satırı. App Store 5.1.1(i) metnin uygulamanın İÇİNDEN
+ * kolayca bulunmasını istiyor; uygulamada landing alt bilgisi hiç görünmediği
+ * için giriş yapmış kullanıcının ona ulaşacağı tek yer bu menü.
+ */
+export function useGizlilikMenuOgesi(): PanelMenuItem {
+  const navigate = useNavigate();
+  return {
+    label: "Gizlilik politikası",
+    icon: <ShieldCheck className="h-4 w-4" />,
+    onSelect: () => navigate("/gizlilik-politikasi"),
+  };
 }
 
 /**

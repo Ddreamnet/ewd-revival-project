@@ -162,6 +162,13 @@ export function AuthForm() {
                   {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                   Giriş Yap
                 </button>
+                {/* App Store 5.1.1(i): gizlilik metni uygulamanın içinden de bulunabilmeli. */}
+                <Link
+                  to="/gizlilik-politikasi"
+                  className="mx-auto flex min-h-[44px] w-fit items-center text-sm font-semibold text-[color:var(--ewd-on-surface-soft)] underline underline-offset-4"
+                >
+                  Gizlilik Politikası
+                </Link>
               </form>
             </div>
             </div>

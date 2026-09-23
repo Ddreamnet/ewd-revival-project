@@ -1,12 +1,13 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import { CalendarDays, LogOut, Moon, Sun, Wallet } from "lucide-react";
+import { BellOff, CalendarDays, LogOut, Moon, Sun, Wallet } from "lucide-react";
 
 import { PanelShell } from "@/components/panel/PanelShell";
 import { PanelHeader } from "@/components/panel/PanelHeader";
-import { PanelMenu } from "@/components/panel/PanelMenu";
-import { Avatar, EmptyState, SearchField } from "@/components/panel/PanelBits";
+import { PanelMenu, useGizlilikMenuOgesi } from "@/components/panel/PanelMenu";
+import { useBildirimMenuOgesi } from "@/hooks/useBildirimMenuOgesi";
+import { Avatar, EmptyState, IconButton, SearchField } from "@/components/panel/PanelBits";
 import { toneForName } from "@/lib/panelFormat";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
@@ -227,6 +228,8 @@ export function TeacherDashboard() {
   const isDark = resolvedTheme === "dark";
 
   /** Mobil taşma menüsü — başlık satırındaki ikincil eylemler. */
+  const bildirim = useBildirimMenuOgesi(profile?.user_id, "teacher");
+  const gizlilik = useGizlilikMenuOgesi();
   const menuItems = [
     {
       label: "Ders programı",
@@ -234,11 +237,13 @@ export function TeacherDashboard() {
       onSelect: () => setScheduleOpen(true),
     },
     { label: "Bakiye", icon: <Wallet className="h-4 w-4" />, onSelect: () => setBalanceOpen(true) },
+    ...(bildirim.ogesi ? [bildirim.ogesi] : []),
     {
       label: isDark ? "Açık tema" : "Koyu tema",
       icon: isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />,
       onSelect: () => setTheme(isDark ? "light" : "dark"),
     },
+    gizlilik,
     {
       label: signingOut ? "Çıkış yapılıyor…" : "Çıkış yap",
       icon: <LogOut className="h-4 w-4" />,
@@ -272,6 +277,12 @@ export function TeacherDashboard() {
             />
             {/* Masaüstünde ayrı düğmeler, mobilde tek taşma menüsü. */}
             <div className="hidden items-center gap-2 md:flex">
+              {/* Bildirim kapalıysa iPad'de de görünür dursun; menü yalnızca telefonda var. */}
+              {bildirim.kapali && bildirim.ogesi && (
+                <IconButton label="Bildirimler kapalı — açmak için dokunun" compact onClick={bildirim.ogesi.onSelect}>
+                  <BellOff className="h-5 w-5" />
+                </IconButton>
+              )}
               <ThemeToggleButton variant="panelV2" />
               <button
                 type="button"

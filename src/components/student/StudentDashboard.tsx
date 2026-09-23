@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { ClipboardList, LogOut, Moon, Phone, Sun, Upload } from "lucide-react";
+import { BellOff, ClipboardList, LogOut, Moon, Phone, Sun, Upload } from "lucide-react";
 
 import { PanelShell } from "@/components/panel/PanelShell";
 import { PanelHeader } from "@/components/panel/PanelHeader";
 import { PanelSection } from "@/components/panel/PanelSection";
-import { PanelMenu } from "@/components/panel/PanelMenu";
-import { CountBox, CountStrip, ProgressBar } from "@/components/panel/PanelBits";
+import { PanelMenu, useGizlilikMenuOgesi } from "@/components/panel/PanelMenu";
+import { useBildirimMenuOgesi } from "@/hooks/useBildirimMenuOgesi";
+import { CountBox, CountStrip, IconButton, ProgressBar } from "@/components/panel/PanelBits";
 import { ZoomButton } from "@/components/panel/ZoomButton";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
@@ -100,6 +101,8 @@ export function StudentDashboard() {
 
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const bildirim = useBildirimMenuOgesi(studentId, "student");
+  const gizlilik = useGizlilikMenuOgesi();
 
   /** Mobil taşma menüsü — başlık satırındaki ikincil eylemler. */
   const menuItems = [
@@ -110,11 +113,13 @@ export function StudentDashboard() {
       icon: <Phone className="h-4 w-4" />,
       onSelect: () => setContactOpen(true),
     },
+    ...(bildirim.ogesi ? [bildirim.ogesi] : []),
     {
       label: isDark ? "Açık tema" : "Koyu tema",
       icon: isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />,
       onSelect: () => setTheme(isDark ? "light" : "dark"),
     },
+    gizlilik,
     {
       label: signingOut ? "Çıkış yapılıyor…" : "Çıkış yap",
       icon: <LogOut className="h-4 w-4" />,
@@ -141,6 +146,12 @@ export function StudentDashboard() {
             <ContactDialog open={contactOpen} onOpenChange={setContactOpen} triggerClassName="max-md:hidden" />
             {/* Masaüstünde ayrı düğmeler, mobilde tek taşma menüsü. */}
             <div className="hidden items-center gap-2 md:flex">
+              {/* Bildirim kapalıysa iPad'de de görünür dursun; menü yalnızca telefonda var. */}
+              {bildirim.kapali && bildirim.ogesi && (
+                <IconButton label="Bildirimler kapalı — açmak için dokunun" compact onClick={bildirim.ogesi.onSelect}>
+                  <BellOff className="h-5 w-5" />
+                </IconButton>
+              )}
               <ThemeToggleButton variant="panelV2" />
               <button
                 type="button"

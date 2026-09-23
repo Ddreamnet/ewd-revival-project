@@ -1257,6 +1257,10 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_dongu_numarasini_ayarla: {
+        Args: { p_student_id: string; p_teacher_id: string; p_yeni_dongu: number }
+        Returns: Json
+      }
       rpc_deneme_tasi: {
         Args: { p_bas: string; p_bitis: string; p_instance_id: string; p_tarih: string }
         Returns: Json

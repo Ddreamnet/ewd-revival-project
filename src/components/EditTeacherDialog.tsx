@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,8 @@ export function EditTeacherDialog({
   const [name, setName] = useState("");
   const [branch, setBranch] = useState<Branch>(currentBranch);
   const [zoomLink, setZoomLink] = useState("");
+  /** Öğretmenin giriş e-postası — ayarlarda yalnızca gösterilir. */
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [transferLoading, setTransferLoading] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
@@ -49,6 +51,7 @@ export function EditTeacherDialog({
       setName(currentName);
       setBranch(currentBranch);
       setZoomLink(currentZoomLink);
+      fetchEmail();
       fetchStudents();
       fetchTeachers();
       setSelectedStudent("");
@@ -71,6 +74,16 @@ export function EditTeacherDialog({
       return false;
     }
   })();
+
+  const fetchEmail = async () => {
+    setEmail("");
+    const { data } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("user_id", teacherId)
+      .maybeSingle();
+    setEmail(data?.email ?? "");
+  };
 
   const fetchStudents = async () => {
     try {
@@ -281,6 +294,7 @@ export function EditTeacherDialog({
       <DialogContent size="md" animateHeight>
         <DialogHeader>
           <DialogTitle>Öğretmen Ayarları</DialogTitle>
+          {email && <DialogDescription className="break-all select-all">{email}</DialogDescription>}
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
